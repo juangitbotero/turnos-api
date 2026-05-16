@@ -1,4 +1,9 @@
+// ─── Design Tokens ───────────────────────────────────────────────────────────
+// Colors, spacing, radius, typography — single source of truth for all UI
+export * from './design-tokens';
+
 // ─── User Types ──────────────────────────────────────────────────────────────
+
 
 export type UserRole = 'WORKER' | 'EMPLOYER' | 'ADMIN';
 

@@ -143,7 +143,26 @@ npm run dev --workspace=apps/mobile
 
 ---
 
+## Brand & Design System
+
+> Full guide: [`docs/brand/DESIGN_SYSTEM.md`](./docs/brand/DESIGN_SYSTEM.md)
+
+| Role | Color | Hex |
+|---|---|---|
+| **Primary** — buttons, links, logo | 🔵 Turnos Blue | `#6a79ff` |
+| **Secondary** — all backgrounds | ⚪ Turnos White | `#fafdff` |
+| **Neutral** — borders, dividers | 🔘 Turnos Grey | `#d9d9d9` |
+
+**Rules:**
+- All screens/cards use **white (`#fafdff`) background**
+- `#6a79ff` is the identity color — used on CTAs, active states, and brand moments
+- `#d9d9d9` is used only for structural elements (dividers, borders)
+- Design tokens are exported from `@turnos/shared` — import `colors`, `spacing`, `radius` in all UI code
+
+---
+
 ## Architecture Decisions
+
 
 See [`docs/adr/`](./docs/adr/) for all Architecture Decision Records.
 
