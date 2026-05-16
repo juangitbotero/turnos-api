@@ -1,159 +1,187 @@
-# Turborepo starter
+# Turnos App
 
-This Turborepo starter is maintained by the Turborepo core team.
+> **"Work Today. Staff Today."** — Portugal's shift-work marketplace for flexible workers and employers.
 
-## Using this example
+[![CI](https://github.com/your-org/turnos-app/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/turnos-app/actions/workflows/ci.yml)
 
-Run the following command:
+---
 
-```sh
-npx create-turbo@latest
+## What is Turnos?
+
+Turnos connects **workers** who want flexible shifts with **employers** who need staff today — handling Portugal's MCD contracts, TSU calculations, and next-day payments automatically.
+
+- 👷 **Workers** — find shifts, apply in one tap, get paid next business day (*"Recebe amanhã"*)
+- 🏢 **Employers** — post shifts, fill them in minutes, MCD compliance handled automatically
+
+---
+
+## Monorepo Structure
+
+```
+turnos/
+├── apps/
+│   ├── api/          → NestJS REST + WebSocket API       (port 3001)
+│   ├── mobile/       → React Native + Expo worker app
+│   └── web-admin/    → Next.js employer dashboard        (port 3000)
+├── packages/
+│   ├── shared/       → Shared TypeScript types & utilities
+│   ├── typescript-config/ → Shared tsconfig variants
+│   ├── eslint-config/     → Shared ESLint rules
+│   └── ui/                → Shared React components (future)
+├── infra/
+│   ├── postgres/     → DB init scripts (PostGIS setup)
+│   ├── redis/        → Redis configuration
+│   └── pgadmin/      → pgAdmin server config
+├── docs/
+│   └── adr/          → Architecture Decision Records
+└── docker-compose.yml → Local dev infrastructure
 ```
 
-## What's inside?
+---
 
-This Turborepo includes the following packages/apps:
+## Prerequisites
 
-### Apps and Packages
+| Tool | Version | Install |
+|---|---|---|
+| Node.js | ≥ 24 | [nodejs.org](https://nodejs.org) |
+| npm | ≥ 11 | Included with Node.js |
+| Docker Desktop | Latest | [docker.com](https://docker.com) |
+| Git | ≥ 2.5 | [git-scm.com](https://git-scm.com) |
+| Expo Go | Latest | App Store / Google Play |
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+---
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+## Getting Started
 
-### Utilities
+### 1. Clone & Install
 
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```bash
+git clone https://github.com/your-org/turnos-app.git
+cd turnos-app
+npm install --legacy-peer-deps
 ```
 
-Without global `turbo`, use your package manager:
+### 2. Set Up Environment Variables
 
-```sh
-cd my-turborepo
-npx turbo build
-npm dlx turbo build
-npm exec turbo build
+```bash
+# API environment (required)
+cp apps/api/.env.example apps/api/.env
+# Edit apps/api/.env with your local values
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### 3. Start the Database
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
+```bash
+npm run db:start
+# PostgreSQL available at localhost:5432
+# Redis available at localhost:6379
+# pgAdmin GUI at http://localhost:5050  (admin@turnos.app / turnos_admin)
+# Redis UI at http://localhost:8085
 ```
 
-Without global `turbo`:
+### 4. Run the API
 
-```sh
-npx turbo build --filter=docs
-npm exec turbo build --filter=docs
-npm exec turbo build --filter=docs
+```bash
+npm run dev --workspace=apps/api
+# API running at http://localhost:3001/api
+# Health check: http://localhost:3001/api/health
 ```
 
-### Develop
+### 5. Run the Mobile App
 
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
+```bash
+npm run dev --workspace=apps/mobile
+# Scan the QR code with Expo Go on your phone
 ```
 
-Without global `turbo`, use your package manager:
+---
 
-```sh
-cd my-turborepo
-npx turbo dev
-npm exec turbo dev
-npm exec turbo dev
-```
+## Available Scripts (root)
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+| Command | Description |
+|---|---|
+| `npm run dev` | Start all apps in dev mode |
+| `npm run build` | Build all apps for production |
+| `npm run lint` | Lint all packages |
+| `npm run check-types` | TypeScript check all packages |
+| `npm run test` | Run all tests |
+| `npm run db:start` | Start PostgreSQL + Redis (Docker) |
+| `npm run db:stop` | Stop all Docker services |
+| `npm run db:reset` | Wipe data and restart fresh |
+| `npm run db:logs` | Tail Docker service logs |
+| `npm run db:psql` | Open PostgreSQL shell |
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+---
 
-```sh
-turbo dev --filter=web
-```
+## Infrastructure (Local Dev)
 
-Without global `turbo`:
+| Service | URL | Credentials |
+|---|---|---|
+| API | http://localhost:3001/api | — |
+| Web Admin | http://localhost:3000 | — |
+| PostgreSQL | localhost:5432 | turnos / turnos_dev_password |
+| Redis | localhost:6379 | no password |
+| pgAdmin | http://localhost:5050 | admin@turnos.app / turnos_admin |
+| Redis UI | http://localhost:8085 | — |
 
-```sh
-npx turbo dev --filter=web
-npm exec turbo dev --filter=web
-npm exec turbo dev --filter=web
-```
+---
 
-### Remote Caching
+## Tech Stack
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+| Layer | Technology |
+|---|---|
+| Mobile App | React Native + Expo (SDK 54) |
+| Web Dashboard | Next.js 15 |
+| API | NestJS 10 + TypeScript |
+| Database | PostgreSQL 16 + PostGIS 3.4 |
+| Cache / Queue | Redis 7 + BullMQ |
+| Auth | JWT + Refresh Tokens + Google OAuth2 |
+| Payments | Stripe Connect Express |
+| Monorepo | Turborepo + npm workspaces |
+| CI/CD | GitHub Actions |
+| Dev Infrastructure | Docker Compose |
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+---
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+## Architecture Decisions
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+See [`docs/adr/`](./docs/adr/) for all Architecture Decision Records.
 
-```sh
-cd my-turborepo
-turbo login
-```
+Key decisions already locked:
+- [ADR-001](./docs/adr/001-worker-legal-model.md) — MCD Contracts as primary worker model
+- [ADR-002](./docs/adr/002-launch-city.md) — Lisbon beta-first launch
+- [ADR-003](./docs/adr/003-revenue-model.md) — Hybrid subscription + worker fee model
+- [ADR-004](./docs/adr/004-payment-flow.md) — Pay-per-shift post-completion
+- [ADR-005](./docs/adr/005-mvp-scope.md) — Stints 0–5 = v1 launch target
+- [ADR-006](./docs/adr/006-worker-payout.md) — Next business day T+1 payout
 
-Without global `turbo`, use your package manager:
+---
 
-```sh
-cd my-turborepo
-npx turbo login
-npm exec turbo login
-npm exec turbo login
-```
+## Sprint Roadmap (Stints)
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+| Stint | Goal | Status |
+|---|---|---|
+| **0** | Foundation & Setup | ✅ Complete |
+| **1** | Auth & Identity | 🔜 Next |
+| **2** | Shift Marketplace Core | ⏳ Planned |
+| **3** | Real-Time Matching Engine | ⏳ Planned |
+| **4** | Portugal Compliance Engine | ⏳ Planned |
+| **5** | QR Check-In / Check-Out | ⏳ Planned |
+| **6** | Payments & Payroll | ⏳ Planned |
+| **7** | Ratings & Reputation | ⏳ Planned |
+| **8** | Admin Panel | ⏳ Planned |
+| **9** | Growth & Marketplace Flywheel | ⏳ Planned |
+| **10** | Hardening, Security & Launch | ⏳ Planned |
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+---
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## Contributing
 
-```sh
-turbo link
-```
+1. Branch from `develop`: `git checkout -b feat/stint-1-auth`
+2. Make your changes
+3. Ensure CI passes locally: `npm run check-types && npm test`
+4. Open a PR using the [PR template](.github/PULL_REQUEST_TEMPLATE.md)
 
-Without global `turbo`:
+---
 
-```sh
-npx turbo link
-npm exec turbo link
-npm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+*Last updated: May 2026 | Lisbon Beta Target: Stint 0–5*
