@@ -27,6 +27,13 @@ out/
 build
 dist
 
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# NestJS
+.nest-build-cache/
+
+
 
 # Debug
 npm-debug.log*

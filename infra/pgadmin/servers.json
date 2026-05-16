@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Turnos PostgreSQL (Local)",
+      "Group": "Turnos Dev",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "turnos_db",
+      "Username": "turnos",
+      "Password": "turnos_dev_password",
+      "SSLMode": "prefer",
+      "PassFile": ""
+    }
+  }
+}

@@ -1,0 +1,42 @@
+# =============================================================================
+# Turnos App — Security Audit
+# =============================================================================
+# Runs weekly (Monday 09:00 UTC) and on push to main.
+# Checks for known vulnerabilities in npm dependencies.
+# =============================================================================
+
+name: Security Audit
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'   # Every Monday at 09:00 UTC
+  push:
+    branches:
+      - main
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  audit:
+    name: 🔒 npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run security audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Check for critical vulnerabilities
+        run: npm audit --audit-level=critical
