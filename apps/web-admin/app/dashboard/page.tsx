@@ -1,14 +1,15 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const SIDEBAR_NAV = [
-  { icon: '🏠', label: 'Dashboard',     href: '/dashboard',   active: true  },
-  { icon: '📋', label: 'Turnos',         href: '/shifts',      active: false },
-  { icon: '👷', label: 'Trabalhadores',  href: '/workers',     active: false },
-  { icon: '📊', label: 'Conformidade',   href: '/compliance',  active: false },
-  { icon: '💳', label: 'Faturação',      href: '/billing',     active: false },
-  { icon: '⚙️', label: 'Definições',    href: '/settings',    active: false },
+  { icon: '🏠', label: 'Dashboard',    href: '/dashboard',            soon: false },
+  { icon: '📋', label: 'Turnos',        href: '/dashboard/shifts',     soon: false },
+  { icon: '👷', label: 'Trabalhadores', href: '/dashboard/workers',    soon: false },
+  { icon: '📊', label: 'Conformidade',  href: null,                    soon: true  },
+  { icon: '💳', label: 'Faturação',     href: null,                    soon: true  },
+  { icon: '⚙️', label: 'Definições',   href: null,                    soon: true  },
 ];
 
 const KPI_CARDS = [
@@ -19,12 +20,15 @@ const KPI_CARDS = [
 ];
 
 const RECENT_ACTIVITY = [
-  { icon: '🎉', text: 'Conta de empresa criada',         time: 'Agora mesmo',  color: 'var(--color-primary-light)' },
-  { icon: '🔜', text: 'Stint 1 — Auth & Identity',       time: 'Em progresso', color: 'var(--color-warning-light)' },
-  { icon: '📋', text: 'Publicar primeiro turno (Stint 2)', time: 'Planeado',  color: 'var(--color-neutral-light)' },
+  { icon: '✅', text: 'Stint 0 — Foundation',       time: 'Concluído', color: '#dcfce7' },
+  { icon: '✅', text: 'Stint 1 — Auth & Identity',   time: 'Concluído', color: '#dcfce7' },
+  { icon: '✅', text: 'Stint 2 — Shift Marketplace', time: 'Concluído', color: '#dcfce7' },
+  { icon: '🔜', text: 'Stint 3 — Matching Engine',   time: 'A seguir',  color: '#fef9c3' },
 ];
 
 export default function DashboardPage() {
+  const router = useRouter();
+
   return (
     <div style={s.shell}>
 
@@ -34,20 +38,29 @@ export default function DashboardPage() {
           <Link href="/" style={s.sidebarLogo}>turnos</Link>
           <div style={s.sidebarDivider} />
           <nav style={s.sidebarNav}>
-            {SIDEBAR_NAV.map(({ icon, label, href, active }) => (
-              <Link
-                key={href}
-                href={href}
-                style={{
-                  ...s.sidebarItem,
-                  ...(active ? s.sidebarItemActive : {}),
-                }}
-              >
-                <span style={s.sidebarIcon}>{icon}</span>
-                <span>{label}</span>
-                {active && <span style={s.activeIndicator} />}
-              </Link>
-            ))}
+            {SIDEBAR_NAV.map(({ icon, label, href, soon }) => {
+              const isActive = href === '/dashboard';
+              if (soon || !href) {
+                return (
+                  <div key={label} style={{ ...s.sidebarItem, ...s.sidebarItemDisabled }}>
+                    <span style={s.sidebarIcon}>{icon}</span>
+                    <span>{label}</span>
+                    <span style={s.soonPill}>breve</span>
+                  </div>
+                );
+              }
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  style={{ ...s.sidebarItem, ...(isActive ? s.sidebarItemActive : {}) }}
+                >
+                  <span style={s.sidebarIcon}>{icon}</span>
+                  <span>{label}</span>
+                  {isActive && <span style={s.activeIndicator} />}
+                </Link>
+              );
+            })}
           </nav>
         </div>
         <div style={s.sidebarBottom}>
@@ -71,7 +84,7 @@ export default function DashboardPage() {
             <h1 style={s.pageTitle}>Dashboard</h1>
             <p style={s.pageDate}>{new Date().toLocaleDateString('pt-PT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
           </div>
-          <button id="post-shift-btn" style={s.postShiftBtn}>
+          <button style={s.postShiftBtn} onClick={() => router.push('/dashboard/new-shift')}>
             + Publicar Turno
           </button>
         </header>
@@ -81,15 +94,15 @@ export default function DashboardPage() {
           <div style={s.stintBannerLeft}>
             <div style={s.stintBannerDot} />
             <div>
-              <div style={s.stintBannerTitle}>🔜 Stint 1 — Auth & Identity em progresso</div>
-              <div style={s.stintBannerSub}>Sistema de login, registo de empresa e perfis de trabalhadores a ser construído.</div>
+              <div style={s.stintBannerTitle}>✅ Stints 0–2 concluídos · 🔜 Stint 3 — Matching Engine a seguir</div>
+              <div style={s.stintBannerSub}>Marketplace de turnos operacional. O motor de matching por score e tempo real vem a seguir.</div>
             </div>
           </div>
           <div style={s.stintProgress}>
             <div style={s.stintProgressBar}>
-              <div style={s.stintProgressFill} />
+              <div style={{ ...s.stintProgressFill, width: '20%' }} />
             </div>
-            <span style={s.stintProgressLabel}>10%</span>
+            <span style={s.stintProgressLabel}>20%</span>
           </div>
         </div>
 
@@ -119,11 +132,11 @@ export default function DashboardPage() {
               <div style={s.emptyIcon}>📋</div>
               <div style={s.emptyTitle}>Publique o seu primeiro turno</div>
               <div style={s.emptySub}>
-                Disponível no Stint 2 — Shift Marketplace.<br />
-                Estamos a construir isso agora!
+                Defina função, horário, morada e valor/hora.<br />
+                O custo TSU é calculado automaticamente.
               </div>
-              <button id="post-shift-cta-btn" style={s.emptyBtn} disabled>
-                Publicar Turno <span style={s.soonTag}>Em breve</span>
+              <button style={s.emptyBtnActive} onClick={() => router.push('/dashboard/new-shift')}>
+                + Publicar Turno
               </button>
             </div>
           </div>
@@ -213,6 +226,10 @@ const s: Record<string, React.CSSProperties> = {
     color: 'var(--color-primary)',
     fontWeight: 700,
   },
+  sidebarItemDisabled: {
+    opacity: 0.45,
+    cursor: 'default',
+  },
   sidebarIcon: { fontSize: 16, width: 20, textAlign: 'center' },
   activeIndicator: {
     marginLeft: 'auto',
@@ -220,6 +237,17 @@ const s: Record<string, React.CSSProperties> = {
     height: 6,
     borderRadius: '50%',
     background: 'var(--color-primary)',
+  },
+  soonPill: {
+    marginLeft: 'auto',
+    fontSize: 9,
+    fontWeight: 700,
+    letterSpacing: '0.5px',
+    textTransform: 'uppercase' as const,
+    background: 'var(--color-neutral)',
+    color: 'var(--color-text-secondary)',
+    padding: '2px 6px',
+    borderRadius: 4,
   },
   sidebarBottom: {
     borderTop: '1px solid var(--color-border)',
@@ -447,29 +475,17 @@ const s: Record<string, React.CSSProperties> = {
     lineHeight: 1.6,
     maxWidth: 280,
   },
-  emptyBtn: {
+  emptyBtnActive: {
     marginTop: 12,
-    padding: '10px 20px',
-    background: 'var(--color-primary-light)',
+    padding: '10px 24px',
+    background: 'linear-gradient(135deg, var(--color-primary), #9b6dff)',
     border: 'none',
     borderRadius: 'var(--radius-full)',
     fontSize: 13,
-    fontWeight: 600,
-    color: 'var(--color-primary)',
-    cursor: 'not-allowed',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    fontFamily: 'inherit',
-    opacity: 0.7,
-  },
-  soonTag: {
-    fontSize: 10,
     fontWeight: 700,
-    background: 'var(--color-primary)',
     color: '#fff',
-    padding: '2px 7px',
-    borderRadius: 'var(--radius-full)',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
   },
 
   /* Activity */
