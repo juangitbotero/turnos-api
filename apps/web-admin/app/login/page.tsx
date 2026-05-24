@@ -175,6 +175,23 @@ export default function AdminLogin() {
             <span style={s.comingSoon}>Em breve</span>
           </button>
 
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              type="button"
+              style={s.devBtn}
+              onClick={() => {
+                const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365;
+                const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }));
+                const payload = btoa(JSON.stringify({ sub: 'dev-admin', role: 'EMPLOYER', exp }));
+                localStorage.setItem('accessToken', `${header}.${payload}.dev`);
+                localStorage.setItem('refreshToken', 'dev-refresh');
+                router.push('/dashboard');
+              }}
+            >
+              🛠 Dev: entrar sem API
+            </button>
+          )}
+
           <p style={s.legal}>
             Ao entrar, aceita os{' '}
             <a href="#" style={s.legalLink}>Termos de Serviço</a>
@@ -438,6 +455,22 @@ const s: Record<string, React.CSSProperties> = {
     background: 'var(--color-primary-light)',
     padding: '2px 7px',
     borderRadius: 'var(--radius-full)',
+  },
+
+  /* Dev bypass */
+  devBtn: {
+    width: '100%',
+    marginTop: 16,
+    marginBottom: 0,
+    padding: '10px 0',
+    background: '#fef9c3',
+    border: '1px solid #fde047',
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 700,
+    color: '#854d0e',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
   },
 
   /* Legal */

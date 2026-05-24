@@ -4,10 +4,11 @@ import { ShiftsService } from './shifts.service';
 import { ShiftsController } from './shifts.controller';
 import { Shift } from './entities/shift.entity';
 import { ShiftApplication } from './entities/shift-application.entity';
+import { Employer } from '../users/entities/employer.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Shift, ShiftApplication])],
+  imports: [TypeOrmModule.forFeature([Shift, ShiftApplication, Employer])],
   providers: [ShiftsService],
-  controllers: [ShiftsController]
+  controllers: [ShiftsController],
 })
 export class ShiftsModule {}

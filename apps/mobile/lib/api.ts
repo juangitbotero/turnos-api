@@ -107,3 +107,48 @@ export const authApi = {
       '/auth/google/verify-token', { googleAccessToken, userType },
     ),
 };
+
+// ─── Shift API ────────────────────────────────────────────────────────────────
+
+export interface ShiftSummary {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  subcategory: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  grossHourlyRate: number;
+  address: string;
+  skillsRequired: string[] | null;
+  status: string;
+  employer: { id: string; companyName: string } | null;
+}
+
+export interface MyApplication {
+  id: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
+  appliedAt: string;
+  shift: ShiftSummary & { employer: { id: string; companyName: string } | null };
+}
+
+export const shiftApi = {
+  search: (params?: { lat?: number; lng?: number; category?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.lat !== undefined) qs.set('lat', String(params.lat));
+    if (params?.lng !== undefined) qs.set('lng', String(params.lng));
+    if (params?.category) qs.set('category', params.category);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return api.get<ShiftSummary[]>(`/shifts/search${query}`);
+  },
+
+  getById: (id: string) =>
+    api.get<ShiftSummary>(`/shifts/${id}`),
+
+  apply: (id: string) =>
+    api.post<{ id: string; status: string }>(`/shifts/${id}/apply`, {}),
+
+  getMyApplications: () =>
+    api.get<MyApplication[]>('/shifts/worker/applied'),
+};

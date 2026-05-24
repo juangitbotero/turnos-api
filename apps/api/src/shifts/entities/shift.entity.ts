@@ -82,6 +82,9 @@ export class Shift {
   @JoinColumn()
   assignedWorker?: Worker;
 
+  @Column({ type: 'simple-array', nullable: true })
+  skillsRequired: string[];
+
   @OneToMany(() => ShiftApplication, (application) => application.shift)
   applications: ShiftApplication[];
 

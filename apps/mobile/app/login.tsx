@@ -192,6 +192,27 @@ export default function LoginScreen() {
           )}
         </Pressable>
 
+        {/* Dev bypass — only in __DEV__ builds */}
+        {__DEV__ && (
+          <TouchableOpacity
+            style={s.devBtn}
+            onPress={async () => {
+              const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365;
+              const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }));
+              const payload = btoa(JSON.stringify({ sub: 'dev-user', role: 'WORKER', exp }));
+              const fakeToken = `${header}.${payload}.dev`;
+              await tokenStorage.setAccessToken(fakeToken);
+              await tokenStorage.setRefreshToken('dev-refresh');
+              await tokenStorage.setUserId('dev-user');
+              await tokenStorage.setRole('WORKER');
+              router.replace('/');
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={s.devBtnText}>🛠 Dev: entrar sem API</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Legal */}
         <Text style={s.legal}>
           Ao continuar, aceita os{' '}
@@ -446,6 +467,22 @@ const s = StyleSheet.create({
     fontSize: 10,
     fontWeight: fontWeight.bold,
     color: colors.primary,
+  },
+
+  /* Dev bypass */
+  devBtn: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginBottom: 8,
+    borderRadius: radius.sm,
+    backgroundColor: '#fef9c3',
+    borderWidth: 1,
+    borderColor: '#fde047',
+  },
+  devBtnText: {
+    fontSize: fontSize.caption,
+    fontWeight: fontWeight.bold,
+    color: '#854d0e',
   },
 
   /* Legal */

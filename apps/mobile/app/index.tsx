@@ -1,81 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  ScrollView, TextInput, Pressable,
+  ScrollView, TextInput, Pressable, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory } from '@turnos/shared';
+import { colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory, calculateTSU } from '@turnos/shared';
+import { shiftApi, ShiftSummary, ApiError } from '../lib/api';
+import { tokenStorage } from '../lib/storage';
 
-const MOCK_SHIFTS = [
-  {
-    id: '1',
-    title: 'Bartender Sénior',
-    employerName: 'Rooftop Bar Lisboa',
-    category: 'Hospitality' as ShiftCategory,
-    subcategory: 'Bar',
-    grossHourlyRate: 8.50,
-    netHourlyRate: 7.57,
-    startTime: '18:00',
-    endTime: '02:00',
-    date: 'Hoje',
-    rating: 4.8,
-    distance: '1.2 km',
-    coordinate: { latitude: 38.711, longitude: -9.135 },
-    urgent: true,
-  },
-  {
-    id: '2',
-    title: 'Staff de Evento',
-    employerName: 'Web Summit',
-    category: 'Events' as ShiftCategory,
-    subcategory: 'Auxiliar',
-    grossHourlyRate: 10.00,
-    netHourlyRate: 8.90,
-    startTime: '08:00',
-    endTime: '18:00',
-    date: 'Amanhã',
-    rating: 4.9,
-    distance: '3.5 km',
-    coordinate: { latitude: 38.768, longitude: -9.094 },
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr);
+  const today = new Date();
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  if (d.toDateString() === today.toDateString()) return 'Hoje';
+  if (d.toDateString() === tomorrow.toDateString()) return 'Amanhã';
+  return d.toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' });
+}
+
+function toFeedItem(s: ShiftSummary) {
+  const tsu = calculateTSU(Number(s.grossHourlyRate));
+  return {
+    id: s.id,
+    title: s.title || s.subcategory,
+    employerName: s.employer?.companyName ?? 'Empresa',
+    category: s.category as ShiftCategory,
+    subcategory: s.subcategory,
+    grossHourlyRate: Number(s.grossHourlyRate),
+    netHourlyRate: tsu.workerNetAmount,
+    startTime: s.startTime.slice(0, 5),
+    endTime: s.endTime.slice(0, 5),
+    date: formatDate(s.date),
+    coordinate: { latitude: 38.722, longitude: -9.139 }, // default Lisboa until PostGIS coords are exposed
     urgent: false,
-  },
-  {
-    id: '3',
-    title: 'Operador de Caixa',
-    employerName: 'Worten Colombo',
-    category: 'Sales' as ShiftCategory,
-    subcategory: 'Caixa',
-    grossHourlyRate: 7.50,
-    netHourlyRate: 6.68,
-    startTime: '10:00',
-    endTime: '19:00',
-    date: '26 Mai',
-    rating: 4.5,
-    distance: '5.0 km',
-    coordinate: { latitude: 38.753, longitude: -9.189 },
-    urgent: false,
-  },
-  {
-    id: '4',
-    title: 'Cozinheiro de Linha',
-    employerName: 'Hotel Bairro Alto',
-    category: 'Hospitality' as ShiftCategory,
-    subcategory: 'Cozinha',
-    grossHourlyRate: 9.00,
-    netHourlyRate: 8.01,
-    startTime: '11:00',
-    endTime: '15:00',
-    date: 'Hoje',
-    rating: 4.7,
-    distance: '0.8 km',
-    coordinate: { latitude: 38.714, longitude: -9.144 },
-    urgent: true,
-  },
-];
+  };
+}
 
 export default function FeedScreen() {
+  const [shifts, setShifts] = useState<ReturnType<typeof toFeedItem>[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [activeCategory, setActiveCategory] = useState<ShiftCategory | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,13 +48,30 @@ export default function FeedScreen() {
 
   const categories: (ShiftCategory | 'All')[] = ['All', ...(Object.keys(SHIFT_CATEGORIES) as ShiftCategory[])];
 
-  const filteredShifts = MOCK_SHIFTS
-    .filter(s => activeCategory === 'All' || s.category === activeCategory)
-    .filter(s =>
-      !searchQuery ||
-      s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.employerName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+  const loadShifts = useCallback(async (refreshing = false) => {
+    if (refreshing) setIsRefreshing(true);
+    else setIsLoading(true);
+    try {
+      const data = await shiftApi.search(
+        activeCategory !== 'All' ? { category: activeCategory } : undefined,
+      );
+      setShifts(data.map(toFeedItem));
+    } catch {
+      // API not available (dev mode) — show empty state
+      setShifts([]);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [activeCategory]);
+
+  useEffect(() => { loadShifts(); }, [loadShifts]);
+
+  const filteredShifts = shifts.filter(s =>
+    !searchQuery ||
+    s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.employerName.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
   const handleShiftPress = (id: string) => router.push(`/shift/${id}`);
 
@@ -105,11 +87,13 @@ export default function FeedScreen() {
       >
         <View style={s.headerTop}>
           <View>
-            <Text style={s.headerGreeting}>Olá, Carlos 👋</Text>
-            <Text style={s.headerSub}>Lisboa · {filteredShifts.length} turnos disponíveis</Text>
+            <Text style={s.headerGreeting}>Olá 👋</Text>
+            <Text style={s.headerSub}>
+              {isLoading ? 'A carregar...' : `Lisboa · ${filteredShifts.length} turnos disponíveis`}
+            </Text>
           </View>
-          <TouchableOpacity style={s.profileBtn} activeOpacity={0.8}>
-            <Text style={s.profileInitial}>C</Text>
+          <TouchableOpacity style={s.profileBtn} activeOpacity={0.8} onPress={() => router.push('/my-shifts')}>
+            <Text style={s.profileInitial}>★</Text>
           </TouchableOpacity>
         </View>
 
@@ -186,17 +170,23 @@ export default function FeedScreen() {
             />
           ))}
         </MapView>
+      ) : isLoading ? (
+        <View style={s.loadingWrap}>
+          <ActivityIndicator color={colors.primary} size="large" />
+          <Text style={s.loadingText}>A carregar turnos...</Text>
+        </View>
       ) : (
         <FlatList
           data={filteredShifts}
           keyExtractor={item => item.id}
           contentContainerStyle={s.list}
           showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => loadShifts(true)} tintColor={colors.primary} />}
           ListEmptyComponent={
             <View style={s.empty}>
               <Text style={s.emptyIcon}>🔍</Text>
-              <Text style={s.emptyText}>Nenhum turno encontrado</Text>
-              <Text style={s.emptySub}>Tente outra categoria ou pesquisa</Text>
+              <Text style={s.emptyText}>Nenhum turno disponível</Text>
+              <Text style={s.emptySub}>Tente outra categoria ou verifique mais tarde</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -205,14 +195,12 @@ export default function FeedScreen() {
               onPress={() => handleShiftPress(item.id)}
               activeOpacity={0.92}
             >
-              {/* Urgent badge */}
               {item.urgent && (
                 <View style={s.urgentBadge}>
                   <Text style={s.urgentText}>⚡ Urgente</Text>
                 </View>
               )}
 
-              {/* Card header */}
               <View style={s.cardHeader}>
                 <View style={s.cardTitleWrap}>
                   <Text style={s.cardTitle} numberOfLines={1}>{item.title}</Text>
@@ -227,17 +215,14 @@ export default function FeedScreen() {
                 </LinearGradient>
               </View>
 
-              {/* Net pay */}
               <Text style={s.netPay}>
                 Líquido: <Text style={s.netPayValue}>€{item.netHourlyRate.toFixed(2)}/hr</Text>
                 {'  ·  '}
                 <Text style={s.recebe}>Recebe amanhã 💳</Text>
               </Text>
 
-              {/* Divider */}
               <View style={s.cardDivider} />
 
-              {/* Footer row */}
               <View style={s.cardFooter}>
                 <View style={s.footerChip}>
                   <Text style={s.footerChipText}>📅 {item.date}</Text>
@@ -245,17 +230,23 @@ export default function FeedScreen() {
                 <View style={s.footerChip}>
                   <Text style={s.footerChipText}>⏰ {item.startTime}–{item.endTime}</Text>
                 </View>
-                <View style={s.footerChip}>
-                  <Text style={s.footerChipText}>📍 {item.distance}</Text>
-                </View>
-                <View style={s.ratingChip}>
-                  <Text style={s.ratingText}>⭐ {item.rating}</Text>
-                </View>
               </View>
             </TouchableOpacity>
           )}
         />
       )}
+
+      {/* Bottom nav */}
+      <View style={s.bottomNav}>
+        <View style={s.navItemActive}>
+          <Text style={s.navIconActive}>🏠</Text>
+          <Text style={s.navLabelActive}>Turnos</Text>
+        </View>
+        <TouchableOpacity style={s.navItem} onPress={() => router.push('/my-shifts')} activeOpacity={0.7}>
+          <Text style={s.navIcon}>📋</Text>
+          <Text style={s.navLabel}>Os Meus</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -538,4 +529,42 @@ const s = StyleSheet.create({
     fontSize: fontSize.body,
     color: colors.textSecondary,
   },
+
+  /* Loading */
+  loadingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingTop: 60,
+  },
+  loadingText: {
+    fontSize: fontSize.body,
+    color: colors.textSecondary,
+    fontWeight: fontWeight.semibold,
+  },
+
+  /* Bottom nav */
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral,
+    paddingBottom: 28,
+    paddingTop: 8,
+  },
+  navItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 3,
+  },
+  navItemActive: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 3,
+  },
+  navIcon: { fontSize: 22, opacity: 0.5 },
+  navIconActive: { fontSize: 22 },
+  navLabel: { fontSize: 11, color: colors.textSecondary, fontWeight: fontWeight.semibold },
+  navLabelActive: { fontSize: 11, color: colors.primary, fontWeight: fontWeight.bold },
 });
