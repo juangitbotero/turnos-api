@@ -7,7 +7,19 @@ export * from './design-tokens';
 
 export type UserRole = 'WORKER' | 'EMPLOYER' | 'ADMIN';
 
-export type WorkerStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED';
+/** Worker account lifecycle */
+export type WorkerStatus =
+  | 'INCOMPLETE'      // Just registered, profile not submitted
+  | 'PENDING_REVIEW'  // Profile submitted, waiting for Turnos team approval
+  | 'ACTIVE'          // Approved, can apply for shifts
+  | 'SUSPENDED'       // Temporarily blocked
+  | 'REJECTED';       // Rejected after review
+
+/** Employer subscription tiers */
+export type SubscriptionTier = 'NONE' | 'STARTER' | 'GROWTH' | 'SCALE';
+
+/** Role-based access for employer accounts */
+export type EmployerRole = 'ADMIN' | 'MANAGER' | 'VIEWER';
 
 export interface BaseUser {
   id: string;
@@ -20,20 +32,67 @@ export interface BaseUser {
 
 export interface Worker extends BaseUser {
   role: 'WORKER';
-  nif: string;
-  iban: string;
-  fullName: string;
+  fullName?: string;
+  nif?: string;
+  iban?: string;
+  photoUrl?: string;
+  skills?: string[];
+  availableDays?: string[];
   status: WorkerStatus;
-  reputationScore: number;       // 0–100
-  profileQualityScore: number;   // 0–100 (AI interview)
-  completionRate: number;        // 0–1
+  isVerified: boolean;
+  profileQualityScore: number;  // 0–100, rule-based
+  reputationScore: number;      // 0–100
+  completionRate: number;       // 0–1
 }
 
 export interface Employer extends BaseUser {
   role: 'EMPLOYER';
   companyName: string;
   nipc: string;
+  nif?: string;
+  sector?: string;
+  address?: string;
+  postalCode?: string;
+  city?: string;
+  logoUrl?: string;
+  subscriptionTier: SubscriptionTier;
+  isActive: boolean;
+}
+
+// ─── Auth DTOs ────────────────────────────────────────────────────────────────
+
+export interface SendOtpDto {
+  phone: string;
+}
+
+export interface VerifyOtpDto {
+  phone: string;
+  code: string;
+}
+
+export interface RegisterEmployerDto {
+  companyName: string;
+  nipc: string;
+  nif?: string;
   sector: string;
+  address: string;
+  postalCode: string;
+  city: string;
+  adminEmail: string;
+  adminPassword: string;
+}
+
+export interface UpdateWorkerProfileDto {
+  fullName: string;
+  nif: string;
+  iban: string;
+  skills: string[];
+  availableDays: string[];
+}
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
 }
 
 // ─── Shift Types ─────────────────────────────────────────────────────────────
@@ -55,7 +114,9 @@ export interface Shift {
   id: string;
   employerId: string;
   title: string;
-  role: string;
+  role: string; // Keep for legacy/custom roles
+  category: string;
+  subcategory: string;
   location: GeoPoint;
   address: string;
   startTime: string;   // ISO 8601
@@ -67,6 +128,18 @@ export interface Shift {
   createdAt: string;
   updatedAt: string;
 }
+
+export const SHIFT_CATEGORIES = {
+  Sales: ['receptionist', 'merchandising', 'store sales person', 'checkout person'],
+  ClientSupport: ['entry call', 'caller'],
+  Events: ['Event helper', 'Logistics', 'receptionist', 'entretaintment agent'],
+  Hospitality: ['receptionist', 'barista', 'cook assistant / chef', 'service assistant'],
+  Restauration: ['barista', 'barman', 'waiter', 'receptionist', 'service assistant', 'baker', 'cook'],
+  Logistique: ['command prep', 'stock assistance', 'service assistance'],
+  AdminHelp: ['Community manager', 'Admin assistant', 'recruitment assistant'],
+} as const;
+
+export type ShiftCategory = keyof typeof SHIFT_CATEGORIES;
 
 // ─── Compliance Types ─────────────────────────────────────────────────────────
 
@@ -151,3 +224,120 @@ export function formatEUR(amount: number): string {
     currency: 'EUR',
   }).format(amount);
 }
+
+// ─── Portugal Validation Utilities ───────────────────────────────────────────
+
+/**
+ * Validates a Portuguese NIF (Número de Identificação Fiscal).
+ * Rules: 9 digits, first digit 1–9, checksum verified.
+ */
+export function isValidNIF(nif: string): boolean {
+  const n = nif.replace(/\s/g, '');
+  if (!/^\d{9}$/.test(n)) return false;
+  if (n[0] === '0') return false;
+
+  let sum = 0;
+  for (let i = 0; i < 8; i++) {
+    sum += parseInt(n[i]!) * (9 - i);
+  }
+  const remainder = sum % 11;
+  const checkDigit = remainder < 2 ? 0 : 11 - remainder;
+  return checkDigit === parseInt(n[8]!);
+}
+
+/**
+ * Validates a Portuguese IBAN (PT50... format, 25 chars).
+ */
+export function isValidIBAN(iban: string): boolean {
+  const n = iban.replace(/\s/g, '').toUpperCase();
+  if (!n.startsWith('PT') || n.length !== 25) return false;
+  // Basic mod-97 check
+  const rearranged = n.slice(4) + n.slice(0, 4);
+  const numeric = rearranged.replace(/[A-Z]/g, (c) => String(c.charCodeAt(0) - 55));
+  let remainder = 0;
+  for (const char of numeric) {
+    remainder = (remainder * 10 + parseInt(char)) % 97;
+  }
+  return remainder === 1;
+}
+
+/**
+ * Validates a Portuguese NIPC (Número de Identificação de Pessoa Colectiva).
+ * Same format as NIF but first digit is 5, 6, 7, 8, or 9.
+ */
+export function isValidNIPC(nipc: string): boolean {
+  const n = nipc.replace(/\s/g, '');
+  if (!/^\d{9}$/.test(n)) return false;
+  if (!['5', '6', '7', '8', '9'].includes(n[0]!)) return false;
+  return isValidNIF(n); // Same checksum algorithm
+}
+
+/**
+ * Validates a Portuguese postal code (XXXX-XXX format).
+ */
+export function isValidPostalCode(code: string): boolean {
+  return /^\d{4}-\d{3}$/.test(code.trim());
+}
+
+// ─── Profile Quality Score ────────────────────────────────────────────────────
+
+export interface ProfileQualityInput {
+  hasPhoto: boolean;
+  hasValidNif: boolean;
+  hasValidIban: boolean;
+  skillsCount: number;       // number of skills selected
+  hasFullName: boolean;
+  hasAvailability: boolean;  // at least 1 day selected
+}
+
+export interface ProfileQualityResult {
+  score: number;             // 0–100
+  status: 'INCOMPLETE' | 'PENDING_REVIEW' | 'ACTIVE';
+  breakdown: Record<string, number>;
+  missingItems: string[];
+}
+
+/**
+ * Rule-based Profile Quality Score calculator.
+ * Replaces the AI interview for the Lisbon beta.
+ *
+ * Scoring:
+ *   Photo uploaded           → +20pts
+ *   Valid NIF                → +20pts
+ *   Valid IBAN               → +20pts
+ *   ≥3 skills selected       → +20pts (partial: 1–2 skills → +10pts)
+ *   Full name entered        → +10pts
+ *   Availability set         → +10pts
+ *
+ * Thresholds:
+ *   ≥80 → PENDING_REVIEW (auto-queue for team approval)
+ *   <80 → INCOMPLETE (app prompts to complete)
+ */
+export function calculateProfileQualityScore(
+  input: ProfileQualityInput,
+): ProfileQualityResult {
+  const breakdown: Record<string, number> = {
+    photo:        input.hasPhoto          ? 20 : 0,
+    nif:          input.hasValidNif       ? 20 : 0,
+    iban:         input.hasValidIban      ? 20 : 0,
+    skills:       input.skillsCount >= 3  ? 20 : input.skillsCount >= 1 ? 10 : 0,
+    fullName:     input.hasFullName       ? 10 : 0,
+    availability: input.hasAvailability   ? 10 : 0,
+  };
+
+  const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
+
+  const missingItems: string[] = [];
+  if (!input.hasPhoto)         missingItems.push('Fotografia de perfil');
+  if (!input.hasValidNif)      missingItems.push('NIF válido');
+  if (!input.hasValidIban)     missingItems.push('IBAN válido (conta bancária)');
+  if (input.skillsCount === 0) missingItems.push('Pelo menos 1 competência selecionada');
+  if (!input.hasFullName)      missingItems.push('Nome completo');
+  if (!input.hasAvailability)  missingItems.push('Disponibilidade semanal');
+
+  const status: ProfileQualityResult['status'] =
+    score >= 80 ? 'PENDING_REVIEW' : 'INCOMPLETE';
+
+  return { score, status, breakdown, missingItems };
+}
+

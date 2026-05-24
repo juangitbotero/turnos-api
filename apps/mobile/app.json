@@ -29,6 +29,14 @@
     "plugins": [
       "expo-router",
       "expo-camera",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "A Turnos precisa de acesso às suas fotos para adicionar uma foto de perfil."
+        }
+      ],
       [
         "expo-location",
         {

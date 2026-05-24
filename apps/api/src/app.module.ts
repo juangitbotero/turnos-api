@@ -1,19 +1,67 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { HealthModule } from './health/health.module';
+import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
+import { ShiftsModule } from './shifts/shifts.module';
+import { AdminModule } from './admin/admin.module';
+import { RedisModule } from './redis/redis.module';
+import { MailModule } from './mail/mail.module';
+import { StorageModule } from './storage/storage.module';
+import { User } from './users/entities/user.entity';
+import { Worker } from './users/entities/worker.entity';
+import { Employer } from './users/entities/employer.entity';
+import { Shift } from './shifts/entities/shift.entity';
+import { ShiftApplication } from './shifts/entities/shift-application.entity';
 
 @Module({
   imports: [
-    // Load .env globally across all modules
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '.env',
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
+
+    ThrottlerModule.forRoot([
+      { name: 'default', ttl: 60000, limit: 60 },
+    ]),
+
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get<string>('DB_HOST', 'localhost'),
+        port: configService.get<number>('DB_PORT', 5432),
+        username: configService.get<string>('DB_USER', 'turnos'),
+        password: configService.get<string>('DB_PASSWORD', 'turnos_dev_password'),
+        database: configService.get<string>('DB_NAME', 'turnos_db'),
+        entities: [User, Worker, Employer, Shift, ShiftApplication],
+        synchronize: true,
+      }),
     }),
+
+    // Serve local uploads in dev
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
+    }),
+
+    RedisModule,
+    MailModule,
+    StorageModule,
     HealthModule,
+    UsersModule,
+    AuthModule,
+    ShiftsModule,
+    AdminModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}
