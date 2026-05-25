@@ -17,8 +17,6 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "incremental": true,
-    "tsBuildInfoFile": ".tsbuildinfo",
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
