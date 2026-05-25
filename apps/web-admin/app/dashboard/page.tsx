@@ -1,7 +1,9 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { adminApi, Shift } from '../../lib/api';
 
 const SIDEBAR_NAV = [
   { icon: '🏠', label: 'Dashboard',    href: '/dashboard',            soon: false },
@@ -12,12 +14,6 @@ const SIDEBAR_NAV = [
   { icon: '⚙️', label: 'Definições',   href: null,                    soon: true  },
 ];
 
-const KPI_CARDS = [
-  { icon: '📋', label: 'Turnos ativos',      value: '0',  sub: 'Nenhum turno publicado', color: 'var(--color-primary)' },
-  { icon: '👷', label: 'Trabalhadores contratados', value: '0', sub: 'Beta a iniciar', color: 'var(--color-success)' },
-  { icon: '⏳', label: 'Turnos pendentes',   value: '0',  sub: 'Sem candidatos ainda', color: 'var(--color-warning)' },
-  { icon: '💶', label: 'Gasto este mês',     value: '€0', sub: 'Sem turnos concluídos', color: '#9b6dff' },
-];
 
 const RECENT_ACTIVITY = [
   { icon: '✅', text: 'Stint 0 — Foundation',       time: 'Concluído', color: '#dcfce7' },
@@ -28,6 +24,38 @@ const RECENT_ACTIVITY = [
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [shifts, setShifts] = useState<Shift[]>([]);
+
+  useEffect(() => {
+    adminApi.getMyShifts().then(setShifts).catch(() => {});
+  }, []);
+
+  const activeShifts  = shifts.filter(s => ['OPEN', 'FILLED', 'ACTIVE'].includes(s.status));
+  const openShifts    = shifts.filter(s => s.status === 'OPEN');
+  const filledShifts  = shifts.filter(s => ['FILLED', 'ACTIVE'].includes(s.status));
+
+  const kpiCards = [
+    {
+      icon: '📋', label: 'Turnos ativos', color: 'var(--color-primary)',
+      value: String(activeShifts.length),
+      sub: activeShifts.length === 0 ? 'Nenhum turno publicado' : `${openShifts.length} aberto${openShifts.length !== 1 ? 's' : ''}, ${filledShifts.length} preenchido${filledShifts.length !== 1 ? 's' : ''}`,
+    },
+    {
+      icon: '👷', label: 'Trabalhadores contratados', color: 'var(--color-success)',
+      value: String(filledShifts.length),
+      sub: filledShifts.length === 0 ? 'Nenhum turno preenchido ainda' : `${filledShifts.length} turno${filledShifts.length !== 1 ? 's' : ''} com trabalhador`,
+    },
+    {
+      icon: '⏳', label: 'Turnos pendentes', color: 'var(--color-warning)',
+      value: String(openShifts.length),
+      sub: openShifts.length === 0 ? 'Sem turnos à espera de candidatos' : `${openShifts.length} à espera de candidatos`,
+    },
+    {
+      icon: '💶', label: 'Gasto este mês', color: '#9b6dff',
+      value: '€0',
+      sub: 'Pagamentos disponíveis no Stint 6',
+    },
+  ];
 
   return (
     <div style={s.shell}>
@@ -108,7 +136,7 @@ export default function DashboardPage() {
 
         {/* KPI cards */}
         <section style={s.kpiGrid}>
-          {KPI_CARDS.map(({ icon, label, value, sub, color }) => (
+          {kpiCards.map(({ icon, label, value, sub, color }) => (
             <div key={label} style={s.kpiCard}>
               <div style={{ ...s.kpiIcon, background: `${color}18`, color }}>
                 {icon}

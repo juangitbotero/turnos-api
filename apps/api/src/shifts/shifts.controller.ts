@@ -4,7 +4,7 @@ import {
 } from '@nestjs/common';
 import { ShiftsService } from './shifts.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { Roles } from '../auth/decorators';
+import { Roles, Public } from '../auth/decorators';
 import { RolesGuard } from '../auth/roles.guard';
 
 @Controller('shifts')
@@ -57,7 +57,7 @@ export class ShiftsController {
   // ── Worker endpoints ──────────────────────────────────────────────────────
 
   @Get('search')
-  @Roles('WORKER', 'EMPLOYER')
+  @Public()
   search(
     @Query('lat') lat?: string,
     @Query('lng') lng?: string,
@@ -87,7 +87,7 @@ export class ShiftsController {
   // ── Shared ────────────────────────────────────────────────────────────────
 
   @Get(':id')
-  @Roles('WORKER', 'EMPLOYER')
+  @Public()
   getOne(@Param('id') id: string) {
     return this.shiftsService.findById(id);
   }
