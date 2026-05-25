@@ -106,6 +106,10 @@ export const authApi = {
     api.post<{ accessToken: string; refreshToken: string; isNewUser: boolean }>(
       '/auth/google/verify-token', { googleAccessToken, userType },
     ),
+
+  /** Register Expo push token so the server can send shift notifications */
+  registerPushToken: (token: string) =>
+    api.post<{ message: string }>('/auth/worker/push-token', { token }),
 };
 
 // ─── Shift API ────────────────────────────────────────────────────────────────

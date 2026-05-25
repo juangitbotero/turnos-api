@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { BullModule } from '@nestjs/bullmq';
 import { APP_GUARD } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
@@ -15,6 +16,8 @@ import { AdminModule } from './admin/admin.module';
 import { RedisModule } from './redis/redis.module';
 import { MailModule } from './mail/mail.module';
 import { StorageModule } from './storage/storage.module';
+import { GatewayModule } from './gateway/gateway.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { User } from './users/entities/user.entity';
 import { Worker } from './users/entities/worker.entity';
 import { Employer } from './users/entities/employer.entity';
@@ -28,6 +31,18 @@ import { ShiftApplication } from './shifts/entities/shift-application.entity';
     ThrottlerModule.forRoot([
       { name: 'default', ttl: 60000, limit: 60 },
     ]),
+
+    // BullMQ — Redis-backed job queues (re-notification, compliance jobs in later stints)
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          host: config.get<string>('REDIS_HOST', 'localhost'),
+          port: config.get<number>('REDIS_PORT', 6379),
+          password: config.get<string>('REDIS_PASSWORD', '') || undefined,
+        },
+      }),
+    }),
 
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -55,6 +70,8 @@ import { ShiftApplication } from './shifts/entities/shift-application.entity';
     HealthModule,
     UsersModule,
     AuthModule,
+    GatewayModule,
+    NotificationsModule,
     ShiftsModule,
     AdminModule,
   ],

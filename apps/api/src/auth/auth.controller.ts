@@ -107,8 +107,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@Request() req: { user: { sub: string } }) {
-    await this.authService.logout(req.user.sub);
+  async logout(@Request() req: { user: { userId: string } }) {
+    await this.authService.logout(req.user.userId);
     return { message: 'Sessão terminada' };
   }
 
@@ -118,13 +118,13 @@ export class AuthController {
   @Post('worker/profile')
   @HttpCode(HttpStatus.OK)
   async updateWorkerProfile(
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { userId: string } },
     @Body() body: {
       fullName: string; nif: string; iban: string;
       skills: string[]; availableDays: string[];
     },
   ) {
-    const result = await this.authService.updateWorkerProfile(req.user.sub, body);
+    const result = await this.authService.updateWorkerProfile(req.user.userId, body);
     return {
       message: result.status === 'PENDING_REVIEW'
         ? 'Perfil submetido para aprovação. Será notificado em breve.'
@@ -148,17 +148,31 @@ export class AuthController {
     },
   }))
   async uploadWorkerPhoto(
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { userId: string } },
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException('Nenhuma imagem fornecida');
-    const photoUrl = await this.authService.uploadWorkerPhoto(req.user.sub, file);
+    const photoUrl = await this.authService.uploadWorkerPhoto(req.user.userId, file);
     return { message: 'Foto atualizada com sucesso', photoUrl };
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  async getMe(@Request() req: { user: { sub: string; role: string } }) {
-    return { userId: req.user.sub, role: req.user.role };
+  async getMe(@Request() req: { user: { userId: string; role: string } }) {
+    return { userId: req.user.userId, role: req.user.role };
+  }
+
+  // ─── Push Notifications ───────────────────────────────────────────────────
+
+  @UseGuards(JwtAuthGuard)
+  @Post('worker/push-token')
+  @HttpCode(HttpStatus.OK)
+  async registerPushToken(
+    @Request() req: { user: { userId: string } },
+    @Body('token') token: string,
+  ) {
+    if (!token) throw new BadRequestException('Token inválido');
+    await this.authService.savePushToken(req.user.userId, token);
+    return { message: 'Token de notificações registado' };
   }
 }

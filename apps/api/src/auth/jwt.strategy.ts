@@ -14,11 +14,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    // The payload is what we signed in auth.service.ts
-    // Return the user object so it's injected into the request (req.user)
-    return { 
-      sub: payload.sub,
-      role: payload.role 
+    // The payload is what we signed in auth.service.ts ({ sub: userId, role })
+    // Return as userId so all controllers can access req.user.userId
+    return {
+      userId: payload.sub,
+      role: payload.role,
     };
   }
 }

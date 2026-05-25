@@ -5,10 +5,19 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
 import { Shift, ShiftStatus } from './entities/shift.entity';
 import { ShiftApplication, ApplicationStatus } from './entities/shift-application.entity';
 import { Employer } from '../users/entities/employer.entity';
+import { Worker } from '../users/entities/worker.entity';
+import { ShiftsGateway } from '../gateway/shifts.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ReNotificationJobData } from '../notifications/processors/re-notification.processor';
+
+// 5 hours in milliseconds — delay before re-notification job fires
+const RE_NOTIFY_DELAY_MS = 5 * 60 * 60 * 1000;
 
 @Injectable()
 export class ShiftsService {
@@ -19,6 +28,12 @@ export class ShiftsService {
     private applicationRepo: Repository<ShiftApplication>,
     @InjectRepository(Employer)
     private employerRepo: Repository<Employer>,
+    @InjectRepository(Worker)
+    private workerRepo: Repository<Worker>,
+    @InjectQueue('shift-notifications')
+    private notificationQueue: Queue,
+    private readonly gateway: ShiftsGateway,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ── Internal helpers ──────────────────────────────────────────────────────
@@ -27,6 +42,13 @@ export class ShiftsService {
     const employer = await this.employerRepo.findOne({ where: { user: { id: userId } } });
     if (!employer) throw new UnauthorizedException('Employer profile not found');
     return employer;
+  }
+
+  /** Resolve Worker entity from JWT userId. Throws if not found. */
+  private async resolveWorker(userId: string): Promise<Worker> {
+    const worker = await this.workerRepo.findOne({ where: { user: { id: userId } } });
+    if (!worker) throw new UnauthorizedException('Worker profile not found');
+    return worker;
   }
 
   private makeLocation(lat: number, lng: number) {
@@ -58,7 +80,26 @@ export class ShiftsService {
       employer: { id: employer.id } as any,
       location: this.makeLocation(lat, lng),
     });
-    return this.shiftRepo.save(shift);
+    const saved = await this.shiftRepo.save(shift);
+
+    // Fire-and-forget: send push notifications to matching workers
+    const skills = data.skillsRequired ?? [];
+    this.notifications
+      .notifyMatchingWorkers(saved.id, skills, saved.title)
+      .catch(() => {}); // non-blocking
+
+    // Schedule re-notification job for 5 hours later
+    await this.notificationQueue.add(
+      're-notify',
+      {
+        shiftId: saved.id,
+        shiftTitle: saved.title,
+        requiredSkills: skills,
+      } satisfies ReNotificationJobData,
+      { delay: RE_NOTIFY_DELAY_MS },
+    );
+
+    return saved;
   }
 
   async findByEmployer(userId: string): Promise<Shift[]> {
@@ -93,8 +134,26 @@ export class ShiftsService {
     if ([ShiftStatus.ACTIVE, ShiftStatus.COMPLETED].includes(shift.status)) {
       throw new BadRequestException('Cannot cancel an active or completed shift');
     }
+
+    // Collect applicants to notify via WebSocket
+    const applications = await this.applicationRepo.find({
+      where: { shift: { id: shiftId } },
+      relations: ['worker'],
+    });
+
     shift.status = ShiftStatus.CANCELLED;
-    return this.shiftRepo.save(shift);
+    const saved = await this.shiftRepo.save(shift);
+
+    // Notify all applicants that the shift was cancelled
+    const workerIds = applications.map(a => a.worker?.id).filter((id): id is string => !!id);
+    if (workerIds.length > 0) {
+      this.gateway.notifyShiftCancelled(workerIds, {
+        shiftId: saved.id,
+        shiftTitle: saved.title,
+      });
+    }
+
+    return saved;
   }
 
   async getApplications(userId: string, shiftId: string): Promise<ShiftApplication[]> {
@@ -129,7 +188,11 @@ export class ShiftsService {
     shift.status = ShiftStatus.FILLED;
     await this.shiftRepo.save(shift);
 
-    // Reject all other pending applications for this shift
+    // Reject all other pending applications
+    const rejectedApps = await this.applicationRepo.find({
+      where: { shift: { id: shiftId }, status: ApplicationStatus.PENDING },
+      relations: ['worker'],
+    });
     await this.applicationRepo
       .createQueryBuilder()
       .update(ShiftApplication)
@@ -141,7 +204,32 @@ export class ShiftsService {
       })
       .execute();
 
-    return this.shiftRepo.findOne({ where: { id: shiftId }, relations: ['employer', 'assignedWorker'] }) as Promise<Shift>;
+    // WebSocket: notify approved worker
+    if (application.worker?.id) {
+      this.gateway.notifyApplicationStatus(application.worker.id, {
+        shiftId: shift.id,
+        shiftTitle: shift.title,
+        applicationId: application.id,
+        status: 'APPROVED',
+      });
+    }
+
+    // WebSocket: notify rejected workers
+    for (const rejectedApp of rejectedApps) {
+      if (rejectedApp.worker?.id) {
+        this.gateway.notifyApplicationStatus(rejectedApp.worker.id, {
+          shiftId: shift.id,
+          shiftTitle: shift.title,
+          applicationId: rejectedApp.id,
+          status: 'REJECTED',
+        });
+      }
+    }
+
+    return this.shiftRepo.findOne({
+      where: { id: shiftId },
+      relations: ['employer', 'assignedWorker'],
+    }) as Promise<Shift>;
   }
 
   // ── Worker actions ────────────────────────────────────────────────────────
@@ -181,27 +269,48 @@ export class ShiftsService {
     return query.getMany();
   }
 
-  async apply(workerId: string, shiftId: string): Promise<ShiftApplication> {
-    const shift = await this.shiftRepo.findOne({ where: { id: shiftId } });
+  async apply(userId: string, shiftId: string): Promise<ShiftApplication> {
+    // Resolve the Worker entity from the JWT userId
+    const worker = await this.resolveWorker(userId);
+
+    const shift = await this.shiftRepo.findOne({
+      where: { id: shiftId },
+      relations: ['employer'],
+    });
     if (!shift) throw new NotFoundException('Shift not found');
     if (shift.status !== ShiftStatus.OPEN) throw new BadRequestException('Shift is not open for applications');
 
     const existing = await this.applicationRepo.findOne({
-      where: { shift: { id: shiftId }, worker: { id: workerId } },
+      where: { shift: { id: shiftId }, worker: { id: worker.id } },
     });
     if (existing) throw new BadRequestException('Already applied to this shift');
 
     const application = this.applicationRepo.create({
       shift: { id: shiftId } as any,
-      worker: { id: workerId } as any,
+      worker: { id: worker.id } as any,
       status: ApplicationStatus.PENDING,
     });
-    return this.applicationRepo.save(application);
+    const saved = await this.applicationRepo.save(application);
+
+    // WebSocket: notify employer in real time
+    if (shift.employer?.id) {
+      this.gateway.notifyNewApplication(shift.employer.id, {
+        shiftId: shift.id,
+        shiftTitle: shift.title,
+        applicationId: saved.id,
+        workerName: worker.fullName ?? null,
+        workerScore: worker.profileQualityScore,
+      });
+    }
+
+    return saved;
   }
 
-  async findWorkerApplications(workerId: string): Promise<ShiftApplication[]> {
+  async findWorkerApplications(userId: string): Promise<ShiftApplication[]> {
+    // Resolve Worker entity from JWT userId
+    const worker = await this.resolveWorker(userId);
     return this.applicationRepo.find({
-      where: { worker: { id: workerId } },
+      where: { worker: { id: worker.id } },
       relations: ['shift', 'shift.employer'],
       order: { appliedAt: 'DESC' },
     });

@@ -59,7 +59,11 @@ export class Worker {
   profileQualityScore: number;      // 0–100: rule-based. Replaced by AI scorer in Stint 9.
 
   @Column({ type: 'int', default: 100 })
-  reputationScore: number;          // 0–100: starts at 100, adjusted by ratings
+  reputationScore: number;          // 0–100: starts at 100, adjusted by ratings (Stint 7)
+
+  // ── Push Notifications ────────────────────────────────────────────────────
+  @Column({ type: 'varchar', length: 512, nullable: true })
+  expoPushToken?: string;           // Expo push token for shift notifications
 
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   completionRate: number;           // 0.00–1.00

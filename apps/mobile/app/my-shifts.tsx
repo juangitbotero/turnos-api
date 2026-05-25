@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
 import { shiftApi, MyApplication } from '../lib/api';
+import { getSocket, ShiftStatusChangedPayload, ShiftCancelledPayload } from '../lib/socket';
 
 type AppStatus = MyApplication['status'];
 
@@ -56,6 +57,38 @@ export default function MyShiftsScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
+  }, []);
+
+  // ── Real-time socket events ───────────────────────────────────────────────
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onStatusChanged = (payload: ShiftStatusChangedPayload) => {
+      // Update the local application status without a full reload
+      setApplications(prev =>
+        prev.map(app =>
+          app.id === payload.applicationId
+            ? { ...app, status: payload.status }
+            : app,
+        ),
+      );
+    };
+
+    const onCancelled = (payload: ShiftCancelledPayload) => {
+      // Remove cancelled shift from the list (or mark as WITHDRAWN)
+      setApplications(prev =>
+        prev.filter(app => app.shift.id !== payload.shiftId),
+      );
+    };
+
+    socket.on('shift:status_changed', onStatusChanged);
+    socket.on('shift:cancelled', onCancelled);
+
+    return () => {
+      socket.off('shift:status_changed', onStatusChanged);
+      socket.off('shift:cancelled', onCancelled);
+    };
   }, []);
 
   useEffect(() => { load(); }, [load]);

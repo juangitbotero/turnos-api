@@ -143,6 +143,13 @@ export class UsersService {
     };
   }
 
+  async saveWorkerPushToken(userId: string, token: string): Promise<void> {
+    const worker = await this.workerRepo.findOne({ where: { user: { id: userId } } });
+    if (!worker) return;
+    worker.expoPushToken = token;
+    await this.workerRepo.save(worker);
+  }
+
   async updateWorkerPhoto(userId: string, photoUrl: string): Promise<{ profileQualityScore: number }> {
     const worker = await this.workerRepo.findOne({
       where: { user: { id: userId } },

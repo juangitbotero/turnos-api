@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { adminApi, ApiError, Shift, Application } from '../../../lib/api';
+import { connectSocket, getSocket, NewApplicationPayload } from '../../../lib/socket';
 
 const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
   DRAFT:     { label: 'Rascunho',   color: '#6b7280', bg: '#f3f4f6' },
@@ -108,6 +109,8 @@ export default function ShiftsPage() {
   const [error, setError] = useState('');
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [viewingApps, setViewingApps] = useState<Shift | null>(null);
+  // Live new-application badge counts per shift (reset when modal opens)
+  const [newAppCounts, setNewAppCounts] = useState<Record<string, number>>({});
 
   const load = async () => {
     setIsLoading(true);
@@ -122,6 +125,26 @@ export default function ShiftsPage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // ── WebSocket: live applicant notifications ───────────────────────────────
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    if (token) connectSocket(token);
+
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onNewApplication = (payload: NewApplicationPayload) => {
+      // Increment the badge counter for this shift
+      setNewAppCounts(prev => ({
+        ...prev,
+        [payload.shiftId]: (prev[payload.shiftId] ?? 0) + 1,
+      }));
+    };
+
+    socket.on('shift:new_application', onNewApplication);
+    return () => { socket.off('shift:new_application', onNewApplication); };
+  }, []);
 
   const handleCancel = async (id: string) => {
     if (!confirm('Tem a certeza que quer cancelar este turno?')) return;
@@ -174,7 +197,19 @@ export default function ShiftsPage() {
               <span>Turno</span><span>Data</span><span>Horário</span>
               <span>Valor bruto</span><span>Estado</span><span>Ações</span>
             </div>
-            {active.map(shift => <ShiftRow key={shift.id} shift={shift} onCancel={handleCancel} cancelling={cancelling} onViewApps={() => setViewingApps(shift)} />)}
+            {active.map(shift => (
+              <ShiftRow
+                key={shift.id}
+                shift={shift}
+                onCancel={handleCancel}
+                cancelling={cancelling}
+                newAppCount={newAppCounts[shift.id] ?? 0}
+                onViewApps={() => {
+                  setViewingApps(shift);
+                  setNewAppCounts(prev => ({ ...prev, [shift.id]: 0 }));
+                }}
+              />
+            ))}
           </div>
         </section>
       )}
@@ -188,7 +223,16 @@ export default function ShiftsPage() {
               <span>Turno</span><span>Data</span><span>Horário</span>
               <span>Valor bruto</span><span>Estado</span><span>Ações</span>
             </div>
-            {past.map(shift => <ShiftRow key={shift.id} shift={shift} onCancel={handleCancel} cancelling={cancelling} onViewApps={() => setViewingApps(shift)} />)}
+            {past.map(shift => (
+              <ShiftRow
+                key={shift.id}
+                shift={shift}
+                onCancel={handleCancel}
+                cancelling={cancelling}
+                newAppCount={0}
+                onViewApps={() => setViewingApps(shift)}
+              />
+            ))}
           </div>
         </section>
       )}
@@ -200,11 +244,12 @@ export default function ShiftsPage() {
   );
 }
 
-function ShiftRow({ shift, onCancel, cancelling, onViewApps }: {
+function ShiftRow({ shift, onCancel, cancelling, onViewApps, newAppCount }: {
   shift: Shift;
   onCancel: (id: string) => void;
   cancelling: string | null;
   onViewApps: () => void;
+  newAppCount: number;
 }) {
   const st = STATUS_LABEL[shift.status] ?? { label: shift.status, color: '#6b7280', bg: '#f3f4f6' };
   const canCancel = ['OPEN', 'DRAFT', 'FILLED'].includes(shift.status);
@@ -221,7 +266,12 @@ function ShiftRow({ shift, onCancel, cancelling, onViewApps }: {
       <span style={{ ...s.badge, color: st.color, background: st.bg }}>{st.label}</span>
       <div style={s.rowActions}>
         {['OPEN', 'FILLED'].includes(shift.status) && (
-          <button style={s.viewAppsBtn} onClick={onViewApps}>👥 Candidatos</button>
+          <button style={s.viewAppsBtn} onClick={onViewApps}>
+            👥 Candidatos
+            {newAppCount > 0 && (
+              <span style={s.newBadge}>{newAppCount}</span>
+            )}
+          </button>
         )}
         {canCancel && (
           <button
@@ -286,8 +336,14 @@ const s: Record<string, React.CSSProperties> = {
   badge: { display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
   rowActions: { display: 'flex', gap: 8 },
   viewAppsBtn: {
+    display: 'inline-flex', alignItems: 'center', gap: 6,
     padding: '6px 12px', background: 'var(--color-primary-light)', border: '1px solid rgba(106,121,255,0.3)',
     borderRadius: 6, color: 'var(--color-primary)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+  },
+  newBadge: {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    minWidth: 18, height: 18, borderRadius: 9, background: '#ef4444',
+    color: '#fff', fontSize: 11, fontWeight: 700, padding: '0 4px',
   },
   cancelBtn: {
     padding: '6px 12px', background: '#fee2e2', border: '1px solid #fca5a5',

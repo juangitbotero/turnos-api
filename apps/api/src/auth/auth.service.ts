@@ -252,6 +252,10 @@ export class AuthService {
     return photoUrl;
   }
 
+  async savePushToken(userId: string, token: string): Promise<void> {
+    await this.usersService.saveWorkerPushToken(userId, token);
+  }
+
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
   private async generateTokens(userId: string, role: string): Promise<{
