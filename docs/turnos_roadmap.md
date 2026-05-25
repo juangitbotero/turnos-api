@@ -12,7 +12,7 @@
 | **Workers** | Students, auto-entrepreneur status | Flexible workers, Recibos Verdes + MCD contracts |
 | **Legal framework** | French auto-entrepreneur | Muito Curta Duração + Agenda Trabalho Digno |
 | **Speed** | Hours/days to fill a shift | Hours/days to fill a shift *(faster if natural, not forced)* |
-| **Matching** | Profile + Availability | Profile + Availability + Reputation Score *(proximity as a secondary nice-to-have filter)* |
+| **Matching** | Profile + Availability | Skill-based notifications → workers browse & apply → employer selects *(labour marketplace, not auto-assignment)* |
 | **Check-in** | Manual / app confirmation | QR Code + Geofence verified |
 | **Payments** | Monthly invoice cycle | Pay-per-shift post-completion → worker paid next business day |
 | **Revenue model** | Commission on transactions | Hybrid: Company monthly subscription + % fee per transaction (from worker) |
@@ -219,40 +219,51 @@ Worker type: Recibo Verde (Independent)
 
 ---
 
-### 🟦 STINT 3 — Real-Time Matching Engine *(Weeks 8–10)*
-**Goal:** Smart, proximity + reputation matching that fills shifts in minutes
+### 🟦 STINT 3 — Notifications & Real-Time Updates *(Weeks 8–10)*
+**Goal:** Notify the right workers when a shift is posted. Employer and worker see live status changes without refreshing.
 
-**Matching Algorithm (v1) — Profile-first, proximity secondary:**
+**How the marketplace flow works:**
 ```
-Score = (0.40 × ProfileQualityScore)      ← AI interview score + completeness
-      + (0.30 × ReputationScore)           ← ratings + completion rate
-      + (0.20 × SkillMatchScore)           ← skills vs shift requirements
-      + (0.05 × AvailabilityReliabilityScore)
-      + (0.05 × ProximityScore)            ← nice-to-have, not primary
+Employer posts shift (OPEN)
+  → System identifies top-N workers with matching skills
+  → Push notification sent: "Novo turno disponível na tua área"
+  → Workers browse feed, read detail, tap Apply
+  → Employer reviews applicants list (updates live)
+  → Employer confirms one worker (shift → FILLED)
+  → Worker receives real-time notification: "Foste selecionado!"
+  → If 0 applicants after 5 hours → re-notify next batch of matching workers
 ```
-> Proximity is used as a **tiebreaker** between equally scored profiles, not as a primary driver.
 
-- [ ] Reputation Score engine (avg rating + completion rate + punctuality)
-- [ ] Availability Reliability Score (no-show history penalty)
-- [ ] Geospatial matching service (worker pool ranked by score)
-- [ ] Push shift invitations to top-N ranked workers simultaneously
-- [ ] First-accept-wins claim logic with race condition protection (Redis atomic ops)
-- [ ] WebSocket channel: live shift status updates (employer dashboard + worker app)
-- [ ] Surge mode: auto-expand radius if no match found in 5 min
+**Skill-based notification targeting:**
+- [ ] When a shift is published, query workers whose skills overlap with shift requirements
+- [ ] Rank eligible workers by Profile Quality Score (simple sort, no complex algorithm)
+- [ ] Send push notification to top-N (default: 20) workers via Expo Push Notifications
+- [ ] Re-notification job (BullMQ): if 0 applications after 5h, notify next batch of eligible workers
+- [ ] Worker feed sorted by skill relevance (shifts matching worker's skills shown first)
+
+**WebSocket real-time updates (Socket.IO):**
+- [ ] WebSocket gateway on NestJS API
+- [ ] Employer dashboard: applicant list updates live when a worker applies (no page refresh)
+- [ ] Employer dashboard: shift card flips to FILLED live when employer confirms a worker
+- [ ] Worker mobile app: status update pushed live when employer confirms or rejects ("Foste selecionado!" / "Turno preenchido")
+- [ ] Worker mobile app: new shift notification badge updates in real time
 
 ---
 
 ### 🟦 STINT 4 — Portugal Compliance Engine *(Weeks 11–13)*
 **Goal:** Full legal compliance automated, zero manual steps
 
+> **Trigger point:** All compliance actions fire on **employer confirmation** (shift → FILLED), not on worker application. The employer selecting a worker is the legal commitment.
+
 - [ ] MCD Contract Generator
+  - Triggered when employer confirms a worker (shift status → FILLED)
   - Auto-fill: worker NIF, employer NIPC, shift date/time/location, role, wage
   - PDF generation (PDFKit or Puppeteer)
   - Digital signature flow (DocuSign EU)
 - [ ] Segurança Social Direta integration
-  - Auto-submit MCD notification ≤24h before shift start
+  - Auto-submit MCD notification ≤24h before shift start (triggered after employer confirmation)
   - Retry queue for failed submissions (BullMQ)
-  - Receipt/confirmation storage (S3)
+  - Receipt/confirmation storage (Cloudflare R2)
 - [ ] TSU Engine
   - Per-shift TSU calculation (employer 23.75% / worker 11%)
   - Monthly aggregate report for employer accounting export
@@ -265,20 +276,24 @@ Score = (0.40 × ProfileQualityScore)      ← AI interview score + completeness
   - Immutable log of all contracts, SS submissions, and payments
   - Export as PDF or CSV for ACT inspections
 - [ ] Rest period enforcement (11h minimum between shifts, same worker)
+  - Check at **application stage**: worker cannot apply to a shift that overlaps with an existing confirmed shift within 11h
+  - MCD 70-day limit check also at application stage: worker sees warning, blocked from applying if annual limit with that employer is reached
 
 ---
 
 ### 🟦 STINT 5 — QR Check-In / Check-Out *(Weeks 14–15)*
 **Goal:** Verified attendance, fraud-proof, hours locked to payroll
 
+> Only the **employer-confirmed worker** can scan the QR. Applicants who were not selected cannot check in.
+
 - [ ] Dynamic QR Code generation (time-sensitive, refreshes every 30s)
 - [ ] Employer QR display (web dashboard + printable PDF)
-- [ ] Worker QR scan flow (React Native camera)
+- [ ] Worker QR scan flow (React Native camera) — only available to confirmed worker for that shift
 - [ ] Geofence validation at scan time (must be within 200m of shift location)
 - [ ] Check-in confirmation: WebSocket push to both worker + employer
 - [ ] Check-out flow (same QR scan) → hours worked auto-calculated
-- [ ] Dispute flag: worker can flag discrepancy before checkout confirmation
-- [ ] Edge cases: no QR available → manual manager override with audit log
+- [ ] Dispute flag: **both worker AND employer** can flag a discrepancy before checkout is locked (e.g. worker claims different hours, employer contests arrival time)
+- [ ] Edge cases: no QR available → manual manager override with audit log entry visible to both parties
 
 ---
 
@@ -298,6 +313,8 @@ Score = (0.40 × ProfileQualityScore)      ← AI interview score + completeness
 - [ ] Gross → Net wage calculation (11% TSU worker deduction + Turnos % fee auto-applied)
 - [ ] Worker payout scheduled: T+1 business day via Stripe automatic transfers
 - [ ] Payslip PDF generation (gross, TSU deduction, Turnos fee, net amount, shift reference)
+- [ ] **Unfilled shift policy:** if employer never confirms a worker and the shift start time passes, no charge is made — employer can re-post or cancel cleanly
+- [ ] **Pre-shift cancellation policy:** if employer cancels a confirmed worker within 24h of shift start, a cancellation fee applies (exact amount TBD before implementation) — protects worker who may have turned down other opportunities
 - [ ] **Company subscription billing** (Stripe Billing / Subscriptions — monthly recurring)
   - Tier 1 — Starter: up to 10 shifts/mo
   - Tier 2 — Growth: up to 50 shifts/mo
@@ -310,16 +327,24 @@ Score = (0.40 × ProfileQualityScore)      ← AI interview score + completeness
 ---
 
 ### 🟦 STINT 7 — Ratings, Reputation & Trust *(Weeks 19–20)*
-**Goal:** Two-way trust system that improves matching quality over time
+**Goal:** Two-way trust system that makes employer selection easier and rewards reliable workers
 
-- [ ] Post-shift rating flow (worker rates employer / employer rates worker)
-- [ ] 5-star + comment system with category tags (punctuality, professionalism, etc.)
-- [ ] Reputation Score recalculation after each rating
-- [ ] Worker public profile (visible to employers): score, completion rate, history
-- [ ] Employer profile (visible to workers): avg rating, pay reliability score
-- [ ] Report / flag system (inappropriate behaviour, no-show, payment issue)
-- [ ] Auto-suspension triggers (score < 2.5 or 3 no-shows in 30 days)
-- [ ] Badges system (Top Rated, Verified, Fast Responder)
+> In the marketplace model, a worker's rating is their **public CV** — employers see it when reviewing the applicant list and use it to decide who to confirm. A strong rating directly increases a worker's chances of being selected.
+
+- [ ] Post-shift rating flow (worker rates employer / employer rates worker) — triggered after QR check-out
+- [ ] 5-star + comment system with category tags (punctuality, professionalism, communication, etc.)
+- [ ] Reputation Score recalculation after each rating (rolling average)
+- [ ] Worker public profile (visible to employers in applicant list): star rating, completion rate, no-show count, shift history
+- [ ] Employer profile (visible to workers on shift detail page): avg rating, pay reliability score, shifts posted
+- [ ] **No-show penalty:** confirmed worker who does not check in receives a formal no-show flag — separate from and heavier than a low rating. Three no-shows in 60 days triggers manual admin review.
+- [ ] Report / flag system (inappropriate behaviour, no-show dispute, payment issue)
+- [ ] Platform quality standards: account review triggered at score < 2.5 sustained over 5+ shifts
+- [ ] **Favourite Workers:** employer saves specific workers to a personal shortlist. When employer posts a shift, saved workers receive the push notification first (private 30-minute window before general pool is notified)
+- [ ] Badges system:
+  - **Top Rated** — avg ≥ 4.5 stars over ≥ 10 shifts
+  - **Verified** — ID verified by admin
+  - **Reliable** — zero no-shows + ≥ 90% completion rate over last 20 shifts *(replaces "Fast Responder" — marketplace values reliability over speed)*
+- [ ] Top-rated workers placed in the **first notification wave** when a new shift is posted in their category (priority placement, not priority auto-assignment)
 
 ---
 
@@ -331,29 +356,36 @@ Score = (0.40 × ProfileQualityScore)      ← AI interview score + completeness
 - [ ] Shift management (override, cancel, reassign)
 - [ ] Compliance monitoring (MCD limits, SS submission status)
 - [ ] Financial dashboard (platform revenue, Stripe payouts, disputes)
-- [ ] Analytics: fill rate, avg time-to-fill, top employers, top workers
+- [ ] Analytics (marketplace-specific):
+  - **Fill rate** — % of published shifts where employer confirmed at least one worker
+  - **Time-to-first-application** — minutes/hours from posting to first applicant
+  - **Employer confirmation rate** — how often employers select a worker vs let shift expire unfilled
+  - **No-show rate** per worker — flagged in admin for manual review
+  - Top employers by volume, top workers by completed shifts
 - [ ] Manual ACT report export tool
 - [ ] Support ticket system (Intercom integration or custom)
 
 ---
 
 ### 🟦 STINT 9 — Growth & Marketplace Flywheel *(Weeks 23–25)*
-**Goal:** Features that drive supply (workers) and demand (employers)
+**Goal:** Features that drive supply (workers) and demand (employers) and deepen marketplace relationships
 
 **Worker Acquisition:**
 - [ ] Referral program (worker refers worker → bonus on first paid shift)
-- [ ] "Available Now" toggle (worker signals immediate availability)
-- [ ] Skill certifications upload (food hygiene, first aid, etc.)
+- [ ] "Available Now" toggle (worker signals immediate availability — shown as a badge on their profile in applicant lists)
+- [ ] Skill certifications upload (food hygiene, first aid, etc. — displayed on worker profile)
 
 **Employer Acquisition:**
 - [ ] Self-serve onboarding flow (employer signs up → posts first shift in <10 min)
-- [ ] Repeat employer: "Post Same Shift Again" one-click
-- [ ] Favourite Workers list (direct invite to trusted workers)
+- [ ] "Post Same Shift Again" — one-click duplicate of a past shift (date/time editable)
+- [ ] **Repeat Hire** — "Invite Again" button on any past confirmed worker. One tap sends them a direct private notification for the new shift. Worker accepts or declines; if declined, shift opens to the general pool.
+- [ ] **Instant Offer** — employer posts a shift AND simultaneously sends a direct private offer to a specific worker. Worker has a time window to respond; if no response, shift opens to general pool.
+- [ ] **Pre-approved Pool** — employer builds a trusted shortlist of workers. New shifts go to this pool first in a private 30-minute window before opening to the general public. Exclusive perk for Tier 2+ subscribers.
 - [ ] Agency/enterprise account (multi-location, team management)
 
 **Retention:**
-- [ ] Worker streak bonuses (complete 5 shifts → unlock priority matching)
-- [ ] Employer loyalty tier (volume discount on platform fee)
+- [ ] Worker streak bonuses (complete 5 shifts → unlock **priority placement in notification waves** — top of the first batch when a new matching shift is posted)
+- [ ] Employer loyalty tier (volume discount on platform fee for high-volume subscribers)
 
 ---
 
@@ -400,12 +432,13 @@ Score = (0.40 × ProfileQualityScore)      ← AI interview score + completeness
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| SS Direta API unavailability | Medium | Retry queue + fallback email notification to employer |
-| Race conditions on shift claims | High | Redis atomic SETNX for claim locks |
+| SS Direta API unavailability | Medium | Retry queue (BullMQ) + fallback email notification to employer |
 | GPS spoofing at QR check-in | Medium | Dynamic QR (30s TTL) + geofence + device attestation |
-| False Recibos Verdes (ACT audit) | High | Economic dependency tracker auto-flagging |
-| MCD limit breaches | Medium | Hard block at booking stage if 70-day limit reached |
-| GDPR violation (GPS data) | Medium | Location used only during shift, not stored continuously |
+| False Recibos Verdes (ACT audit) | High | Economic dependency tracker auto-flagging at 40% / hard block at 50% |
+| MCD limit breaches | Medium | Hard block at application stage if 70-day annual limit with that employer is reached |
+| Shift expires with no confirmation | Medium | Unfilled shift policy: no charge, employer notified, re-post encouraged |
+| Worker no-show after confirmation | Medium | No-show flag + cancellation policy protects employer; three-strike review process |
+| GDPR violation (GPS data) | Medium | Location used only during shift scan, not stored continuously |
 | App Store rejection (payment flow) | Medium | Use Stripe's approved in-app payment UX patterns |
 
 ---
@@ -476,8 +509,12 @@ MCD contracts are the legally cleanest option for Turnos. The "Agenda do Trabalh
 
 The core loop for v1:
 ```
-Employer posts shift → Matching Engine finds worker → Worker accepts
-→ QR Check-in → Shift completed → QR Check-out → Hours locked
+Employer posts shift (OPEN)
+  → Push notifications sent to top matching workers
+  → Workers browse feed & apply
+  → Employer reviews applicants list & confirms one worker (FILLED)
+  → QR Check-in → Shift completed → QR Check-out → Hours locked
+  → Worker paid next business day
 ```
 Payments (Stint 6) and full ratings (Stint 7) follow in v1.1. This keeps the MVP lean and testable.
 
@@ -492,5 +529,5 @@ Payments (Stint 6) and full ratings (Stint 7) follow in v1.1. This keeps the MVP
 
 ---
 
-*Last updated: May 2026 | Based on Student Pop architectural blueprint adapted for Portugal labor law*
-*All foundational decisions locked — ready to begin Stint 0.*
+*Last updated: May 2026 | Revised to labour marketplace model (Student Pop blueprint) — employer always selects, workers browse and apply*
+*Stints 0–2 complete. Stint 3 in progress.*

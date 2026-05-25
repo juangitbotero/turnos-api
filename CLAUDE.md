@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Turnos is a **gig-shift marketplace for Portugal** — employers post short shifts, workers claim and complete them, and the platform handles Portuguese labor compliance automatically (MCD contracts, TSU calculations, SS Direta notifications). The model is adapted from the French platform Student Pop.
+Turnos is a **labour marketplace for Portugal** — employers post short shifts, workers browse and apply, employers select who they want, and the platform handles Portuguese labor compliance automatically (MCD contracts, TSU calculations, SS Direta notifications). The model is adapted from the French platform Student Pop.
 
 **Target market:** Lisbon beta → Porto expansion  
 **Workers:** Flexible workers on MCD contracts (Muito Curta Duração)  
@@ -87,8 +87,8 @@ Stints are 2–3 week development phases. Full roadmap in `docs/turnos_roadmap.m
 |---|---|---|
 | 0 | Foundation & Setup | ✅ Complete |
 | 1 | Auth & Identity | ✅ Complete |
-| 2 | Shift Marketplace Core | ⬜ Not started |
-| 3 | Real-Time Matching Engine | ⬜ Not started |
+| 2 | Shift Marketplace Core | ✅ Complete |
+| 3 | Notifications & Real-Time Updates | 🔄 In Progress |
 | 4 | Portugal Compliance Engine | ⬜ Not started |
 | 5 | QR Check-In / Check-Out | ⬜ Not started |
 | 6 | Payments & Payroll | ⬜ Not started |
@@ -96,6 +96,20 @@ Stints are 2–3 week development phases. Full roadmap in `docs/turnos_roadmap.m
 | 8 | Admin Panel & Operations | ⬜ Not started |
 | 9 | Growth & Marketplace Flywheel | ⬜ Not started |
 | 10 | Hardening, Security & Launch | ⬜ Not started |
+
+### Stint 2 — Complete (as of 2026-05-25)
+
+**All delivered:**
+- Shift creation (web admin) — category, location (geocoded), date/time, hourly rate, required skills, slots
+- Shift management — edit, cancel, list view with status badges
+- Employer dashboard KPIs wired to real API (active/open/filled shift counts)
+- Worker shift feed (mobile) — list + map view, proximity sort via PostGIS
+- Shift detail page (mobile) — gross rate, employer info, ETA, one-tap apply
+- Worker applications — apply/withdraw, My Shifts screen with status badges
+- Employer applicant review — view applicants per shift, approve one
+- Public shift browsing — `GET /shifts/search` and `GET /shifts/:id` are public (no JWT required)
+- API prefix fix (`/api` global prefix wired in both clients)
+- `.env.example` files added for both web-admin and mobile
 
 ### Stint 1 — Complete (as of 2026-05-24)
 
@@ -140,7 +154,7 @@ A worker must score ≥80 on Profile Quality Score to enter `PENDING_REVIEW`.
 
 These are non-negotiable and must be correct before launch:
 
-- **MCD limits:** Max 35 days per contract, max 70 days/year with same employer. Hard-block at booking stage.
+- **MCD limits:** Max 35 days per contract, max 70 days/year with same employer. Hard-block at **application stage** (worker cannot apply if limit reached).
 - **SS Direta notification:** Must be submitted ≤24h before shift start. BullMQ retry queue required.
 - **TSU rates:** Employer 23.75% / Worker 11% of gross. Always use `calculateTSU()` from shared.
 - **Turnos fee:** 10% of gross, deducted from worker payout. Shown as "Taxa de Serviço Turnos" on payslip.
@@ -158,7 +172,7 @@ These are non-negotiable and must be correct before launch:
 4. **Payment:** Pay-per-shift post-completion (no employer pre-funding wallet)
 5. **Worker payout:** T+1 business day via Stripe Connect Express
 6. **MVP scope:** Stints 0–5 = v1 launch target (Payments in v1.1)
-7. **Matching:** Profile-first (40% weight) + Reputation (30%) + Skill (20%) + Availability (5%) + Proximity (5%)
+7. **Marketplace model:** Workers browse and apply, employers review and confirm. Push notifications target workers by skill match. No auto-assignment. See `docs/turnos_roadmap.md` for full model.
 
 ---
 
