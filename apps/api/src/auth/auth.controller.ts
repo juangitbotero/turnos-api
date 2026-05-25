@@ -122,6 +122,7 @@ export class AuthController {
     @Body() body: {
       fullName: string; nif: string; iban: string;
       skills: string[]; availableDays: string[];
+      declaredExternalMonthlyIncome?: number;
     },
   ) {
     const result = await this.authService.updateWorkerProfile(req.user.userId, body);

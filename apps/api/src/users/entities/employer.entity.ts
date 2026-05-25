@@ -44,6 +44,10 @@ export class Employer {
   @Column({ type: 'varchar', length: 512, nullable: true })
   logoUrl?: string;
 
+  // ── Compliance ────────────────────────────────────────────────────────────
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  accountantEmail?: string;         // Email of employer's accountant for SS Direta notifications
+
   // ── Billing & Subscription ────────────────────────────────────────────────
   @Column({
     type: 'enum',

@@ -60,6 +60,11 @@ export class MailService {
     );
   }
 
+  /** Generic send — used by compliance and other modules */
+  async sendMail(opts: { to: string; subject: string; html: string }): Promise<void> {
+    await this.send(opts.to, opts.subject, opts.html);
+  }
+
   private async send(to: string, subject: string, html: string): Promise<void> {
     if (!this.transporter) {
       this.logger.debug(`[MOCK EMAIL] To: ${to} | Subject: ${subject}`);

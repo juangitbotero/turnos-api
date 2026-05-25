@@ -9,6 +9,7 @@ import { Employer } from '../users/entities/employer.entity';
 import { Worker } from '../users/entities/worker.entity';
 import { GatewayModule } from '../gateway/gateway.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ComplianceModule } from '../compliance/compliance.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     BullModule.registerQueue({ name: 'shift-notifications' }),
     GatewayModule,
     NotificationsModule,
+    ComplianceModule,
   ],
   providers: [ShiftsService],
   controllers: [ShiftsController],

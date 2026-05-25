@@ -109,6 +109,7 @@ export class UsersService {
       iban: string;
       skills: string[];
       availableDays: string[];
+      declaredExternalMonthlyIncome?: number;
     },
   ): Promise<{ profileQualityScore: number; status: string; missingItems: string[] }> {
     const worker = await this.workerRepo.findOne({
@@ -122,6 +123,9 @@ export class UsersService {
     worker.iban          = dto.iban?.trim().replace(/\s/g, '');
     worker.skills        = dto.skills;
     worker.availableDays = dto.availableDays;
+    if (dto.declaredExternalMonthlyIncome !== undefined) {
+      worker.declaredExternalMonthlyIncome = dto.declaredExternalMonthlyIncome;
+    }
 
     const qualityResult = calculateProfileQualityScore({
       hasPhoto:        !!worker.photoUrl,

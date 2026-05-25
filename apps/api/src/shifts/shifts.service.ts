@@ -15,6 +15,7 @@ import { Worker } from '../users/entities/worker.entity';
 import { ShiftsGateway } from '../gateway/shifts.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ReNotificationJobData } from '../notifications/processors/re-notification.processor';
+import { ComplianceService } from '../compliance/compliance.service';
 
 // 5 hours in milliseconds — delay before re-notification job fires
 const RE_NOTIFY_DELAY_MS = 5 * 60 * 60 * 1000;
@@ -34,6 +35,7 @@ export class ShiftsService {
     private notificationQueue: Queue,
     private readonly gateway: ShiftsGateway,
     private readonly notifications: NotificationsService,
+    private readonly compliance: ComplianceService,
   ) {}
 
   // ── Internal helpers ──────────────────────────────────────────────────────
@@ -226,6 +228,13 @@ export class ShiftsService {
       }
     }
 
+    // ── Compliance: create MCD contract + schedule SS Direta notification ──
+    if (application.worker) {
+      this.compliance.onShiftApproved(shift, application.worker, employer).catch(err =>
+        console.error('[Compliance] onShiftApproved error:', err),
+      );
+    }
+
     return this.shiftRepo.findOne({
       where: { id: shiftId },
       relations: ['employer', 'assignedWorker'],
@@ -269,7 +278,7 @@ export class ShiftsService {
     return query.getMany();
   }
 
-  async apply(userId: string, shiftId: string): Promise<ShiftApplication> {
+  async apply(userId: string, shiftId: string): Promise<ShiftApplication & { warning?: string }> {
     // Resolve the Worker entity from the JWT userId
     const worker = await this.resolveWorker(userId);
 
@@ -285,8 +294,11 @@ export class ShiftsService {
     });
     if (existing) throw new BadRequestException('Already applied to this shift');
 
+    // ── Compliance checks (hard blocks throw; soft warning is returned) ──
+    const { warning } = await this.compliance.checkApplicationEligibility(worker, shift);
+
     const application = this.applicationRepo.create({
-      shift: { id: shiftId } as any,
+      shift:  { id: shiftId } as any,
       worker: { id: worker.id } as any,
       status: ApplicationStatus.PENDING,
     });
@@ -295,15 +307,15 @@ export class ShiftsService {
     // WebSocket: notify employer in real time
     if (shift.employer?.id) {
       this.gateway.notifyNewApplication(shift.employer.id, {
-        shiftId: shift.id,
-        shiftTitle: shift.title,
+        shiftId:       shift.id,
+        shiftTitle:    shift.title,
         applicationId: saved.id,
-        workerName: worker.fullName ?? null,
-        workerScore: worker.profileQualityScore,
+        workerName:    worker.fullName ?? null,
+        workerScore:   worker.profileQualityScore,
       });
     }
 
-    return saved;
+    return warning ? { ...saved, warning } : saved;
   }
 
   async findWorkerApplications(userId: string): Promise<ShiftApplication[]> {

@@ -29,6 +29,7 @@ export default function OnboardingScreen() {
   const [photoUri,    setPhotoUri]    = useState<string | null>(null);
   const [photoMime,   setPhotoMime]   = useState('image/jpeg');
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [externalMonthlyIncome, setExternalMonthlyIncome] = useState('');
 
   // Validation errors
   const [nifError,  setNifError]  = useState('');
@@ -121,6 +122,9 @@ export default function OnboardingScreen() {
         iban,
         skills: selectedSkills,
         availableDays: selectedDays,
+        declaredExternalMonthlyIncome: externalMonthlyIncome
+          ? parseFloat(externalMonthlyIncome)
+          : 0,
       });
 
       router.replace('/');
@@ -242,6 +246,24 @@ export default function OnboardingScreen() {
                 <Text style={s.validText}>✓ IBAN válido</Text>
               )}
               <Text style={s.fieldHint}>O seu salário será depositado nesta conta no dia seguinte ao turno.</Text>
+            </View>
+
+            <View style={s.fieldGroup}>
+              <Text style={s.fieldLabel}>Outros rendimentos mensais (opcional)</Text>
+              <TextInput
+                style={s.input}
+                placeholder="Ex: 800 (€ por mês)"
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="decimal-pad"
+                value={externalMonthlyIncome}
+                onChangeText={v => setExternalMonthlyIncome(v.replace(/[^0-9.]/g, ''))}
+              />
+              <View style={s.infoBox}>
+                <Text style={s.infoBoxText}>
+                  💡 Inclua rendimentos de emprego, freelance ou outras fontes fora da Turnos. Deixe em branco se não tiver outros rendimentos.{'\n\n'}
+                  Esta informação é usada para calcular a sua dependência económica por empregador, conforme exigido pela Agenda do Trabalho Digno (Lei 13/2023). Não é partilhada com empregadores.
+                </Text>
+              </View>
             </View>
           </View>
         )}
@@ -528,5 +550,18 @@ const s = StyleSheet.create({
     fontSize: fontSize.caption,
     color: colors.error,
     fontWeight: fontWeight.semibold,
+  },
+  infoBox: {
+    marginTop: 10,
+    backgroundColor: '#eff6ff',
+    borderRadius: radius.sm,
+    padding: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  infoBoxText: {
+    fontSize: 12,
+    color: '#1e40af',
+    lineHeight: 18,
   },
 });

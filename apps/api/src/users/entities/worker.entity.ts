@@ -68,6 +68,10 @@ export class Worker {
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   completionRate: number;           // 0.00–1.00
 
+  // ── Compliance — Economic Dependency ──────────────────────────────────────
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  declaredExternalMonthlyIncome: number; // Self-declared monthly income outside Turnos (€)
+
   @CreateDateColumn()
   createdAt: Date;
 

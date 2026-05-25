@@ -89,6 +89,7 @@ export const authApi = {
   updateWorkerProfile: (dto: {
     fullName: string; nif: string; iban: string;
     skills: string[]; availableDays: string[];
+    declaredExternalMonthlyIncome?: number;
   }) =>
     api.post<{ profileQualityScore: number; status: string; missingItems: string[] }>(
       '/auth/worker/profile', dto,
