@@ -1,8 +1,8 @@
 import { tokenStorage } from './storage';
 
 // In dev, replace with your machine's local IP if testing on a physical device
-// e.g. http://192.168.1.x:3001
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001';
+// e.g. http://192.168.1.x:3001/api  (include /api suffix)
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {

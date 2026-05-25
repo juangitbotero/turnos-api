@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+
 const SECTORS = [
   'Restauração', 'Hotelaria', 'Eventos', 'Retalho / Comércio',
   'Logística', 'Saúde', 'Limpeza', 'Segurança', 'Outro',
@@ -66,7 +68,7 @@ export default function RegisterPage() {
     setIsLoading(true);
     setApiError('');
     try {
-      const res = await fetch('http://localhost:3001/api/auth/register/employer', {
+      const res = await fetch(`${API_BASE}/auth/register/employer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
