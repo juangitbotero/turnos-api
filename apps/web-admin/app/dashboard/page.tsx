@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation';
 import { adminApi, Shift } from '../../lib/api';
 
 const SIDEBAR_NAV = [
-  { icon: '🏠', label: 'Dashboard',    href: '/dashboard',            soon: false },
-  { icon: '📋', label: 'Turnos',        href: '/dashboard/shifts',     soon: false },
-  { icon: '👷', label: 'Trabalhadores', href: '/dashboard/workers',    soon: false },
-  { icon: '📊', label: 'Conformidade',  href: null,                    soon: true  },
-  { icon: '💳', label: 'Faturação',     href: null,                    soon: true  },
-  { icon: '⚙️', label: 'Definições',   href: null,                    soon: true  },
+  { icon: '🏠', label: 'Dashboard',    href: '/dashboard',              soon: false },
+  { icon: '📋', label: 'Turnos',        href: '/dashboard/shifts',       soon: false },
+  { icon: '👷', label: 'Trabalhadores', href: '/dashboard/workers',      soon: false },
+  { icon: '📲', label: 'QR Check-in',   href: '/dashboard/qr-codes',    soon: false },
+  { icon: '📊', label: 'Conformidade',  href: null,                      soon: true  },
+  { icon: '💳', label: 'Faturação',     href: null,                      soon: true  },
+  { icon: '⚙️', label: 'Definições',   href: null,                      soon: true  },
 ];
 
 

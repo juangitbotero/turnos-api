@@ -1,9 +1,31 @@
+/**
+ * AttendanceService — static-QR model (v2, Stint 5 revision)
+ *
+ * ARCHITECTURE CHANGE (from rotating-QR):
+ *   Each employer has TWO permanent printed QR codes — one for check-in,
+ *   one for check-out — fixed at their venue (Urban Sports model).
+ *
+ *   Token format:  base64url({ employerId, action, v }) . base64url(HMAC-SHA256)
+ *   No expiry — the HMAC signature prevents forgery.
+ *
+ * Validation at scan time:
+ *   1. Verify HMAC signature
+ *   2. Confirm token action matches endpoint called (in → checkIn, out → checkOut)
+ *   3. Find worker's confirmed shift at this employer for today within time window
+ *   4. Haversine geofence (200 m) — skips gracefully if no PostGIS coords
+ *   5. Check-in window: 30 min before → 60 min after shift start
+ *   6. Check-out window: 30 min before → 2 h after shift end (same as before)
+ *
+ * PAYMENT RULE (unchanged):
+ *   Payment is ALWAYS calculated from scheduledHours (shift.startTime → shift.endTime).
+ *   QR scans prove attendance only — scan timestamps are never used for payment.
+ */
 import {
   Injectable, BadRequestException,
   NotFoundException, UnauthorizedException, Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import * as QRCode from 'qrcode';
@@ -15,19 +37,27 @@ import { ShiftsGateway } from '../gateway/shifts.gateway';
 import { ComplianceService } from '../compliance/compliance.service';
 import { ComplianceEvent } from '../compliance/entities/compliance-audit-log.entity';
 
-// QR token valid for 30 seconds
-const QR_TOKEN_TTL_MS = 30_000;
-// Check-out must happen within this window of shift end time
-const CHECKOUT_WINDOW_BEFORE_MS  = 30  * 60 * 1000; // 30 min before scheduled end
-const CHECKOUT_WINDOW_AFTER_MS   = 2   * 60 * 60 * 1000; // 2 hours after scheduled end
-// Geofence radius in metres
+// Check-in window: 30 min before → 60 min after scheduled start
+const CHECKIN_WINDOW_BEFORE_MS = 30 * 60 * 1000;
+const CHECKIN_WINDOW_AFTER_MS  = 60 * 60 * 1000;
+// Check-out window: 30 min before → 2 h after scheduled end (unchanged)
+const CHECKOUT_WINDOW_BEFORE_MS = 30 * 60 * 1000;
+const CHECKOUT_WINDOW_AFTER_MS  =  2 * 60 * 60 * 1000;
+// Geofence radius (metres)
 const GEOFENCE_RADIUS_M = 200;
 
-interface QrPayload {
-  shiftId:  string;
-  workerId: string;
-  iat:      number; // issued at (ms)
-  exp:      number; // expires at (ms)
+interface StaticQrPayload {
+  employerId: string;
+  action: 'in' | 'out';
+  v: 1; // token version — allows future migration
+}
+
+export interface EmployerQrResult {
+  checkInQrDataUrl:  string;
+  checkOutQrDataUrl: string;
+  checkInToken:      string;
+  checkOutToken:     string;
+  employerName:      string;
 }
 
 @Injectable()
@@ -55,51 +85,37 @@ export class AttendanceService {
     this.hmacSecret = this.config.get<string>('QR_HMAC_SECRET', 'turnos-dev-qr-secret-change-in-prod');
   }
 
-  // ── QR generation (employer) ───────────────────────────────────────────────
+  // ── Static QR generation (employer) ───────────────────────────────────────
 
   /**
-   * Generate a fresh QR token valid for 30 seconds.
-   * Returns the raw token string + a PNG data-URL for display.
-   * Call every 25s on the employer dashboard to keep it fresh.
+   * Generate the employer's two permanent static QR codes: check-in and check-out.
+   * These are deterministic — same inputs always produce the same QR.
+   * The employer prints them once and posts them at their venue.
    */
-  async generateQr(
-    employerUserId: string,
-    shiftId: string,
-  ): Promise<{ token: string; qrDataUrl: string; expiresAt: number }> {
+  async getEmployerStaticQr(employerUserId: string): Promise<EmployerQrResult> {
     const employer = await this.employerRepo.findOne({ where: { user: { id: employerUserId } } });
     if (!employer) throw new UnauthorizedException('Employer not found');
 
-    const shift = await this.shiftRepo.findOne({
-      where: { id: shiftId },
-      relations: ['employer', 'assignedWorker'],
-    });
-    if (!shift) throw new NotFoundException('Shift not found');
-    if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
-    if (![ShiftStatus.FILLED, ShiftStatus.ACTIVE].includes(shift.status)) {
-      throw new BadRequestException('QR only available for confirmed or active shifts');
-    }
-    if (!shift.assignedWorker) throw new BadRequestException('No worker assigned to this shift');
+    const checkInToken  = this.signStaticToken({ employerId: employer.id, action: 'in',  v: 1 });
+    const checkOutToken = this.signStaticToken({ employerId: employer.id, action: 'out', v: 1 });
 
-    const now = Date.now();
-    const payload: QrPayload = {
-      shiftId,
-      workerId: shift.assignedWorker.id,
-      iat: now,
-      exp: now + QR_TOKEN_TTL_MS,
-    };
-
-    const token     = this.signToken(payload);
-    const qrDataUrl = await QRCode.toDataURL(token, {
+    const qrOpts: QRCode.QRCodeToDataURLOptions = {
       errorCorrectionLevel: 'M',
       margin: 2,
-      width: 300,
+      width: 400,
       color: { dark: '#111827', light: '#ffffff' },
-    });
+    };
 
-    return { token, qrDataUrl, expiresAt: payload.exp };
+    const [checkInQrDataUrl, checkOutQrDataUrl] = await Promise.all([
+      QRCode.toDataURL(checkInToken,  qrOpts),
+      QRCode.toDataURL(checkOutToken, qrOpts),
+    ]);
+
+    this.logger.log(`[Attendance] Static QR requested for employer ${employer.id}`);
+    return { checkInQrDataUrl, checkOutQrDataUrl, checkInToken, checkOutToken, employerName: employer.companyName };
   }
 
-  // ── Check-in (worker) ─────────────────────────────────────────────────────
+  // ── Check-in (worker scans printed check-in QR) ───────────────────────────
 
   async checkIn(
     workerUserId: string,
@@ -110,36 +126,31 @@ export class AttendanceService {
     const worker = await this.workerRepo.findOne({ where: { user: { id: workerUserId } } });
     if (!worker) throw new UnauthorizedException('Worker not found');
 
-    const payload = this.verifyToken(token);
-
-    // Must be the assigned worker
-    if (payload.workerId !== worker.id) {
-      throw new BadRequestException('Este QR code não é para si');
+    const payload = this.verifyStaticToken(token);
+    if (payload.action !== 'in') {
+      throw new BadRequestException(
+        'Digitalizou o QR de check-out. Por favor, use o QR de check-in (seta para cima ↑).',
+      );
     }
 
-    const shift = await this.shiftRepo.findOne({
-      where: { id: payload.shiftId },
-      relations: ['employer', 'assignedWorker'],
-    });
-    if (!shift) throw new NotFoundException('Shift not found');
+    const shift = await this.findWorkerShiftForEmployerToday(worker.id, payload.employerId);
     if (shift.status !== ShiftStatus.FILLED) {
-      throw new BadRequestException('O turno não está no estado correto para check-in');
+      throw new BadRequestException(
+        shift.status === ShiftStatus.ACTIVE
+          ? 'Já fez check-in neste turno.'
+          : 'O turno não está disponível para check-in.',
+      );
     }
 
-    // Geofence check
+    this.assertCheckInWindow(shift);
     this.assertGeofence(lat, lng, shift);
 
-    // Idempotency — already checked in?
-    const existing = await this.attendanceRepo.findOne({
-      where: { shift: { id: shift.id } },
-    });
-    if (existing?.checkInAt) {
-      throw new BadRequestException('Já fez check-in neste turno');
-    }
+    // Idempotency guard
+    const existing = await this.attendanceRepo.findOne({ where: { shift: { id: shift.id } } });
+    if (existing?.checkInAt) throw new BadRequestException('Já fez check-in neste turno.');
 
     const scheduledHours = this.calcScheduledHours(shift.startTime, shift.endTime);
 
-    // Create or update attendance record
     const attendance = existing ?? this.attendanceRepo.create({
       shift:  { id: shift.id } as Shift,
       worker: { id: worker.id } as Worker,
@@ -151,33 +162,29 @@ export class AttendanceService {
     attendance.status         = AttendanceStatus.CHECKED_IN;
 
     const saved = await this.attendanceRepo.save(attendance);
-
-    // Shift → ACTIVE
     await this.shiftRepo.update(shift.id, { status: ShiftStatus.ACTIVE });
 
-    // WebSocket: notify employer dashboard
     this.gateway.notifyAttendance(shift.employer.id, {
-      event:     'checked_in',
-      shiftId:   shift.id,
+      event:      'checked_in',
+      shiftId:    shift.id,
       shiftTitle: shift.title,
       workerName: worker.fullName ?? 'Trabalhador',
       checkInAt:  saved.checkInAt!.toISOString(),
     });
 
-    // Audit log
     await this.compliance.log({
-      event:     ComplianceEvent.CONTRACT_CREATED, // reuse as attendance marker — will add own event in next stint
-      shiftId:   shift.id,
-      workerId:  worker.id,
+      event:      ComplianceEvent.CONTRACT_CREATED,
+      shiftId:    shift.id,
+      workerId:   worker.id,
       employerId: shift.employer.id,
-      details:   { action: 'CHECK_IN', lat, lng, scheduledHours },
+      details:    { action: 'CHECK_IN', lat, lng, scheduledHours },
     });
 
-    this.logger.log(`[Attendance] Check-in: worker ${worker.id} shift ${shift.id}`);
+    this.logger.log(`[Attendance] Check-in: worker ${worker.id} → shift ${shift.id} (${scheduledHours}h)`);
     return saved;
   }
 
-  // ── Check-out (worker) ────────────────────────────────────────────────────
+  // ── Check-out (worker scans printed check-out QR) ─────────────────────────
 
   async checkOut(
     workerUserId: string,
@@ -188,35 +195,27 @@ export class AttendanceService {
     const worker = await this.workerRepo.findOne({ where: { user: { id: workerUserId } } });
     if (!worker) throw new UnauthorizedException('Worker not found');
 
-    const payload = this.verifyToken(token);
-
-    if (payload.workerId !== worker.id) {
-      throw new BadRequestException('Este QR code não é para si');
+    const payload = this.verifyStaticToken(token);
+    if (payload.action !== 'out') {
+      throw new BadRequestException(
+        'Digitalizou o QR de check-in. Por favor, use o QR de check-out (seta para baixo ↓).',
+      );
     }
 
-    const shift = await this.shiftRepo.findOne({
-      where: { id: payload.shiftId },
-      relations: ['employer', 'assignedWorker'],
-    });
-    if (!shift) throw new NotFoundException('Shift not found');
+    const shift = await this.findWorkerShiftForEmployerToday(worker.id, payload.employerId);
     if (shift.status !== ShiftStatus.ACTIVE) {
-      throw new BadRequestException('O turno não está no estado correto para check-out');
+      throw new BadRequestException(
+        shift.status === ShiftStatus.FILLED
+          ? 'Ainda não fez check-in. Por favor, faça check-in primeiro.'
+          : 'O turno não está no estado correto para check-out.',
+      );
     }
 
-    const attendance = await this.attendanceRepo.findOne({
-      where: { shift: { id: shift.id } },
-    });
-    if (!attendance?.checkInAt) {
-      throw new BadRequestException('Não há check-in registado para este turno');
-    }
-    if (attendance.checkOutAt) {
-      throw new BadRequestException('Já fez check-out neste turno');
-    }
+    const attendance = await this.attendanceRepo.findOne({ where: { shift: { id: shift.id } } });
+    if (!attendance?.checkInAt) throw new BadRequestException('Não há check-in registado para este turno.');
+    if (attendance.checkOutAt)  throw new BadRequestException('Já fez check-out neste turno.');
 
-    // Validate checkout window (shift end - 30min to shift end + 2h)
     this.assertCheckoutWindow(shift);
-
-    // Geofence check
     this.assertGeofence(lat, lng, shift);
 
     attendance.checkOutAt  = new Date();
@@ -225,11 +224,9 @@ export class AttendanceService {
     attendance.status      = AttendanceStatus.COMPLETED;
 
     const saved = await this.attendanceRepo.save(attendance);
-
-    // Shift → COMPLETED
     await this.shiftRepo.update(shift.id, { status: ShiftStatus.COMPLETED });
 
-    // WebSocket: notify both employer + worker
+    // Notify employer dashboard
     this.gateway.notifyAttendance(shift.employer.id, {
       event:          'checked_out',
       shiftId:        shift.id,
@@ -238,6 +235,7 @@ export class AttendanceService {
       checkOutAt:     saved.checkOutAt!.toISOString(),
       scheduledHours: Number(saved.scheduledHours),
     });
+    // Notify worker app
     this.gateway.notifyAttendance(worker.id, {
       event:          'shift_completed',
       shiftId:        shift.id,
@@ -245,7 +243,7 @@ export class AttendanceService {
       scheduledHours: Number(saved.scheduledHours),
     });
 
-    this.logger.log(`[Attendance] Check-out: worker ${worker.id} shift ${shift.id} — ${saved.scheduledHours}h scheduled`);
+    this.logger.log(`[Attendance] Check-out: worker ${worker.id} → shift ${shift.id} — ${saved.scheduledHours}h`);
     return saved;
   }
 
@@ -263,7 +261,7 @@ export class AttendanceService {
       where: { id: shiftId },
       relations: ['employer', 'assignedWorker'],
     });
-    if (!shift) throw new NotFoundException('Shift not found');
+    if (!shift)                          throw new NotFoundException('Shift not found');
     if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
     if (![ShiftStatus.FILLED, ShiftStatus.ACTIVE].includes(shift.status)) {
       throw new BadRequestException('Turno já concluído ou cancelado');
@@ -287,14 +285,13 @@ export class AttendanceService {
     attendance.manualOverrideNote = note ?? 'Confirmação manual pelo empregador';
 
     const saved = await this.attendanceRepo.save(attendance);
-
     await this.shiftRepo.update(shift.id, { status: ShiftStatus.COMPLETED });
 
     await this.compliance.log({
-      event:     ComplianceEvent.CONTRACT_CREATED,
-      shiftId:   shift.id,
+      event:      ComplianceEvent.CONTRACT_CREATED,
+      shiftId:    shift.id,
       employerId: employer.id,
-      details:   { action: 'MANUAL_OVERRIDE', note, scheduledHours },
+      details:    { action: 'MANUAL_OVERRIDE', note, scheduledHours },
     });
 
     this.logger.log(`[Attendance] Manual confirm: shift ${shift.id} by employer ${employer.id}`);
@@ -327,7 +324,7 @@ export class AttendanceService {
     return saved;
   }
 
-  // ── Get status ────────────────────────────────────────────────────────────
+  // ── Get attendance status ─────────────────────────────────────────────────
 
   async getAttendance(shiftId: string): Promise<ShiftAttendance | null> {
     return this.attendanceRepo.findOne({
@@ -336,9 +333,43 @@ export class AttendanceService {
     });
   }
 
-  // ── QR token helpers ──────────────────────────────────────────────────────
+  // ── Private: find worker's shift at employer today ────────────────────────
 
-  private signToken(payload: QrPayload): string {
+  /**
+   * Finds the worker's approved (FILLED or ACTIVE) shift at the given employer
+   * for today's date. Throws a clear user-facing error if not found.
+   */
+  private async findWorkerShiftForEmployerToday(
+    workerId: string,
+    employerId: string,
+  ): Promise<Shift> {
+    // Use UTC date — acceptable for Lisbon beta; proper TZ handling in v1.1
+    const today = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+
+    const shift = await this.shiftRepo.findOne({
+      where: {
+        date:           today,
+        employer:       { id: employerId },
+        assignedWorker: { id: workerId },
+        status:         In([ShiftStatus.FILLED, ShiftStatus.ACTIVE]),
+      },
+      relations: ['employer', 'assignedWorker'],
+      order:     { startTime: 'ASC' },
+    });
+
+    if (!shift) {
+      throw new NotFoundException(
+        'Não tem nenhum turno confirmado neste local para hoje. ' +
+        'Verifique se está no local correto ou contacte o empregador.',
+      );
+    }
+
+    return shift;
+  }
+
+  // ── Private: HMAC token (static, no expiry) ───────────────────────────────
+
+  private signStaticToken(payload: StaticQrPayload): string {
     const data      = Buffer.from(JSON.stringify(payload)).toString('base64url');
     const signature = crypto
       .createHmac('sha256', this.hmacSecret)
@@ -347,53 +378,88 @@ export class AttendanceService {
     return `${data}.${signature}`;
   }
 
-  private verifyToken(token: string): QrPayload {
+  private verifyStaticToken(token: string): StaticQrPayload {
     const parts = token.split('.');
     if (parts.length !== 2) throw new BadRequestException('QR code inválido');
 
-    const [data, signature] = parts;
+    const [data, signature] = parts as [string, string];
     const expectedSig = crypto
       .createHmac('sha256', this.hmacSecret)
       .update(data)
       .digest('base64url');
 
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+    if (Buffer.from(signature).length !== Buffer.from(expectedSig).length ||
+        !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
       throw new BadRequestException('QR code inválido ou adulterado');
     }
 
-    let payload: QrPayload;
     try {
-      payload = JSON.parse(Buffer.from(data, 'base64url').toString('utf8')) as QrPayload;
+      return JSON.parse(Buffer.from(data, 'base64url').toString('utf8')) as StaticQrPayload;
     } catch {
       throw new BadRequestException('QR code inválido');
     }
-
-    if (Date.now() > payload.exp) {
-      throw new BadRequestException('QR code expirado. Peça ao empregador para atualizar o ecrã.');
-    }
-
-    return payload;
   }
 
-  // ── Geofence (Haversine) ──────────────────────────────────────────────────
+  // ── Private: time window enforcement ─────────────────────────────────────
+
+  private assertCheckInWindow(shift: Shift): void {
+    const [sh, sm] = shift.startTime.slice(0, 5).split(':').map(Number);
+    const scheduledStart = new Date(`${shift.date}T${String(sh!).padStart(2,'0')}:${String(sm!).padStart(2,'0')}:00`);
+    const windowStart    = new Date(scheduledStart.getTime() - CHECKIN_WINDOW_BEFORE_MS);
+    const windowEnd      = new Date(scheduledStart.getTime() + CHECKIN_WINDOW_AFTER_MS);
+    const now            = new Date();
+
+    if (now < windowStart) {
+      throw new BadRequestException(
+        `Check-in disponível a partir das ${windowStart.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}. ` +
+        `O turno começa às ${String(sh!).padStart(2,'0')}:${String(sm!).padStart(2,'0')}.`,
+      );
+    }
+    if (now > windowEnd) {
+      throw new BadRequestException(
+        'A janela de check-in expirou (mais de 1h após o início do turno). ' +
+        'Contacte o empregador para confirmação manual.',
+      );
+    }
+  }
+
+  private assertCheckoutWindow(shift: Shift): void {
+    const [eh, em] = shift.endTime.slice(0, 5).split(':').map(Number);
+    const scheduledEnd = new Date(`${shift.date}T${String(eh!).padStart(2,'0')}:${String(em!).padStart(2,'0')}:00`);
+    const windowStart  = new Date(scheduledEnd.getTime() - CHECKOUT_WINDOW_BEFORE_MS);
+    const windowEnd    = new Date(scheduledEnd.getTime() + CHECKOUT_WINDOW_AFTER_MS);
+    const now          = new Date();
+
+    if (now < windowStart) {
+      throw new BadRequestException(
+        `Ainda é cedo para fazer check-out. Disponível a partir das ` +
+        `${windowStart.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}.`,
+      );
+    }
+    if (now > windowEnd) {
+      throw new BadRequestException(
+        'A janela de check-out expirou (mais de 2h após o fim do turno). ' +
+        'Contacte o empregador para confirmação manual.',
+      );
+    }
+  }
+
+  // ── Private: geofence (Haversine) ────────────────────────────────────────
 
   private assertGeofence(lat: number, lng: number, shift: Shift): void {
-    // If no PostGIS coords stored on shift, skip geofence (graceful degradation)
-    if (!shift.location?.coordinates) return;
-
+    if (!shift.location?.coordinates) return; // No PostGIS coords → skip gracefully
     const [shiftLng, shiftLat] = shift.location.coordinates as [number, number];
     const distM = this.haversineMetres(lat, lng, shiftLat, shiftLng);
-
     if (distM > GEOFENCE_RADIUS_M) {
       throw new BadRequestException(
         `Está a ${Math.round(distM)}m do local do turno. ` +
-        `Deve estar a menos de ${GEOFENCE_RADIUS_M}m para fazer check-in.`,
+        `Deve estar a menos de ${GEOFENCE_RADIUS_M}m para fazer check-in/out.`,
       );
     }
   }
 
   private haversineMetres(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    const R  = 6_371_000; // Earth radius metres
+    const R  = 6_371_000;
     const φ1 = (lat1 * Math.PI) / 180;
     const φ2 = (lat2 * Math.PI) / 180;
     const Δφ = ((lat2 - lat1) * Math.PI) / 180;
@@ -402,34 +468,13 @@ export class AttendanceService {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
-  // ── Checkout window validation ────────────────────────────────────────────
-
-  private assertCheckoutWindow(shift: Shift): void {
-    const [eh, em] = shift.endTime.slice(0, 5).split(':').map(Number);
-    const scheduledEnd = new Date(`${shift.date}T${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}:00`);
-    const windowStart  = new Date(scheduledEnd.getTime() - CHECKOUT_WINDOW_BEFORE_MS);
-    const windowEnd    = new Date(scheduledEnd.getTime() + CHECKOUT_WINDOW_AFTER_MS);
-    const now          = new Date();
-
-    if (now < windowStart) {
-      throw new BadRequestException(
-        `Ainda é cedo para fazer check-out. Disponível a partir de ${windowStart.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}.`,
-      );
-    }
-    if (now > windowEnd) {
-      throw new BadRequestException(
-        'A janela de check-out expirou (mais de 2h após o fim do turno). Contacte o empregador para confirmação manual.',
-      );
-    }
-  }
-
-  // ── Hours calculation ─────────────────────────────────────────────────────
+  // ── Private: hours calculation ────────────────────────────────────────────
 
   private calcScheduledHours(startTime: string, endTime: string): number {
     const [sh, sm] = startTime.slice(0, 5).split(':').map(Number);
     const [eh, em] = endTime.slice(0, 5).split(':').map(Number);
-    let hours = (eh + em / 60) - (sh + sm / 60);
-    if (hours < 0) hours += 24;
+    let hours = (eh! + em! / 60) - (sh! + sm! / 60);
+    if (hours < 0) hours += 24; // overnight shift
     return Math.round(hours * 100) / 100;
   }
 }

@@ -131,13 +131,21 @@ export const adminApi = {
 
   // ── Attendance ─────────────────────────────────────────────────────────────
 
-  /** Generate a fresh QR token + PNG data-URL (30s TTL). Call every 25s. */
-  getShiftQr: (shiftId: string) =>
-    request<{ token: string; qrDataUrl: string; expiresAt: number }>(
-      `/attendance/qr/${shiftId}`, { method: 'GET' },
-    ),
+  /**
+   * Fetch the employer's two permanent static QR codes (check-in + check-out).
+   * The same QR codes are always returned — deterministic HMAC tokens.
+   * Employer prints them once and posts them at the venue.
+   */
+  getEmployerQrCodes: () =>
+    request<{
+      checkInQrDataUrl:  string;
+      checkOutQrDataUrl: string;
+      checkInToken:      string;
+      checkOutToken:     string;
+      employerName:      string;
+    }>('/attendance/employer-qr', { method: 'GET' }),
 
-  /** Employer manually confirms shift completion when QR isn't available. */
+  /** Employer manually confirms shift completion when QR scanning isn't available. */
   manualConfirmShift: (shiftId: string, note?: string) =>
     request<{ id: string; status: string }>(
       `/attendance/${shiftId}/manual-confirm`,

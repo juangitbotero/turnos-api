@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { adminApi, ApiError, Shift, Application } from '../../../lib/api';
 import { connectSocket, getSocket, NewApplicationPayload } from '../../../lib/socket';
@@ -16,149 +16,6 @@ const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }>
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-// ── QR Display Modal ──────────────────────────────────────────────────────────
-
-function QrDisplayModal({
-  shift,
-  onClose,
-}: {
-  shift: Shift;
-  onClose: () => void;
-}) {
-  const [qrData, setQrData]       = useState<{ qrDataUrl: string; expiresAt: number } | null>(null);
-  const [qrLoading, setQrLoading] = useState(true);
-  const [qrError, setQrError]     = useState('');
-  const [confirming, setConfirming] = useState(false);
-  const [confirmed, setConfirmed]   = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(30);
-
-  const fetchQr = useCallback(async () => {
-    try {
-      setQrLoading(true);
-      setQrError('');
-      const data = await adminApi.getShiftQr(shift.id);
-      setQrData(data);
-      setSecondsLeft(30);
-    } catch (err) {
-      setQrError(err instanceof ApiError ? err.message : 'Erro ao gerar QR code.');
-    } finally {
-      setQrLoading(false);
-    }
-  }, [shift.id]);
-
-  // Initial fetch + auto-refresh every 25s
-  useEffect(() => {
-    fetchQr();
-    const refreshTimer = setInterval(fetchQr, 25_000);
-    return () => clearInterval(refreshTimer);
-  }, [fetchQr]);
-
-  // Countdown timer display (purely cosmetic — shows time until next refresh)
-  useEffect(() => {
-    const tick = setInterval(() => {
-      setSecondsLeft(s => (s > 0 ? s - 1 : 30));
-    }, 1_000);
-    return () => clearInterval(tick);
-  }, []);
-
-  const handleManualConfirm = async () => {
-    if (!window.confirm('Confirmar turno manualmente?\n\nEsta ação marca o turno como concluído e desencadeia o pagamento. Não pode ser desfeita.')) return;
-    setConfirming(true);
-    try {
-      await adminApi.manualConfirmShift(shift.id);
-      setConfirmed(true);
-    } catch (err) {
-      window.alert(err instanceof ApiError ? err.message : 'Erro ao confirmar manualmente.');
-    } finally {
-      setConfirming(false);
-    }
-  };
-
-  return (
-    <div style={s.overlay}>
-      <div style={{ ...s.modal, maxWidth: 420 }}>
-        {/* Header */}
-        <div style={s.modalHeader}>
-          <div>
-            <h2 style={s.modalTitle}>QR Check-in / Check-out</h2>
-            <p style={s.modalSub}>
-              {shift.title || shift.subcategory} · {formatDate(shift.date)} · {shift.startTime.slice(0, 5)}–{shift.endTime.slice(0, 5)}
-            </p>
-          </div>
-          <button style={s.closeBtn} onClick={onClose}>✕</button>
-        </div>
-
-        {/* QR Panel */}
-        {confirmed ? (
-          <div style={s.confirmedBox}>
-            <div style={s.confirmedIcon}>✅</div>
-            <p style={s.confirmedTitle}>Turno confirmado manualmente</p>
-            <p style={s.confirmedSub}>O pagamento será processado no próximo dia útil.</p>
-            <button style={s.approveBtn} onClick={onClose}>Fechar</button>
-          </div>
-        ) : (
-          <>
-            <div style={s.qrWrapper}>
-              {qrLoading && !qrData && (
-                <div style={s.qrPlaceholder}>
-                  <div style={s.qrSpinner} />
-                  <p style={s.loadingText}>A gerar QR code...</p>
-                </div>
-              )}
-              {qrError && !qrData && (
-                <div style={s.qrPlaceholder}>
-                  <p style={{ color: '#dc2626', fontSize: 13, textAlign: 'center' }}>{qrError}</p>
-                  <button style={s.retryBtn} onClick={fetchQr}>↻ Tentar novamente</button>
-                </div>
-              )}
-              {qrData && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={qrData.qrDataUrl}
-                  alt="QR Code para check-in/check-out"
-                  style={s.qrImage}
-                />
-              )}
-            </div>
-
-            {/* Refresh countdown */}
-            <div style={s.refreshRow}>
-              <span style={s.refreshDot} />
-              <span style={s.refreshText}>
-                Atualiza em <strong>{secondsLeft}s</strong>
-              </span>
-              <button style={s.qrRefreshNowBtn} onClick={fetchQr} disabled={qrLoading}>
-                ↻ Agora
-              </button>
-            </div>
-
-            {/* Instructions */}
-            <div style={s.instructionBox}>
-              <p style={s.instructionText}>
-                <strong>Como usar:</strong> Mostre este ecrã ao trabalhador. Ele aponta a câmara
-                do telemóvel para fazer check-in ao começar e check-out ao terminar o turno.
-                O QR expira a cada 30 segundos por segurança.
-              </p>
-            </div>
-
-            {/* Manual fallback */}
-            <div style={s.manualSection}>
-              <p style={s.manualLabel}>Sem leitura de QR? Use a confirmação manual:</p>
-              <button
-                style={{ ...s.manualBtn, opacity: confirming ? 0.6 : 1 }}
-                onClick={handleManualConfirm}
-                disabled={confirming}
-              >
-                {confirming ? 'A confirmar...' : '✓ Confirmar turno manualmente'}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
 }
 
 // ── Applicants Modal ──────────────────────────────────────────────────────────
@@ -251,12 +108,12 @@ function ShiftApplicationsModal({
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ShiftsPage() {
-  const [shifts, setShifts]         = useState<Shift[]>([]);
-  const [isLoading, setIsLoading]   = useState(true);
-  const [error, setError]           = useState('');
-  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [shifts, setShifts]           = useState<Shift[]>([]);
+  const [isLoading, setIsLoading]     = useState(true);
+  const [error, setError]             = useState('');
+  const [cancelling, setCancelling]   = useState<string | null>(null);
+  const [confirming, setConfirming]   = useState<string | null>(null);
   const [viewingApps, setViewingApps] = useState<Shift | null>(null);
-  const [viewingQr, setViewingQr]     = useState<Shift | null>(null);
   const [newAppCounts, setNewAppCounts] = useState<Record<string, number>>({});
 
   const load = async () => {
@@ -305,6 +162,22 @@ export default function ShiftsPage() {
     }
   };
 
+  const handleManualConfirm = async (shift: Shift) => {
+    if (!confirm(
+      `Confirmar manualmente o turno "${shift.title || shift.subcategory}"?\n\n` +
+      `Isto marca o turno como concluído e desencadeia o pagamento. Não pode ser desfeito.`
+    )) return;
+    setConfirming(shift.id);
+    try {
+      await adminApi.manualConfirmShift(shift.id);
+      setShifts(prev => prev.map(sh => sh.id === shift.id ? { ...sh, status: 'COMPLETED' as const } : sh));
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : 'Erro ao confirmar.');
+    } finally {
+      setConfirming(null);
+    }
+  };
+
   const active = shifts.filter(sh => ['OPEN', 'FILLED', 'ACTIVE'].includes(sh.status));
   const past   = shifts.filter(sh => ['COMPLETED', 'CANCELLED', 'DRAFT'].includes(sh.status));
 
@@ -320,11 +193,27 @@ export default function ShiftsPage() {
         </div>
         <div style={s.headerActions}>
           <button style={s.refreshBtn} onClick={load} disabled={isLoading}>↻ Atualizar</button>
+          {/* QR codes are per-employer (static), not per shift */}
+          <Link href="/dashboard/qr-codes" style={s.qrCodesBtn}>📲 Códigos QR</Link>
           <Link href="/dashboard/new-shift" style={s.newBtn}>+ Publicar Turno</Link>
         </div>
       </div>
 
       {error && <div style={s.errorBanner}>⚠️ {error}</div>}
+
+      {/* QR tip banner — shown when there are FILLED/ACTIVE shifts */}
+      {active.some(sh => ['FILLED', 'ACTIVE'].includes(sh.status)) && (
+        <div style={s.qrTipBanner}>
+          <span>📲</span>
+          <span>
+            Tem turnos confirmados hoje. Certifique-se de que os{' '}
+            <Link href="/dashboard/qr-codes" style={{ color: '#7c3aed', fontWeight: 700 }}>
+              QR codes
+            </Link>{' '}
+            estão visíveis no seu local de trabalho.
+          </span>
+        </div>
+      )}
 
       {!isLoading && shifts.length === 0 && !error && (
         <div style={s.empty}>
@@ -348,13 +237,14 @@ export default function ShiftsPage() {
                 key={shift.id}
                 shift={shift}
                 onCancel={handleCancel}
+                onManualConfirm={handleManualConfirm}
                 cancelling={cancelling}
+                confirming={confirming}
                 newAppCount={newAppCounts[shift.id] ?? 0}
                 onViewApps={() => {
                   setViewingApps(shift);
                   setNewAppCounts(prev => ({ ...prev, [shift.id]: 0 }));
                 }}
-                onViewQr={() => setViewingQr(shift)}
               />
             ))}
           </div>
@@ -375,10 +265,11 @@ export default function ShiftsPage() {
                 key={shift.id}
                 shift={shift}
                 onCancel={handleCancel}
+                onManualConfirm={handleManualConfirm}
                 cancelling={cancelling}
+                confirming={confirming}
                 newAppCount={0}
                 onViewApps={() => setViewingApps(shift)}
-                onViewQr={() => setViewingQr(shift)}
               />
             ))}
           </div>
@@ -388,26 +279,24 @@ export default function ShiftsPage() {
       {viewingApps && (
         <ShiftApplicationsModal shift={viewingApps} onClose={() => setViewingApps(null)} />
       )}
-      {viewingQr && (
-        <QrDisplayModal shift={viewingQr} onClose={() => setViewingQr(null)} />
-      )}
     </div>
   );
 }
 
 // ── Shift row ─────────────────────────────────────────────────────────────────
 
-function ShiftRow({ shift, onCancel, cancelling, onViewApps, onViewQr, newAppCount }: {
+function ShiftRow({ shift, onCancel, onManualConfirm, cancelling, confirming, onViewApps, newAppCount }: {
   shift: Shift;
   onCancel: (id: string) => void;
+  onManualConfirm: (shift: Shift) => void;
   cancelling: string | null;
+  confirming: string | null;
   onViewApps: () => void;
-  onViewQr: () => void;
   newAppCount: number;
 }) {
   const st = STATUS_LABEL[shift.status] ?? { label: shift.status, color: '#6b7280', bg: '#f3f4f6' };
-  const canCancel  = ['OPEN', 'DRAFT', 'FILLED'].includes(shift.status);
-  const canViewQr  = ['FILLED', 'ACTIVE'].includes(shift.status);
+  const canCancel        = ['OPEN', 'DRAFT', 'FILLED'].includes(shift.status);
+  const canManualConfirm = ['FILLED', 'ACTIVE'].includes(shift.status);
 
   return (
     <div style={s.tableRow}>
@@ -428,9 +317,14 @@ function ShiftRow({ shift, onCancel, cancelling, onViewApps, onViewQr, newAppCou
             )}
           </button>
         )}
-        {canViewQr && (
-          <button style={s.qrBtn} onClick={onViewQr} title="Mostrar QR code para check-in/check-out">
-            📲 QR
+        {canManualConfirm && (
+          <button
+            style={{ ...s.confirmBtn, opacity: confirming === shift.id ? 0.6 : 1 }}
+            onClick={() => onManualConfirm(shift)}
+            disabled={confirming === shift.id}
+            title="Confirmar turno manualmente (sem QR)"
+          >
+            {confirming === shift.id ? '...' : '✓ Confirmar'}
           </button>
         )}
         {canCancel && (
@@ -451,7 +345,7 @@ function ShiftRow({ shift, onCancel, cancelling, onViewApps, onViewQr, newAppCou
 
 const s: Record<string, React.CSSProperties> = {
   page: { padding: 32, maxWidth: 1200, margin: '0 auto' },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 },
+  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   title: { fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.5px', marginBottom: 4 },
   sub: { fontSize: 14, color: 'var(--color-text-secondary)' },
   headerActions: { display: 'flex', gap: 10, alignItems: 'center' },
@@ -459,9 +353,19 @@ const s: Record<string, React.CSSProperties> = {
     padding: '8px 16px', background: 'var(--color-primary-light)', border: '1px solid rgba(106,121,255,0.3)',
     borderRadius: 8, color: 'var(--color-primary)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
   },
+  qrCodesBtn: {
+    padding: '8px 16px', background: '#f0fdf4', border: '1px solid rgba(22,163,74,0.3)',
+    borderRadius: 8, color: '#16a34a', fontWeight: 700, fontSize: 13, textDecoration: 'none', display: 'inline-block',
+  },
   newBtn: {
     padding: '10px 20px', background: 'linear-gradient(135deg, var(--color-primary), #9b6dff)',
     borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 14, textDecoration: 'none', display: 'inline-block',
+  },
+  qrTipBanner: {
+    display: 'flex', alignItems: 'center', gap: 10,
+    background: '#faf5ff', border: '1px solid rgba(124,58,237,0.2)',
+    borderRadius: 8, padding: '10px 14px', fontSize: 13,
+    color: 'var(--color-text-primary)', marginBottom: 24,
   },
   errorBanner: {
     background: '#fee2e2', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8,
@@ -502,37 +406,36 @@ const s: Record<string, React.CSSProperties> = {
     padding: '6px 10px', background: 'var(--color-primary-light)', border: '1px solid rgba(106,121,255,0.3)',
     borderRadius: 6, color: 'var(--color-primary)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
   },
-  qrBtn: {
-    display: 'inline-flex', alignItems: 'center', gap: 4,
-    padding: '6px 10px', background: '#f0fdf4', border: '1px solid rgba(22,163,74,0.3)',
-    borderRadius: 6, color: '#16a34a', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
-  },
   newBadge: {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     minWidth: 18, height: 18, borderRadius: 9, background: '#ef4444',
     color: '#fff', fontSize: 11, fontWeight: 700, padding: '0 4px',
+  },
+  confirmBtn: {
+    padding: '6px 10px', background: '#f0fdf4', border: '1px solid #86efac',
+    borderRadius: 6, color: '#16a34a', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
   },
   cancelBtn: {
     padding: '6px 10px', background: '#fee2e2', border: '1px solid #fca5a5',
     borderRadius: 6, color: '#dc2626', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
   },
 
-  // ── Modal shared ──────────────────────────────────────────────────────────
+  // Modal
   overlay: {
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
   },
   modal: {
     background: '#fff', borderRadius: 16, padding: 28, width: '100%',
-    maxWidth: 560, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', maxHeight: '90vh',
-    display: 'flex', flexDirection: 'column', overflowY: 'auto',
+    maxWidth: 560, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', maxHeight: '80vh',
+    display: 'flex', flexDirection: 'column',
   },
   modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: 4 },
   modalSub: { fontSize: 13, color: 'var(--color-text-secondary)' },
   closeBtn: {
     background: 'none', border: 'none', fontSize: 18, cursor: 'pointer',
-    color: 'var(--color-text-secondary)', padding: 4, flexShrink: 0,
+    color: 'var(--color-text-secondary)', padding: 4,
   },
   loadingText: { fontSize: 14, color: 'var(--color-text-secondary)', textAlign: 'center', padding: '24px 0' },
   emptyApps: { fontSize: 14, color: 'var(--color-text-secondary)', textAlign: 'center', padding: '24px 0' },
@@ -558,56 +461,4 @@ const s: Record<string, React.CSSProperties> = {
     padding: '8px 16px', background: '#dcfce7', border: '1px solid #86efac',
     borderRadius: 8, color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
   },
-
-  // ── QR Modal specific ─────────────────────────────────────────────────────
-  qrWrapper: {
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    minHeight: 280, background: '#f9fafb', borderRadius: 12,
-    border: '1px solid var(--color-border)', marginBottom: 16,
-  },
-  qrPlaceholder: {
-    display: 'flex', flexDirection: 'column', alignItems: 'center',
-    justifyContent: 'center', gap: 12, padding: 24,
-  },
-  qrSpinner: {
-    width: 32, height: 32, borderRadius: 16,
-    border: '3px solid rgba(106,121,255,0.2)',
-    borderTopColor: 'var(--color-primary)',
-    animation: 'spin 0.8s linear infinite',
-  },
-  qrImage: { width: 280, height: 280, borderRadius: 8 },
-  retryBtn: {
-    padding: '8px 16px', background: 'var(--color-primary-light)', border: '1px solid rgba(106,121,255,0.3)',
-    borderRadius: 8, color: 'var(--color-primary)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-  },
-  refreshRow: {
-    display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16,
-    fontSize: 12, color: 'var(--color-text-secondary)',
-  },
-  refreshDot: { width: 8, height: 8, borderRadius: 4, background: '#22c55e', flexShrink: 0 },
-  refreshText: { flex: 1 },
-  qrRefreshNowBtn: {
-    padding: '4px 10px', background: 'var(--color-secondary)', border: '1px solid var(--color-border)',
-    borderRadius: 6, color: 'var(--color-text-secondary)', fontWeight: 600, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
-  },
-  instructionBox: {
-    background: '#eff6ff', border: '1px solid rgba(59,130,246,0.2)',
-    borderRadius: 8, padding: '12px 14px', marginBottom: 20,
-  },
-  instructionText: { fontSize: 12, color: '#1d4ed8', lineHeight: 1.6 },
-  manualSection: {
-    borderTop: '1px solid var(--color-border)', paddingTop: 16,
-  },
-  manualLabel: { fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 10 },
-  manualBtn: {
-    width: '100%', padding: '10px 0', background: '#f0fdf4', border: '1px solid #86efac',
-    borderRadius: 8, color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-  },
-  confirmedBox: {
-    display: 'flex', flexDirection: 'column', alignItems: 'center',
-    padding: '32px 0', gap: 8,
-  },
-  confirmedIcon: { fontSize: 48, marginBottom: 8 },
-  confirmedTitle: { fontSize: 18, fontWeight: 800, color: 'var(--color-text-primary)' },
-  confirmedSub: { fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 20 },
 };

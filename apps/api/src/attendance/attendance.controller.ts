@@ -14,19 +14,22 @@ export class AttendanceController {
   // ── Employer endpoints ────────────────────────────────────────────────────
 
   /**
-   * GET /attendance/qr/:shiftId
-   * Returns a fresh QR token (valid 30s) + PNG data URL for display.
-   * Call every 25s on the employer dashboard to keep the QR fresh.
+   * GET /attendance/employer-qr
+   * Returns the employer's two permanent static QR codes (check-in + check-out).
+   * These are printed once and posted at the venue.  Re-request anytime to
+   * re-display on screen or regenerate a lost/damaged print.
+   *
+   * Response: { checkInQrDataUrl, checkOutQrDataUrl, employerName, checkInToken, checkOutToken }
    */
-  @Get('qr/:shiftId')
+  @Get('employer-qr')
   @Roles('EMPLOYER')
-  generateQr(@Request() req: any, @Param('shiftId') shiftId: string) {
-    return this.attendanceService.generateQr(req.user.userId, shiftId);
+  getEmployerStaticQr(@Request() req: any) {
+    return this.attendanceService.getEmployerStaticQr(req.user.userId);
   }
 
   /**
    * POST /attendance/:shiftId/manual-confirm
-   * Employer manually confirms shift completion (no QR available).
+   * Employer manually confirms shift completion when QR scanning isn't possible.
    * Logged as MANUAL_OVERRIDE in the audit trail.
    * Body: { note?: string }
    */
@@ -41,7 +44,7 @@ export class AttendanceController {
   }
 
   /**
-   * POST /attendance/:shiftId/dispute
+   * POST /attendance/:shiftId/dispute/employer
    * Employer raises a dispute on an attendance record.
    * Body: { note: string }
    */
@@ -59,8 +62,11 @@ export class AttendanceController {
 
   /**
    * POST /attendance/check-in
-   * Worker scans employer QR to check in.
+   * Worker scans the employer's printed CHECK-IN QR to register arrival.
    * Body: { token: string, lat: number, lng: number }
+   *
+   * token = the static employer check-in QR token (encodes employerId + action:"in")
+   * Server resolves the worker's confirmed shift at this employer for today.
    */
   @Post('check-in')
   @Roles('WORKER')
@@ -75,7 +81,7 @@ export class AttendanceController {
 
   /**
    * POST /attendance/check-out
-   * Worker scans employer QR to check out.
+   * Worker scans the employer's printed CHECK-OUT QR to register departure.
    * Body: { token: string, lat: number, lng: number }
    */
   @Post('check-out')
