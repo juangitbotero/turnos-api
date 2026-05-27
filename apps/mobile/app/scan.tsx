@@ -1,0 +1,239 @@
+/**
+ * /scan — QR code scanner for shift check-in and check-out.
+ *
+ * Route params:
+ *   action: 'check-in' | 'check-out'
+ *
+ * Flow:
+ *   1. Request camera + location permissions
+ *   2. Worker points camera at the rotating QR on employer's screen
+ *   3. CameraView decodes the QR → we call check-in or check-out API
+ *   4. Success alert → back to shift detail page
+ *
+ * Payment note: the QR token embeds the shiftId. Payment is ALWAYS based on
+ * scheduled shift hours (set at check-in time from shift offer), never from
+ * the delta between QR scan timestamps.
+ */
+import { useRef, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator,
+} from 'react-native';
+import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
+import * as Location from 'expo-location';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
+import { attendanceApi, ApiError } from '../lib/api';
+
+export default function ScanScreen() {
+  const router = useRouter();
+  const { action } = useLocalSearchParams<{ action: string }>();
+  const isCheckIn = action === 'check-in';
+
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+
+  // Guard against duplicate fires — CameraView calls onBarcodeScanned repeatedly
+  const processingRef = useRef(false);
+
+  const handleBarcode = useCallback(async ({ data }: BarcodeScanningResult) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+
+    try {
+      // Best-effort GPS — gracefully skips if permission denied
+      let lat = 0, lng = 0;
+      const locPermission = await Location.requestForegroundPermissionsAsync();
+      if (locPermission.status === 'granted') {
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+      }
+
+      if (isCheckIn) {
+        await attendanceApi.checkIn(data, lat, lng);
+        Alert.alert(
+          '✅ Check-in registado!',
+          'O seu turno começou. Boa sorte!',
+          [{ text: 'OK', onPress: () => router.back() }],
+        );
+      } else {
+        await attendanceApi.checkOut(data, lat, lng);
+        Alert.alert(
+          '✅ Turno concluído!',
+          'Check-out registado. O pagamento será processado no próximo dia útil.',
+          [{ text: 'OK', onPress: () => router.back() }],
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Erro ao processar QR code.';
+      Alert.alert('Erro', msg, [
+        {
+          text: 'Tentar novamente',
+          onPress: () => { processingRef.current = false; },
+        },
+        {
+          text: 'Voltar',
+          style: 'cancel',
+          onPress: () => router.back(),
+        },
+      ]);
+      // Don't reset processingRef here — user must explicitly tap "Tentar novamente"
+    }
+  }, [isCheckIn, router]);
+
+  // ── Permission: loading ──────────────────────────────────────────────────
+
+  if (!cameraPermission) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    );
+  }
+
+  // ── Permission: denied ───────────────────────────────────────────────────
+
+  if (!cameraPermission.granted) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.permIcon}>📷</Text>
+        <Text style={styles.permTitle}>Câmara necessária</Text>
+        <Text style={styles.permBody}>
+          Para ler o QR code do empregador, precisamos de acesso à câmara.
+        </Text>
+        <TouchableOpacity style={styles.permBtn} onPress={requestCameraPermission} activeOpacity={0.85}>
+          <Text style={styles.permBtnText}>Permitir câmara</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.cancelLink} onPress={() => router.back()} activeOpacity={0.7}>
+          <Text style={styles.cancelLinkText}>Cancelar</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // ── Scanner ──────────────────────────────────────────────────────────────
+
+  return (
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()} activeOpacity={0.7}>
+          <Text style={styles.closeIcon}>✕</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          {isCheckIn ? 'Check-in' : 'Check-out'}
+        </Text>
+        <View style={{ width: 36 }} />
+      </View>
+
+      {/* Camera fills the middle */}
+      <View style={styles.cameraContainer}>
+        <CameraView
+          style={StyleSheet.absoluteFill}
+          facing="back"
+          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+          onBarcodeScanned={handleBarcode}
+        />
+
+        {/* Dark overlay with transparent cut-out */}
+        <View style={styles.overlayTop} />
+        <View style={styles.overlayRow}>
+          <View style={styles.overlaySide} />
+          <View style={styles.scanFrame}>
+            {/* Corner marks */}
+            <View style={[styles.corner, styles.cornerTL]} />
+            <View style={[styles.corner, styles.cornerTR]} />
+            <View style={[styles.corner, styles.cornerBL]} />
+            <View style={[styles.corner, styles.cornerBR]} />
+          </View>
+          <View style={styles.overlaySide} />
+        </View>
+        <View style={styles.overlayBottom} />
+      </View>
+
+      {/* Instructions */}
+      <View style={styles.bottomArea}>
+        <Text style={styles.hint}>
+          {isCheckIn
+            ? 'Aponte para o QR code no ecrã do empregador para fazer check-in'
+            : 'Aponte para o QR code no ecrã do empregador para registar o fim do turno'}
+        </Text>
+        <Text style={styles.subHint}>
+          O QR atualiza a cada 30 segundos — peça ao empregador para manter o ecrã visível
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+
+const FRAME_SIZE = 240;
+const CORNER_SIZE = 24;
+const CORNER_THICKNESS = 3;
+
+const styles = StyleSheet.create({
+  centered: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#111827', padding: spacing.lg,
+  },
+  permIcon: { fontSize: 48, marginBottom: 16 },
+  permTitle: { fontSize: fontSize.h2, fontWeight: fontWeight.bold, color: '#fff', marginBottom: 8, textAlign: 'center' },
+  permBody: { fontSize: fontSize.body, color: 'rgba(255,255,255,0.7)', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  permBtn: {
+    backgroundColor: colors.primary, borderRadius: radius.full,
+    paddingHorizontal: 32, paddingVertical: 14, marginBottom: 12,
+  },
+  permBtnText: { color: '#fff', fontSize: fontSize.body, fontWeight: fontWeight.bold },
+  cancelLink: { padding: 8 },
+  cancelLinkText: { color: 'rgba(255,255,255,0.6)', fontSize: fontSize.body },
+
+  container: { flex: 1, backgroundColor: '#111827' },
+
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingTop: 56, paddingHorizontal: spacing.md, paddingBottom: 16,
+  },
+  closeBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  closeIcon: { fontSize: 16, color: '#fff' },
+  headerTitle: { fontSize: fontSize.h3, fontWeight: fontWeight.bold, color: '#fff' },
+
+  cameraContainer: { flex: 1 },
+
+  // Overlay: dark areas around the transparent frame
+  overlayTop:    { position: 'absolute', top: 0, left: 0, right: 0, height: '20%', backgroundColor: 'rgba(0,0,0,0.65)' },
+  overlayBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '30%', backgroundColor: 'rgba(0,0,0,0.65)' },
+  overlayRow:    { position: 'absolute', top: '20%', bottom: '30%', left: 0, right: 0, flexDirection: 'row' },
+  overlaySide:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)' },
+
+  // Transparent scan frame with corner indicators
+  scanFrame: {
+    width: FRAME_SIZE, height: FRAME_SIZE,
+    position: 'relative',
+  },
+  corner: {
+    position: 'absolute', width: CORNER_SIZE, height: CORNER_SIZE,
+    borderColor: '#fff', borderWidth: 0,
+  },
+  cornerTL: { top: 0,  left: 0,  borderTopWidth: CORNER_THICKNESS,  borderLeftWidth: CORNER_THICKNESS },
+  cornerTR: { top: 0,  right: 0, borderTopWidth: CORNER_THICKNESS,  borderRightWidth: CORNER_THICKNESS },
+  cornerBL: { bottom: 0, left: 0,  borderBottomWidth: CORNER_THICKNESS, borderLeftWidth: CORNER_THICKNESS },
+  cornerBR: { bottom: 0, right: 0, borderBottomWidth: CORNER_THICKNESS, borderRightWidth: CORNER_THICKNESS },
+
+  bottomArea: {
+    padding: spacing.lg, alignItems: 'center',
+  },
+  hint: {
+    fontSize: 15, color: '#fff', fontWeight: fontWeight.semibold,
+    textAlign: 'center', marginBottom: 8,
+  },
+  subHint: {
+    fontSize: 12, color: 'rgba(255,255,255,0.55)',
+    textAlign: 'center', lineHeight: 18,
+  },
+});

@@ -126,4 +126,29 @@ export class ShiftsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         .emit('shift:cancelled', payload);
     }
   }
+
+  /**
+   * Attendance events — sent to employer room OR worker room depending on event.
+   * Events: 'checked_in' | 'checked_out' | 'shift_completed'
+   */
+  notifyAttendance(
+    roomId: string,  // employer.id → employer:X room; worker.id → worker:X room
+    payload: {
+      event:          string;
+      shiftId:        string;
+      shiftTitle?:    string;
+      workerName?:    string;
+      checkInAt?:     string;
+      checkOutAt?:    string;
+      scheduledHours?: number;
+    },
+  ) {
+    // Determine correct room prefix from context — service passes raw entity ID;
+    // gateway decides prefix based on payload event type
+    const room = payload.event === 'shift_completed'
+      ? `worker:${roomId}`
+      : `employer:${roomId}`;
+
+    this.server.to(room).emit('attendance:update', payload);
+  }
 }

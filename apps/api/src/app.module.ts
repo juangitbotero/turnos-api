@@ -19,6 +19,7 @@ import { StorageModule } from './storage/storage.module';
 import { GatewayModule } from './gateway/gateway.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ComplianceModule } from './compliance/compliance.module';
+import { AttendanceModule } from './attendance/attendance.module';
 import { User } from './users/entities/user.entity';
 import { Worker } from './users/entities/worker.entity';
 import { Employer } from './users/entities/employer.entity';
@@ -26,6 +27,7 @@ import { Shift } from './shifts/entities/shift.entity';
 import { ShiftApplication } from './shifts/entities/shift-application.entity';
 import { McdContract } from './compliance/entities/mcd-contract.entity';
 import { ComplianceAuditLog } from './compliance/entities/compliance-audit-log.entity';
+import { ShiftAttendance } from './attendance/entities/shift-attendance.entity';
 
 @Module({
   imports: [
@@ -56,7 +58,7 @@ import { ComplianceAuditLog } from './compliance/entities/compliance-audit-log.e
         username: configService.get<string>('DB_USER', 'turnos'),
         password: configService.get<string>('DB_PASSWORD', 'turnos_dev_password'),
         database: configService.get<string>('DB_NAME', 'turnos_db'),
-        entities: [User, Worker, Employer, Shift, ShiftApplication, McdContract, ComplianceAuditLog],
+        entities: [User, Worker, Employer, Shift, ShiftApplication, McdContract, ComplianceAuditLog, ShiftAttendance],
         synchronize: true,
       }),
     }),
@@ -76,6 +78,7 @@ import { ComplianceAuditLog } from './compliance/entities/compliance-audit-log.e
     GatewayModule,
     NotificationsModule,
     ComplianceModule,
+    AttendanceModule,
     ShiftsModule,
     AdminModule,
   ],

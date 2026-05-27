@@ -1,11 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert,
   ScrollView, ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, spacing, radius, fontSize, fontWeight, calculateTSU } from '@turnos/shared';
-import { shiftApi, ShiftSummary, ApiError } from '../../lib/api';
+import {
+  shiftApi, ShiftSummary, MyApplication, ApiError,
+  attendanceApi, AttendanceRecord,
+} from '../../lib/api';
+
+// ── helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
@@ -25,25 +30,46 @@ function hoursWorked(start: string, end: string): number {
   return mins > 0 ? mins / 60 : 0;
 }
 
+// ── component ─────────────────────────────────────────────────────────────────
+
 export default function ShiftDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const [shift, setShift] = useState<ShiftSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isApplying, setIsApplying] = useState(false);
-  const [applied, setApplied] = useState(false);
 
-  useEffect(() => {
+  const [shift, setShift]           = useState<ShiftSummary | null>(null);
+  const [myApp, setMyApp]           = useState<MyApplication | null>(null);
+  const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
+  const [isLoading, setIsLoading]   = useState(true);
+  const [isApplying, setIsApplying] = useState(false);
+  const [applied, setApplied]       = useState(false);
+
+  const load = useCallback(async () => {
     if (!id) return;
-    shiftApi.getById(id)
-      .then(setShift)
-      .catch(() => {
-        Alert.alert('Erro', 'Não foi possível carregar o turno.', [
-          { text: 'Voltar', onPress: () => router.back() },
-        ]);
-      })
-      .finally(() => setIsLoading(false));
-  }, [id]);
+    setIsLoading(true);
+    try {
+      // Fetch shift data + worker's application status in parallel.
+      // Attendance is fetched alongside — gracefully ignored if 401/404.
+      const [shiftData, myApps, att] = await Promise.all([
+        shiftApi.getById(id),
+        shiftApi.getMyApplications().catch(() => [] as MyApplication[]),
+        attendanceApi.getAttendance(id).catch(() => null),
+      ]);
+
+      setShift(shiftData);
+      setMyApp(myApps.find(a => a.shift.id === id) ?? null);
+      setAttendance(att);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível carregar o turno.', [
+        { text: 'Voltar', onPress: () => router.back() },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id, router]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // ── apply ─────────────────────────────────────────────────────────────────
 
   const handleApply = async () => {
     if (!shift) return;
@@ -64,6 +90,34 @@ export default function ShiftDetailScreen() {
     }
   };
 
+  // ── derived state ─────────────────────────────────────────────────────────
+
+  const isApproved = myApp?.status === 'APPROVED';
+  const hasPending = myApp?.status === 'PENDING';
+  const hasRejected = myApp?.status === 'REJECTED';
+
+  const showCheckIn =
+    isApproved &&
+    shift?.status === 'FILLED' &&
+    !attendance?.checkInAt;
+
+  const showCheckOut =
+    isApproved &&
+    shift?.status === 'ACTIVE' &&
+    attendance?.status === 'CHECKED_IN';
+
+  const isShiftDone =
+    attendance?.status === 'COMPLETED' ||
+    attendance?.status === 'MANUAL' ||
+    shift?.status === 'COMPLETED';
+
+  const showApplyButton =
+    !applied &&
+    !myApp &&
+    shift?.status === 'OPEN';
+
+  // ── render ────────────────────────────────────────────────────────────────
+
   if (isLoading) {
     return (
       <View style={styles.loadingScreen}>
@@ -74,8 +128,8 @@ export default function ShiftDetailScreen() {
 
   if (!shift) return null;
 
-  const tsu = calculateTSU(Number(shift.grossHourlyRate));
-  const hours = hoursWorked(shift.startTime, shift.endTime);
+  const tsu             = calculateTSU(Number(shift.grossHourlyRate));
+  const hours           = hoursWorked(shift.startTime, shift.endTime);
   const estimatedPayout = tsu.workerNetAmount * hours;
 
   return (
@@ -105,6 +159,25 @@ export default function ShiftDetailScreen() {
               <Text style={styles.rateUnit}>/hr</Text>
             </View>
           </View>
+
+          {/* Attendance status banner — shown when worker is assigned */}
+          {isApproved && (
+            <View style={[
+              styles.statusBanner,
+              isShiftDone          ? styles.bannerDone
+              : showCheckOut       ? styles.bannerActive
+              : showCheckIn        ? styles.bannerFilled
+                                   : styles.bannerFilled,
+            ]}>
+              <Text style={styles.statusBannerText}>
+                {isShiftDone
+                  ? '✅ Turno concluído — pagamento a processar'
+                  : showCheckOut
+                    ? '🟢 Em curso — faça check-out ao terminar'
+                    : '📋 Confirmado — faça check-in ao chegar'}
+              </Text>
+            </View>
+          )}
 
           {/* Pay breakdown */}
           <View style={styles.payBox}>
@@ -161,28 +234,114 @@ export default function ShiftDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* Sticky bottom bar */}
+      {/* ── Sticky bottom bar ─────────────────────────────────────────────── */}
       <View style={styles.bottomBar}>
-        {hours > 0 && (
-          <View style={styles.payoutBox}>
-            <Text style={styles.payoutLabel}>Estimativa total</Text>
-            <Text style={styles.payoutValue}>€{estimatedPayout.toFixed(2)}</Text>
+
+        {/* ① Shift done */}
+        {isShiftDone && (
+          <View style={styles.doneBox}>
+            <Text style={styles.doneIcon}>✅</Text>
+            <Text style={styles.doneText}>Turno concluído{'\n'}
+              <Text style={styles.doneSubText}>
+                {attendance?.scheduledHours
+                  ? `${attendance.scheduledHours}h pagas · recebe amanhã`
+                  : 'Pagamento a processar'}
+              </Text>
+            </Text>
           </View>
         )}
-        <TouchableOpacity
-          style={[styles.applyBtn, (isApplying || applied) && styles.applyBtnDisabled]}
-          onPress={handleApply}
-          disabled={isApplying || applied}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.applyBtnText}>
-            {applied ? '✓ Candidatura enviada' : isApplying ? 'A candidatar...' : 'Candidatar-me'}
-          </Text>
-        </TouchableOpacity>
+
+        {/* ② Check-in button */}
+        {!isShiftDone && showCheckIn && (
+          <>
+            {hours > 0 && (
+              <View style={styles.payoutBox}>
+                <Text style={styles.payoutLabel}>Total estimado</Text>
+                <Text style={styles.payoutValue}>€{estimatedPayout.toFixed(2)}</Text>
+              </View>
+            )}
+            <TouchableOpacity
+              style={[styles.checkInBtn]}
+              onPress={() => router.push(`/scan?action=check-in`)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.actionBtnText}>📷 Fazer Check-in</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* ③ Check-out button */}
+        {!isShiftDone && showCheckOut && (
+          <>
+            {attendance?.checkInAt && (
+              <View style={styles.payoutBox}>
+                <Text style={styles.payoutLabel}>Check-in às</Text>
+                <Text style={styles.payoutValue}>
+                  {new Date(attendance.checkInAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+              </View>
+            )}
+            <TouchableOpacity
+              style={[styles.checkOutBtn]}
+              onPress={() => router.push(`/scan?action=check-out`)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.actionBtnText}>📷 Fazer Check-out</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* ④ Apply button (OPEN shift, no application yet) */}
+        {!isShiftDone && !showCheckIn && !showCheckOut && showApplyButton && (
+          <>
+            {hours > 0 && (
+              <View style={styles.payoutBox}>
+                <Text style={styles.payoutLabel}>Estimativa total</Text>
+                <Text style={styles.payoutValue}>€{estimatedPayout.toFixed(2)}</Text>
+              </View>
+            )}
+            <TouchableOpacity
+              style={[styles.applyBtn, isApplying && styles.applyBtnDisabled]}
+              onPress={handleApply}
+              disabled={isApplying}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.applyBtnText}>
+                {isApplying ? 'A candidatar...' : 'Candidatar-me'}
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* ⑤ Application already sent (just applied) */}
+        {!isShiftDone && !showCheckIn && !showCheckOut && (applied || hasPending) && (
+          <View style={styles.pendingBox}>
+            <Text style={styles.pendingIcon}>⏳</Text>
+            <Text style={styles.pendingText}>Candidatura enviada — a aguardar confirmação</Text>
+          </View>
+        )}
+
+        {/* ⑥ Rejected */}
+        {!isShiftDone && !showCheckIn && !showCheckOut && hasRejected && (
+          <View style={styles.rejectedBox}>
+            <Text style={styles.pendingIcon}>✕</Text>
+            <Text style={styles.pendingText}>Candidatura não selecionada</Text>
+          </View>
+        )}
+
+        {/* ⑦ Cancelled shift */}
+        {shift.status === 'CANCELLED' && (
+          <View style={styles.pendingBox}>
+            <Text style={styles.pendingIcon}>🚫</Text>
+            <Text style={styles.pendingText}>Este turno foi cancelado</Text>
+          </View>
+        )}
       </View>
     </View>
   );
 }
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function InfoRow({ icon, label, value, last }: { icon: string; label: string; value: string; last?: boolean }) {
   return (
@@ -195,6 +354,8 @@ function InfoRow({ icon, label, value, last }: { icon: string; label: string; va
     </View>
   );
 }
+
+// ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.secondary },
@@ -223,6 +384,16 @@ const styles = StyleSheet.create({
   },
   rateValue: { fontSize: fontSize.h2, fontWeight: fontWeight.extrabold, color: '#fff' },
   rateUnit: { fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: fontWeight.semibold },
+
+  // Status banner
+  statusBanner: {
+    borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10,
+    marginBottom: spacing.md, borderWidth: 1,
+  },
+  bannerFilled:  { backgroundColor: '#ede9fe', borderColor: 'rgba(124,58,237,0.25)' },
+  bannerActive:  { backgroundColor: '#dcfce7', borderColor: 'rgba(22,163,74,0.25)' },
+  bannerDone:    { backgroundColor: '#cffafe', borderColor: 'rgba(8,145,178,0.25)' },
+  statusBannerText: { fontSize: 13, fontWeight: fontWeight.semibold, color: colors.textPrimary },
 
   payBox: {
     backgroundColor: '#f0f4ff', borderRadius: radius.md, padding: spacing.md,
@@ -260,6 +431,7 @@ const styles = StyleSheet.create({
   descSection: { marginBottom: spacing.md },
   description: { fontSize: fontSize.body, color: colors.textPrimary, lineHeight: 24 },
 
+  // Bottom bar
   bottomBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: '#fff', paddingHorizontal: spacing.md,
@@ -269,6 +441,29 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.06, shadowRadius: 12, elevation: 12,
   },
+
+  // Done state
+  doneBox: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  doneIcon: { fontSize: 24 },
+  doneText: { fontSize: 14, fontWeight: fontWeight.bold, color: colors.textPrimary },
+  doneSubText: { fontSize: 12, color: colors.textSecondary, fontWeight: fontWeight.regular },
+
+  // Check-in / check-out buttons
+  checkInBtn: {
+    flex: 2, backgroundColor: '#7c3aed', borderRadius: radius.full,
+    height: 52, alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#7c3aed', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
+  },
+  checkOutBtn: {
+    flex: 2, backgroundColor: '#16a34a', borderRadius: radius.full,
+    height: 52, alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#16a34a', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
+  },
+  actionBtnText: { color: '#fff', fontSize: fontSize.body, fontWeight: fontWeight.bold },
+
+  // Apply button
   payoutBox: { flex: 1 },
   payoutLabel: { fontSize: fontSize.caption, color: colors.textSecondary },
   payoutValue: { fontSize: fontSize.h2, fontWeight: fontWeight.extrabold, color: colors.textPrimary },
@@ -280,4 +475,20 @@ const styles = StyleSheet.create({
   },
   applyBtnDisabled: { backgroundColor: '#9ca3af', shadowOpacity: 0, elevation: 0 },
   applyBtnText: { color: '#fff', fontSize: fontSize.body, fontWeight: fontWeight.bold },
+
+  // Pending / rejected state
+  pendingBox: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#fffbeb', borderRadius: radius.md,
+    paddingHorizontal: spacing.md, paddingVertical: 12,
+    borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)',
+  },
+  rejectedBox: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#fee2e2', borderRadius: radius.md,
+    paddingHorizontal: spacing.md, paddingVertical: 12,
+    borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)',
+  },
+  pendingIcon: { fontSize: 18 },
+  pendingText: { flex: 1, fontSize: 13, fontWeight: fontWeight.semibold, color: colors.textPrimary },
 });

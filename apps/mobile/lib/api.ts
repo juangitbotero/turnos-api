@@ -138,6 +138,39 @@ export interface MyApplication {
   shift: ShiftSummary & { employer: { id: string; companyName: string } | null };
 }
 
+// ─── Attendance ───────────────────────────────────────────────────────────────
+
+export interface AttendanceRecord {
+  id: string;
+  status: 'PENDING' | 'CHECKED_IN' | 'COMPLETED' | 'DISPUTED' | 'MANUAL' | 'NO_SHOW';
+  checkInAt: string | null;
+  checkOutAt: string | null;
+  scheduledHours: number | null;
+  isManualOverride: boolean;
+  disputeNote: string | null;
+  disputeRaisedBy: 'WORKER' | 'EMPLOYER' | null;
+}
+
+export const attendanceApi = {
+  /** Fetch the attendance record for a shift (null if not yet created). */
+  getAttendance: (shiftId: string) =>
+    api.get<AttendanceRecord | null>(`/attendance/${shiftId}`),
+
+  /** Worker scans employer QR to check in. */
+  checkIn: (token: string, lat: number, lng: number) =>
+    api.post<AttendanceRecord>('/attendance/check-in', { token, lat, lng }),
+
+  /** Worker scans employer QR to check out. */
+  checkOut: (token: string, lat: number, lng: number) =>
+    api.post<AttendanceRecord>('/attendance/check-out', { token, lat, lng }),
+
+  /** Worker raises a dispute on a completed shift. */
+  raiseDispute: (shiftId: string, note: string) =>
+    api.post<AttendanceRecord>(`/attendance/${shiftId}/dispute/worker`, { note }),
+};
+
+// ─── Shift API ────────────────────────────────────────────────────────────────
+
 export const shiftApi = {
   search: (params?: { lat?: number; lng?: number; category?: string }) => {
     const qs = new URLSearchParams();

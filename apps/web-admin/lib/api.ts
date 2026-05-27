@@ -128,4 +128,19 @@ export const adminApi = {
 
   approveApplication: (shiftId: string, appId: string) =>
     request<Shift>(`/shifts/${shiftId}/applications/${appId}/approve`, { method: 'POST' }),
+
+  // ── Attendance ─────────────────────────────────────────────────────────────
+
+  /** Generate a fresh QR token + PNG data-URL (30s TTL). Call every 25s. */
+  getShiftQr: (shiftId: string) =>
+    request<{ token: string; qrDataUrl: string; expiresAt: number }>(
+      `/attendance/qr/${shiftId}`, { method: 'GET' },
+    ),
+
+  /** Employer manually confirms shift completion when QR isn't available. */
+  manualConfirmShift: (shiftId: string, note?: string) =>
+    request<{ id: string; status: string }>(
+      `/attendance/${shiftId}/manual-confirm`,
+      { method: 'POST', body: JSON.stringify({ note: note ?? 'Confirmação manual pelo empregador' }) },
+    ),
 };
