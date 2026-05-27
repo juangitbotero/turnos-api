@@ -81,6 +81,8 @@ export class ShiftsService {
       status: ShiftStatus.OPEN,
       employer: { id: employer.id } as any,
       location: this.makeLocation(lat, lng),
+      lat,
+      lng,
     });
     const saved = await this.shiftRepo.save(shift);
 
@@ -124,6 +126,8 @@ export class ShiftsService {
     Object.assign(shift, rest);
     if (lat !== undefined && lng !== undefined) {
       shift.location = this.makeLocation(lat, lng);
+      shift.lat = lat;
+      shift.lng = lng;
     }
     return this.shiftRepo.save(shift);
   }

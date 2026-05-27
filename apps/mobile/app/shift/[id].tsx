@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert,
-  ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator, Linking, Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, spacing, radius, fontSize, fontWeight, calculateTSU } from '@turnos/shared';
@@ -78,16 +78,44 @@ export default function ShiftDetailScreen() {
       await shiftApi.apply(shift.id);
       setApplied(true);
       Alert.alert(
-        'Candidatura enviada!',
+        'Candidatura enviada! 🎉',
         'A sua candidatura foi enviada. Será notificado quando a empresa responder.',
         [{ text: 'OK', onPress: () => router.back() }],
       );
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Erro ao candidatar-se.';
-      Alert.alert('Erro', msg);
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        // Session expired (refresh token gone — e.g. server restarted). Redirect to login.
+        Alert.alert(
+          'Sessão expirada',
+          'A sua sessão expirou. Por favor inicie sessão novamente.',
+          [{ text: 'Iniciar sessão', onPress: () => router.replace('/login') }],
+        );
+      } else {
+        const msg = err instanceof ApiError ? err.message : 'Erro ao candidatar-se.';
+        Alert.alert('Erro', msg);
+      }
     } finally {
       setIsApplying(false);
     }
+  };
+
+  // ── open address in native maps app ───────────────────────────────────────
+
+  const openInMaps = (address: string) => {
+    const query = encodeURIComponent(address);
+    // On iOS open Apple Maps; on Android/other use Google Maps URL (works on both)
+    const url = Platform.OS === 'ios'
+      ? `maps:0,0?q=${query}`
+      : `geo:0,0?q=${query}`;
+
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        // Universal fallback — opens in browser, then Maps picks it up
+        Linking.openURL(`https://maps.google.com/maps?q=${query}`);
+      }
+    });
   };
 
   // ── derived state ─────────────────────────────────────────────────────────
@@ -205,7 +233,13 @@ export default function ShiftDetailScreen() {
             <InfoRow icon="📅" label="Data" value={formatDate(shift.date)} />
             <InfoRow icon="⏰" label="Horário" value={`${shift.startTime.slice(0, 5)} – ${shift.endTime.slice(0, 5)}`} />
             {hours > 0 && <InfoRow icon="🕐" label="Duração" value={`${hours.toFixed(1)}h`} />}
-            <InfoRow icon="📍" label="Morada" value={shift.address} last />
+            <InfoRow
+              icon="📍"
+              label="Morada"
+              value={shift.address}
+              last
+              onPress={() => openInMaps(shift.address)}
+            />
           </View>
 
           {/* Skills */}
@@ -343,16 +377,30 @@ export default function ShiftDetailScreen() {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function InfoRow({ icon, label, value, last }: { icon: string; label: string; value: string; last?: boolean }) {
-  return (
-    <View style={[styles.infoRow, last && { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]}>
+function InfoRow({
+  icon, label, value, last, onPress,
+}: {
+  icon: string; label: string; value: string; last?: boolean; onPress?: () => void;
+}) {
+  const rowStyle = [styles.infoRow, last && { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }];
+  const inner = (
+    <>
       <Text style={styles.infoIcon}>{icon}</Text>
       <View style={{ flex: 1 }}>
         <Text style={styles.infoLabel}>{label}</Text>
-        <Text style={styles.infoValue}>{value}</Text>
+        <Text style={[styles.infoValue, onPress && styles.infoValueLink]}>{value}</Text>
+        {onPress && <Text style={styles.infoTapHint}>Toque para abrir no mapa →</Text>}
       </View>
-    </View>
+    </>
   );
+  if (onPress) {
+    return (
+      <TouchableOpacity style={rowStyle} onPress={onPress} activeOpacity={0.7}>
+        {inner}
+      </TouchableOpacity>
+    );
+  }
+  return <View style={rowStyle}>{inner}</View>;
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -418,6 +466,8 @@ const styles = StyleSheet.create({
   infoIcon: { fontSize: 18, marginTop: 2 },
   infoLabel: { fontSize: 11, color: colors.textSecondary, fontWeight: fontWeight.semibold, marginBottom: 2 },
   infoValue: { fontSize: 14, color: colors.textPrimary, fontWeight: fontWeight.semibold },
+  infoValueLink: { color: colors.primary, textDecorationLine: 'underline' },
+  infoTapHint: { fontSize: 10, color: colors.textSecondary, marginTop: 2 },
 
   skillsSection: { marginBottom: spacing.md },
   sectionTitle: { fontSize: fontSize.h3, fontWeight: fontWeight.bold, color: colors.textPrimary, marginBottom: spacing.sm },

@@ -129,6 +129,10 @@ export interface ShiftSummary {
   skillsRequired: string[] | null;
   status: string;
   employer: { id: string; companyName: string } | null;
+  /** Decimal latitude stored alongside the PostGIS geometry — reliable for client display */
+  lat?: number | null;
+  /** Decimal longitude stored alongside the PostGIS geometry — reliable for client display */
+  lng?: number | null;
 }
 
 export interface MyApplication {

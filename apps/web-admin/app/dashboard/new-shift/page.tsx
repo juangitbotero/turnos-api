@@ -16,29 +16,194 @@ async function geocodeAddress(address: string): Promise<GeoResult> {
   return { lat: parseFloat(first.lat), lng: parseFloat(first.lon), display: first.display_name };
 }
 
+// ── Predefined skills — category-specific + general ──────────────────────────
+
+const GENERAL_SKILLS = ['Pontualidade', 'Trabalho em equipa', 'Flexibilidade', 'Inglês', 'Espanhol', 'Francês'];
+
+const CATEGORY_SKILLS: Partial<Record<ShiftCategory, string[]>> = {
+  Hospitality:   ['Serviço de mesa', 'Barista', 'Rececionista', 'Serviço de quarto', 'HACCP'],
+  Restauration:  ['Bartender', 'Barman', 'Empregado de mesa', 'Cozinha quente', 'Pastelaria', 'HACCP'],
+  Events:        ['Montagem/desmontagem', 'Gestão de bilheteira', 'Logística', 'Segurança', 'Animação'],
+  Sales:         ['Atendimento ao cliente', 'Caixa', 'Merchandising', 'Upselling'],
+  ClientSupport: ['Comunicação', 'Gestão de reclamações', 'Call center'],
+  Logistique:    ['Preparação de encomendas', 'Gestão de stock', 'Carta de condução', 'Armazém'],
+  AdminHelp:     ['Community manager', 'Assistente administrativo', 'Recrutamento', 'Office management'],
+};
+
+function getSkillSuggestions(category: ShiftCategory): string[] {
+  const catSkills = CATEGORY_SKILLS[category] ?? [];
+  // Deduplicate, category-specific first
+  return [...new Set([...catSkills, ...GENERAL_SKILLS])];
+}
+
+// ── Skills selector component ─────────────────────────────────────────────────
+
+function SkillsSelector({
+  category,
+  selected,
+  onChange,
+}: {
+  category: ShiftCategory;
+  selected: string[];
+  onChange: (skills: string[]) => void;
+}) {
+  const [customInput, setCustomInput] = useState('');
+  const suggestions = getSkillSuggestions(category);
+
+  const toggle = (skill: string) => {
+    if (selected.includes(skill)) {
+      onChange(selected.filter(s => s !== skill));
+    } else {
+      onChange([...selected, skill]);
+    }
+  };
+
+  const addCustom = () => {
+    const trimmed = customInput.trim();
+    if (!trimmed || selected.includes(trimmed)) { setCustomInput(''); return; }
+    onChange([...selected, trimmed]);
+    setCustomInput('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); addCustom(); }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+      {/* Predefined suggestions */}
+      <div style={sk.suggestions}>
+        {suggestions.map(skill => {
+          const isSelected = selected.includes(skill);
+          return (
+            <button
+              key={skill}
+              type="button"
+              style={{
+                ...sk.tag,
+                ...(isSelected ? sk.tagSelected : sk.tagUnselected),
+              }}
+              onClick={() => toggle(skill)}
+            >
+              {isSelected ? '✓ ' : '+ '}{skill}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Custom skill input */}
+      <div style={sk.customRow}>
+        <input
+          style={{ ...sk.customInput }}
+          type="text"
+          placeholder="Adicionar competência personalizada..."
+          value={customInput}
+          onChange={e => setCustomInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+        />
+        <button
+          type="button"
+          style={sk.addBtn}
+          onClick={addCustom}
+          disabled={!customInput.trim()}
+        >
+          + Adicionar
+        </button>
+      </div>
+
+      {/* Selected chips */}
+      {selected.length > 0 && (
+        <div style={sk.selectedWrap}>
+          <span style={sk.selectedLabel}>Selecionadas:</span>
+          <div style={sk.selectedChips}>
+            {selected.map(skill => (
+              <span key={skill} style={sk.chip}>
+                {skill}
+                <button
+                  type="button"
+                  style={sk.chipRemove}
+                  onClick={() => onChange(selected.filter(s => s !== skill))}
+                  aria-label={`Remover ${skill}`}
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const sk: Record<string, React.CSSProperties> = {
+  suggestions: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  tag: {
+    padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+    cursor: 'pointer', fontFamily: 'inherit', border: '1.5px solid', transition: 'all 0.15s',
+  },
+  tagUnselected: {
+    background: 'var(--color-secondary)', borderColor: 'var(--color-border)',
+    color: 'var(--color-text-secondary)',
+  },
+  tagSelected: {
+    background: 'var(--color-primary-light)', borderColor: 'rgba(106,121,255,0.5)',
+    color: 'var(--color-primary)',
+  },
+  customRow: { display: 'flex', gap: 8 },
+  customInput: {
+    flex: 1, padding: '8px 12px', fontSize: 13, borderRadius: 8,
+    border: '1.5px solid var(--color-border)', fontFamily: 'inherit',
+    outline: 'none', color: 'var(--color-text-primary)',
+  },
+  addBtn: {
+    padding: '8px 14px', background: 'var(--color-primary-light)',
+    border: '1px solid rgba(106,121,255,0.3)', borderRadius: 8,
+    color: 'var(--color-primary)', fontWeight: 600, fontSize: 12,
+    cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+  },
+  selectedWrap: { display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' },
+  selectedLabel: { fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', paddingTop: 4, flexShrink: 0 },
+  selectedChips: { display: 'flex', flexWrap: 'wrap', gap: 6 },
+  chip: {
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+    background: 'var(--color-primary-light)', borderRadius: 20,
+    padding: '3px 10px 3px 12px', fontSize: 12, fontWeight: 600,
+    color: 'var(--color-primary)', border: '1px solid rgba(106,121,255,0.3)',
+  },
+  chipRemove: {
+    background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+    color: 'var(--color-primary)', fontSize: 10, fontWeight: 700, lineHeight: 1,
+  },
+};
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 export default function NewShiftPage() {
   const router = useRouter();
 
-  const [category, setCategory] = useState<ShiftCategory>('Hospitality');
+  const [category, setCategory]   = useState<ShiftCategory>('Hospitality');
   const [subcategory, setSubcategory] = useState<string>(SHIFT_CATEGORIES['Hospitality'][0] ?? '');
-  const [title, setTitle] = useState('');
+  const [title, setTitle]         = useState('');
   const [description, setDescription] = useState('');
-  const [date, setDate] = useState('');
+  const [date, setDate]           = useState('');
   const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+  const [endTime, setEndTime]     = useState('');
   const [hourlyRate, setHourlyRate] = useState('8.00');
-  const [address, setAddress] = useState('');
-  const [skillsInput, setSkillsInput] = useState('');
-  const [geo, setGeo] = useState<GeoResult>(null);
+  const [address, setAddress]     = useState('');
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [geo, setGeo]             = useState<GeoResult>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
-  const [geoError, setGeoError] = useState('');
+  const [geoError, setGeoError]   = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError]         = useState('');
 
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const cat = e.target.value as ShiftCategory;
     setCategory(cat);
     setSubcategory(SHIFT_CATEGORIES[cat][0]);
+    // Keep selected skills — let employer manually remove irrelevant ones
   };
 
   const handleGeocode = async () => {
@@ -71,7 +236,6 @@ export default function NewShiftPage() {
     setError('');
     setIsSubmitting(true);
     try {
-      const skills = skillsInput.split(',').map(s => s.trim()).filter(Boolean);
       await adminApi.createShift({
         title: title || subcategory,
         description,
@@ -85,7 +249,7 @@ export default function NewShiftPage() {
         address,
         lat: geo.lat,
         lng: geo.lng,
-        skillsRequired: skills.length > 0 ? skills : undefined,
+        skillsRequired: selectedSkills.length > 0 ? selectedSkills : undefined,
       });
       router.push('/dashboard/shifts');
     } catch (err) {
@@ -149,17 +313,24 @@ export default function NewShiftPage() {
                 onChange={e => setDescription(e.target.value)}
               />
             </div>
-            <div style={{ ...s.field, gridColumn: '1 / -1' }}>
-              <label style={s.label}>Competências necessárias <span style={s.optional}>(separadas por vírgula)</span></label>
-              <input
-                style={s.input}
-                type="text"
-                placeholder="Ex: serviço de mesa, inglês, experiência em eventos..."
-                value={skillsInput}
-                onChange={e => setSkillsInput(e.target.value)}
-              />
-            </div>
           </div>
+        </div>
+
+        {/* ── Skills ── */}
+        <div style={s.section}>
+          <h2 style={s.sectionTitle}>
+            Competências necessárias
+            <span style={s.sectionBadge}>opcional</span>
+          </h2>
+          <p style={s.sectionHint}>
+            Selecione as competências mais relevantes para este turno.
+            Pode também adicionar competências personalizadas.
+          </p>
+          <SkillsSelector
+            category={category}
+            selected={selectedSkills}
+            onChange={setSelectedSkills}
+          />
         </div>
 
         {/* ── Date & Time ── */}
@@ -291,7 +462,16 @@ const s: Record<string, React.CSSProperties> = {
     background: '#fff', borderRadius: 12, border: '1px solid var(--color-border)',
     padding: 24, display: 'flex', flexDirection: 'column', gap: 16,
   },
-  sectionTitle: { fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 4 },
+  sectionTitle: {
+    fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 4,
+    display: 'flex', alignItems: 'center', gap: 10,
+  },
+  sectionBadge: {
+    fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)',
+    background: 'var(--color-secondary)', border: '1px solid var(--color-border)',
+    borderRadius: 20, padding: '2px 8px',
+  },
+  sectionHint: { fontSize: 12, color: 'var(--color-text-secondary)', marginTop: -8 },
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
   grid3: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 },
   field: { display: 'flex', flexDirection: 'column', gap: 6 },

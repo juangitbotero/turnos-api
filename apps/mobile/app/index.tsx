@@ -21,6 +21,9 @@ function formatDate(dateStr: string) {
 
 function toFeedItem(s: ShiftSummary) {
   const tsu = calculateTSU(Number(s.grossHourlyRate));
+  // lat/lng are decimal columns from PostgreSQL — node-pg returns them as strings
+  const lat = Number(s.lat) || 38.722;  // fallback: Lisboa centre
+  const lng = Number(s.lng) || -9.139;
   return {
     id: s.id,
     title: s.title || s.subcategory,
@@ -32,7 +35,7 @@ function toFeedItem(s: ShiftSummary) {
     startTime: s.startTime.slice(0, 5),
     endTime: s.endTime.slice(0, 5),
     date: formatDate(s.date),
-    coordinate: { latitude: 38.722, longitude: -9.139 }, // default Lisboa until PostGIS coords are exposed
+    coordinate: { latitude: lat, longitude: lng },
     urgent: false,
   };
 }
@@ -118,32 +121,35 @@ export default function FeedScreen() {
 
       {/* ── Category chips ── */}
       <View style={s.filterBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterScroll}>
-          {categories.map(cat => (
-            <TouchableOpacity
-              key={cat}
-              style={[s.chip, activeCategory === cat && s.chipActive]}
-              onPress={() => setActiveCategory(cat)}
-              activeOpacity={0.7}
-            >
-              <Text style={[s.chipText, activeCategory === cat && s.chipTextActive]}>{cat}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* flex:1 wrapper prevents category chips from overflowing onto the toggle */}
+        <View style={{ flex: 1, overflow: 'hidden' }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterScroll}>
+            {categories.map(cat => (
+              <TouchableOpacity
+                key={cat}
+                style={[s.chip, activeCategory === cat && s.chipActive]}
+                onPress={() => setActiveCategory(cat)}
+                activeOpacity={0.7}
+              >
+                <Text style={[s.chipText, activeCategory === cat && s.chipTextActive]}>{cat}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
-        {/* View toggle */}
+        {/* View toggle — monochromatic text icons (no coloured emoji) */}
         <View style={s.toggle}>
           <Pressable
             style={[s.toggleBtn, viewMode === 'list' && s.toggleBtnActive]}
             onPress={() => setViewMode('list')}
           >
-            <Text style={[s.toggleIcon, viewMode === 'list' && s.toggleIconActive]}>☰</Text>
+            <Text style={[s.toggleIcon, viewMode === 'list' && s.toggleIconActive]}>≡</Text>
           </Pressable>
           <Pressable
             style={[s.toggleBtn, viewMode === 'map' && s.toggleBtnActive]}
             onPress={() => setViewMode('map')}
           >
-            <Text style={[s.toggleIcon, viewMode === 'map' && s.toggleIconActive]}>🗺</Text>
+            <Text style={[s.toggleIcon, viewMode === 'map' && s.toggleIconActive]}>◎</Text>
           </Pressable>
         </View>
       </View>

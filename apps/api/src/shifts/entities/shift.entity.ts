@@ -66,6 +66,13 @@ export class Shift {
   })
   location: any; // GeoJSON Point
 
+  // Redundant plain columns — reliable for client display without WKB parsing
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  lat: number | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  lng: number | null;
+
   @Column({
     type: 'enum',
     enum: ShiftStatus,
