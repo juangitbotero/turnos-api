@@ -16,11 +16,12 @@ async function bootstrap() {
   // Socket.IO adapter (must be set before listen)
   app.useWebSocketAdapter(new IoAdapter(app));
 
-  // CORS — will be tightened per environment in later stints
+  // CORS — open for all origins: mobile apps have no browser origin,
+  // security is enforced via JWT tokens. Tighten to specific domains at launch.
   app.enableCors({
-    origin: process.env['NODE_ENV'] === 'production' ? false : '*',
+    origin: '*',
     methods: 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    credentials: true,
+    credentials: false, // must be false when origin is '*'
   });
 
   // Global validation pipe — rejects invalid DTOs automatically
