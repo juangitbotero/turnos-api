@@ -1,36 +1,39 @@
-# ── Turnos API — Production Dockerfile (single-stage, reliable for monorepo) ──
+# ── Turnos API — Production Dockerfile ────────────────────────────────────────
 # Railway: Root Directory = /  |  Dockerfile Path = apps/api/Dockerfile
 
 FROM node:20-alpine
 WORKDIR /app
 
-# ── 1. Install system deps (needed for native modules like bcrypt) ─────────────
+# System deps for native modules (bcrypt etc.)
 RUN apk add --no-cache python3 make g++
 
-# ── 2. Copy workspace manifests (layer-cache: only re-installs when deps change)
+# Copy workspace manifests (cached layer — only re-runs when deps change)
 COPY package*.json ./
 COPY turbo.json* ./
 COPY packages/shared/package*.json ./packages/shared/
 COPY apps/api/package*.json ./apps/api/
 
-# ── 3. Install ALL dependencies (dev deps needed for NestJS compiler) ──────────
+# Install ALL deps (dev deps required for @nestjs/cli compiler)
 RUN npm ci
 
-# ── 4. Copy source code ────────────────────────────────────────────────────────
+# Copy source code
 COPY packages/shared/ ./packages/shared/
 COPY apps/api/ ./apps/api/
 
-# ── 5. Build the NestJS API ────────────────────────────────────────────────────
+# ── KEY FIX: add root node_modules/.bin to PATH so `nest` CLI is found ────────
+# In a monorepo, @nestjs/cli is hoisted to /app/node_modules/.bin/nest
+# but WORKDIR is apps/api — without this, `nest build` fails silently
+ENV PATH="/app/node_modules/.bin:${PATH}"
+
+# Build from the api directory
 WORKDIR /app/apps/api
-RUN npm run build
+RUN nest build
 
-# ── 6. Verify the build succeeded (fails the deploy if dist is missing) ────────
-RUN test -f dist/main.js || (echo "ERROR: dist/main.js not found — build failed" && exit 1)
+# Hard-fail if dist wasn't created (catches silent TypeScript errors)
+RUN test -f dist/main.js || (echo "BUILD FAILED: dist/main.js missing" && ls -la dist/ 2>/dev/null && exit 1)
 
-# ── 7. Create uploads directory (photos stored here until R2 is configured) ────
+# Create uploads dir (persisted by Railway Volume or replaced by R2 later)
 RUN mkdir -p /app/uploads/worker-photos
 
-# ── 8. Start ───────────────────────────────────────────────────────────────────
-# Railway injects $PORT at runtime
 EXPOSE ${PORT:-3001}
 CMD ["node", "dist/main.js"]
