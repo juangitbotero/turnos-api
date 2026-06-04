@@ -1,49 +1,36 @@
-# ── Turnos API — Production Dockerfile ────────────────────────────────────────
-# Builds the NestJS API from the monorepo root so that the shared package
-# (@turnos/shared) is available during compilation.
-# Railway: set Root Directory = / and Dockerfile Path = apps/api/Dockerfile
+# ── Turnos API — Production Dockerfile (single-stage, reliable for monorepo) ──
+# Railway: Root Directory = /  |  Dockerfile Path = apps/api/Dockerfile
 
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 WORKDIR /app
 
-# Copy workspace manifests first (layer-cache friendly)
+# ── 1. Install system deps (needed for native modules like bcrypt) ─────────────
+RUN apk add --no-cache python3 make g++
+
+# ── 2. Copy workspace manifests (layer-cache: only re-installs when deps change)
 COPY package*.json ./
-COPY turbo.json ./
+COPY turbo.json* ./
 COPY packages/shared/package*.json ./packages/shared/
 COPY apps/api/package*.json ./apps/api/
 
-# Install all workspace dependencies
+# ── 3. Install ALL dependencies (dev deps needed for NestJS compiler) ──────────
 RUN npm ci
 
-# Copy source files
+# ── 4. Copy source code ────────────────────────────────────────────────────────
 COPY packages/shared/ ./packages/shared/
 COPY apps/api/ ./apps/api/
 
-# Build shared package, then the API
-RUN cd apps/api && npm run build
+# ── 5. Build the NestJS API ────────────────────────────────────────────────────
+WORKDIR /app/apps/api
+RUN npm run build
 
-# ── Production image ───────────────────────────────────────────────────────────
-FROM node:20-alpine AS production
-WORKDIR /app
+# ── 6. Verify the build succeeded (fails the deploy if dist is missing) ────────
+RUN test -f dist/main.js || (echo "ERROR: dist/main.js not found — build failed" && exit 1)
 
-# Copy workspace manifests for module resolution
-COPY package*.json ./
-COPY packages/shared/package*.json ./packages/shared/
-COPY apps/api/package*.json ./apps/api/
-
-# Install production dependencies only
-RUN npm ci --omit=dev
-
-# Copy compiled output and shared package
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
-COPY --from=builder /app/packages/shared ./packages/shared
-
-# Create uploads directory (persisted by Railway Volume in production)
+# ── 7. Create uploads directory (photos stored here until R2 is configured) ────
 RUN mkdir -p /app/uploads/worker-photos
 
-WORKDIR /app/apps/api
-
-# Railway injects $PORT at runtime — default to 3001 for local docker run
+# ── 8. Start ───────────────────────────────────────────────────────────────────
+# Railway injects $PORT at runtime
 EXPOSE ${PORT:-3001}
-
 CMD ["node", "dist/main.js"]
