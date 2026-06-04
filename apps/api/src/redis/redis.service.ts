@@ -10,12 +10,24 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly config: ConfigService) {}
 
   onModuleInit() {
-    this.client = new Redis({
-      host: this.config.get<string>('REDIS_HOST', 'localhost'),
-      port: this.config.get<number>('REDIS_PORT', 6379),
-      password: this.config.get<string>('REDIS_PASSWORD', '') || undefined,
-      lazyConnect: true,
-    });
+    const redisUrl = this.config.get<string>('REDIS_URL');
+
+    if (redisUrl) {
+      // Railway / production: use full connection URL
+      this.client = new Redis(redisUrl, {
+        lazyConnect: true,
+        tls: redisUrl.startsWith('rediss://') ? {} : undefined,
+      });
+    } else {
+      // Local dev: use individual host/port vars
+      this.client = new Redis({
+        host: this.config.get<string>('REDIS_HOST', 'localhost'),
+        port: this.config.get<number>('REDIS_PORT', 6379),
+        password: this.config.get<string>('REDIS_PASSWORD', '') || undefined,
+        lazyConnect: true,
+      });
+    }
+
     this.client.on('error', (err: Error) =>
       this.logger.error(`Redis error: ${err.message}`),
     );
