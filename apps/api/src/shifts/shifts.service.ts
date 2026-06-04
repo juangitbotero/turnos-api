@@ -55,10 +55,6 @@ export class ShiftsService {
     return worker;
   }
 
-  private makeLocation(lat: number, lng: number) {
-    return { type: 'Point', coordinates: [lng, lat] }; // GeoJSON: [lon, lat]
-  }
-
   // ── Employer actions ──────────────────────────────────────────────────────
 
   async create(userId: string, data: {
@@ -94,7 +90,6 @@ export class ShiftsService {
       ...rest,
       status: ShiftStatus.OPEN,
       employer: { id: employer.id } as any,
-      location: this.makeLocation(lat, lng),
       lat,
       lng,
     });
@@ -140,7 +135,6 @@ export class ShiftsService {
     const { lat, lng, ...rest } = data;
     Object.assign(shift, rest);
     if (lat !== undefined && lng !== undefined) {
-      shift.location = this.makeLocation(lat, lng);
       shift.lat = lat;
       shift.lng = lng;
     }
@@ -374,20 +368,17 @@ export class ShiftsService {
       .where('shift.status = :status', { status: ShiftStatus.OPEN });
 
     if (filters.lat !== undefined && filters.lng !== undefined) {
-      const radius = filters.radiusMeters ?? 20000;
+      const radius = filters.radiusMeters ?? 20000; // metres
+      // Haversine distance using plain lat/lng — no PostGIS required
+      const haversine = `(6371000 * 2 * ASIN(SQRT(
+        POWER(SIN((RADIANS(shift.lat) - RADIANS(:lat)) / 2), 2) +
+        COS(RADIANS(:lat)) * COS(RADIANS(shift.lat)) *
+        POWER(SIN((RADIANS(shift.lng) - RADIANS(:lng)) / 2), 2)
+      )))`;
       query
-        .andWhere(
-          `ST_DWithin(
-            shift.location::geography,
-            ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
-            :radius
-          )`,
-        )
-        .addOrderBy(
-          `ST_Distance(shift.location::geography, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography)`,
-          'ASC',
-        )
-        .setParameters({ lng: filters.lng, lat: filters.lat, radius });
+        .andWhere(`shift.lat IS NOT NULL AND shift.lng IS NOT NULL`)
+        .andWhere(`${haversine} <= :radius`, { lat: filters.lat, lng: filters.lng, radius })
+        .addOrderBy(haversine, 'ASC');
     }
 
     if (filters.category) {

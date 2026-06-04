@@ -59,16 +59,7 @@ export class Shift {
   @Column({ type: 'varchar', length: 255 })
   address: string;
 
-  // PostGIS spatial column for proximity matching
-  @Index({ spatial: true })
-  @Column({
-    type: 'geometry',
-    spatialFeatureType: 'Point',
-    srid: 4326,
-  })
-  location: any; // GeoJSON Point
-
-  // Redundant plain columns — reliable for client display without WKB parsing
+  // Plain decimal lat/lng — used for proximity display and search
   @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
   lat: number | null;
 

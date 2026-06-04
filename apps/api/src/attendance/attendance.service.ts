@@ -474,9 +474,9 @@ export class AttendanceService {
   // ── Private: geofence (Haversine) ────────────────────────────────────────
 
   private assertGeofence(lat: number, lng: number, shift: Shift): void {
-    if (!shift.location?.coordinates) return; // No PostGIS coords → skip gracefully
-    const [shiftLng, shiftLat] = shift.location.coordinates as [number, number];
-    const distM = this.haversineMetres(lat, lng, shiftLat, shiftLng);
+    // Use plain lat/lng columns (PostGIS removed — standard Postgres compatible)
+    if (shift.lat == null || shift.lng == null) return; // No coords → skip
+    const distM = this.haversineMetres(lat, lng, Number(shift.lat), Number(shift.lng));
     if (distM > GEOFENCE_RADIUS_M) {
       throw new BadRequestException(
         `Está a ${Math.round(distM)}m do local do turno. ` +
