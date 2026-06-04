@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Alert,
-  ScrollView, ActivityIndicator, Linking, Platform,
+  View, Text, StyleSheet, TouchableOpacity, Alert, Modal,
+  ScrollView, ActivityIndicator, Linking, Platform, TextInput,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, spacing, radius, fontSize, fontWeight, calculateTSU } from '@turnos/shared';
 import {
   shiftApi, ShiftSummary, MyApplication, ApiError,
-  attendanceApi, AttendanceRecord,
+  attendanceApi, AttendanceRecord, authApi,
 } from '../../lib/api';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -36,12 +37,16 @@ export default function ShiftDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
-  const [shift, setShift]           = useState<ShiftSummary | null>(null);
-  const [myApp, setMyApp]           = useState<MyApplication | null>(null);
-  const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
-  const [isLoading, setIsLoading]   = useState(true);
-  const [isApplying, setIsApplying] = useState(false);
-  const [applied, setApplied]       = useState(false);
+  const [shift, setShift]             = useState<ShiftSummary | null>(null);
+  const [myApp, setMyApp]             = useState<MyApplication | null>(null);
+  const [attendance, setAttendance]   = useState<AttendanceRecord | null>(null);
+  const [profileScore, setProfileScore] = useState<number | null>(null);
+  const [isLoading, setIsLoading]     = useState(true);
+  const [isApplying, setIsApplying]   = useState(false);
+  const [applied, setApplied]         = useState(false);
+  const [showGate, setShowGate]       = useState(false);  // profile-gate modal
+  const [showApplySheet, setShowApplySheet] = useState(false); // cover note sheet
+  const [coverNote, setCoverNote]     = useState('');
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -49,11 +54,13 @@ export default function ShiftDetailScreen() {
     try {
       // Fetch shift data + worker's application status in parallel.
       // Attendance is fetched alongside — gracefully ignored if 401/404.
-      const [shiftData, myApps, att] = await Promise.all([
+      const [shiftData, myApps, att, me] = await Promise.all([
         shiftApi.getById(id),
         shiftApi.getMyApplications().catch(() => [] as MyApplication[]),
         attendanceApi.getAttendance(id).catch(() => null),
+        authApi.getMe().catch(() => null),
       ]);
+      if (me) setProfileScore(me.profileQualityScore ?? 0);
 
       setShift(shiftData);
       setMyApp(myApps.find(a => a.shift.id === id) ?? null);
@@ -71,28 +78,43 @@ export default function ShiftDetailScreen() {
 
   // ── apply ─────────────────────────────────────────────────────────────────
 
-  const handleApply = async () => {
+  // Called when worker taps "Candidatar-me"
+  const handleApplyPress = () => {
     if (!shift) return;
+    // Profile gate: score must be >= 80 to apply
+    if (profileScore !== null && profileScore < 80) {
+      setShowGate(true);
+      return;
+    }
+    // Show cover note sheet (optional message to employer)
+    setShowApplySheet(true);
+  };
+
+  // Called after cover note sheet is confirmed
+  const handleApplyConfirm = async () => {
+    if (!shift) return;
+    setShowApplySheet(false);
     setIsApplying(true);
     try {
-      await shiftApi.apply(shift.id);
+      await shiftApi.apply(shift.id, coverNote.trim() || undefined);
       setApplied(true);
+      setCoverNote('');
       Alert.alert(
         'Candidatura enviada! 🎉',
-        'A sua candidatura foi enviada. Será notificado quando a empresa responder.',
+        'A tua candidatura foi enviada. Serás notificado quando a empresa responder.',
         [{ text: 'OK', onPress: () => router.back() }],
       );
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-        // Session expired (refresh token gone — e.g. server restarted). Redirect to login.
         Alert.alert(
           'Sessão expirada',
-          'A sua sessão expirou. Por favor inicie sessão novamente.',
+          'A tua sessão expirou. Por favor inicia sessão novamente.',
           [{ text: 'Iniciar sessão', onPress: () => router.replace('/login') }],
         );
       } else {
         const msg = err instanceof ApiError ? err.message : 'Erro ao candidatar-se.';
-        Alert.alert('Erro', msg);
+        const is11h = msg.toLowerCase().includes('descanso') || msg.toLowerCase().includes('11h');
+        Alert.alert(is11h ? 'Precisas de descansar 😴' : 'Erro', msg);
       }
     } finally {
       setIsApplying(false);
@@ -158,7 +180,8 @@ export default function ShiftDetailScreen() {
 
   const tsu             = calculateTSU(Number(shift.grossHourlyRate));
   const hours           = hoursWorked(shift.startTime, shift.endTime);
-  const estimatedPayout = tsu.workerNetAmount * hours;
+  const recebePerHour   = tsu.grossAmount - tsu.turnosFee;   // what Turnos actually pays out
+  const estimatedPayout = recebePerHour * hours;
 
   return (
     <View style={styles.container}>
@@ -214,16 +237,17 @@ export default function ShiftDetailScreen() {
               <Text style={styles.payVal}>€{tsu.grossAmount.toFixed(2)}</Text>
             </View>
             <View style={styles.payRow}>
-              <Text style={styles.payLabel}>TSU trabalhador (11%)</Text>
-              <Text style={[styles.payVal, { color: '#ef4444' }]}>− €{tsu.workerDeduction.toFixed(2)}</Text>
-            </View>
-            <View style={styles.payRow}>
               <Text style={styles.payLabel}>Taxa Turnos (10%)</Text>
               <Text style={[styles.payVal, { color: '#ef4444' }]}>− €{tsu.turnosFee.toFixed(2)}</Text>
             </View>
             <View style={[styles.payRow, styles.payTotal]}>
-              <Text style={styles.payTotalLabel}>Líquido/hora</Text>
-              <Text style={styles.payTotalVal}>€{tsu.workerNetAmount.toFixed(2)}</Text>
+              <Text style={styles.payTotalLabel}>Recebe/hora</Text>
+              <Text style={styles.payTotalVal}>€{recebePerHour.toFixed(2)}</Text>
+            </View>
+            <View style={styles.tsuNote}>
+              <Text style={styles.tsuNoteText}>
+                ℹ️ SS Trabalhador (11%): €{tsu.workerDeduction.toFixed(2)}/hora — a entregar por ti ao Estado
+              </Text>
             </View>
             <Text style={styles.recebe}>💳 Recebe amanhã</Text>
           </View>
@@ -336,7 +360,7 @@ export default function ShiftDetailScreen() {
             )}
             <TouchableOpacity
               style={[styles.applyBtn, isApplying && styles.applyBtnDisabled]}
-              onPress={handleApply}
+              onPress={handleApplyPress}
               disabled={isApplying}
               activeOpacity={0.85}
             >
@@ -371,6 +395,75 @@ export default function ShiftDetailScreen() {
           </View>
         )}
       </View>
+
+      {/* ── Profile gate modal ─────────────────────────────────────────────── */}
+      <Modal visible={showGate} transparent animationType="slide" onRequestClose={() => setShowGate(false)}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowGate(false)}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Completa o teu perfil</Text>
+            <Text style={styles.sheetSub}>
+              Precisas de pelo menos 80% de perfil completo para te candidatares a turnos.
+            </Text>
+
+            {/* Progress ring */}
+            <View style={styles.scoreRow}>
+              <View style={styles.scoreBg}>
+                <View style={[styles.scoreFill, { width: `${profileScore ?? 0}%` as any }]} />
+              </View>
+              <Text style={styles.scoreText}>{profileScore ?? 0}% / 80% necessário</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.completeBtnPrimary}
+              onPress={() => { setShowGate(false); router.push('/edit-profile' as any); }}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="person-outline" size={18} color="#fff" />
+              <Text style={styles.completeBtnText}>Completar Perfil</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.completeBtnSecondary} onPress={() => setShowGate(false)}>
+              <Text style={styles.completeBtnSecText}>Agora não</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ── Cover note sheet ───────────────────────────────────────────────── */}
+      <Modal visible={showApplySheet} transparent animationType="slide" onRequestClose={() => setShowApplySheet(false)}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowApplySheet(false)}>
+          <View style={styles.sheet} onStartShouldSetResponder={() => true}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Candidatar-me</Text>
+            <Text style={styles.sheetSub}>
+              Podes deixar uma mensagem curta para o empregador (opcional).
+            </Text>
+            <TextInput
+              style={styles.coverInput}
+              value={coverNote}
+              onChangeText={t => setCoverNote(t.slice(0, 200))}
+              placeholder="Ex: Tenho experiência nesta área e estou disponível..."
+              placeholderTextColor={colors.textSecondary}
+              multiline
+              maxLength={200}
+            />
+            <Text style={styles.charCount}>{coverNote.length}/200</Text>
+            <TouchableOpacity
+              style={styles.completeBtnPrimary}
+              onPress={handleApplyConfirm}
+              disabled={isApplying}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.completeBtnText}>
+                {isApplying ? 'A enviar...' : 'Enviar candidatura 🚀'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.completeBtnSecondary} onPress={() => setShowApplySheet(false)}>
+              <Text style={styles.completeBtnSecText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -453,6 +546,10 @@ const styles = StyleSheet.create({
   payTotal: { borderTopWidth: 1, borderTopColor: 'rgba(99,102,241,0.2)', paddingTop: 8, marginTop: 4, marginBottom: 8 },
   payTotalLabel: { fontSize: 14, fontWeight: fontWeight.bold, color: colors.textPrimary },
   payTotalVal: { fontSize: 16, fontWeight: fontWeight.extrabold, color: colors.primary },
+  tsuNote: {
+    backgroundColor: '#f3f4f6', borderRadius: 6, padding: 8,
+  },
+  tsuNoteText: { fontSize: 11, color: '#6b7280', lineHeight: 16 },
   recebe: { fontSize: 12, color: '#7c3aed', fontWeight: fontWeight.semibold, textAlign: 'center' },
 
   infoCard: {
@@ -541,4 +638,38 @@ const styles = StyleSheet.create({
   },
   pendingIcon: { fontSize: 18 },
   pendingText: { flex: 1, fontSize: 13, fontWeight: fontWeight.semibold, color: colors.textPrimary },
+
+  // Modals
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: spacing.xl, paddingBottom: 48, gap: 12,
+  },
+  sheetHandle: {
+    width: 40, height: 4, backgroundColor: colors.neutral, borderRadius: 2,
+    alignSelf: 'center', marginBottom: 8,
+  },
+  sheetTitle: { fontSize: fontSize.h2, fontWeight: fontWeight.bold as any, color: colors.textPrimary },
+  sheetSub: { fontSize: fontSize.body, color: colors.textSecondary, lineHeight: 22 },
+  scoreRow: { gap: 6 },
+  scoreBg: { height: 8, backgroundColor: '#e5e7eb', borderRadius: 4, overflow: 'hidden' },
+  scoreFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 4 },
+  scoreText: { fontSize: fontSize.caption, color: colors.textSecondary, fontWeight: fontWeight.semibold as any },
+  completeBtnPrimary: {
+    backgroundColor: colors.primary, borderRadius: radius.full,
+    height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    shadowColor: colors.primary, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, shadowRadius: 12, elevation: 4,
+  },
+  completeBtnText: { color: '#fff', fontSize: fontSize.body, fontWeight: fontWeight.bold as any },
+  completeBtnSecondary: { alignItems: 'center', paddingVertical: 8 },
+  completeBtnSecText: { fontSize: fontSize.body, color: colors.textSecondary, fontWeight: fontWeight.semibold as any },
+  coverInput: {
+    borderWidth: 1.5, borderColor: colors.neutral, borderRadius: radius.md,
+    paddingHorizontal: spacing.md, paddingVertical: 12,
+    fontSize: fontSize.body, color: colors.textPrimary,
+    height: 100, textAlignVertical: 'top',
+  },
+  charCount: { fontSize: 11, color: colors.textSecondary, textAlign: 'right', marginTop: -4 },
 });

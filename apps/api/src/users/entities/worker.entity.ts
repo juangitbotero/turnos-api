@@ -36,12 +36,19 @@ export class Worker {
   @Column({ type: 'varchar', length: 512, nullable: true })
   photoUrl?: string;                // Profile photo URL (Cloudflare R2)
 
+  // ── Bio ───────────────────────────────────────────────────────────────────
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  bio?: string;                     // Short intro shown to employers (max 200 chars)
+
   // ── Skills & Availability ─────────────────────────────────────────────────
   @Column({ type: 'simple-array', nullable: true })
-  skills?: string[];                // e.g. ['Bartender', 'Waiter']
+  skills?: string[];                // Aligned with SHIFT_CATEGORIES subcategories
 
   @Column({ type: 'simple-array', nullable: true })
-  availableDays?: string[];         // e.g. ['Mon', 'Tue', 'Fri']
+  languages?: string[];             // e.g. ['Português', 'Inglês', 'Francês']
+
+  @Column({ type: 'simple-array', nullable: true })
+  availableDays?: string[];         // e.g. ['Seg', 'Ter', 'Sex']
 
   // ── Status & Trust ────────────────────────────────────────────────────────
   @Column({ type: 'boolean', default: false })
@@ -59,7 +66,24 @@ export class Worker {
   profileQualityScore: number;      // 0–100: rule-based. Replaced by AI scorer in Stint 9.
 
   @Column({ type: 'int', default: 100 })
-  reputationScore: number;          // 0–100: starts at 100, adjusted by ratings (Stint 7)
+  reputationScore: number;          // 0–100: avgRating × 20, updated by RatingsService
+
+  // ── Ratings (Stint 7) ─────────────────────────────────────────────────────
+  @Column({ type: 'decimal', precision: 3, scale: 2, nullable: true, default: null })
+  avgRating: number | null;         // 1.00–5.00 rolling average; null until first rating
+
+  @Column({ type: 'int', default: 0 })
+  totalRatings: number;             // total number of employer ratings received
+
+  @Column({ type: 'int', default: 0 })
+  noShowCount: number;              // total no-show flags reported by employers
+
+  @Column({ type: 'simple-array', nullable: true })
+  badges: string[];                 // e.g. ['TOP_RATED', 'RELIABLE', 'VERIFIED']
+
+  // ── Stripe Connect ────────────────────────────────────────────────────────
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  stripeAccountId?: string;         // Stripe Connect Express account ID (acct_...)
 
   // ── Push Notifications ────────────────────────────────────────────────────
   @Column({ type: 'varchar', length: 512, nullable: true })

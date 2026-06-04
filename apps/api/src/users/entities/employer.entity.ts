@@ -59,6 +59,23 @@ export class Employer {
   @Column({ type: 'boolean', default: false })
   isActive: boolean;                // Activated after Turnos team review
 
+  // ── Stripe Connect ────────────────────────────────────────────────────────
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  stripeCustomerId?: string;        // Stripe Customer ID (cus_...)
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  stripeSubscriptionId?: string;    // Stripe Subscription ID (sub_...)
+
+  @Column({
+    type: 'enum',
+    enum: ['INACTIVE', 'ACTIVE', 'PAST_DUE', 'CANCELLED'],
+    default: 'INACTIVE',
+  })
+  subscriptionStatus: 'INACTIVE' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED';
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  stripePaymentMethodId?: string;   // Default card for shift charges
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -246,6 +246,19 @@ export class AuthService {
     return this.usersService.updateWorkerProfile(userId, dto);
   }
 
+  /** Partial update — only the fields the worker can edit without admin review */
+  async updateWorkerPartialProfile(userId: string, dto: {
+    fullName?: string;
+    bio?: string;
+    skills?: string[];
+    languages?: string[];
+    availableDays?: string[];
+    iban?: string;
+    contactEmail?: string;
+  }): Promise<{ profileQualityScore: number }> {
+    return this.usersService.updateWorkerPartialFields(userId, dto);
+  }
+
   async uploadWorkerPhoto(userId: string, file: Express.Multer.File): Promise<string> {
     const photoUrl = await this.storage.uploadPhoto(file.buffer, file.mimetype, 'worker-photos');
     const result = await this.usersService.updateWorkerPhoto(userId, photoUrl);
@@ -255,6 +268,46 @@ export class AuthService {
 
   async savePushToken(userId: string, token: string): Promise<void> {
     await this.usersService.saveWorkerPushToken(userId, token);
+  }
+
+  // ─── Profile ───────────────────────────────────────────────────────────────
+
+  async getProfile(userId: string, role: string): Promise<Record<string, unknown>> {
+    if (role === 'WORKER') {
+      const worker = await this.usersService.findWorkerProfile(userId);
+      return {
+        userId,
+        role,
+        fullName:            worker?.fullName            ?? null,
+        photoUrl:            worker?.photoUrl            ?? null,
+        bio:                 worker?.bio                 ?? null,
+        contactEmail:        worker?.user?.email         ?? null,
+        skills:              worker?.skills              ?? [],
+        languages:           worker?.languages           ?? [],
+        availableDays:       worker?.availableDays       ?? [],
+        profileQualityScore: worker?.profileQualityScore ?? 0,
+        status:              worker?.status              ?? 'INCOMPLETE',
+        nif:                 worker?.nif                 ?? null,
+        iban:                worker?.iban                ?? null,
+        // ── Reputation (Stint 7) ────────────────────────────────────────────
+        avgRating:           worker?.avgRating           ?? null,
+        totalRatings:        worker?.totalRatings        ?? 0,
+        noShowCount:         worker?.noShowCount         ?? 0,
+        badges:              worker?.badges              ?? [],
+      };
+    }
+    if (role === 'EMPLOYER') {
+      const employer = await this.usersService.findEmployerProfile(userId);
+      return {
+        userId,
+        role,
+        companyName:      employer?.companyName      ?? null,
+        sector:           employer?.sector           ?? null,
+        city:             employer?.city             ?? null,
+        subscriptionTier: employer?.subscriptionTier ?? 'NONE',
+      };
+    }
+    return { userId, role };
   }
 
   // ─── Private Helpers ───────────────────────────────────────────────────────

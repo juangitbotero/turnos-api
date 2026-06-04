@@ -6,7 +6,7 @@
  *
  * Flow:
  *   1. Request camera + location permissions
- *   2. Worker points camera at the rotating QR on employer's screen
+ *   2. Worker points camera at the static QR on employer's screen
  *   3. CameraView decodes the QR → we call check-in or check-out API
  *   4. Success alert → back to shift detail page
  *
@@ -160,7 +160,7 @@ export default function ScanScreen() {
             : 'Aponte para o QR code no ecrã do empregador para registar o fim do turno'}
         </Text>
         <Text style={styles.subHint}>
-          O QR atualiza a cada 30 segundos — peça ao empregador para manter o ecrã visível
+          O QR code do empregador é permanente — não precisa de atualizar. Peça ao empregador para abrir o ecrã de QR codes.
         </Text>
       </View>
     </View>

@@ -1,18 +1,71 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { tokenStorage } from '../lib/storage';
 import { colors } from '@turnos/shared';
+
+// Show notification banners while the app is in the foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge:  true,
+  }),
+});
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
   const router = useRouter();
   const segments = useSegments();
 
+  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // Register foreground notification listeners once on mount
+  useEffect(() => {
+    // Foreground: banner is shown by setNotificationHandler above.
+    // This listener lets us react programmatically if needed.
+    notificationListener.current = Notifications.addNotificationReceivedListener(_notification => {
+      // No-op for now — banner + sound handled by setNotificationHandler
+    });
+
+    // User tapped a notification — navigate to the relevant screen
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data as {
+        shiftId?:    string;
+        type?:       string;
+        shiftTitle?: string;
+        shiftDate?:  string;
+        grossAmount?: number;
+      };
+
+      if (data?.type === 'recibo_verde' && data?.shiftId) {
+        // Deep-link to Recibo Verde screen with pre-filled values
+        router.push({
+          pathname: '/recibo-verde',
+          params: {
+            shiftId:     data.shiftId,
+            shiftTitle:  data.shiftTitle  ?? '',
+            shiftDate:   data.shiftDate   ?? '',
+            grossAmount: String(data.grossAmount ?? 0),
+          },
+        } as any);
+      } else if (data?.shiftId) {
+        router.push(`/shift/${data.shiftId}` as any);
+      }
+    });
+
+    return () => {
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
+    };
+  }, [router]);
 
   const checkAuth = async () => {
     try {

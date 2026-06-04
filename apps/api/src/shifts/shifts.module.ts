@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { ShiftsService } from './shifts.service';
 import { ShiftsController } from './shifts.controller';
+import { ShiftExpiryService } from './shift-expiry.service';
 import { Shift } from './entities/shift.entity';
 import { ShiftApplication } from './entities/shift-application.entity';
 import { Employer } from '../users/entities/employer.entity';
@@ -10,6 +11,7 @@ import { Worker } from '../users/entities/worker.entity';
 import { GatewayModule } from '../gateway/gateway.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ComplianceModule } from '../compliance/compliance.module';
+import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
   imports: [
@@ -18,8 +20,9 @@ import { ComplianceModule } from '../compliance/compliance.module';
     GatewayModule,
     NotificationsModule,
     ComplianceModule,
+    PaymentsModule,
   ],
-  providers: [ShiftsService],
+  providers: [ShiftsService, ShiftExpiryService],
   controllers: [ShiftsController],
 })
 export class ShiftsModule {}

@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { ComplianceService } from './compliance.service';
 import { ComplianceController } from './compliance.controller';
 import { SsDiretaProcessor } from './processors/ss-direta.processor';
+import { ReciboVerdeProcessor } from './processors/recibo-verde.processor';
 import { McdContract } from './entities/mcd-contract.entity';
 import { ComplianceAuditLog } from './entities/compliance-audit-log.entity';
 import { Shift } from '../shifts/entities/shift.entity';
@@ -24,10 +25,13 @@ import { MailModule } from '../mail/mail.module';
     // BullMQ queue — SS Direta email notifications (fires 24h before each confirmed shift)
     BullModule.registerQueue({ name: 'ss-direta' }),
 
+    // BullMQ queue — Recibo Verde push reminders (day+3 and day+5 after shift checkout)
+    BullModule.registerQueue({ name: 'recibo-verde' }),
+
     MailModule,
   ],
   controllers: [ComplianceController],
-  providers:   [ComplianceService, SsDiretaProcessor],
+  providers:   [ComplianceService, SsDiretaProcessor, ReciboVerdeProcessor],
   exports:     [ComplianceService],
 })
 export class ComplianceModule {}

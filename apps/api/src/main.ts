@@ -1,10 +1,13 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { IoAdapter } from '@nestjs/platform-socket.io';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import * as path from 'path';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: true is required for Stripe webhook signature verification
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   const logger = new Logger('Bootstrap');
 
   // Global prefix for all routes
@@ -31,6 +34,9 @@ async function bootstrap() {
       },
     }),
   );
+
+  // Serve uploaded files (dev only — production uses Cloudflare R2)
+  app.useStaticAssets(path.join(process.cwd(), 'uploads'), { prefix: '/uploads' });
 
   const port = process.env['PORT'] ?? 3001;
   await app.listen(port);

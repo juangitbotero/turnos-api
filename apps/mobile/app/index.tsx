@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  ScrollView, TextInput, Pressable, ActivityIndicator, RefreshControl,
+  ScrollView, TextInput, Pressable, ActivityIndicator, RefreshControl, Image,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory, calculateTSU } from '@turnos/shared';
-import { shiftApi, ShiftSummary, ApiError } from '../lib/api';
+import { shiftApi, authApi, ShiftSummary, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
 
 function formatDate(dateStr: string) {
@@ -41,13 +42,23 @@ function toFeedItem(s: ShiftSummary) {
 }
 
 export default function FeedScreen() {
-  const [shifts, setShifts] = useState<ReturnType<typeof toFeedItem>[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [shifts, setShifts]         = useState<ReturnType<typeof toFeedItem>[]>([]);
+  const [isLoading, setIsLoading]   = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [viewMode, setViewMode]     = useState<'list' | 'map'>('list');
   const [activeCategory, setActiveCategory] = useState<ShiftCategory | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [workerName, setWorkerName]       = useState<string | null>(null);
+  const [profileScore, setProfileScore]   = useState<number>(100); // assume complete until loaded
   const router = useRouter();
+
+  // Fetch worker profile — name for greeting + score for completeness banner
+  useEffect(() => {
+    authApi.getMe().then(p => {
+      if (p.fullName) setWorkerName(p.fullName.split(' ')[0] ?? null);
+      setProfileScore(p.profileQualityScore ?? 0);
+    }).catch(() => {});
+  }, []);
 
   const categories: (ShiftCategory | 'All')[] = ['All', ...(Object.keys(SHIFT_CATEGORIES) as ShiftCategory[])];
 
@@ -89,20 +100,47 @@ export default function FeedScreen() {
         style={s.header}
       >
         <View style={s.headerTop}>
-          <View>
-            <Text style={s.headerGreeting}>Olá 👋</Text>
-            <Text style={s.headerSub}>
-              {isLoading ? 'A carregar...' : `Lisboa · ${filteredShifts.length} turnos disponíveis`}
-            </Text>
-          </View>
-          <TouchableOpacity style={s.profileBtn} activeOpacity={0.8} onPress={() => router.push('/my-shifts')}>
-            <Text style={s.profileInitial}>★</Text>
+          {/* Left spacer — same width as profile button so logo sits perfectly centred */}
+          <View style={s.headerSide} />
+          {/* Turnos logo — centred */}
+          <Image
+            source={require('../assets/logo-white.png')}
+            style={s.logo}
+            resizeMode="contain"
+          />
+          {/* Profile button — right */}
+          <TouchableOpacity style={[s.profileBtn, s.headerSide]} activeOpacity={0.8} onPress={() => router.push('/profile')}>
+            <Ionicons name="person-circle-outline" size={26} color="#fff" />
           </TouchableOpacity>
         </View>
+        <Text style={s.headerGreeting}>
+          {workerName ? `Olá, ${workerName} 👋` : 'Olá 👋'}
+        </Text>
+        <Text style={s.headerSub}>
+          {isLoading ? 'A carregar...' : `Lisboa · ${filteredShifts.length} turnos disponíveis`}
+        </Text>
+
+        {/* Profile completeness banner — shown until worker can apply */}
+        {profileScore < 80 && (
+          <TouchableOpacity
+            style={s.profileBanner}
+            onPress={() => router.push('/edit-profile' as any)}
+            activeOpacity={0.85}
+          >
+            <View style={s.profileBannerBar}>
+              <View style={[s.profileBannerFill, { width: `${profileScore}%` as any }]} />
+            </View>
+            <View style={s.profileBannerRow}>
+              <Text style={s.profileBannerText}>
+                Perfil {profileScore}% completo · Completa para te candidatares →
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* Search bar */}
         <View style={s.searchBar}>
-          <Text style={s.searchIcon}>🔍</Text>
+          <Ionicons name="search-outline" size={16} color={colors.textSecondary} />
           <TextInput
             style={s.searchInput}
             placeholder="Pesquisar turnos ou empresa..."
@@ -113,7 +151,7 @@ export default function FeedScreen() {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')} style={s.searchClear}>
-              <Text style={s.searchClearText}>✕</Text>
+              <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
@@ -231,10 +269,12 @@ export default function FeedScreen() {
 
               <View style={s.cardFooter}>
                 <View style={s.footerChip}>
-                  <Text style={s.footerChipText}>📅 {item.date}</Text>
+                  <Ionicons name="calendar-outline" size={11} color={colors.textSecondary} />
+                  <Text style={s.footerChipText}>{item.date}</Text>
                 </View>
                 <View style={s.footerChip}>
-                  <Text style={s.footerChipText}>⏰ {item.startTime}–{item.endTime}</Text>
+                  <Ionicons name="time-outline" size={11} color={colors.textSecondary} />
+                  <Text style={s.footerChipText}>{item.startTime}–{item.endTime}</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -245,12 +285,16 @@ export default function FeedScreen() {
       {/* Bottom nav */}
       <View style={s.bottomNav}>
         <View style={s.navItemActive}>
-          <Text style={s.navIconActive}>🏠</Text>
+          <Ionicons name="compass" size={24} color={colors.primary} />
           <Text style={s.navLabelActive}>Turnos</Text>
         </View>
         <TouchableOpacity style={s.navItem} onPress={() => router.push('/my-shifts')} activeOpacity={0.7}>
-          <Text style={s.navIcon}>📋</Text>
+          <Ionicons name="briefcase-outline" size={24} color={colors.textSecondary} />
           <Text style={s.navLabel}>Os Meus</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.navItem} onPress={() => router.push('/profile')} activeOpacity={0.7}>
+          <Ionicons name="person-circle-outline" size={24} color={colors.textSecondary} />
+          <Text style={s.navLabel}>Perfil</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -265,42 +309,64 @@ const s = StyleSheet.create({
 
   /* Header */
   header: {
-    paddingTop: 56,
+    paddingTop: 52,
     paddingHorizontal: spacing.md,
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
+  },
+  headerSide: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo: {
+    height: 28,
+    width: 110,
   },
   headerGreeting: {
-    fontSize: fontSize.h2,
-    fontWeight: fontWeight.extrabold,
+    fontSize: fontSize.h3,
+    fontWeight: fontWeight.bold,
     color: '#fff',
-    letterSpacing: -0.5,
+    marginBottom: 1,
   },
   headerSub: {
     fontSize: fontSize.caption,
     color: 'rgba(255,255,255,0.75)',
-    marginTop: 3,
     fontWeight: fontWeight.semibold,
+    marginBottom: 8,
+  },
+  profileBanner: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: radius.md,
+    padding: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    gap: 6,
+  },
+  profileBannerBar: {
+    height: 4, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 2, overflow: 'hidden',
+  },
+  profileBannerFill: {
+    height: '100%', backgroundColor: '#fff', borderRadius: 2,
+  },
+  profileBannerRow: { flexDirection: 'row', alignItems: 'center' },
+  profileBannerText: {
+    fontSize: 12, color: '#fff', fontWeight: fontWeight.semibold,
   },
   profileBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
-  },
-  profileInitial: {
-    fontSize: fontSize.h3,
-    fontWeight: fontWeight.extrabold,
-    color: '#fff',
   },
 
   /* Search */
@@ -495,6 +561,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   footerChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: colors.secondary,
     borderRadius: radius.full,
     paddingHorizontal: 8,

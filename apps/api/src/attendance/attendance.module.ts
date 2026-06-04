@@ -8,12 +8,16 @@ import { Worker } from '../users/entities/worker.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { GatewayModule } from '../gateway/gateway.module';
 import { ComplianceModule } from '../compliance/compliance.module';
+import { PaymentsModule } from '../payments/payments.module';
+import { RatingsModule } from '../ratings/ratings.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([ShiftAttendance, Shift, Worker, Employer]),
     GatewayModule,
     ComplianceModule,
+    PaymentsModule,
+    RatingsModule,
   ],
   controllers: [AttendanceController],
   providers:   [AttendanceService],

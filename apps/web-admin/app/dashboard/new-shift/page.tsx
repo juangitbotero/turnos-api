@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { SHIFT_CATEGORIES, ShiftCategory, calculateTSU } from '@turnos/shared';
+import { SHIFT_CATEGORIES, ShiftCategory, LANGUAGES, calculateTSU } from '@turnos/shared';
 import { adminApi, ApiError } from '../../../lib/api';
 
 type GeoResult = { lat: number; lng: number; display: string } | null;
@@ -16,47 +16,83 @@ async function geocodeAddress(address: string): Promise<GeoResult> {
   return { lat: parseFloat(first.lat), lng: parseFloat(first.lon), display: first.display_name };
 }
 
-// ── Predefined skills — category-specific + general ──────────────────────────
-
-const GENERAL_SKILLS = ['Pontualidade', 'Trabalho em equipa', 'Flexibilidade', 'Inglês', 'Espanhol', 'Francês'];
-
-const CATEGORY_SKILLS: Partial<Record<ShiftCategory, string[]>> = {
-  Hospitality:   ['Serviço de mesa', 'Barista', 'Rececionista', 'Serviço de quarto', 'HACCP'],
-  Restauration:  ['Bartender', 'Barman', 'Empregado de mesa', 'Cozinha quente', 'Pastelaria', 'HACCP'],
-  Events:        ['Montagem/desmontagem', 'Gestão de bilheteira', 'Logística', 'Segurança', 'Animação'],
-  Sales:         ['Atendimento ao cliente', 'Caixa', 'Merchandising', 'Upselling'],
-  ClientSupport: ['Comunicação', 'Gestão de reclamações', 'Call center'],
-  Logistique:    ['Preparação de encomendas', 'Gestão de stock', 'Carta de condução', 'Armazém'],
-  AdminHelp:     ['Community manager', 'Assistente administrativo', 'Recrutamento', 'Office management'],
+// ── Category icons ─────────────────────────────────────────────────────────────
+const CATEGORY_ICONS: Record<string, string> = {
+  'Restauração':      '🍽️',
+  'Hotelaria':        '🏨',
+  'Eventos':          '🎪',
+  'Vendas':           '🏷️',
+  'Apoio ao Cliente': '🎧',
+  'Logística':        '📦',
+  'Administração':    '💼',
 };
 
-function getSkillSuggestions(category: ShiftCategory): string[] {
-  const catSkills = CATEGORY_SKILLS[category] ?? [];
-  // Deduplicate, category-specific first
-  return [...new Set([...catSkills, ...GENERAL_SKILLS])];
+// ── Skills selector — grouped by category accordion ───────────────────────────
+
+function CategoryRow({
+  cat, skills, selected, onToggle,
+}: {
+  cat: ShiftCategory;
+  skills: readonly string[];
+  selected: string[];
+  onToggle: (skill: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const count = skills.filter(sk => selected.includes(sk)).length;
+
+  return (
+    <div style={sk.catWrapper}>
+      {/* Header row */}
+      <button
+        type="button"
+        style={sk.catHeader}
+        onClick={() => setOpen(v => !v)}
+      >
+        <span style={sk.catIcon}>{CATEGORY_ICONS[cat] ?? '📋'}</span>
+        <span style={sk.catLabel}>{cat}</span>
+        {count > 0 && (
+          <span style={sk.catBadge}>{count}</span>
+        )}
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--color-text-secondary)' }}>
+          {open ? '▲' : '▼'}
+        </span>
+      </button>
+
+      {/* Expanded chip grid */}
+      {open && (
+        <div style={sk.catBody}>
+          <div style={sk.suggestions}>
+            {skills.map(skill => {
+              const isSelected = selected.includes(skill);
+              return (
+                <button
+                  key={skill}
+                  type="button"
+                  style={{ ...sk.tag, ...(isSelected ? sk.tagSelected : sk.tagUnselected) }}
+                  onClick={() => onToggle(skill)}
+                >
+                  {isSelected ? '✓ ' : '+ '}{skill}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
-// ── Skills selector component ─────────────────────────────────────────────────
-
 function SkillsSelector({
-  category,
   selected,
   onChange,
 }: {
-  category: ShiftCategory;
   selected: string[];
   onChange: (skills: string[]) => void;
 }) {
   const [customInput, setCustomInput] = useState('');
-  const suggestions = getSkillSuggestions(category);
 
-  const toggle = (skill: string) => {
-    if (selected.includes(skill)) {
-      onChange(selected.filter(s => s !== skill));
-    } else {
-      onChange([...selected, skill]);
-    }
-  };
+  const toggle = (skill: string) =>
+    onChange(selected.includes(skill) ? selected.filter(s => s !== skill) : [...selected, skill]);
 
   const addCustom = () => {
     const trimmed = customInput.trim();
@@ -65,42 +101,29 @@ function SkillsSelector({
     setCustomInput('');
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') { e.preventDefault(); addCustom(); }
-  };
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-      {/* Predefined suggestions */}
-      <div style={sk.suggestions}>
-        {suggestions.map(skill => {
-          const isSelected = selected.includes(skill);
-          return (
-            <button
-              key={skill}
-              type="button"
-              style={{
-                ...sk.tag,
-                ...(isSelected ? sk.tagSelected : sk.tagUnselected),
-              }}
-              onClick={() => toggle(skill)}
-            >
-              {isSelected ? '✓ ' : '+ '}{skill}
-            </button>
-          );
-        })}
-      </div>
+      {/* One accordion row per category */}
+      {(Object.keys(SHIFT_CATEGORIES) as ShiftCategory[]).map(cat => (
+        <CategoryRow
+          key={cat}
+          cat={cat}
+          skills={SHIFT_CATEGORIES[cat]}
+          selected={selected}
+          onToggle={toggle}
+        />
+      ))}
 
       {/* Custom skill input */}
-      <div style={sk.customRow}>
+      <div style={{ ...sk.customRow, marginTop: 4 }}>
         <input
-          style={{ ...sk.customInput }}
+          style={sk.customInput}
           type="text"
           placeholder="Adicionar competência personalizada..."
           value={customInput}
           onChange={e => setCustomInput(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }}
         />
         <button
           type="button"
@@ -112,7 +135,7 @@ function SkillsSelector({
         </button>
       </div>
 
-      {/* Selected chips */}
+      {/* Selected summary */}
       {selected.length > 0 && (
         <div style={sk.selectedWrap}>
           <span style={sk.selectedLabel}>Selecionadas:</span>
@@ -124,10 +147,7 @@ function SkillsSelector({
                   type="button"
                   style={sk.chipRemove}
                   onClick={() => onChange(selected.filter(s => s !== skill))}
-                  aria-label={`Remover ${skill}`}
-                >
-                  ✕
-                </button>
+                >✕</button>
               </span>
             ))}
           </div>
@@ -138,7 +158,29 @@ function SkillsSelector({
 }
 
 const sk: Record<string, React.CSSProperties> = {
-  suggestions: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  /* Category accordion */
+  catWrapper: {
+    border: '1.5px solid var(--color-border)', borderRadius: 10, overflow: 'hidden',
+  },
+  catHeader: {
+    width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+    padding: '10px 14px', background: '#fff', border: 'none',
+    cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' as const,
+    transition: 'background 0.15s',
+  },
+  catIcon: { fontSize: 16 },
+  catLabel: { fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', flex: 1 },
+  catBadge: {
+    fontSize: 11, fontWeight: 700, color: '#fff',
+    background: 'var(--color-primary)', borderRadius: 20,
+    padding: '1px 7px', lineHeight: 1.6,
+  },
+  catBody: {
+    padding: '10px 14px 12px', background: '#fafbff',
+    borderTop: '1px solid var(--color-border)',
+  },
+  /* Chips */
+  suggestions: { display: 'flex', flexWrap: 'wrap' as const, gap: 7 },
   tag: {
     padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
     cursor: 'pointer', fontFamily: 'inherit', border: '1.5px solid', transition: 'all 0.15s',
@@ -151,6 +193,7 @@ const sk: Record<string, React.CSSProperties> = {
     background: 'var(--color-primary-light)', borderColor: 'rgba(106,121,255,0.5)',
     color: 'var(--color-primary)',
   },
+  /* Custom input */
   customRow: { display: 'flex', gap: 8 },
   customInput: {
     flex: 1, padding: '8px 12px', fontSize: 13, borderRadius: 8,
@@ -163,9 +206,10 @@ const sk: Record<string, React.CSSProperties> = {
     color: 'var(--color-primary)', fontWeight: 600, fontSize: 12,
     cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
   },
-  selectedWrap: { display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' },
+  /* Selected summary */
+  selectedWrap: { display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' as const },
   selectedLabel: { fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', paddingTop: 4, flexShrink: 0 },
-  selectedChips: { display: 'flex', flexWrap: 'wrap', gap: 6 },
+  selectedChips: { display: 'flex', flexWrap: 'wrap' as const, gap: 6 },
   chip: {
     display: 'inline-flex', alignItems: 'center', gap: 6,
     background: 'var(--color-primary-light)', borderRadius: 20,
@@ -183,16 +227,46 @@ const sk: Record<string, React.CSSProperties> = {
 export default function NewShiftPage() {
   const router = useRouter();
 
-  const [category, setCategory]   = useState<ShiftCategory>('Hospitality');
-  const [subcategory, setSubcategory] = useState<string>(SHIFT_CATEGORIES['Hospitality'][0] ?? '');
+  const [category, setCategory]   = useState<ShiftCategory>('Hotelaria');
+  const [subcategory, setSubcategory] = useState<string>(SHIFT_CATEGORIES['Hotelaria'][0] ?? '');
   const [title, setTitle]         = useState('');
   const [description, setDescription] = useState('');
-  const [date, setDate]           = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime]     = useState('');
+  const [date, setDate]               = useState('');
+  const [startTime, setStartTime]     = useState('');
+  const [durationHours, setDuration]  = useState(4); // default 4h, min 2h
   const [hourlyRate, setHourlyRate] = useState('8.00');
   const [address, setAddress]     = useState('');
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+
+  // Pre-fill form when re-posting a caducated shift
+  useEffect(() => {
+    const raw = sessionStorage.getItem('repost_shift');
+    if (!raw) return;
+    sessionStorage.removeItem('repost_shift');
+    try {
+      const sh = JSON.parse(raw);
+      if (sh.category && SHIFT_CATEGORIES[sh.category as ShiftCategory]) {
+        setCategory(sh.category as ShiftCategory);
+        setSubcategory(sh.subcategory ?? SHIFT_CATEGORIES[sh.category as ShiftCategory][0]);
+      }
+      if (sh.title) setTitle(sh.title);
+      if (sh.description) setDescription(sh.description);
+      if (sh.grossHourlyRate) setHourlyRate(String(Number(sh.grossHourlyRate).toFixed(2)));
+      if (sh.address) setAddress(sh.address);
+      if (sh.skillsRequired?.length) setSelectedSkills(sh.skillsRequired);
+      if (sh.languagesRequired?.length) setSelectedLanguages(sh.languagesRequired);
+      if (sh.startTime) setStartTime(sh.startTime.slice(0, 5));
+      // Recalculate duration from original start/end if available
+      if (sh.startTime && sh.endTime) {
+        const [sh_, sm_] = sh.startTime.split(':').map(Number);
+        const [eh_, em_] = sh.endTime.split(':').map(Number);
+        const mins = ((eh_ ?? 0) * 60 + (em_ ?? 0)) - ((sh_ ?? 0) * 60 + (sm_ ?? 0));
+        if (mins >= 120) setDuration(Math.round(mins / 60));
+      }
+      // Don't copy the date — employer must choose a new one
+    } catch { /* ignore parse errors */ }
+  }, []);
   const [geo, setGeo]             = useState<GeoResult>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [geoError, setGeoError]   = useState('');
@@ -220,19 +294,34 @@ export default function NewShiftPage() {
   const rateNum = parseFloat(hourlyRate) || 0;
   const tsu = rateNum > 0 ? calculateTSU(rateNum) : null;
 
-  const hoursEstimate = (() => {
-    if (!startTime || !endTime) return null;
-    const sp = startTime.split(':').map(Number);
-    const ep = endTime.split(':').map(Number);
-    const sh = sp[0] ?? 0, sm = sp[1] ?? 0;
-    const eh = ep[0] ?? 0, em = ep[1] ?? 0;
-    const mins = (eh * 60 + em) - (sh * 60 + sm);
-    return mins > 0 ? mins / 60 : null;
+  // Compute end time from start + duration
+  const computedEndTime = (() => {
+    if (!startTime) return '';
+    const [h, m] = startTime.split(':').map(Number);
+    const totalMins = ((h ?? 0) * 60 + (m ?? 0) + durationHours * 60) % (24 * 60);
+    const eh = Math.floor(totalMins / 60);
+    const em = totalMins % 60;
+    return `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
+  })();
+
+  // Portuguese law alerts based on duration
+  const lawAlert = (() => {
+    if (durationHours >= 8) return {
+      level: 'warn' as const,
+      msg: '⚠️ Turno ≥ 8h: o trabalhador tem direito a pausa de 1h e subsídio de refeição (~€6,00/dia). Certifica-te de que o valor/hora reflecte este custo.',
+    };
+    if (durationHours >= 4) return {
+      level: 'info' as const,
+      msg: 'ℹ️ Turno ≥ 4h: o trabalhador tem direito a pausa obrigatória de 15–30 min (não computada no horário de trabalho).',
+    };
+    return null;
   })();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!geo) { setError('Por favor verifique a localização antes de publicar.'); return; }
+    if (durationHours < 2) { setError('A duração mínima de um turno é 2 horas.'); return; }
+    if (!startTime) { setError('Por favor selecione a hora de início.'); return; }
     setError('');
     setIsSubmitting(true);
     try {
@@ -244,12 +333,13 @@ export default function NewShiftPage() {
         role: title || undefined,
         date,
         startTime: `${startTime}:00`,
-        endTime: `${endTime}:00`,
+        endTime: `${computedEndTime}:00`,
         grossHourlyRate: rateNum,
         address,
         lat: geo.lat,
         lng: geo.lng,
         skillsRequired: selectedSkills.length > 0 ? selectedSkills : undefined,
+        languagesRequired: selectedLanguages.length > 0 ? selectedLanguages : undefined,
       });
       router.push('/dashboard/shifts');
     } catch (err) {
@@ -327,31 +417,126 @@ export default function NewShiftPage() {
             Pode também adicionar competências personalizadas.
           </p>
           <SkillsSelector
-            category={category}
             selected={selectedSkills}
             onChange={setSelectedSkills}
           />
         </div>
 
+        {/* ── Languages ── */}
+        <div style={s.section}>
+          <h2 style={s.sectionTitle}>
+            Idiomas necessários
+            <span style={s.sectionBadge}>opcional</span>
+          </h2>
+          <p style={s.sectionHint}>
+            Selecione os idiomas necessários para este turno. Apenas trabalhadores com esses idiomas serão notificados.
+          </p>
+          <div style={sk.suggestions}>
+            {(LANGUAGES as readonly string[]).map(lang => {
+              const active = selectedLanguages.includes(lang);
+              return (
+                <button
+                  key={lang}
+                  type="button"
+                  style={{
+                    ...sk.tag,
+                    ...(active ? sk.tagSelected : sk.tagUnselected),
+                  }}
+                  onClick={() =>
+                    setSelectedLanguages(prev =>
+                      prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]
+                    )
+                  }
+                >
+                  {active ? '✓ ' : '+ '}{lang}
+                </button>
+              );
+            })}
+          </div>
+          {selectedLanguages.length > 0 && (
+            <p style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, marginTop: 4 }}>
+              {selectedLanguages.length} idioma{selectedLanguages.length !== 1 ? 's' : ''} selecionado{selectedLanguages.length !== 1 ? 's' : ''}: {selectedLanguages.join(', ')}
+            </p>
+          )}
+        </div>
+
         {/* ── Date & Time ── */}
         <div style={s.section}>
-          <h2 style={s.sectionTitle}>Data & Horário</h2>
+          <h2 style={s.sectionTitle}>
+            Data & Horário
+            <span style={s.minShiftBadge}>⏱ Mínimo 2 horas</span>
+          </h2>
+
           <div style={s.grid3}>
+            {/* Date */}
             <div style={s.field}>
-              <label style={s.label}>Data</label>
-              <input style={s.input} type="date" required value={date} onChange={e => setDate(e.target.value)} />
+              <label style={s.label}>Data do turno</label>
+              <input
+                style={s.input}
+                type="date"
+                required
+                min={new Date().toISOString().slice(0, 10)}
+                value={date}
+                onChange={e => setDate(e.target.value)}
+              />
             </div>
+
+            {/* Start time — dropdown */}
             <div style={s.field}>
-              <label style={s.label}>Início</label>
-              <input style={s.input} type="time" required value={startTime} onChange={e => setStartTime(e.target.value)} />
+              <label style={s.label}>Hora de início</label>
+              <select
+                style={s.select}
+                required
+                value={startTime}
+                onChange={e => setStartTime(e.target.value)}
+              >
+                <option value="">Selecionar hora...</option>
+                {Array.from({ length: 48 }, (_, i) => {
+                  const h = Math.floor(i / 2);
+                  const m = i % 2 === 0 ? '00' : '30';
+                  const val = `${String(h).padStart(2, '0')}:${m}`;
+                  return <option key={val} value={val}>{val}</option>;
+                })}
+              </select>
             </div>
+
+            {/* Duration — dropdown */}
             <div style={s.field}>
-              <label style={s.label}>Fim</label>
-              <input style={s.input} type="time" required value={endTime} onChange={e => setEndTime(e.target.value)} />
+              <label style={s.label}>Duração</label>
+              <select
+                style={s.select}
+                value={durationHours}
+                onChange={e => setDuration(Number(e.target.value))}
+              >
+                {[2, 3, 4, 5, 6, 7, 8, 9, 10, 12].map(h => (
+                  <option key={h} value={h}>{h}h {h === 2 ? '(mínimo)' : ''}</option>
+                ))}
+              </select>
             </div>
           </div>
-          {hoursEstimate !== null && (
-            <p style={s.hoursHint}>Duração estimada: <strong>{hoursEstimate.toFixed(1)}h</strong></p>
+
+          {/* Computed end time display */}
+          {startTime && computedEndTime && (
+            <div style={s.computedTime}>
+              <span style={s.computedLabel}>Fim do turno:</span>
+              <span style={s.computedValue}>{startTime} → {computedEndTime}</span>
+              <span style={s.computedDuration}>· {durationHours}h de trabalho</span>
+              {computedEndTime < startTime && (
+                <span style={s.nextDayBadge}>+1 dia</span>
+              )}
+            </div>
+          )}
+
+          {/* Portuguese labour law alerts */}
+          {lawAlert && (
+            <div style={{
+              ...s.lawAlert,
+              background: lawAlert.level === 'warn' ? '#fffbeb' : '#eff6ff',
+              borderColor: lawAlert.level === 'warn' ? '#fcd34d' : '#93c5fd',
+              color: lawAlert.level === 'warn' ? '#92400e' : '#1d4ed8',
+            }}>
+              {lawAlert.msg}
+            </div>
           )}
         </div>
 
@@ -414,10 +599,10 @@ export default function NewShiftPage() {
                   <span>Custo total empregador</span>
                   <span>€{tsu.employerTotalCost.toFixed(2)}/hr</span>
                 </div>
-                {hoursEstimate && (
+                {startTime && (
                   <div style={{ ...s.tsuRow, marginTop: 8, color: '#6366f1' }}>
-                    <span>Custo total do turno ({hoursEstimate.toFixed(1)}h)</span>
-                    <span style={{ fontWeight: 700 }}>€{(tsu.employerTotalCost * hoursEstimate).toFixed(2)}</span>
+                    <span>Custo total do turno ({durationHours}h)</span>
+                    <span style={{ fontWeight: 700 }}>€{(tsu.employerTotalCost * durationHours).toFixed(2)}</span>
                   </div>
                 )}
               </div>
@@ -488,6 +673,34 @@ const s: Record<string, React.CSSProperties> = {
   },
   hint: { fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 4 },
   hoursHint: { fontSize: 13, color: 'var(--color-text-secondary)', marginTop: -8 },
+
+  // Min shift badge
+  minShiftBadge: {
+    fontSize: 11, fontWeight: 600, color: '#d97706',
+    background: '#fffbeb', border: '1px solid #fcd34d',
+    borderRadius: 20, padding: '2px 10px', marginLeft: 10,
+  },
+
+  // Computed end time
+  computedTime: {
+    display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const,
+    background: 'var(--color-primary-light)', borderRadius: 8,
+    padding: '10px 14px', marginTop: -4,
+  },
+  computedLabel: { fontSize: 12, fontWeight: 600, color: 'var(--color-text-secondary)' },
+  computedValue: { fontSize: 15, fontWeight: 800, color: 'var(--color-primary)', letterSpacing: '-0.3px' },
+  computedDuration: { fontSize: 12, color: 'var(--color-text-secondary)' },
+  nextDayBadge: {
+    fontSize: 10, fontWeight: 700, color: '#7c3aed',
+    background: '#ede9fe', borderRadius: 20, padding: '2px 8px',
+  },
+
+  // Portuguese law alert
+  lawAlert: {
+    fontSize: 12, fontWeight: 500, lineHeight: 1.6,
+    padding: '10px 14px', borderRadius: 8, borderWidth: '1px', borderStyle: 'solid',
+    marginTop: 4,
+  },
   addrRow: { display: 'flex', gap: 10 },
   geocodeBtn: {
     padding: '10px 16px', background: 'var(--color-primary-light)', border: '1px solid rgba(106,121,255,0.3)',

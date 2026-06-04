@@ -1,5 +1,5 @@
 import {
-  Controller, Post, Get, Body, HttpCode, HttpStatus,
+  Controller, Post, Get, Patch, Body, HttpCode, HttpStatus,
   UseGuards, Request, Param, Query, NotFoundException,
   UseInterceptors, UploadedFile, BadRequestException,
   Res,
@@ -134,6 +134,26 @@ export class AuthController {
     };
   }
 
+  /** PATCH /auth/worker/profile — partial update (name, bio, skills, languages, availability) */
+  @UseGuards(JwtAuthGuard)
+  @Patch('worker/profile')
+  @HttpCode(HttpStatus.OK)
+  async updateWorkerPartial(
+    @Request() req: { user: { userId: string } },
+    @Body() body: {
+      fullName?: string;
+      bio?: string;
+      skills?: string[];
+      languages?: string[];
+      availableDays?: string[];
+      iban?: string;
+      contactEmail?: string;
+    },
+  ) {
+    const result = await this.authService.updateWorkerPartialProfile(req.user.userId, body);
+    return { message: 'Perfil atualizado com sucesso', ...result };
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post('worker/photo')
   @HttpCode(HttpStatus.OK)
@@ -160,7 +180,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   async getMe(@Request() req: { user: { userId: string; role: string } }) {
-    return { userId: req.user.userId, role: req.user.role };
+    return this.authService.getProfile(req.user.userId, req.user.role);
   }
 
   // ─── Push Notifications ───────────────────────────────────────────────────

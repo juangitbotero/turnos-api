@@ -36,6 +36,8 @@ import { Employer } from '../users/entities/employer.entity';
 import { ShiftsGateway } from '../gateway/shifts.gateway';
 import { ComplianceService } from '../compliance/compliance.service';
 import { ComplianceEvent } from '../compliance/entities/compliance-audit-log.entity';
+import { PaymentsService } from '../payments/payments.service';
+import { RatingsService } from '../ratings/ratings.service';
 
 // Check-in window: 30 min before → 60 min after scheduled start
 const CHECKIN_WINDOW_BEFORE_MS = 30 * 60 * 1000;
@@ -80,6 +82,8 @@ export class AttendanceService {
 
     private readonly gateway: ShiftsGateway,
     private readonly compliance: ComplianceService,
+    private readonly payments: PaymentsService,
+    private readonly ratings: RatingsService,
     private readonly config: ConfigService,
   ) {
     this.hmacSecret = this.config.get<string>('QR_HMAC_SECRET', 'turnos-dev-qr-secret-change-in-prod');
@@ -241,6 +245,29 @@ export class AttendanceService {
       shiftId:        shift.id,
       shiftTitle:     shift.title,
       scheduledHours: Number(saved.scheduledHours),
+    });
+
+    // Charge employer + transfer worker payout (non-blocking, best-effort)
+    this.payments.chargeShiftOnCheckout(
+      shift.id,
+      shift.employer.id,
+      worker.id,
+      Number(saved.scheduledHours),
+      Number(shift.grossHourlyRate),
+      shift.date,
+      shift.title,
+    ).catch(err => {
+      this.logger.warn(`[Attendance] Payment charge failed for shift ${shift.id}: ${(err as Error).message}`);
+    });
+
+    // Schedule Recibo Verde push reminders (non-blocking, best-effort)
+    this.compliance.onShiftCompleted(shift, worker).catch(err => {
+      this.logger.warn(`[Attendance] Failed to schedule Recibo Verde reminders: ${(err as Error).message}`);
+    });
+
+    // Schedule 30-min rating reminder email to employer (non-blocking, best-effort)
+    this.ratings.scheduleRatingReminder(shift.id, shift.title, shift.employer.id).catch(err => {
+      this.logger.warn(`[Attendance] Failed to schedule rating reminder: ${(err as Error).message}`);
     });
 
     this.logger.log(`[Attendance] Check-out: worker ${worker.id} → shift ${shift.id} — ${saved.scheduledHours}h`);

@@ -12,7 +12,7 @@ import {
 } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
 
-const ALL_SKILLS = Object.values(SHIFT_CATEGORIES).flat();
+const ALL_SKILLS = [...new Set(Object.values(SHIFT_CATEGORIES).flat())];
 const WEEK_DAYS  = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const STEPS = ['Identidade', 'Legal', 'Disponibilidade', 'Resumo'];
 
@@ -82,9 +82,10 @@ export default function OnboardingScreen() {
     }
     if (step === 1) {
       let ok = true;
-      if (!isValidNIF(nif)) { setNifError('NIF inválido'); ok = false; }
+      // Only validate if the worker has entered something — both are optional
+      if (nif.trim() && !isValidNIF(nif)) { setNifError('NIF inválido (9 dígitos)'); ok = false; }
       else setNifError('');
-      if (!isValidIBAN(iban)) { setIbanError('IBAN inválido (formato PT50... com 25 caracteres)'); ok = false; }
+      if (iban.trim() && !isValidIBAN(iban)) { setIbanError('IBAN inválido (formato PT50... com 25 caracteres)'); ok = false; }
       else setIbanError('');
       return ok;
     }
@@ -211,10 +212,12 @@ export default function OnboardingScreen() {
         {step === 1 && (
           <View style={s.section}>
             <Text style={s.sectionTitle}>Dados legais</Text>
-            <Text style={s.sectionSub}>Necessários para contratos MCD e pagamentos.</Text>
+            <Text style={s.sectionSub}>
+              Podes preencher agora ou mais tarde no perfil. O NIF e IBAN são necessários antes do teu primeiro turno.
+            </Text>
 
             <View style={s.fieldGroup}>
-              <Text style={s.fieldLabel}>NIF <Text style={s.req}>*</Text></Text>
+              <Text style={s.fieldLabel}>NIF <Text style={s.optLabel}>(opcional)</Text></Text>
               <TextInput
                 style={[s.input, nifError ? s.inputError : {}]}
                 placeholder="123 456 789"
@@ -231,7 +234,7 @@ export default function OnboardingScreen() {
             </View>
 
             <View style={s.fieldGroup}>
-              <Text style={s.fieldLabel}>IBAN <Text style={s.req}>*</Text></Text>
+              <Text style={s.fieldLabel}>IBAN <Text style={s.optLabel}>(opcional)</Text></Text>
               <TextInput
                 style={[s.input, ibanError ? s.inputError : {}]}
                 placeholder="PT50 0000 0000 0000 0000 0000 0"
@@ -245,7 +248,7 @@ export default function OnboardingScreen() {
               {!ibanError && iban.length === 25 && isValidIBAN(iban) && (
                 <Text style={s.validText}>✓ IBAN válido</Text>
               )}
-              <Text style={s.fieldHint}>O seu salário será depositado nesta conta no dia seguinte ao turno.</Text>
+              <Text style={s.fieldHint}>O teu salário será depositado nesta conta no dia seguinte ao turno.</Text>
             </View>
 
             <View style={s.fieldGroup}>
@@ -316,7 +319,7 @@ export default function OnboardingScreen() {
                 <Text style={s.scoreLabel}>/ 100</Text>
               </View>
               <View style={s.scoreInfo}>
-                <Text style={s.scoreTitle}>Pontuação de Perfil</Text>
+                <Text style={s.scoreTitle}>Perfil Completo</Text>
                 <Text style={s.scoreStatus}>
                   {qualityResult.status === 'PENDING_REVIEW'
                     ? '✅ Pronto para submeter'
@@ -442,6 +445,7 @@ const s = StyleSheet.create({
   fieldGroup: { gap: 6 },
   fieldLabel: { fontSize: 13, fontWeight: fontWeight.bold, color: colors.textPrimary },
   req: { color: colors.error },
+  optLabel: { fontWeight: fontWeight.regular as any, color: colors.textSecondary, fontSize: 12 },
   fieldHint: { fontSize: fontSize.caption, color: colors.textSecondary, lineHeight: 18 },
   errorText: { fontSize: fontSize.caption, color: colors.error, fontWeight: fontWeight.semibold },
   validText: { fontSize: fontSize.caption, color: colors.success, fontWeight: fontWeight.bold },

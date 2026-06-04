@@ -12,6 +12,7 @@ import { Shift, ShiftStatus } from '../shifts/entities/shift.entity';
 import { Worker } from '../users/entities/worker.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { SsDiretaJobData } from './processors/ss-direta.processor';
+import { ReciboVerdeJobData } from './processors/recibo-verde.processor';
 
 // Statutory MCD limits
 const MCD_MAX_DAYS_PER_YEAR = 70;
@@ -44,6 +45,9 @@ export class ComplianceService {
 
     @InjectQueue('ss-direta')
     private readonly ssDiretaQueue: Queue,
+
+    @InjectQueue('recibo-verde')
+    private readonly reciboVerdeQueue: Queue,
   ) {}
 
   // ── Public helpers called by ShiftsService ────────────────────────────────
@@ -144,6 +148,57 @@ export class ComplianceService {
     });
 
     this.logger.log(`[Compliance] MCD contract ${saved.id} created. SS notification scheduled in ${Math.max(delay, 0) / 3600000}h`);
+  }
+
+  /**
+   * Called immediately after a worker checks out (shift → COMPLETED).
+   * Schedules two Recibo Verde push reminders to the worker:
+   *   - Day +3 : gentle first reminder
+   *   - Day +5 : final urgent reminder
+   *
+   * Workers on MCD contracts must submit their own Recibo Verde via
+   * Portal das Finanças within 5 business days of shift completion.
+   */
+  async onShiftCompleted(
+    shift: Shift,
+    worker: Worker,
+  ): Promise<void> {
+    const hours      = this.calcHours(shift.startTime, shift.endTime);
+    const grossAmount = Number(shift.grossHourlyRate) * hours;
+
+    const baseData: Omit<ReciboVerdeJobData, 'reminderDay'> = {
+      workerId:   worker.id,
+      shiftId:    shift.id,
+      shiftTitle: shift.title,
+      shiftDate:  shift.date,
+      grossAmount,
+    };
+
+    // Day +3 reminder (72h)
+    await this.reciboVerdeQueue.add(
+      'remind',
+      { ...baseData, reminderDay: 3 } satisfies ReciboVerdeJobData,
+      {
+        delay:    3 * 24 * 60 * 60 * 1000,
+        attempts: 3,
+        backoff:  { type: 'exponential', delay: 60_000 },
+      },
+    );
+
+    // Day +5 reminder (120h)
+    await this.reciboVerdeQueue.add(
+      'remind',
+      { ...baseData, reminderDay: 5 } satisfies ReciboVerdeJobData,
+      {
+        delay:    5 * 24 * 60 * 60 * 1000,
+        attempts: 3,
+        backoff:  { type: 'exponential', delay: 60_000 },
+      },
+    );
+
+    this.logger.log(
+      `[Compliance] Recibo Verde reminders scheduled for worker ${worker.id} (shift ${shift.id}, €${grossAmount.toFixed(2)})`,
+    );
   }
 
   // ── TSU & reporting endpoints ─────────────────────────────────────────────

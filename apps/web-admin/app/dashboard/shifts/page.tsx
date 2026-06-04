@@ -2,16 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { adminApi, ApiError, Shift, Application } from '../../../lib/api';
 import { connectSocket, getSocket, NewApplicationPayload } from '../../../lib/socket';
 
 const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
-  DRAFT:     { label: 'Rascunho',   color: '#6b7280', bg: '#f3f4f6' },
-  OPEN:      { label: 'Aberto',     color: '#16a34a', bg: '#dcfce7' },
-  FILLED:    { label: 'Preenchido', color: '#7c3aed', bg: '#ede9fe' },
-  ACTIVE:    { label: 'Ativo',      color: '#2563eb', bg: '#dbeafe' },
-  COMPLETED: { label: 'Concluído',  color: '#0891b2', bg: '#cffafe' },
-  CANCELLED: { label: 'Cancelado',  color: '#dc2626', bg: '#fee2e2' },
+  DRAFT:              { label: 'Rascunho',          color: '#6b7280', bg: '#f3f4f6' },
+  OPEN:               { label: 'Aberto',            color: '#16a34a', bg: '#dcfce7' },
+  PENDING_ACCEPTANCE: { label: 'A aguardar worker', color: '#d97706', bg: '#fef3c7' },
+  FILLED:             { label: 'Preenchido',        color: '#7c3aed', bg: '#ede9fe' },
+  ACTIVE:             { label: 'Ativo',             color: '#2563eb', bg: '#dbeafe' },
+  COMPLETED:          { label: 'Concluído',         color: '#0891b2', bg: '#cffafe' },
+  CANCELLED:          { label: 'Cancelado',         color: '#dc2626', bg: '#fee2e2' },
 };
 
 function formatDate(d: string) {
@@ -20,15 +22,141 @@ function formatDate(d: string) {
 
 // ── Applicants Modal ──────────────────────────────────────────────────────────
 
+function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => void }) {
+  const w = app.worker;
+  const score = w?.profileQualityScore ?? 0;
+  const scoreColor = score >= 80 ? '#16a34a' : score >= 50 ? '#d97706' : '#dc2626';
+  const avgR = w?.avgRating != null ? Number(w.avgRating) : null;
+  const filledStars = Math.round(avgR ?? 0);
+  const statusLabel: Record<string, string> = {
+    INCOMPLETE: 'Perfil incompleto', PENDING_REVIEW: 'A aguardar aprovação',
+    ACTIVE: 'Ativo', SUSPENDED: 'Suspenso', REJECTED: 'Rejeitado',
+  };
+
+  return (
+    <div style={s.profilePanel}>
+      <button style={s.backInPanel} onClick={onBack}>← Voltar à lista</button>
+
+      {/* Header: photo + name + status + rating */}
+      <div style={s.profileTop}>
+        {w?.photoUrl
+          ? <img src={w.photoUrl} alt={w.fullName ?? ''} style={s.profilePhoto} />
+          : <div style={s.profileAvatar}>{(w?.fullName?.[0] ?? '?').toUpperCase()}</div>
+        }
+        <div style={{ flex: 1 }}>
+          <p style={s.profileName}>{w?.fullName ?? 'Nome não definido'}</p>
+          <span style={{
+            ...s.profileStatusBadge,
+            background: w?.status === 'ACTIVE' ? '#dcfce7' : '#fef9c3',
+            color:      w?.status === 'ACTIVE' ? '#166534' : '#854d0e',
+          }}>
+            {statusLabel[w?.status ?? ''] ?? w?.status ?? '—'}
+          </span>
+          {avgR != null && (
+            <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ color: '#fbbf24', fontSize: 14 }}>{'★'.repeat(filledStars)}{'☆'.repeat(5 - filledStars)}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b' }}>{avgR.toFixed(1)}</span>
+              <span style={{ fontSize: 12, color: '#6b7280' }}>({w?.totalRatings ?? 0} aval.)</span>
+            </div>
+          )}
+          {w?.badges && w.badges.length > 0 && (
+            <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' as const }}>
+              {w.badges.includes('TOP_RATED') && <span style={s.badge}>🏆 Top Rated</span>}
+              {w.badges.includes('RELIABLE')  && <span style={s.badge}>✅ Fiável</span>}
+              {w.badges.includes('VERIFIED')  && <span style={s.badge}>✔️ Verificado</span>}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Cover note from worker */}
+      {app.coverNote && (
+        <div style={s.coverNoteBox}>
+          <p style={s.profileSectionTitle}>💬 Mensagem do candidato</p>
+          <p style={s.coverNoteText}>"{app.coverNote}"</p>
+        </div>
+      )}
+
+      {/* Bio */}
+      {w?.bio && (
+        <div style={s.profileSection}>
+          <p style={s.profileSectionTitle}>Apresentação</p>
+          <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.5, margin: 0 }}>{w.bio}</p>
+        </div>
+      )}
+
+      {/* Score bar */}
+      <div style={s.scoreSection}>
+        <div style={s.scoreHeader}>
+          <span style={s.scoreLabel}>Perfil completo</span>
+          <span style={{ ...s.scoreValue, color: scoreColor }}>{score}%</span>
+        </div>
+        <div style={s.scoreBarBg}>
+          <div style={{ ...s.scoreBarFill, width: `${score}%`, background: scoreColor }} />
+        </div>
+      </div>
+
+      {/* Skills */}
+      {w?.skills && w.skills.length > 0 && (
+        <div style={s.profileSection}>
+          <p style={s.profileSectionTitle}>Competências</p>
+          <div style={s.skillTags}>
+            {w.skills.map(sk => <span key={sk} style={s.skillTag}>{sk}</span>)}
+          </div>
+        </div>
+      )}
+
+      {/* Languages */}
+      {w?.languages && w.languages.length > 0 && (
+        <div style={s.profileSection}>
+          <p style={s.profileSectionTitle}>Idiomas</p>
+          <div style={s.skillTags}>
+            {w.languages.map(lang => (
+              <span key={lang} style={{ ...s.skillTag, background: '#f0fdf4', color: '#15803d' }}>{lang}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Available days */}
+      {w?.availableDays && w.availableDays.length > 0 && (
+        <div style={s.profileSection}>
+          <p style={s.profileSectionTitle}>Disponibilidade semanal</p>
+          <div style={s.skillTags}>
+            {w.availableDays.map(d => (
+              <span key={d} style={{ ...s.skillTag, background: '#dbeafe', color: '#1d4ed8' }}>{d}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!w?.bio && (!w?.skills || w.skills.length === 0) && (!w?.availableDays || w.availableDays.length === 0) && (
+        <p style={s.emptyApps}>Este candidato ainda não preencheu o perfil completo.</p>
+      )}
+    </div>
+  );
+}
+
+type SortMode = 'rating' | 'score' | 'date';
+
+function skillMatch(app: Application, shift: Shift): number {
+  const required = shift.skillsRequired ?? [];
+  if (required.length === 0) return -1; // no requirement — don't show indicator
+  const workerSkills = app.worker?.skills ?? [];
+  return required.filter(r => workerSkills.includes(r)).length;
+}
+
 function ShiftApplicationsModal({
   shift, onClose,
 }: {
   shift: Shift;
   onClose: () => void;
 }) {
-  const [apps, setApps] = useState<Application[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [apps, setApps]             = useState<Application[]>([]);
+  const [loading, setLoading]       = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [viewingProfile, setViewingProfile] = useState<Application | null>(null);
+  const [sortMode, setSortMode]     = useState<SortMode>('rating');
 
   useEffect(() => {
     adminApi.getShiftApplications(shift.id).then(setApps).catch(() => {}).finally(() => setLoading(false));
@@ -41,6 +169,7 @@ function ShiftApplicationsModal({
       setApps(prev => prev.map(a =>
         a.id === appId ? { ...a, status: 'APPROVED' as const } : { ...a, status: 'REJECTED' as const },
       ));
+      setViewingProfile(null);
     } catch (err) {
       alert(err instanceof ApiError ? err.message : 'Erro ao aprovar.');
     } finally {
@@ -48,57 +177,112 @@ function ShiftApplicationsModal({
     }
   };
 
+  const sorted = [...apps].sort((a, b) => {
+    if (sortMode === 'rating') {
+      return Number(b.worker?.avgRating ?? 0) - Number(a.worker?.avgRating ?? 0);
+    }
+    if (sortMode === 'score') {
+      return (b.worker?.profileQualityScore ?? 0) - (a.worker?.profileQualityScore ?? 0);
+    }
+    // date — earliest first (most committed)
+    return new Date(a.appliedAt).getTime() - new Date(b.appliedAt).getTime();
+  });
+
+  const requiredCount = shift.skillsRequired?.length ?? 0;
+
   return (
     <div style={s.overlay}>
       <div style={s.modal}>
         <div style={s.modalHeader}>
           <div>
             <h2 style={s.modalTitle}>Candidatos — {shift.title || shift.subcategory}</h2>
-            <p style={s.modalSub}>{formatDate(shift.date)} · {shift.startTime.slice(0, 5)}–{shift.endTime.slice(0, 5)}</p>
+            <p style={s.modalSub}>{formatDate(shift.date)} · {shift.startTime.slice(0, 5)}–{shift.endTime.slice(0, 5)} · {apps.length} candidato{apps.length !== 1 ? 's' : ''}</p>
           </div>
           <button style={s.closeBtn} onClick={onClose}>✕</button>
         </div>
 
-        {loading ? (
+        {viewingProfile ? (
+          <WorkerProfilePanel app={viewingProfile} onBack={() => setViewingProfile(null)} />
+        ) : loading ? (
           <p style={s.loadingText}>A carregar candidatos...</p>
         ) : apps.length === 0 ? (
           <p style={s.emptyApps}>Nenhum candidato ainda.</p>
         ) : (
-          <div style={s.appList}>
-            {apps.map(app => (
-              <div key={app.id} style={s.appCard}>
-                <div style={s.appLeft}>
-                  <div style={s.appAvatar}>
-                    {(app.worker?.fullName?.[0] ?? '?').toUpperCase()}
+          <>
+            {/* Sort bar */}
+            <div style={s.sortBar}>
+              <span style={s.sortLabel}>Ordenar:</span>
+              {([['rating', '⭐ Melhor avaliação'], ['score', '📋 Perfil mais completo'], ['date', '🕐 Mais antigo']] as [SortMode, string][]).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  style={{ ...s.sortBtn, ...(sortMode === mode ? s.sortBtnActive : {}) }}
+                  onClick={() => setSortMode(mode)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div style={s.appList}>
+              {sorted.map(app => {
+                const match = skillMatch(app, shift);
+                const matchLabel = requiredCount > 0
+                  ? `${match}/${requiredCount} competências`
+                  : null;
+                const isFullMatch = match === requiredCount && requiredCount > 0;
+
+                return (
+                  <div key={app.id} style={s.appCard}>
+                    <div style={s.appLeft}>
+                      {app.worker?.photoUrl
+                        ? <img src={app.worker.photoUrl} alt={app.worker.fullName ?? ''} style={{ ...s.appAvatar, objectFit: 'cover' } as React.CSSProperties} />
+                        : <div style={s.appAvatar}>{(app.worker?.fullName?.[0] ?? '?').toUpperCase()}</div>
+                      }
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <p style={s.appName}>{app.worker?.fullName ?? 'Nome não definido'}</p>
+                          {isFullMatch && <span style={s.matchBadge}>✓ Match total</span>}
+                        </div>
+                        <p style={s.appScore}>Perfil: {app.worker?.profileQualityScore ?? '—'}%
+                          {app.worker?.avgRating != null && (
+                            <span style={{ marginLeft: 8, color: '#fbbf24' }}>
+                              ★ {Number(app.worker.avgRating).toFixed(1)}
+                              <span style={{ color: 'var(--color-text-secondary)', fontWeight: 400 }}> ({app.worker.totalRatings ?? 0})</span>
+                            </span>
+                          )}
+                        </p>
+                        {matchLabel && (
+                          <p style={{ ...s.appSkills, color: isFullMatch ? '#16a34a' : 'var(--color-text-secondary)' }}>
+                            🎯 {matchLabel}
+                          </p>
+                        )}
+                        {app.worker?.skills && app.worker.skills.length > 0 && (
+                          <p style={s.appSkills}>{app.worker.skills.slice(0, 3).join(', ')}{app.worker.skills.length > 3 ? ` +${app.worker.skills.length - 3}` : ''}</p>
+                        )}
+                        {app.coverNote && (
+                          <p style={s.coverNote}>💬 "{app.coverNote}"</p>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ ...s.appRight, gap: 8 }}>
+                      <button style={s.viewProfileBtn} onClick={() => setViewingProfile(app)}>Ver perfil →</button>
+                      {app.status === 'APPROVED' && <span style={{ ...s.statusBadge, ...s.statusApproved }}>✓ Aprovado</span>}
+                      {app.status === 'REJECTED' && <span style={{ ...s.statusBadge, ...s.statusRejected }}>✕ Rejeitado</span>}
+                      {app.status === 'PENDING' && (
+                        <button
+                          style={{ ...s.approveBtn, opacity: processing === app.id ? 0.6 : 1 }}
+                          onClick={() => handleApprove(app.id)}
+                          disabled={!!processing}
+                        >
+                          {processing === app.id ? '...' : 'Selecionar'}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p style={s.appName}>{app.worker?.fullName ?? 'Nome não definido'}</p>
-                    <p style={s.appScore}>Score: {app.worker?.profileQualityScore ?? '—'}/100</p>
-                    {app.worker?.skills && app.worker.skills.length > 0 && (
-                      <p style={s.appSkills}>{app.worker.skills.slice(0, 3).join(', ')}</p>
-                    )}
-                  </div>
-                </div>
-                <div style={s.appRight}>
-                  {app.status === 'APPROVED' && (
-                    <span style={{ ...s.statusBadge, ...s.statusApproved }}>✓ Aprovado</span>
-                  )}
-                  {app.status === 'REJECTED' && (
-                    <span style={{ ...s.statusBadge, ...s.statusRejected }}>✕ Rejeitado</span>
-                  )}
-                  {app.status === 'PENDING' && (
-                    <button
-                      style={{ ...s.approveBtn, opacity: processing === app.id ? 0.6 : 1 }}
-                      onClick={() => handleApprove(app.id)}
-                      disabled={!!processing}
-                    >
-                      {processing === app.id ? '...' : 'Selecionar'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -108,11 +292,14 @@ function ShiftApplicationsModal({
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ShiftsPage() {
+  const router = useRouter();
   const [shifts, setShifts]           = useState<Shift[]>([]);
   const [isLoading, setIsLoading]     = useState(true);
   const [error, setError]             = useState('');
-  const [cancelling, setCancelling]   = useState<string | null>(null);
-  const [confirming, setConfirming]   = useState<string | null>(null);
+  const [cancelling, setCancelling]     = useState<string | null>(null);
+  const [confirming, setConfirming]     = useState<string | null>(null);
+  const [deletingExpired, setDeleting]  = useState<string | null>(null);
+  const [showExpired, setShowExpired]   = useState(false);
   const [viewingApps, setViewingApps] = useState<Shift | null>(null);
   const [newAppCounts, setNewAppCounts] = useState<Record<string, number>>({});
 
@@ -164,8 +351,9 @@ export default function ShiftsPage() {
 
   const handleManualConfirm = async (shift: Shift) => {
     if (!confirm(
-      `Confirmar manualmente o turno "${shift.title || shift.subcategory}"?\n\n` +
-      `Isto marca o turno como concluído e desencadeia o pagamento. Não pode ser desfeito.`
+      `Marcar como concluído: "${shift.title || shift.subcategory}"\n\n` +
+      `O turno será encerrado e o pagamento será desencadeado automaticamente. Esta ação não pode ser desfeita.\n\n` +
+      `Usa esta opção apenas se o trabalhador não conseguiu fazer check-out via QR.`
     )) return;
     setConfirming(shift.id);
     try {
@@ -178,14 +366,25 @@ export default function ShiftsPage() {
     }
   };
 
-  const active = shifts.filter(sh => ['OPEN', 'FILLED', 'ACTIVE'].includes(sh.status));
-  const past   = shifts.filter(sh => ['COMPLETED', 'CANCELLED', 'DRAFT'].includes(sh.status));
+  // Client-side expiry detection (backup until nightly cron runs)
+  const isExpiredShift = (sh: Shift) => {
+    if (!['OPEN', 'PENDING_ACCEPTANCE'].includes(sh.status)) return sh.status === 'EXPIRED';
+    const [h, m] = sh.endTime.split(':').map(Number);
+    const [y, mo, d] = sh.date.split('-').map(Number);
+    const end = new Date(y!, (mo! - 1), d!, h ?? 0, m ?? 0, 0);
+    return end < new Date();
+  };
+
+  const active  = shifts.filter(sh => ['OPEN', 'FILLED', 'ACTIVE', 'PENDING_ACCEPTANCE'].includes(sh.status) && !isExpiredShift(sh));
+  const expired = shifts.filter(sh => isExpiredShift(sh));
+  const past    = shifts.filter(sh => ['COMPLETED', 'CANCELLED', 'DRAFT'].includes(sh.status));
 
   return (
     <div style={s.page}>
       {/* Header */}
       <div style={s.header}>
         <div>
+          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>← Dashboard</button>
           <h1 style={s.title}>Os Meus Turnos</h1>
           <p style={s.sub}>
             {isLoading ? 'A carregar...' : `${shifts.length} turnos no total · ${active.length} ativos`}
@@ -276,6 +475,73 @@ export default function ShiftsPage() {
         </section>
       )}
 
+      {/* Caducados section */}
+      {expired.length > 0 && (
+        <section style={s.section}>
+          <button
+            style={s.expiredToggle}
+            onClick={() => setShowExpired(v => !v)}
+          >
+            <span style={s.expiredToggleIcon}>⚠️</span>
+            <span style={s.expiredToggleTitle}>
+              Caducados ({expired.length}) — Turnos sem trabalhador confirmado
+            </span>
+            <span style={{ marginLeft: 'auto', fontSize: 12 }}>{showExpired ? '▲ Fechar' : '▼ Ver'}</span>
+          </button>
+
+          {showExpired && (
+            <div style={s.table}>
+              <div style={s.tableHead}>
+                <span>Turno</span><span>Data</span><span>Horário</span>
+                <span>Valor bruto</span><span>Estado</span><span>Ações</span>
+              </div>
+              {expired.map(shift => (
+                <div key={shift.id} style={{ ...s.row, opacity: 0.85 }}>
+                  <div style={s.rowMain}>
+                    <p style={s.rowTitle}>{shift.title || shift.subcategory}</p>
+                    <p style={s.rowSub}>{shift.employer?.companyName ?? ''}</p>
+                  </div>
+                  <span style={s.rowCell}>{formatDate(shift.date)}</span>
+                  <span style={s.rowCell}>{shift.startTime.slice(0,5)}–{shift.endTime.slice(0,5)}</span>
+                  <span style={s.rowCell}>€{Number(shift.grossHourlyRate).toFixed(2)}/hr</span>
+                  <span style={{ ...s.statusPill, background: '#fee2e2', color: '#dc2626' }}>Caducado</span>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      style={s.repostBtn}
+                      onClick={() => {
+                        // Pre-fill new-shift with this shift's data via sessionStorage
+                        sessionStorage.setItem('repost_shift', JSON.stringify(shift));
+                        window.location.href = '/dashboard/new-shift';
+                      }}
+                    >
+                      🔁 Re-publicar
+                    </button>
+                    <button
+                      style={{ ...s.deleteBtn, opacity: deletingExpired === shift.id ? 0.5 : 1 }}
+                      disabled={deletingExpired === shift.id}
+                      onClick={async () => {
+                        if (!confirm('Eliminar este turno caducado?')) return;
+                        setDeleting(shift.id);
+                        try {
+                          await adminApi.deleteExpiredShift(shift.id);
+                          setShifts(prev => prev.filter(s => s.id !== shift.id));
+                        } catch {
+                          alert('Erro ao eliminar.');
+                        } finally {
+                          setDeleting(null);
+                        }
+                      }}
+                    >
+                      {deletingExpired === shift.id ? '...' : '🗑 Eliminar'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {viewingApps && (
         <ShiftApplicationsModal shift={viewingApps} onClose={() => setViewingApps(null)} />
       )}
@@ -322,9 +588,9 @@ function ShiftRow({ shift, onCancel, onManualConfirm, cancelling, confirming, on
             style={{ ...s.confirmBtn, opacity: confirming === shift.id ? 0.6 : 1 }}
             onClick={() => onManualConfirm(shift)}
             disabled={confirming === shift.id}
-            title="Confirmar turno manualmente (sem QR)"
+            title="Marcar como concluído (sem QR) — usar quando o trabalhador não conseguiu fazer check-out"
           >
-            {confirming === shift.id ? '...' : '✓ Confirmar'}
+            {confirming === shift.id ? '...' : '🏁 Concluído'}
           </button>
         )}
         {canCancel && (
@@ -345,7 +611,12 @@ function ShiftRow({ shift, onCancel, onManualConfirm, cancelling, confirming, on
 
 const s: Record<string, React.CSSProperties> = {
   page: { padding: 32, maxWidth: 1200, margin: '0 auto' },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  header: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20 },
+  backBtn: {
+    display: 'inline-block', background: 'none', border: 'none', padding: 0,
+    fontSize: 13, color: 'var(--color-text-secondary)', cursor: 'pointer',
+    fontFamily: 'inherit', marginBottom: 6,
+  },
   title: { fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.5px', marginBottom: 4 },
   sub: { fontSize: 14, color: 'var(--color-text-secondary)' },
   headerActions: { display: 'flex', gap: 10, alignItems: 'center' },
@@ -399,7 +670,7 @@ const s: Record<string, React.CSSProperties> = {
   rowTitle: { fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 2 },
   rowSub: { fontSize: 12, color: 'var(--color-text-secondary)' },
   rowCell: { color: 'var(--color-text-primary)' },
-  badge: { display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
+  badge: { display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: '#fef9c3', border: '1px solid #fde68a', color: '#92400e' },
   rowActions: { display: 'flex', gap: 6, flexWrap: 'wrap' },
   viewAppsBtn: {
     display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -453,12 +724,109 @@ const s: Record<string, React.CSSProperties> = {
   appName: { fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 2 },
   appScore: { fontSize: 12, color: 'var(--color-text-secondary)' },
   appSkills: { fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2 },
-  appRight: { display: 'flex', alignItems: 'center' },
+  appRight: { display: 'flex', alignItems: 'center', flexDirection: 'column' as const },
   statusBadge: { padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
   statusApproved: { background: '#dcfce7', color: '#16a34a' },
   statusRejected: { background: '#fee2e2', color: '#dc2626' },
+  viewProfileBtn: {
+    padding: '5px 10px', background: 'none', border: '1px solid var(--color-border)',
+    borderRadius: 6, color: 'var(--color-text-secondary)', fontWeight: 600, fontSize: 11,
+    cursor: 'pointer', fontFamily: 'inherit', marginBottom: 4,
+  },
   approveBtn: {
     padding: '8px 16px', background: '#dcfce7', border: '1px solid #86efac',
     borderRadius: 8, color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+  },
+
+  // Worker profile panel (inside modal)
+  profilePanel: { display: 'flex', flexDirection: 'column' as const, gap: 16, overflowY: 'auto' as const },
+  backInPanel: {
+    background: 'none', border: 'none', padding: 0, fontSize: 13,
+    color: 'var(--color-text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
+    textAlign: 'left' as const, marginBottom: 4,
+  },
+  profileTop: { display: 'flex', gap: 14, alignItems: 'center' },
+  profilePhoto: { width: 64, height: 64, borderRadius: 32, objectFit: 'cover' as const, flexShrink: 0 },
+  profileAvatar: {
+    width: 64, height: 64, borderRadius: 32, background: 'var(--color-primary-light)',
+    color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 24, fontWeight: 800, flexShrink: 0,
+  },
+  profileName: { fontSize: 18, fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: 6 },
+  profileStatusBadge: { display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
+  scoreSection: { display: 'flex', flexDirection: 'column' as const, gap: 6 },
+  scoreHeader: { display: 'flex', justifyContent: 'space-between' },
+  scoreLabel: { fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)' },
+  scoreValue: { fontSize: 14, fontWeight: 800 },
+  scoreBarBg: { height: 8, background: '#e5e7eb', borderRadius: 4, overflow: 'hidden' },
+  scoreBarFill: { height: '100%', borderRadius: 4, transition: 'width 0.3s ease' },
+  profileSection: { display: 'flex', flexDirection: 'column' as const, gap: 8 },
+  profileSectionTitle: { fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.5px' },
+  skillTags: { display: 'flex', flexWrap: 'wrap' as const, gap: 6 },
+  skillTag: {
+    padding: '4px 10px', background: 'var(--color-primary-light)', borderRadius: 20,
+    fontSize: 12, fontWeight: 600, color: 'var(--color-primary)',
+    border: '1px solid rgba(106,121,255,0.2)',
+  },
+  coverNoteBox: {
+    background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10,
+    padding: '12px 14px', display: 'flex', flexDirection: 'column' as const, gap: 6,
+  },
+  coverNoteText: {
+    fontSize: 13, color: '#374151', lineHeight: 1.5, margin: 0,
+    fontStyle: 'italic' as const,
+  },
+
+  // Sort bar
+  sortBar: {
+    display: 'flex', alignItems: 'center', gap: 8,
+    padding: '10px 0', borderBottom: '1px solid var(--color-border)', marginBottom: 4,
+  },
+  sortLabel: { fontSize: 12, fontWeight: 600, color: 'var(--color-text-secondary)', flexShrink: 0 },
+  sortBtn: {
+    padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+    borderWidth: '1.5px', borderStyle: 'solid', borderColor: 'var(--color-border)',
+    background: 'none',
+    color: 'var(--color-text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
+    transition: 'all 0.15s',
+  },
+  sortBtnActive: {
+    background: 'var(--color-primary-light)', borderColor: 'rgba(106,121,255,0.4)',
+    color: 'var(--color-primary)',
+  },
+
+  // Skill match
+  matchBadge: {
+    fontSize: 10, fontWeight: 700, color: '#16a34a',
+    background: '#dcfce7', border: '1px solid #86efac',
+    borderRadius: 20, padding: '2px 7px',
+  },
+  coverNote: {
+    fontSize: 12, color: '#6b7280', fontStyle: 'italic' as const,
+    marginTop: 2, maxWidth: 260,
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const,
+  },
+
+  // Caducados section
+  expiredToggle: {
+    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+    background: '#fff7ed', border: '1px solid #fed7aa',
+    borderRadius: 10, padding: '12px 16px',
+    cursor: 'pointer', fontFamily: 'inherit', color: '#92400e',
+    fontSize: 14, fontWeight: 600,
+  },
+  expiredToggleIcon: { fontSize: 18 },
+  expiredToggleTitle: { flex: 1, textAlign: 'left' as const },
+  repostBtn: {
+    padding: '6px 12px', background: 'var(--color-primary-light)',
+    border: '1px solid rgba(106,121,255,0.3)', borderRadius: 8,
+    color: 'var(--color-primary)', fontWeight: 600, fontSize: 12,
+    cursor: 'pointer', fontFamily: 'inherit',
+  },
+  deleteBtn: {
+    padding: '6px 12px', background: '#fee2e2',
+    border: '1px solid #fca5a5', borderRadius: 8,
+    color: '#dc2626', fontWeight: 600, fontSize: 12,
+    cursor: 'pointer', fontFamily: 'inherit',
   },
 };

@@ -1,5 +1,5 @@
 import {
-  Controller, Post, Get, Patch, Body, Param, Request,
+  Controller, Post, Get, Patch, Delete, Body, Param, Request,
   UseGuards, Query,
 } from '@nestjs/common';
 import { ShiftsService } from './shifts.service';
@@ -24,6 +24,12 @@ export class ShiftsController {
   @Roles('EMPLOYER')
   getMyShifts(@Request() req: any) {
     return this.shiftsService.findByEmployer(req.user.userId);
+  }
+
+  @Get('employer/workers')
+  @Roles('EMPLOYER')
+  getMyWorkers(@Request() req: any) {
+    return this.shiftsService.findEmployerWorkers(req.user.userId);
   }
 
   @Patch(':id')
@@ -74,14 +80,67 @@ export class ShiftsController {
 
   @Post(':id/apply')
   @Roles('WORKER')
-  apply(@Request() req: any, @Param('id') id: string) {
-    return this.shiftsService.apply(req.user.userId, id);
+  apply(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body('coverNote') coverNote?: string,
+  ) {
+    return this.shiftsService.apply(req.user.userId, id, coverNote);
+  }
+
+  /** Worker confirms they accept the pre-selected shift */
+  @Post(':id/confirm')
+  @Roles('WORKER')
+  confirmShift(@Request() req: any, @Param('id') id: string) {
+    return this.shiftsService.workerConfirmShift(req.user.userId, id);
+  }
+
+  /** Worker declines the pre-selected shift → reverts to OPEN */
+  @Post(':id/decline')
+  @Roles('WORKER')
+  declineShift(@Request() req: any, @Param('id') id: string) {
+    return this.shiftsService.workerDeclineShift(req.user.userId, id);
   }
 
   @Get('worker/applied')
   @Roles('WORKER')
   getMyApplications(@Request() req: any) {
     return this.shiftsService.findWorkerApplications(req.user.userId);
+  }
+
+  /** Employer invites a specific worker directly → PENDING_ACCEPTANCE */
+  @Post(':id/invite/:workerId')
+  @Roles('EMPLOYER')
+  inviteWorker(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Param('workerId') workerId: string,
+  ) {
+    return this.shiftsService.inviteWorker(req.user.userId, id, workerId);
+  }
+
+  /** Delete an expired shift (marks as CANCELLED) */
+  @Delete(':id/expired')
+  @Roles('EMPLOYER')
+  deleteExpired(@Request() req: any, @Param('id') id: string) {
+    return this.shiftsService.deleteExpiredShift(req.user.userId, id);
+  }
+
+  /** Public worker search — used by employer talent browser */
+  @Get('workers/search')
+  @Roles('EMPLOYER')
+  searchWorkers(
+    @Query('skills') skills?: string,
+    @Query('languages') languages?: string,
+    @Query('available') available?: string,
+    @Query('minRating') minRating?: string,
+  ) {
+    return this.shiftsService.searchWorkersPublic({
+      skills:    skills    ? skills.split(',').filter(Boolean)    : undefined,
+      languages: languages ? languages.split(',').filter(Boolean) : undefined,
+      available: available ? available.split(',').filter(Boolean) : undefined,
+      minRating: minRating ? Number(minRating) : undefined,
+    });
   }
 
   // ── Shared ────────────────────────────────────────────────────────────────

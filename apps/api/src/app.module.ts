@@ -20,6 +20,11 @@ import { GatewayModule } from './gateway/gateway.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { PaymentsModule } from './payments/payments.module';
+import { RatingsModule } from './ratings/ratings.module';
+import { Rating } from './ratings/entities/rating.entity';
+import { NoShowFlag } from './ratings/entities/no-show-flag.entity';
+import { FavouriteWorker } from './ratings/entities/favourite-worker.entity';
 import { User } from './users/entities/user.entity';
 import { Worker } from './users/entities/worker.entity';
 import { Employer } from './users/entities/employer.entity';
@@ -28,6 +33,7 @@ import { ShiftApplication } from './shifts/entities/shift-application.entity';
 import { McdContract } from './compliance/entities/mcd-contract.entity';
 import { ComplianceAuditLog } from './compliance/entities/compliance-audit-log.entity';
 import { ShiftAttendance } from './attendance/entities/shift-attendance.entity';
+import { PaymentRecord } from './payments/entities/payment-record.entity';
 
 @Module({
   imports: [
@@ -37,30 +43,47 @@ import { ShiftAttendance } from './attendance/entities/shift-attendance.entity';
       { name: 'default', ttl: 60000, limit: 60 },
     ]),
 
-    // BullMQ — Redis-backed job queues (re-notification, compliance jobs in later stints)
+    // BullMQ — supports REDIS_URL (Railway) or individual vars (local dev)
     BullModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        connection: {
-          host: config.get<string>('REDIS_HOST', 'localhost'),
-          port: config.get<number>('REDIS_PORT', 6379),
-          password: config.get<string>('REDIS_PASSWORD', '') || undefined,
-        },
-      }),
+      useFactory: (config: ConfigService) => {
+        const redisUrl = config.get<string>('REDIS_URL');
+        if (redisUrl) {
+          return { connection: { url: redisUrl, tls: redisUrl.startsWith('rediss://') ? {} : undefined } };
+        }
+        return {
+          connection: {
+            host: config.get<string>('REDIS_HOST', 'localhost'),
+            port: config.get<number>('REDIS_PORT', 6379),
+            password: config.get<string>('REDIS_PASSWORD', '') || undefined,
+          },
+        };
+      },
     }),
 
+    // PostgreSQL — supports DATABASE_URL (Railway) or individual vars (local dev)
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('DB_HOST', 'localhost'),
-        port: configService.get<number>('DB_PORT', 5432),
-        username: configService.get<string>('DB_USER', 'turnos'),
-        password: configService.get<string>('DB_PASSWORD', 'turnos_dev_password'),
-        database: configService.get<string>('DB_NAME', 'turnos_db'),
-        entities: [User, Worker, Employer, Shift, ShiftApplication, McdContract, ComplianceAuditLog, ShiftAttendance],
-        synchronize: true,
-      }),
+      useFactory: (configService: ConfigService) => {
+        const databaseUrl = configService.get<string>('DATABASE_URL');
+        const isProduction = configService.get('NODE_ENV') === 'production';
+        const baseConfig = {
+          type: 'postgres' as const,
+          entities: [User, Worker, Employer, Shift, ShiftApplication, McdContract, ComplianceAuditLog, ShiftAttendance, PaymentRecord, Rating, NoShowFlag, FavouriteWorker],
+          synchronize: true, // Safe for beta — switch to migrations before real launch
+        };
+        if (databaseUrl) {
+          return { ...baseConfig, url: databaseUrl, ssl: isProduction ? { rejectUnauthorized: false } : false };
+        }
+        return {
+          ...baseConfig,
+          host:     configService.get<string>('DB_HOST', 'localhost'),
+          port:     configService.get<number>('DB_PORT', 5432),
+          username: configService.get<string>('DB_USER', 'turnos'),
+          password: configService.get<string>('DB_PASSWORD', 'turnos_dev_password'),
+          database: configService.get<string>('DB_NAME', 'turnos_db'),
+        };
+      },
     }),
 
     // Serve local uploads in dev
@@ -79,6 +102,8 @@ import { ShiftAttendance } from './attendance/entities/shift-attendance.entity';
     NotificationsModule,
     ComplianceModule,
     AttendanceModule,
+    PaymentsModule,
+    RatingsModule,
     ShiftsModule,
     AdminModule,
   ],

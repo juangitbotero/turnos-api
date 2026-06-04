@@ -16,10 +16,12 @@ import { ShiftApplication } from './shift-application.entity';
 export enum ShiftStatus {
   DRAFT = 'DRAFT',
   OPEN = 'OPEN',
+  PENDING_ACCEPTANCE = 'PENDING_ACCEPTANCE', // Employer selected worker; awaiting worker confirmation
   FILLED = 'FILLED',
   ACTIVE = 'ACTIVE',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
+  EXPIRED = 'EXPIRED',   // Start time passed with no confirmed worker — auto-set by nightly cron
 }
 
 @Entity('shifts')
@@ -91,6 +93,9 @@ export class Shift {
 
   @Column({ type: 'simple-array', nullable: true })
   skillsRequired: string[];
+
+  @Column({ type: 'simple-array', nullable: true })
+  languagesRequired: string[];      // e.g. ['Inglês', 'Espanhol']
 
   @OneToMany(() => ShiftApplication, (application) => application.shift)
   applications: ShiftApplication[];

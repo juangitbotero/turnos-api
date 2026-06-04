@@ -130,16 +130,80 @@ export interface Shift {
 }
 
 export const SHIFT_CATEGORIES = {
-  Sales: ['receptionist', 'merchandising', 'store sales person', 'checkout person'],
-  ClientSupport: ['entry call', 'caller'],
-  Events: ['Event helper', 'Logistics', 'receptionist', 'entretaintment agent'],
-  Hospitality: ['receptionist', 'barista', 'cook assistant / chef', 'service assistant'],
-  Restauration: ['barista', 'barman', 'waiter', 'receptionist', 'service assistant', 'baker', 'cook'],
-  Logistique: ['command prep', 'stock assistance', 'service assistance'],
-  AdminHelp: ['Community manager', 'Admin assistant', 'recruitment assistant'],
+  'Vendas': [
+    'Vendedor/a de loja',
+    'Operador/a de caixa',
+    'Promotor/a de vendas',
+    'Merchandising',
+  ],
+  'Apoio ao Cliente': [
+    'Atendimento telefónico',
+    'Teleoperador/a',
+    'Apoio ao cliente presencial',
+    'Gestão de reclamações',
+  ],
+  'Eventos': [
+    'Assistente de eventos',
+    'Rececionista de eventos',
+    'Animador/a',
+    'Segurança de eventos',
+    'Montagem e desmontagem',
+  ],
+  'Hotelaria': [
+    'Rececionista de hotel',
+    'Barista',
+    'Assistente de cozinha',
+    'Assistente de sala',
+    'Serviço de quarto',
+  ],
+  'Restauração': [
+    'Empregado/a de mesa',
+    'Barman/Barmaid',
+    'Barista',
+    'Cozinheiro/a',
+    'Padeiro/a',
+    'Pasteleiro/a',
+  ],
+  'Logística': [
+    'Preparação de encomendas',
+    'Assistente de armazém',
+    'Estafeta/Motorista',
+    'Gestão de stock',
+  ],
+  'Administração': [
+    'Assistente administrativo/a',
+    'Community manager',
+    'Assistente de RH',
+    'Gestão de escritório',
+  ],
 } as const;
 
 export type ShiftCategory = keyof typeof SHIFT_CATEGORIES;
+
+/** All unique subcategories across all shift categories — used as the worker skills pool */
+export const ALL_SKILLS: string[] = [
+  ...new Set(
+    (Object.values(SHIFT_CATEGORIES) as unknown as string[][]).flat()
+  ),
+].sort();
+
+/** Languages workers can speak / employers can require */
+export const LANGUAGES = [
+  'Português',
+  'Inglês',
+  'Espanhol',
+  'Francês',
+  'Alemão',
+  'Italiano',
+  'Árabe',
+  'Mandarim',
+  'Russo',
+  'Ucraniano',
+  'Romeno',
+  'Hindi',
+] as const;
+
+export type Language = typeof LANGUAGES[number];
 
 // ─── Compliance Types ─────────────────────────────────────────────────────────
 
@@ -341,3 +405,42 @@ export function calculateProfileQualityScore(
   return { score, status, breakdown, missingItems };
 }
 
+// ─── Ratings & Reputation (Stint 7) ──────────────────────────────────────────
+
+/** Worker trust badges, auto-awarded based on rating + performance thresholds */
+export type WorkerBadge = 'TOP_RATED' | 'RELIABLE' | 'VERIFIED';
+
+/** Summary of a worker's reputation as seen by the employer */
+export interface WorkerRatingSummary {
+  avgRating: number | null;       // 1.0–5.0; null if no ratings yet
+  totalRatings: number;
+  noShowCount: number;
+  completionRate: number;         // 0–1
+  badges: WorkerBadge[];
+  recentRatings: Array<{
+    score: number;
+    tags: string[];
+    comment?: string;
+    createdAt: string;
+  }>;
+}
+
+/** Tag options for employer-rates-worker ratings (Portuguese labels) */
+export const WORKER_RATING_TAGS = [
+  { key: 'pontual',      label: 'Pontual' },
+  { key: 'profissional', label: 'Profissional' },
+  { key: 'comunicativo', label: 'Comunicativo' },
+  { key: 'boa_atitude',  label: 'Boa atitude' },
+] as const;
+
+export type WorkerRatingTagKey = typeof WORKER_RATING_TAGS[number]['key'];
+
+/** Thresholds for badge award and no-show review trigger */
+export const BADGE_THRESHOLDS = {
+  TOP_RATED_MIN_AVG:        4.5,
+  TOP_RATED_MIN_SHIFTS:     10,
+  RELIABLE_MIN_COMPLETION:  0.90,
+  RELIABLE_MIN_SHIFTS:      20,
+  NO_SHOW_REVIEW_THRESHOLD: 3,
+  NO_SHOW_REVIEW_DAYS:      60,
+} as const;

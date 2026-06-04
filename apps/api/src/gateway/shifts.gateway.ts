@@ -100,17 +100,27 @@ export class ShiftsGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * Worker app: their application was approved or rejected by the employer.
    */
   notifyApplicationStatus(
-    workerId: string,
+    targetId: string,
     payload: {
       shiftId: string;
       shiftTitle: string;
       applicationId: string;
-      status: 'APPROVED' | 'REJECTED';
+      status: 'APPROVED' | 'REJECTED' | 'PRE_SELECTED' | 'DECLINED_BY_WORKER';
     },
   ) {
     this.server
-      .to(`worker:${workerId}`)
+      .to(`worker:${targetId}`)
+      .to(`employer:${targetId}`)
       .emit('shift:status_changed', payload);
+  }
+
+  notifyShiftFilled(
+    employerId: string,
+    payload: { shiftId: string; shiftTitle: string },
+  ) {
+    this.server
+      .to(`employer:${employerId}`)
+      .emit('shift:filled', payload);
   }
 
   /**

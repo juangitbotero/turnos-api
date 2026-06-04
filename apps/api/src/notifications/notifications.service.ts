@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import Expo from 'expo-server-sdk';
 import { Worker } from '../users/entities/worker.entity';
+import { FavouriteWorker } from '../ratings/entities/favourite-worker.entity';
 import { RedisService } from '../redis/redis.service';
 
 @Injectable()
@@ -14,22 +15,27 @@ export class NotificationsService {
   constructor(
     @InjectRepository(Worker)
     private readonly workerRepo: Repository<Worker>,
+    @InjectRepository(FavouriteWorker)
+    private readonly favouriteRepo: Repository<FavouriteWorker>,
     private readonly redis: RedisService,
   ) {}
 
   /**
    * Find top-N ACTIVE workers whose skills overlap with the shift's required skills,
-   * sorted by profileQualityScore DESC, and send them an Expo push notification.
+   * sorted by priority: (1) employer's favourites first, (2) TOP_RATED badge workers,
+   * (3) everyone else — all ordered by profileQualityScore DESC within each group.
    *
    * Tracks notified worker IDs in Redis so re-notification sends the NEXT batch.
    *
    * @param shiftId        - shift UUID (used as Redis tracking key)
+   * @param employerId     - employer UUID (used to look up favourites)
    * @param requiredSkills - shift.skillsRequired (empty = notify all active workers)
    * @param shiftTitle     - shown in the push notification body
    * @param batchOffset    - 0 for first wave, BATCH_SIZE for second wave
    */
   async notifyMatchingWorkers(
     shiftId: string,
+    employerId: string,
     requiredSkills: string[],
     shiftTitle: string,
     batchOffset = 0,
@@ -38,11 +44,25 @@ export class NotificationsService {
     const alreadyRaw = await this.redis.get(notifiedKey);
     const alreadyNotifiedIds: string[] = alreadyRaw ? (JSON.parse(alreadyRaw) as string[]) : [];
 
+    // Load employer's favourite worker IDs for priority sorting
+    const favourites = await this.favouriteRepo.find({
+      where: { employer: { id: employerId } },
+      relations: ['worker'],
+    });
+    const favouriteIds = favourites.map(f => f.worker.id);
+
     const query = this.workerRepo
       .createQueryBuilder('worker')
       .where('worker.status = :status', { status: 'ACTIVE' })
       .andWhere('worker.expoPushToken IS NOT NULL')
-      .orderBy('worker.profileQualityScore', 'DESC')
+      // Priority: favourites → TOP_RATED badge holders → everyone else, then by score
+      .orderBy(
+        favouriteIds.length > 0
+          ? `CASE WHEN worker.id IN ('${favouriteIds.join("','")}') THEN 0 WHEN worker.badges LIKE '%TOP_RATED%' THEN 1 ELSE 2 END`
+          : `CASE WHEN worker.badges LIKE '%TOP_RATED%' THEN 0 ELSE 1 END`,
+        'ASC',
+      )
+      .addOrderBy('worker.profileQualityScore', 'DESC')
       .skip(batchOffset)
       .take(this.BATCH_SIZE);
 
@@ -95,6 +115,26 @@ export class NotificationsService {
     this.logger.log(
       `Push notifications sent to ${messages.length} workers for shift ${shiftId} (offset ${batchOffset})`,
     );
+  }
+
+  /**
+   * Send a push notification directly to a list of Expo push tokens.
+   */
+  async sendDirectPush(
+    tokens: string[],
+    title: string,
+    body: string,
+    data?: Record<string, unknown>,
+  ): Promise<void> {
+    const valid = tokens.filter(t => Expo.isExpoPushToken(t));
+    if (valid.length === 0) return;
+    const messages = valid.map(to => ({
+      to, sound: 'default' as const, title, body, data: data ?? {},
+    }));
+    const chunks = this.expo.chunkPushNotifications(messages);
+    for (const chunk of chunks) {
+      try { await this.expo.sendPushNotificationsAsync(chunk); } catch { /* best-effort */ }
+    }
   }
 
   /**

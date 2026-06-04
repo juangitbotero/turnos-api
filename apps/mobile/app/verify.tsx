@@ -5,9 +5,32 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
+import { connectSocket } from '../lib/socket';
+
+/**
+ * Register Expo push token with the backend (best-effort, non-blocking).
+ * Silently no-ops on permission denial or any error.
+ */
+async function registerPushToken(): Promise<void> {
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') return;
+
+    const tokenData = await Notifications.getExpoPushTokenAsync();
+    await authApi.registerPushToken(tokenData.data);
+  } catch {
+    // Non-fatal — push notifications degrade gracefully
+  }
+}
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
@@ -74,7 +97,16 @@ export default function VerifyScreen() {
     try {
       const { accessToken, refreshToken, isNewUser } = await authApi.verifyOtp(phone!, code);
       await tokenStorage.saveSession(accessToken, refreshToken);
-      router.replace(isNewUser ? '/onboarding' : '/');
+
+      // Connect WebSocket with JWT so the worker joins their private room
+      connectSocket(accessToken);
+
+      // Register Expo push token (non-blocking — runs in background)
+      registerPushToken();
+
+      // Always go to home — new workers browse first, profile gate triggers on apply
+      router.replace('/');
+      void isNewUser; // kept for future analytics
     } catch (err) {
       setHasError(true);
       setDigits(Array(OTP_LENGTH).fill(''));

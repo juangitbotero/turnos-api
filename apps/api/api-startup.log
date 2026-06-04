@@ -1,0 +1,7 @@
+npm error Lifecycle script `start:dev` failed with error:
+npm error workspace @turnos/api@0.0.1
+npm error location C:\Users\j3_19\AppData\Roaming\MetaQuotes\Terminal\0727F3F88B5F0FE006962B330B91FF37\Turnos App\apps\api
+npm error Missing script: "start:dev"
+npm error
+npm error To see a list of scripts, run:
+npm error   npm run --workspace=@turnos/api@0.0.1

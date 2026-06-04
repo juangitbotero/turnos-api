@@ -39,6 +39,10 @@ export class ShiftApplication {
   })
   status: ApplicationStatus;
 
+  /** Optional short message from worker to employer (max 200 chars) */
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  coverNote?: string;
+
   @CreateDateColumn()
   appliedAt: Date;
 

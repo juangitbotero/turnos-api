@@ -55,7 +55,7 @@ npm install
 npm run dev          # starts all apps via Turborepo
 
 # Individual apps
-cd apps/api && npm run start:dev
+cd apps/api && npm run dev
 cd apps/mobile && npx expo start
 cd apps/web-admin && npm run dev
 ```
@@ -68,11 +68,15 @@ Dev OTP code is hardcoded as `123456` (must be removed before production).
 ## Shared Package
 
 `packages/shared/src/index.ts` is the single source of truth for:
-- All TypeScript types (`Worker`, `Employer`, `Shift`, `UserRole`, etc.)
+- All TypeScript types (`Worker`, `Employer`, `Shift`, `UserRole`, `WorkerBadge`, `Language`, `RatingDirection`, etc.)
 - Auth DTOs
 - Compliance constants (`TSU_RATES`, `MCD_LIMITS`, `TURNOS_FEE_RATE`)
 - Validation utilities (`isValidNIF`, `isValidIBAN`, `isValidNIPC`, `isValidPostalCode`)
 - `calculateTSU()` and `calculateProfileQualityScore()`
+- `SHIFT_CATEGORIES` — all job categories and subcategories
+- `ALL_SKILLS` — flat deduplicated list of all subcategories (used as worker skill pool)
+- `LANGUAGES` — 12 supported languages for worker profiles and job requirements
+- `WORKER_RATING_TAGS`, `BADGE_THRESHOLDS`
 - Design tokens
 
 Always add new shared types here, never duplicate them in individual apps.
@@ -88,14 +92,108 @@ Stints are 2–3 week development phases. Full roadmap in `docs/turnos_roadmap.m
 | 0 | Foundation & Setup | ✅ Complete |
 | 1 | Auth & Identity | ✅ Complete |
 | 2 | Shift Marketplace Core | ✅ Complete |
-| 3 | Notifications & Real-Time Updates | 🔄 In Progress |
-| 4 | Portugal Compliance Engine | ⬜ Not started |
-| 5 | QR Check-In / Check-Out | ⬜ Not started |
-| 6 | Payments & Payroll | ⬜ Not started |
-| 7 | Ratings, Reputation & Trust | ⬜ Not started |
-| 8 | Admin Panel & Operations | ⬜ Not started |
+| 3 | Notifications & Real-Time Updates | ✅ Complete |
+| 4 | Portugal Compliance Engine | ✅ Complete |
+| 5 | QR Check-In / Check-Out | ✅ Complete |
+| 6 | Payments & Payroll | ✅ Complete |
+| 7 | Ratings, Reputation & Trust | ✅ Complete |
+| 8 | Product Depth & Operations | 🔄 In Progress |
 | 9 | Growth & Marketplace Flywheel | ⬜ Not started |
 | 10 | Hardening, Security & Launch | ⬜ Not started |
+
+### Stint 8 — Phase 1 In Progress (as of 2026-06-04)
+
+**Stint 8 Phase 1 — UX & Trust Layer:**
+- **Bug fixes:** Profile photo not loading (API_URL env + useStaticAssets in main.ts); `avgRating.toFixed` crash (Number() wrap); notification subscription cleanup
+- **Two-way ratings:** `POST /ratings/employer` (WORKER role) — worker rates employer; `direction: WORKER_TO_EMPLOYER`; **internal only** (never shown to workers/employers, Turnos insight only). Employer written `review` field (VARCHAR 150) on Rating entity — shown to other employers, not mandatory. `raterName` in `recentRatings` response.
+- **Rating entity refactored:** `direction: RatingDirection` enum; `rateeWorker` + `rateeEmployer` relations (instead of single `ratee`); unique index on `(shift, rater, direction)`
+- **Rating reputation fix:** `recalculateWorkerReputation()` switched from broken TypeORM `find({select})` to `QueryBuilder` AVG aggregate — eliminates silent failures
+- **Skills aligned:** `ALL_SKILLS` constant in shared (auto-derived from `SHIFT_CATEGORIES` subcategories) — worker skills now match employer job subcategories exactly. `edit-profile.tsx` updated to use `ALL_SKILLS`
+- **Languages separated:** `LANGUAGES` constant (12 languages) + `Language` type in shared; `languages: string[]` on Worker entity; separate **Idiomas** chip section in edit-profile; returned in `GET /auth/me`
+- **Barista in Restauração:** Added to Restauração category (was only in Hotelaria)
+- **Worker bio:** `bio: VARCHAR(200)` on Worker entity; multiline TextInput in edit-profile with char counter; returned in `GET /auth/me`; passed through `PATCH /auth/worker/profile`
+- **Cover note on apply:** `coverNote: VARCHAR(200)` on `shift_applications`; optional field in `POST /shifts/:id/apply`; server-side 200-char enforcement
+- **Worker acceptance flow:** New `PENDING_ACCEPTANCE` status in `shifts_status_enum`; employer selects → `PENDING_ACCEPTANCE` → push notification to worker (2h window); `POST /shifts/:id/confirm` → `FILLED` + compliance; `POST /shifts/:id/decline` → `OPEN` + employer notified; BullMQ `acceptance-timeout` job (2h)
+- **Static file serving:** `useStaticAssets('/uploads')` wired in `main.ts` for dev photo serving
+- **Pending in Phase 1:** Accept/Decline UI in `my-shifts.tsx`; cover note display in web-admin applicant list; languages dropdown in shift creation; employer review display in worker detail
+
+**Phase 2 (Planned):** Internal admin dashboard, user management, compliance monitoring, financial dashboard, analytics, dispute flag, payslip PDF, subscription tiers
+
+### Stint 7 — Complete (as of 2026-05-29)
+
+**Stint 7 — Ratings, Reputation & Trust:**
+- `RatingsModule` — `Rating`, `NoShowFlag`, `FavouriteWorker` entities; `RatingsService`, `RatingsController`, `RatingsModule`
+- One-way ratings: employer rates worker (worker-rates-employer deferred to Stint 8)
+- `recalculateWorkerReputation()` — updates `avgRating`, `totalRatings`, `reputationScore` (= avgRating × 20) after each rating
+- Badge auto-award: `TOP_RATED` (avg ≥ 4.5 & ≥10 ratings), `RELIABLE` (0 no-shows & ≥90% completion & ≥20 ratings), `VERIFIED` (ACTIVE status)
+- No-show reporting: `POST /ratings/no-show/:shiftId` — increments noShowCount; 3 flags in 60 days triggers admin review email
+- BullMQ `rating-reminder` delayed job (30 min post-completion) — email to employer: "Avalie o trabalhador 🌟"
+- Notification priority: favourites → TOP_RATED → everyone else (ORDER BY CASE in QueryBuilder, same batch)
+- Favourite Workers: `FavouriteWorker` entity + GET/POST/DELETE `/ratings/favourites/:workerId`
+- `ReNotificationJobData` updated to include `employerId`; `notifyMatchingWorkers()` now accepts `employerId` for priority sort
+- Worker entity: 4 new columns — `avgRating`, `totalRatings`, `noShowCount`, `badges` (simple-array)
+- Shared package: `WorkerBadge` type, `WorkerRatingSummary` interface, `WORKER_RATING_TAGS`, `BADGE_THRESHOLDS`
+- Mobile: `rate/[id].tsx` — star selector, tag chips, comment, "already rated" banner; `my-shifts.tsx` — "⭐ Avaliar" / "✓ Avaliado" CTAs on completed cards
+- Web-admin: `ratings/page.tsx` — worker cards with avg rating, badges, no-show count, inline rating modal, no-show modal; "Reputação" added to sidebar
+- Web-admin `workers/page.tsx` — star rating + badges displayed on each worker card
+- **Scope decisions:** One-way only (worker-rates-employer = Stint 8); dispute flag deferred to Stint 8; favourites use priority placement (no 30-min private window)
+
+### Stint 6 — Complete (as of 2026-05-29)
+
+**Stint 6 — Payments & Payroll:**
+- `PaymentsModule` / `PaymentsService` / `PaymentsController` — full NestJS module
+- Stripe Connect Express: worker onboarding (`POST /payments/worker/connect`), Stripe dashboard link
+- Employer setup: SetupIntent flow → save card → `stripeCustomerId` on Employer entity
+- Subscription billing: `POST /payments/employer/subscribe` → €55/mo via `STRIPE_SUBSCRIPTION_PRICE_ID`; cancel endpoint also wired
+- `assertCanPostShift()` guard called in `ShiftsService.create()` — blocks shift creation if no active subscription
+- Pay-per-shift: `chargeShiftAndPayout()` fires on `onShiftCompleted()` — charges employer, transfers net to worker's Connect account
+- TSU calculation via `calculateTSU()` from shared: `employerContribution` (23.75%) + `turnosFee` (10%) + `workerDeduction` (11%)
+- Cancellation fee (≤12h before shift start if FILLED): 15% of gross — 11% Turnos + 4% worker compensation; fire-and-forget non-blocking
+- `PaymentRecord` entity: tracks all payments (SHIFT_CHARGE, WORKER_PAYOUT, CANCELLATION_FEE, WORKER_COMPENSATION, SUBSCRIPTION)
+- Stripe webhook (`POST /payments/webhook`): `rawBody: true` in NestJS bootstrap; handles `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.deleted`
+- Local dev webhook: `stripe listen --api-key sk_test_... --forward-to localhost:3001/api/payments/webhook`; production uses Stripe Dashboard `whsec_`
+- Employer spending dashboard: `GET /payments/employer/spending?period=month|year` — KPI cards, per-shift table, CSV export, monthly bar chart
+- Worker earnings dashboard: `GET /payments/worker/earnings` — mobile `earnings.tsx` screen with period toggle, SS reminder banner in Mar/Jun/Sep/Dec
+- Quarterly SS reminder: BullMQ `quarterly-ss` queue, cron `0 9 1 3,6,9,12 *` — push to all ACTIVE workers
+- Web-admin sidebar: `/dashboard/billing` and `/dashboard/spending` pages added
+- `"Ver Ganhos"` CTA added to mobile `profile.tsx` → navigates to `/earnings`
+- Stripe CLI skills installed: `stripe-best-practices`, `stripe-projects`, `upgrade-stripe`
+- **Adjusted from plan:** Single subscription tier at €55/mo (not 3 tiers). Payslip PDF generation deferred post-MVP.
+
+### Stints 3, 4, 5 — Complete (as of 2026-05-29)
+
+**Stint 3 — Notifications & Real-Time Updates:**
+- Socket.IO gateway with JWT-authenticated rooms (`employer:{id}`, `worker:{id}`)
+- Expo push notifications to top-20 skill-matched workers on shift publish
+- BullMQ re-notification wave after 5h if 0 applicants
+- WebSocket live updates: employer applicant list, worker status change
+- Socket connect wired at `verify.tsx` OTP success; disconnect on logout (`profile.tsx`)
+- Web-admin `dashboard/layout.tsx` connects socket once for all dashboard routes
+- Foreground push handler in `_layout.tsx` — banner, sound, navigation on tap
+- Push tap routing: `new_shift` → `/shift/:id`, `recibo_verde` → `/recibo-verde`
+
+**Stint 4 — Portugal Compliance Engine:**
+- MCD Contract auto-generated on shift approval (`onShiftApproved()`)
+- SS Direta: BullMQ `ss-direta` queue → email to accountant 24h before shift (beta substitute for SS API)
+- `calculateTSU()` from shared — employer 23.75% + Turnos 10% fee + worker 11% SS breakdown
+- Economic dependency: 40% flag / 50% hard block per worker/employer pair
+- MCD 70-day annual limit hard block at application stage
+- Rest period 11h enforcement at application stage
+- Recibo Verde: BullMQ `recibo-verde` queue → Expo push reminders day+3 and day+5 post-checkout
+- Mobile `/recibo-verde` screen with pre-filled values + Portal das Finanças CTA
+- `ComplianceAuditLog` immutable event trail (9 event types)
+- Web-admin `/dashboard/compliance` — TSU report, MCD contracts, ACT audit log tabs
+- **Adjusted from plan:** PDF generation + DocuSign deferred post-MVP; email-to-accountant is beta substitute
+
+**Stint 5 — QR Check-In / Check-Out:**
+- Static HMAC-SHA256 QR tokens (permanent per employer — changed from rotating 30s QR)
+- Two QR codes per employer: check-in (↑) and check-out (↓)
+- `expo-camera` scan flow in mobile `/scan` with geofence (200m Haversine)
+- Time windows: check-in ±30–60 min, check-out ±30 min – 2h
+- Shift → ACTIVE on check-in; COMPLETED on check-out; WebSocket push to both parties
+- Payment always calculated from `scheduledHours` (not scan timestamps)
+- Manual employer override (`manualConfirm`) with audit log
+- `onShiftCompleted()` wired to Recibo Verde BullMQ scheduler
 
 ### Stint 2 — Complete (as of 2026-05-25)
 
@@ -105,7 +203,7 @@ Stints are 2–3 week development phases. Full roadmap in `docs/turnos_roadmap.m
 - Employer dashboard KPIs wired to real API (active/open/filled shift counts)
 - Worker shift feed (mobile) — list + map view, proximity sort via PostGIS
 - Shift detail page (mobile) — gross rate, employer info, ETA, one-tap apply
-- Worker applications — apply/withdraw, My Shifts screen with status badges
+- Worker applications — apply/withdraw, My Shifts screen (5 sections incl. Em curso / Concluídos)
 - Employer applicant review — view applicants per shift, approve one
 - Public shift browsing — `GET /shifts/search` and `GET /shifts/:id` are public (no JWT required)
 - API prefix fix (`/api` global prefix wired in both clients)
@@ -131,6 +229,7 @@ Stints are 2–3 week development phases. Full roadmap in `docs/turnos_roadmap.m
 
 **Intentionally deferred (requires paid third-party):**
 - ID verification (Onfido/Veriff) — admin manual review queue serves as beta substitute
+- AI Profile Interview — deferred; Profile Quality Score serves as quality filter
 
 ---
 
@@ -173,6 +272,7 @@ These are non-negotiable and must be correct before launch:
 5. **Worker payout:** T+1 business day via Stripe Connect Express
 6. **MVP scope:** Stints 0–5 = v1 launch target (Payments in v1.1)
 7. **Marketplace model:** Workers browse and apply, employers review and confirm. Push notifications target workers by skill match. No auto-assignment. See `docs/turnos_roadmap.md` for full model.
+8. **QR model:** Static HMAC-SHA256 tokens (permanent per employer). Two QR codes: check-in ↑ and check-out ↓. Employer prints once and posts at venue. No rotating/time-expiring QR — security guaranteed by unforgeable HMAC signature.
 
 ---
 

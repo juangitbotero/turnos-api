@@ -137,7 +137,7 @@ export class UsersService {
     });
 
     worker.profileQualityScore = qualityResult.score;
-    worker.status = qualityResult.status === 'PENDING_REVIEW' ? 'PENDING_REVIEW' : 'INCOMPLETE';
+    worker.status = qualityResult.score >= 80 ? 'ACTIVE' : 'INCOMPLETE';
     await this.workerRepo.save(worker);
 
     return {
@@ -145,6 +145,67 @@ export class UsersService {
       status: worker.status,
       missingItems: qualityResult.missingItems,
     };
+  }
+
+  /** Partial update — name / skills / availableDays only (no NIF/IBAN re-validation) */
+  async updateWorkerPartialFields(
+    userId: string,
+    dto: {
+      fullName?: string;
+      bio?: string;
+      skills?: string[];
+      languages?: string[];
+      availableDays?: string[];
+      iban?: string;
+      contactEmail?: string;
+    },
+  ): Promise<{ profileQualityScore: number }> {
+    const worker = await this.workerRepo.findOne({
+      where: { user: { id: userId } },
+      relations: ['user'],
+    });
+    if (!worker) throw new NotFoundException('Worker profile not found');
+
+    if (dto.fullName      !== undefined) worker.fullName      = dto.fullName.trim();
+    if (dto.bio           !== undefined) worker.bio           = dto.bio.slice(0, 200);
+    if (dto.skills        !== undefined) worker.skills        = dto.skills;
+    if (dto.languages     !== undefined) worker.languages     = dto.languages;
+    if (dto.availableDays !== undefined) worker.availableDays = dto.availableDays;
+
+    // IBAN — validate before saving; empty string clears it
+    if (dto.iban !== undefined) {
+      const trimmed = dto.iban.replace(/\s/g, '').toUpperCase();
+      if (trimmed === '' || isValidIBAN(trimmed)) {
+        worker.iban = trimmed || undefined;
+      }
+      // silently ignore invalid IBAN (client shows live validation anyway)
+    }
+
+    // Contact email — update on the linked User row
+    if (dto.contactEmail !== undefined && worker.user) {
+      const email = dto.contactEmail.trim().toLowerCase();
+      worker.user.email = email || undefined;
+      await this.userRepo.save(worker.user);
+    }
+
+    const qualityResult = calculateProfileQualityScore({
+      hasPhoto:        !!worker.photoUrl,
+      hasValidNif:     isValidNIF(worker.nif ?? ''),
+      hasValidIban:    isValidIBAN(worker.iban ?? ''),
+      skillsCount:     worker.skills?.length ?? 0,
+      hasFullName:     !!(worker.fullName?.trim()),
+      hasAvailability: (worker.availableDays?.length ?? 0) > 0,
+    });
+
+    worker.profileQualityScore = qualityResult.score;
+    if (qualityResult.score >= 80 && worker.status !== 'SUSPENDED' && worker.status !== 'REJECTED') {
+      worker.status = 'ACTIVE';
+    } else if (qualityResult.score < 80 && worker.status === 'ACTIVE') {
+      worker.status = 'INCOMPLETE'; // demote if profile degrades
+    }
+    await this.workerRepo.save(worker);
+
+    return { profileQualityScore: qualityResult.score };
   }
 
   async saveWorkerPushToken(userId: string, token: string): Promise<void> {
@@ -173,7 +234,11 @@ export class UsersService {
     });
 
     worker.profileQualityScore = qualityResult.score;
-    if (qualityResult.status === 'PENDING_REVIEW') worker.status = 'PENDING_REVIEW';
+    if (qualityResult.score >= 80 && worker.status !== 'SUSPENDED' && worker.status !== 'REJECTED') {
+      worker.status = 'ACTIVE';
+    } else if (qualityResult.score < 80 && worker.status === 'ACTIVE') {
+      worker.status = 'INCOMPLETE';
+    }
     await this.workerRepo.save(worker);
 
     return { profileQualityScore: qualityResult.score };

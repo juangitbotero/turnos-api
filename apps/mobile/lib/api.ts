@@ -68,6 +68,9 @@ export const api = {
   post: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
 
+  patch: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
+
   get: <T>(path: string) =>
     request<T>(path, { method: 'GET' }),
 
@@ -101,7 +104,27 @@ export const authApi = {
     return api.postForm<{ photoUrl: string }>('/auth/worker/photo', form);
   },
 
-  getMe: () => api.get<{ userId: string; role: string }>('/auth/me'),
+  getMe: () => api.get<{
+    userId: string; role: string;
+    fullName?: string | null; photoUrl?: string | null;
+    bio?: string | null; contactEmail?: string | null;
+    skills?: string[]; languages?: string[]; availableDays?: string[];
+    profileQualityScore?: number; status?: string;
+    nif?: string | null; iban?: string | null;
+    avgRating?: number | null; totalRatings?: number;
+    noShowCount?: number; badges?: string[];
+  }>('/auth/me'),
+
+  updateWorkerPartial: (dto: {
+    fullName?: string;
+    bio?: string;
+    skills?: string[];
+    languages?: string[];
+    availableDays?: string[];
+    iban?: string;
+    contactEmail?: string;
+  }) =>
+    api.patch<{ profileQualityScore: number; message: string }>('/auth/worker/profile', dto),
 
   googleVerifyToken: (googleAccessToken: string, userType: 'WORKER' | 'EMPLOYER' = 'WORKER') =>
     api.post<{ accessToken: string; refreshToken: string; isNewUser: boolean }>(
@@ -173,6 +196,80 @@ export const attendanceApi = {
     api.post<AttendanceRecord>(`/attendance/${shiftId}/dispute/worker`, { note }),
 };
 
+// ─── Payments / Earnings ──────────────────────────────────────────────────────
+
+export interface EarningRecord {
+  id:                    string;
+  shiftId:               string | null;
+  grossAmount:           number;
+  turnosFee:             number | null;
+  workerNet:             number | null;
+  workerTsu:             number | null;
+  scheduledHours:        number | null;
+  shiftDate:             string | null;
+  stripeTransferId:      string | null;
+  createdAt:             string;
+}
+
+export interface EarningsReport {
+  totalGross:    number;
+  turnosFees:    number;
+  workerNet:     number;
+  workerTsuOwed: number;   // 11% the worker must declare to SS
+  shiftCount:    number;
+  records:       EarningRecord[];
+}
+
+export const paymentsApi = {
+  getWorkerEarnings: (period: 'day' | 'month' | 'year', date?: string, month?: number, year?: number) => {
+    const qs = new URLSearchParams({ period });
+    if (date)  qs.set('date',  date);
+    if (month) qs.set('month', String(month));
+    if (year)  qs.set('year',  String(year));
+    return api.get<EarningsReport>(`/payments/worker/earnings?${qs.toString()}`);
+  },
+
+  /** Get or create worker Stripe Connect Express onboarding link */
+  getConnectOnboardingUrl: (returnUrl: string) =>
+    api.post<{ onboardingUrl: string }>('/payments/worker/connect', { returnUrl }),
+
+  /** Get Stripe Express dashboard link to view payouts */
+  getStripeDashboardUrl: () =>
+    api.get<{ url: string }>('/payments/worker/dashboard-link'),
+};
+
+// ─── Ratings API ─────────────────────────────────────────────────────────────
+
+export interface RatingRecord {
+  score:     number;
+  tags:      string[];
+  comment?:  string;
+  createdAt: string;
+}
+
+export interface WorkerRatingSummary {
+  avgRating:      number | null;
+  totalRatings:   number;
+  noShowCount:    number;
+  completionRate: number;
+  badges:         string[];  // 'TOP_RATED' | 'RELIABLE' | 'VERIFIED'
+  recentRatings:  RatingRecord[];
+}
+
+export const ratingsApi = {
+  /** Check if current user has already rated a shift */
+  hasRatedShift: (shiftId: string) =>
+    api.get<{ hasRated: boolean }>(`/ratings/shift/${shiftId}/mine`),
+
+  /** Get a worker's public rating summary */
+  getWorkerSummary: (workerId: string) =>
+    api.get<WorkerRatingSummary>(`/ratings/worker/${workerId}`),
+
+  /** Worker submits employer rating (internal — not shown publicly) */
+  rateEmployer: (dto: { shiftId: string; score: number }) =>
+    api.post<{ id: string }>('/ratings/employer', dto),
+};
+
 // ─── Shift API ────────────────────────────────────────────────────────────────
 
 export const shiftApi = {
@@ -188,8 +285,17 @@ export const shiftApi = {
   getById: (id: string) =>
     api.get<ShiftSummary>(`/shifts/${id}`),
 
-  apply: (id: string) =>
-    api.post<{ id: string; status: string }>(`/shifts/${id}/apply`, {}),
+  /** Apply with optional short cover note (max 200 chars) */
+  apply: (id: string, coverNote?: string) =>
+    api.post<{ id: string; status: string }>(`/shifts/${id}/apply`, { coverNote }),
+
+  /** Confirm pre-selection — moves shift to FILLED */
+  confirm: (id: string) =>
+    api.post<{ id: string; status: string }>(`/shifts/${id}/confirm`, {}),
+
+  /** Decline pre-selection — shift reverts to OPEN */
+  decline: (id: string) =>
+    api.post<{ message: string }>(`/shifts/${id}/decline`, {}),
 
   getMyApplications: () =>
     api.get<MyApplication[]>('/shifts/worker/applied'),
