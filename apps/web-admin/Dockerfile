@@ -19,6 +19,11 @@ COPY packages/shared/ ./packages/shared/
 COPY packages/typescript-config/ ./packages/typescript-config/
 COPY apps/web-admin/ ./apps/web-admin/
 
+# Declare build-time arg so Railway passes NEXT_PUBLIC_API_URL into the Docker
+# build process — Next.js bakes NEXT_PUBLIC_* vars at build time, not runtime.
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 # Build Next.js (output: standalone configured in next.config.js)
 RUN cd apps/web-admin && npm run build
 
