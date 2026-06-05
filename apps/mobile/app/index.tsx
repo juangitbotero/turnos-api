@@ -49,7 +49,7 @@ export default function FeedScreen() {
   const [activeCategory, setActiveCategory] = useState<ShiftCategory | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [workerName, setWorkerName]       = useState<string | null>(null);
-  const [profileScore, setProfileScore]   = useState<number>(100); // assume complete until loaded
+  const [profileScore, setProfileScore]   = useState<number | null>(null); // null until loaded
   const router = useRouter();
 
   // Fetch worker profile — name for greeting + score for completeness banner
@@ -121,7 +121,7 @@ export default function FeedScreen() {
         </Text>
 
         {/* Profile completeness banner — shown until worker can apply */}
-        {profileScore < 80 && (
+        {profileScore !== null && profileScore < 80 && (
           <TouchableOpacity
             style={s.profileBanner}
             onPress={() => router.push('/edit-profile' as any)}

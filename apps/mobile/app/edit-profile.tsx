@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory, LANGUAGES, isValidIBAN } from '@turnos/shared';
+import { colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory, LANGUAGES, isValidIBAN, isValidNIF } from '@turnos/shared';
 import { authApi } from '../lib/api';
 
 const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -116,6 +116,8 @@ export default function EditProfileScreen() {
   const [skills, setSkills]               = useState<string[]>([]);
   const [languages, setLanguages]         = useState<string[]>([]);
   const [availableDays, setAvailableDays] = useState<string[]>([]);
+  const [nif, setNif]                     = useState('');
+  const [nifError, setNifError]           = useState('');
   const [iban, setIban]                   = useState('');
   const [ibanError, setIbanError]         = useState('');
   const [contactEmail, setContactEmail]   = useState('');
@@ -137,6 +139,7 @@ export default function EditProfileScreen() {
       setSkills(normalise(data.skills ?? []));
       setLanguages(normalise((data as any).languages ?? []));
       setAvailableDays(normalise(data.availableDays ?? []));
+      setNif(data.nif ?? '');
       setIban(data.iban ?? '');
       setContactEmail((data as any).contactEmail ?? '');
       setPhotoUrl(data.photoUrl ?? null);
@@ -199,6 +202,15 @@ export default function EditProfileScreen() {
     }
     setSaving(true);
     try {
+      // Validate NIF if provided
+      const nifClean = nif.replace(/\D/g, '').slice(0, 9);
+      if (nifClean && !isValidNIF(nifClean)) {
+        setNifError('NIF inválido — deve ter 9 dígitos válidos.');
+        setSaving(false);
+        return;
+      }
+      setNifError('');
+
       // Validate IBAN if provided
       const ibanClean = iban.replace(/\s/g, '').toUpperCase();
       if (ibanClean && !isValidIBAN(ibanClean)) {
@@ -207,12 +219,14 @@ export default function EditProfileScreen() {
         return;
       }
       setIbanError('');
+
       await authApi.updateWorkerPartial({
         fullName: fullName.trim(),
         bio: bio.trim(),
         skills,
         languages,
         availableDays,
+        nif: nifClean || undefined,
         iban: ibanClean || undefined,
         contactEmail: contactEmail.trim() || undefined,
       });
@@ -315,15 +329,36 @@ export default function EditProfileScreen() {
           <Text style={s.chipCount}>{bio.length}/200</Text>
         </View>
 
-        {/* ── IBAN (editable) + NIF (read-only) ── */}
+        {/* ── NIF + IBAN (both editable) ── */}
         <View style={s.card}>
           <View style={s.cardHeader}>
             <Ionicons name="card-outline" size={16} color={colors.primary} />
-            <Text style={s.cardTitle}>DADOS BANCÁRIOS</Text>
+            <Text style={s.cardTitle}>DADOS LEGAIS & BANCÁRIOS</Text>
           </View>
+          <Text style={s.cardSub}>Necessários para contratos MCD e receber pagamentos. Valem +20pts cada no perfil.</Text>
+
+          {/* NIF — editable */}
+          <Text style={[s.fieldLabel, { marginTop: 4 }]}>NIF <Text style={s.optText}>(opcional)</Text></Text>
+          <TextInput
+            style={[s.input, nifError ? s.inputError : {}]}
+            value={nif}
+            onChangeText={v => { setNif(v.replace(/\D/g, '').slice(0, 9)); setNifError(''); }}
+            placeholder="123 456 789"
+            placeholderTextColor={colors.textSecondary}
+            keyboardType="number-pad"
+            autoCorrect={false}
+            maxLength={9}
+          />
+          {nifError
+            ? <Text style={s.errorText}>{nifError}</Text>
+            : nif.length === 9 && isValidNIF(nif)
+              ? <Text style={s.validText}>✓ NIF válido</Text>
+              : null
+          }
+          <Text style={s.fieldHint}>Número de Identificação Fiscal português (9 dígitos).</Text>
 
           {/* IBAN — editable */}
-          <Text style={s.fieldLabel}>IBAN <Text style={s.optText}>(opcional)</Text></Text>
+          <Text style={[s.fieldLabel, { marginTop: 12 }]}>IBAN <Text style={s.optText}>(opcional)</Text></Text>
           <TextInput
             style={[s.input, ibanError ? s.inputError : {}]}
             value={iban}
@@ -342,7 +377,7 @@ export default function EditProfileScreen() {
           }
           <Text style={s.fieldHint}>Necessário para receber o teu pagamento após o turno.</Text>
 
-          {/* NIF — read-only */}
+          {/* removed: NIF read-only note */}
           <View style={[s.mutedRow, { marginTop: 8 }]}>
             <Ionicons name="lock-closed-outline" size={13} color={colors.textSecondary} />
             <Text style={s.mutedNote}>

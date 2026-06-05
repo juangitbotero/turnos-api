@@ -184,6 +184,9 @@ export class PaymentsService {
    * Also enforces the 15-shift concurrent limit.
    */
   async assertCanPostShift(employerUserId: string): Promise<void> {
+    // Beta/dev bypass — set BYPASS_SUBSCRIPTION=true in Railway Variables to skip check
+    if (process.env['BYPASS_SUBSCRIPTION'] === 'true') return;
+
     const employer = await this.employerRepo.findOne({ where: { user: { id: employerUserId } } });
     if (!employer) throw new UnauthorizedException('Employer not found');
 

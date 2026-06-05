@@ -156,6 +156,7 @@ export class UsersService {
       skills?: string[];
       languages?: string[];
       availableDays?: string[];
+      nif?: string;
       iban?: string;
       contactEmail?: string;
     },
@@ -171,6 +172,14 @@ export class UsersService {
     if (dto.skills        !== undefined) worker.skills        = dto.skills;
     if (dto.languages     !== undefined) worker.languages     = dto.languages;
     if (dto.availableDays !== undefined) worker.availableDays = dto.availableDays;
+
+    // NIF — validate before saving; empty string clears it
+    if (dto.nif !== undefined) {
+      const nifTrimmed = dto.nif.replace(/\D/g, '').slice(0, 9);
+      if (nifTrimmed === '' || isValidNIF(nifTrimmed)) {
+        worker.nif = nifTrimmed || undefined;
+      }
+    }
 
     // IBAN — validate before saving; empty string clears it
     if (dto.iban !== undefined) {

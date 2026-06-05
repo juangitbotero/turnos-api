@@ -146,6 +146,7 @@ export class AuthController {
       skills?: string[];
       languages?: string[];
       availableDays?: string[];
+      nif?: string;
       iban?: string;
       contactEmail?: string;
     },

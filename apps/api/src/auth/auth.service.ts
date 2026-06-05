@@ -253,6 +253,7 @@ export class AuthService {
     skills?: string[];
     languages?: string[];
     availableDays?: string[];
+    nif?: string;
     iban?: string;
     contactEmail?: string;
   }): Promise<{ profileQualityScore: number }> {

@@ -121,6 +121,7 @@ export const authApi = {
     skills?: string[];
     languages?: string[];
     availableDays?: string[];
+    nif?: string;
     iban?: string;
     contactEmail?: string;
   }) =>
