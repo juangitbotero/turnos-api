@@ -12,20 +12,38 @@ function getToken(): string | null {
   return localStorage.getItem('accessToken');
 }
 
+// JWTs are base64url-encoded (uses '-'/'_', no padding) — atob() only understands
+// standard base64 ('+'/'/','=') and throws on the former, so decode manually.
+function decodeJwtPayload(segment: string): any {
+  const base64 = segment.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=');
+  return JSON.parse(atob(padded));
+}
+
 function isExpired(token: string): boolean {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1] ?? ''));
+    const payload = decodeJwtPayload(token.split('.')[1] ?? '');
     return payload.exp * 1000 < Date.now();
   } catch { return true; }
 }
 
+let refreshPromise: Promise<string | null> | null = null;
+
+// De-duped: concurrent callers share one in-flight refresh instead of each
+// rotating the refresh token and causing the others to fail with 401.
 async function refreshTokens(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = doRefreshTokens().finally(() => { refreshPromise = null; });
+  return refreshPromise;
+}
+
+async function doRefreshTokens(): Promise<string | null> {
   const currentToken = localStorage.getItem('accessToken');
   const refreshToken = localStorage.getItem('refreshToken');
   if (!currentToken || !refreshToken) return null;
   try {
     // Extract userId from the existing JWT payload (sub claim)
-    const payload = JSON.parse(atob(currentToken.split('.')[1] ?? '')) as { sub: string };
+    const payload = decodeJwtPayload(currentToken.split('.')[1] ?? '') as { sub: string };
     const userId = payload.sub;
     if (!userId) return null;
 
