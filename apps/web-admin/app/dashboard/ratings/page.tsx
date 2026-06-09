@@ -13,13 +13,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { adminApi, ApiError, HiredWorker, Shift } from '../../../lib/api';
-
-const WORKER_RATING_TAGS = [
-  { key: 'pontual',      label: 'Pontual' },
-  { key: 'profissional', label: 'Profissional' },
-  { key: 'comunicativo', label: 'Comunicativo' },
-  { key: 'boa_atitude',  label: 'Boa atitude' },
-] as const;
+import { WORKER_RATING_TAGS } from '@turnos/shared';
 
 // ─── Rating Modal ─────────────────────────────────────────────────────────────
 

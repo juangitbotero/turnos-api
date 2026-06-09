@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { adminApi, ApiError, Shift, Application } from '../../../lib/api';
 import { connectSocket, getSocket, NewApplicationPayload } from '../../../lib/socket';
+import { formatDate } from '../../../lib/format';
 
 const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
   DRAFT:              { label: 'Rascunho',          color: '#6b7280', bg: '#f3f4f6' },
@@ -15,10 +16,6 @@ const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }>
   COMPLETED:          { label: 'Concluído',         color: '#0891b2', bg: '#cffafe' },
   CANCELLED:          { label: 'Cancelado',         color: '#dc2626', bg: '#fee2e2' },
 };
-
-function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' });
-}
 
 // ── Applicants Modal ──────────────────────────────────────────────────────────
 

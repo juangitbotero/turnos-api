@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
 import { shiftApi, ratingsApi, MyApplication } from '../lib/api';
 import { getSocket, ShiftStatusChangedPayload, ShiftCancelledPayload } from '../lib/socket';
+import { formatDate } from '../lib/format';
 
 type AppStatus = MyApplication['status'];
 
@@ -38,15 +39,6 @@ function isShiftOver(app: MyApplication): boolean {
   } catch {
     return false;
   }
-}
-
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  const today = new Date();
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-  if (d.toDateString() === today.toDateString()) return 'Hoje';
-  if (d.toDateString() === tomorrow.toDateString()) return 'Amanhã';
-  return d.toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' });
 }
 
 function formatAppliedAt(dateStr: string) {

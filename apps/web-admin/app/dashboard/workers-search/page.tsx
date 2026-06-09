@@ -3,25 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { SHIFT_CATEGORIES, ShiftCategory, LANGUAGES } from '@turnos/shared';
+import { ShiftCategory, LANGUAGES, ALL_SKILLS } from '@turnos/shared';
 import { adminApi, WorkerSearchResult, Shift, ApiError } from '../../../lib/api';
-
-// ── Sidebar nav (same structure as home page) ──────────────────────────────────
-
-const SIDEBAR_NAV = [
-  { icon: '🏠', label: 'Dashboard',         href: '/dashboard' },
-  { icon: '📋', label: 'Turnos',             href: '/dashboard/shifts' },
-  { icon: '🔍', label: 'Procurar Workers',   href: '/dashboard/workers-search' },
-  { icon: '👷', label: 'Trabalhadores',      href: '/dashboard/workers' },
-  { icon: '📲', label: 'QR Check-in',        href: '/dashboard/qr-codes' },
-  { icon: '📊', label: 'Conformidade',       href: '/dashboard/compliance' },
-  { icon: '💶', label: 'Gastos',             href: '/dashboard/spending' },
-  { icon: '💳', label: 'Faturação',          href: '/dashboard/billing' },
-];
-
-const ALL_SKILLS = [...new Set(
-  (Object.values(SHIFT_CATEGORIES) as unknown as string[][]).flat()
-)].sort();
+import { SIDEBAR_NAV } from '../../../lib/nav';
 
 // ── Worker detail panel ────────────────────────────────────────────────────────
 
@@ -259,7 +243,16 @@ export default function WorkersSearchPage() {
           </div>
           <div style={s.divider} />
           <nav style={s.nav}>
-            {SIDEBAR_NAV.map(({ icon, label, href }) => {
+            {SIDEBAR_NAV.map(({ icon, label, href, soon }) => {
+              if (soon || !href) {
+                return (
+                  <div key={label} style={{ ...s.navItem, opacity: 0.45, cursor: 'default' }}>
+                    <span style={s.navIcon}>{icon}</span>
+                    <span>{label}</span>
+                    <span style={s.soonPill}>breve</span>
+                  </div>
+                );
+              }
               const active = href === '/dashboard/workers-search';
               return (
                 <Link key={href} href={href}
@@ -560,6 +553,7 @@ const s: Record<string, React.CSSProperties> = {
     color: 'var(--color-text-secondary)', textDecoration: 'none', position: 'relative',
   },
   navItemActive: { background: 'var(--color-primary-light)', color: 'var(--color-primary)', fontWeight: 700 },
+  soonPill: { marginLeft: 'auto', fontSize: 9, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', borderRadius: 4, padding: '2px 5px', letterSpacing: 0.5 },
   navIcon: { fontSize: 16, width: 20, textAlign: 'center' as const },
   activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--color-primary)' },
   logoutBtn: {

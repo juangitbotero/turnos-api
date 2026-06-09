@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { adminApi, TsuReport, McdContract, AuditLogEntry } from '../../../lib/api';
+import { formatDate, formatEuro } from '../../../lib/format';
 
 type Tab = 'tsu' | 'mcd' | 'audit';
 
@@ -12,14 +13,6 @@ const SS_STATUS_LABEL: Record<string, { label: string; color: string; bg: string
   SUBMITTED:  { label: 'Submetido', color: '#166534', bg: '#dcfce7' },
   FAILED:     { label: 'Falhou',    color: '#991b1b', bg: '#fee2e2' },
 };
-
-function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function formatEuro(n: number) {
-  return `€${n.toFixed(2)}`;
-}
 
 function formatEvent(event: string) {
   return event.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());

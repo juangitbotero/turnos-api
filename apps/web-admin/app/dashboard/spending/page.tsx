@@ -16,6 +16,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { adminApi, SpendingReport, PaymentRecord } from '../../../lib/api';
+import { formatDate, formatEuro } from '../../../lib/format';
 
 type Period = 'month' | 'year';
 
@@ -23,14 +24,6 @@ const MONTHS_PT = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
-
-function formatEuro(n: number): string {
-  return `€${n.toFixed(2)}`;
-}
-
-function formatDate(d: string): string {
-  return new Date(d).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' });
-}
 
 function downloadCsv(records: PaymentRecord[], period: string) {
   const header = 'Data,Turno ID,Gross (€),Taxa Turnos (€),TSU Entidade (€),TSU Trabalhador (€),Horas,Líquido Trabalhador (€)';

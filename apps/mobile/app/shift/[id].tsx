@@ -10,17 +10,7 @@ import {
   shiftApi, ShiftSummary, MyApplication, ApiError,
   attendanceApi, AttendanceRecord, authApi,
 } from '../../lib/api';
-
-// ── helpers ───────────────────────────────────────────────────────────────────
-
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  const today = new Date();
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-  if (d.toDateString() === today.toDateString()) return 'Hoje';
-  if (d.toDateString() === tomorrow.toDateString()) return 'Amanhã';
-  return d.toLocaleDateString('pt-PT', { day: '2-digit', month: 'long' });
-}
+import { formatDate } from '../../lib/format';
 
 function hoursWorked(start: string, end: string): number {
   const sp = start.split(':').map(Number);
@@ -254,7 +244,7 @@ export default function ShiftDetailScreen() {
 
           {/* Info card */}
           <View style={styles.infoCard}>
-            <InfoRow icon="📅" label="Data" value={formatDate(shift.date)} />
+            <InfoRow icon="📅" label="Data" value={formatDate(shift.date, 'long')} />
             <InfoRow icon="⏰" label="Horário" value={`${shift.startTime.slice(0, 5)} – ${shift.endTime.slice(0, 5)}`} />
             {hours > 0 && <InfoRow icon="🕐" label="Duração" value={`${hours.toFixed(1)}h`} />}
             <InfoRow

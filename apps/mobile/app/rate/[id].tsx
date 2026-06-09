@@ -1,32 +1,18 @@
 /**
  * Rate shift screen — worker rates the employer after a COMPLETED shift.
  * Accessed via /rate/[shiftId] from the "Avaliar" CTA in my-shifts.
- *
- * One-way rating: employers rate workers (Stint 7 scope).
- * Note: this screen is kept for future worker-rates-employer (Stint 8).
- * For now it navigates here but the API endpoint is EMPLOYER → WORKER only,
- * so this screen will be revisited when two-way ratings are introduced.
- *
- * Actually: this screen loads the shift info and calls
- * POST /ratings so the worker can see they've navigated to the right place.
- * In v1 the "Avaliar" CTA is shown to the EMPLOYER in web-admin.
- * On mobile the worker sees the employer info — this screen is a placeholder
- * that simply shows the shift summary until worker-rates-employer is built.
- *
- * TODO Stint 8: Implement worker-rates-employer flow here.
+ * Calls POST /ratings/employer (WORKER role, direction: WORKER_TO_EMPLOYER).
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  TextInput, Alert, ActivityIndicator,
+  Alert, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, radius, fontSize, fontWeight, WORKER_RATING_TAGS } from '@turnos/shared';
-import { api, shiftApi, ratingsApi, ShiftSummary } from '../../lib/api';
-
-const TAGS = WORKER_RATING_TAGS as readonly { key: string; label: string }[];
+import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
+import { shiftApi, ratingsApi, ShiftSummary } from '../../lib/api';
 
 export default function RateShiftScreen() {
   const router = useRouter();
@@ -37,9 +23,7 @@ export default function RateShiftScreen() {
   const [loading, setLoading]       = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const [score, setScore]           = useState(0);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [comment, setComment]       = useState('');
+  const [score, setScore] = useState(0);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -61,12 +45,6 @@ export default function RateShiftScreen() {
 
   useEffect(() => { load(); }, [load]);
 
-  const toggleTag = (key: string) => {
-    setSelectedTags(prev =>
-      prev.includes(key) ? prev.filter(t => t !== key) : [...prev, key],
-    );
-  };
-
   const handleSubmit = async () => {
     if (score === 0) {
       Alert.alert('Avaliação incompleta', 'Por favor seleciona pelo menos 1 estrela.');
@@ -76,12 +54,7 @@ export default function RateShiftScreen() {
 
     setSubmitting(true);
     try {
-      await api.post('/ratings', {
-        shiftId: id,
-        score,
-        tags: selectedTags,
-        comment: comment.trim() || undefined,
-      });
+      await ratingsApi.rateEmployer({ shiftId: id, score });
       Alert.alert('Obrigado!', 'A tua avaliação foi registada com sucesso.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
@@ -146,39 +119,6 @@ export default function RateShiftScreen() {
               )}
             </View>
 
-            {/* Tags */}
-            <View style={s.section}>
-              <Text style={s.sectionLabel}>O que destacas? (opcional)</Text>
-              <View style={s.tagsRow}>
-                {TAGS.map(tag => (
-                  <TouchableOpacity
-                    key={tag.key}
-                    style={[s.tagChip, selectedTags.includes(tag.key) && s.tagChipSelected]}
-                    onPress={() => toggleTag(tag.key)}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={[s.tagText, selectedTags.includes(tag.key) && s.tagTextSelected]}>
-                      {tag.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Comment */}
-            <View style={s.section}>
-              <Text style={s.sectionLabel}>Comentário (opcional)</Text>
-              <TextInput
-                style={s.commentInput}
-                multiline
-                placeholder="Deixa um comentário sobre o turno..."
-                placeholderTextColor={colors.textSecondary}
-                value={comment}
-                onChangeText={t => setComment(t.slice(0, 140))}
-                textAlignVertical="top"
-              />
-              <Text style={s.charCount}>{comment.length}/140</Text>
-            </View>
           </>
         )}
 
@@ -254,31 +194,6 @@ const s = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     color: colors.textSecondary,
   },
-
-  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tagChip: {
-    borderRadius: radius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    backgroundColor: colors.secondary,
-    borderWidth: 1,
-    borderColor: colors.neutral,
-  },
-  tagChipSelected: { backgroundColor: '#6a79ff', borderColor: '#6a79ff' },
-  tagText: { fontSize: fontSize.caption, fontWeight: fontWeight.semibold, color: colors.textSecondary },
-  tagTextSelected: { color: '#fff' },
-
-  commentInput: {
-    borderWidth: 1,
-    borderColor: colors.neutral,
-    borderRadius: radius.md,
-    padding: spacing.sm,
-    fontSize: fontSize.body,
-    color: colors.textPrimary,
-    minHeight: 80,
-    backgroundColor: colors.secondary,
-  },
-  charCount: { fontSize: 11, color: colors.textSecondary, textAlign: 'right', marginTop: 4 },
 
   alreadyRated: { alignItems: 'center', paddingTop: 60, gap: 12 },
   alreadyRatedIcon: { fontSize: 56, color: '#16a34a' },

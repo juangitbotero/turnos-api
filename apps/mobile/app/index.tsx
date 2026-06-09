@@ -10,15 +10,7 @@ import { useRouter } from 'expo-router';
 import { colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory, calculateTSU } from '@turnos/shared';
 import { shiftApi, authApi, ShiftSummary, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
-
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  const today = new Date();
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-  if (d.toDateString() === today.toDateString()) return 'Hoje';
-  if (d.toDateString() === tomorrow.toDateString()) return 'Amanhã';
-  return d.toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' });
-}
+import { formatDate } from '../lib/format';
 
 function toFeedItem(s: ShiftSummary) {
   const tsu = calculateTSU(Number(s.grossHourlyRate));
