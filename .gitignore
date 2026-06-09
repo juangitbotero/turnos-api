@@ -43,3 +43,7 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+
+# Claude Code runtime (symlinks — must not be in git or EAS build archives)
+.agents
+.claude/skills

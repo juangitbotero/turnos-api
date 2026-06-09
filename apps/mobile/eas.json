@@ -26,16 +26,5 @@
         "EXPO_PUBLIC_API_URL": "https://turnos-api-production-6c70.up.railway.app/api"
       }
     }
-  },
-  "submit": {
-    "production": {
-      "ios": {
-        "appleId": "",
-        "ascAppId": ""
-      },
-      "android": {
-        "serviceAccountKeyPath": ""
-      }
-    }
   }
 }

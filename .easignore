@@ -1,0 +1,17 @@
+# EAS Build — exclude everything not needed for the mobile app build.
+# packages/shared IS needed (workspace dependency of apps/mobile).
+
+# Claude Code internal directories (contain symlinks that break Windows archiving)
+.agents
+.claude
+
+# Other apps — not needed to build apps/mobile
+apps/api
+apps/web-admin
+
+# Docs
+docs
+
+# Misc
+*.pem
+.DS_Store
