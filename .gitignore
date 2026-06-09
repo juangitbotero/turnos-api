@@ -44,6 +44,9 @@ yarn-error.log*
 .DS_Store
 *.pem
 
+# Expo local state (machine-specific, must not be committed)
+.expo/
+
 # Claude Code runtime (symlinks — must not be in git or EAS build archives)
 .agents
 .claude/skills
