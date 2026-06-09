@@ -197,10 +197,12 @@ Stints are 2–3 week development phases. Full roadmap in `docs/turnos_roadmap.m
 - **Mobile dedup:** `apps/mobile/lib/format.ts` — single `formatDate(dateStr, monthFormat)` source (handles 'short'/'long', 'Hoje'/'Amanhã' smart labels). `index.tsx`, `my-shifts.tsx`, `shift/[id].tsx` all use it.
 
 **Pending in Phase 1:**
-- Accept/Decline UI in `my-shifts.tsx` (worker acceptance flow UI)
-- Cover note display in web-admin applicant list
-- Languages dropdown in shift creation (web-admin)
-- Employer review display in worker detail
+- Employer review display in worker detail — `ratings/page.tsx` has the *write* field but `recentRatings` with review text is not displayed anywhere in worker detail/search pages yet
+
+**Confirmed done (verified 2026-06-09):**
+- ✅ Accept/Decline UI in `my-shifts.tsx` — `PENDING_ACCEPTANCE` section with Aceitar/Recusar buttons wired to `shiftApi.confirm()` / `shiftApi.decline()`
+- ✅ Cover note display in web-admin applicant list — `shifts/page.tsx` shows `💬 "{app.coverNote}"` inline on applicant rows
+- ✅ Languages dropdown in shift creation — `new-shift/page.tsx` has full chip selector using `LANGUAGES` from shared, state `selectedLanguages`, sent as `languagesRequired` on submit
 
 **Phase 2 (Planned):** Internal admin dashboard, user management, compliance monitoring, financial dashboard, analytics, dispute flag, payslip PDF, subscription tiers
 
