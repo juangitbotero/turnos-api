@@ -65,6 +65,60 @@ Dev OTP code is hardcoded as `123456` (must be removed before production).
 
 ---
 
+## EAS Build — Android Beta Testing (as of 2026-06-09)
+
+### Setup Summary
+EAS Internal Distribution is configured for sharing the Android APK with test users — no Play Store, no Expo Go required.
+
+| File | Purpose |
+|---|---|
+| `apps/mobile/eas.json` | EAS build profiles (development / preview / production) |
+| `apps/mobile/babel.config.js` | **Critical** — must exist for `expoRouterBabelPlugin` to load correctly |
+| `apps/mobile/metro.config.js` | Monorepo-aware Metro config with `nodeModulesPaths` and `disableHierarchicalLookup` |
+| `.easignore` | Excludes `.agents`, `.claude`, `apps/api`, `apps/web-admin` from EAS archive (avoids Windows symlink EPERM) |
+
+### How to Submit a New Android Build
+Run this from `apps/mobile/`:
+```bash
+cd apps/mobile
+eas build --platform android --profile preview
+```
+- Profile `preview` → `distribution: internal`, `buildType: apk` → direct APK download link
+- Build takes ~10–15 min on Expo's servers
+- Share the APK download URL + QR code with Android test users directly (no store)
+
+### iOS Distribution
+Deferred until Apple Developer account ($99/year) is obtained. There is no free alternative for real-device iOS testing.
+
+### EAS Build: Root Cause of `EXPO_ROUTER_APP_ROOT` Error (FIXED)
+
+**Error:** `First argument of require.context should be a string` in `expo-router/_ctx.android.js`
+
+**Root cause (traced through source):**
+1. `babel-preset-expo` calls `hasModule('expo-router')` via `require.resolve('expo-router')` **from inside** `node_modules/expo/node_modules/babel-preset-expo/build/`
+2. From that nested location, Node.js resolution **cannot traverse into** `apps/mobile/node_modules/expo-router`
+3. `hasModule` returns `false` → `expoRouterBabelPlugin` is **never added** to the babel plugin chain
+4. `process.env.EXPO_ROUTER_APP_ROOT` is never replaced with a string literal
+5. Metro's `collectDependencies` calls `path.evaluate()` on the raw member expression → throws
+
+**Fix:** `apps/mobile/babel.config.js` (created 2026-06-09)
+```js
+module.exports = function (api) {
+  api.cache(true);
+  return { presets: ['babel-preset-expo'] };
+};
+```
+With this file present, `loadBabelConfig` finds it, `require('babel-preset-expo')` resolves **from `apps/mobile/`**, and from there `hasModule('expo-router')` correctly finds `apps/mobile/node_modules/expo-router`. The plugin runs, the string is substituted, the build succeeds.
+
+### Known expo-doctor Warnings (Expected — Not Real Issues)
+
+| Warning | Why it's safe to ignore |
+|---|---|
+| `resolver.disableHierarchicalLookup` mismatch | **Intentional.** Without it, Metro traverses up EAS build servers' filesystem and picks up packages from the server's global node_modules. This is the correct setting for this monorepo. |
+| Duplicate `react` / `react-dom` | **Expected.** `web-admin` uses React 18, `mobile` uses React 19. These are in separate workspaces and never share a native bundle. Metro resolves correctly via `nodeModulesPaths`. |
+
+---
+
 ## Shared Package
 
 `packages/shared/src/index.ts` is the single source of truth for:
@@ -101,7 +155,7 @@ Stints are 2–3 week development phases. Full roadmap in `docs/turnos_roadmap.m
 | 9 | Growth & Marketplace Flywheel | ⬜ Not started |
 | 10 | Hardening, Security & Launch | ⬜ Not started |
 
-### Stint 8 — Phase 1 In Progress (as of 2026-06-04)
+### Stint 8 — Phase 1 In Progress (as of 2026-06-09)
 
 **Stint 8 Phase 1 — UX & Trust Layer:**
 - **Bug fixes:** Profile photo not loading (API_URL env + useStaticAssets in main.ts); `avgRating.toFixed` crash (Number() wrap); notification subscription cleanup
@@ -115,9 +169,25 @@ Stints are 2–3 week development phases. Full roadmap in `docs/turnos_roadmap.m
 - **Cover note on apply:** `coverNote: VARCHAR(200)` on `shift_applications`; optional field in `POST /shifts/:id/apply`; server-side 200-char enforcement
 - **Worker acceptance flow:** New `PENDING_ACCEPTANCE` status in `shifts_status_enum`; employer selects → `PENDING_ACCEPTANCE` → push notification to worker (2h window); `POST /shifts/:id/confirm` → `FILLED` + compliance; `POST /shifts/:id/decline` → `OPEN` + employer notified; BullMQ `acceptance-timeout` job (2h)
 - **Static file serving:** `useStaticAssets('/uploads')` wired in `main.ts` for dev photo serving
-- **Pending in Phase 1:** Accept/Decline UI in `my-shifts.tsx`; cover note display in web-admin applicant list; languages dropdown in shift creation; employer review display in worker detail
+
+**Code Quality Cleanup (Stint 8, session 2026-06-09):**
+- **Rate bug fixed:** `apps/mobile/app/rate/[id].tsx` was calling `POST /ratings` (EMPLOYER-only) — changed to `ratingsApi.rateEmployer()` → `POST /ratings/employer` (WORKER role). Removed `selectedTags`/`comment` state, stale 17-line doc comment, dead StyleSheet entries, and `TextInput`/`WORKER_RATING_TAGS` imports (backend `forbidNonWhitelisted` would have 400'd anyway).
+- **Web-admin dedup:** `apps/web-admin/lib/format.ts` — single `formatDate`/`formatEuro` source. `apps/web-admin/lib/nav.ts` — single `SIDEBAR_NAV` source (8 items + "Definições soon"). `workers-search/page.tsx` uses both; local SIDEBAR_NAV and local ALL_SKILLS recomputation removed. `ratings/page.tsx` now imports `WORKER_RATING_TAGS` from shared instead of local copy.
+- **Mobile dedup:** `apps/mobile/lib/format.ts` — single `formatDate(dateStr, monthFormat)` source (handles 'short'/'long', 'Hoje'/'Amanhã' smart labels). `index.tsx`, `my-shifts.tsx`, `shift/[id].tsx` all use it.
+
+**Pending in Phase 1:**
+- Accept/Decline UI in `my-shifts.tsx` (worker acceptance flow UI)
+- Cover note display in web-admin applicant list
+- Languages dropdown in shift creation (web-admin)
+- Employer review display in worker detail
 
 **Phase 2 (Planned):** Internal admin dashboard, user management, compliance monitoring, financial dashboard, analytics, dispute flag, payslip PDF, subscription tiers
+
+**Known deferred (Stint 8/9):**
+- Unused npm packages: `@reduxjs/toolkit`, `react-redux`, `react-query`, `expo-crypto` in mobile; `@stripe/react-stripe-js`, `@stripe/stripe-js` in web-admin
+- Orphaned `app/dashboard/ratings/page.tsx` — built but no sidebar link yet
+- `createGoogleEmployer` bug: creates `User` row but not `Employer` entity (needs product decision on company-details onboarding flow for Google OAuth employers)
+- Frontend blanket 401 → logout masking (real auth errors shown as "session expired")
 
 ### Stint 7 — Complete (as of 2026-05-29)
 
