@@ -87,6 +87,8 @@ eas build --platform android --profile preview
 - Build takes ~10–15 min on Expo's servers
 - Share the APK download URL + QR code with Android test users directly (no store)
 
+> ⚠️ **Always specify `--profile preview` explicitly.** Omitting `--profile` defaults to `production`, which produces an `.aab` (Android App Bundle — Play Store only, cannot be installed directly on a device). The EAS build list shows "Android Play Store build" for production and "Android internal distribution build" for preview — check this label to confirm the right profile was used.
+
 ### iOS Distribution
 Deferred until Apple Developer account ($99/year) is obtained. There is no free alternative for real-device iOS testing.
 
@@ -101,14 +103,33 @@ Deferred until Apple Developer account ($99/year) is obtained. There is no free 
 4. `process.env.EXPO_ROUTER_APP_ROOT` is never replaced with a string literal
 5. Metro's `collectDependencies` calls `path.evaluate()` on the raw member expression → throws
 
-**Fix:** `apps/mobile/babel.config.js` (created 2026-06-09)
+**Fix:** `apps/mobile/babel.config.js` (created 2026-06-09, final version at commit `4837483`)
 ```js
 module.exports = function (api) {
   api.cache(true);
-  return { presets: ['babel-preset-expo'] };
+  // babel-preset-expo is hoisted by npm to the workspace root
+  // (node_modules/babel-preset-expo), not apps/mobile/node_modules/.
+  // From that location hasModule('expo-router') cannot see
+  // apps/mobile/node_modules/expo-router, so the preset's automatic
+  // expoRouterBabelPlugin registration is skipped.
+  //
+  // Fix: require the plugin directly from babel-preset-expo and add it
+  // explicitly. This replaces process.env.EXPO_ROUTER_APP_ROOT with the
+  // correct relative path before Metro's collectDependencies processes
+  // the require.context() call in expo-router/_ctx.android.js.
+  const { expoRouterBabelPlugin } = require('babel-preset-expo/build/expo-router-plugin');
+  return {
+    presets: [require('babel-preset-expo')],
+    plugins: [expoRouterBabelPlugin],
+  };
 };
 ```
-With this file present, `loadBabelConfig` finds it, `require('babel-preset-expo')` resolves **from `apps/mobile/`**, and from there `hasModule('expo-router')` correctly finds `apps/mobile/node_modules/expo-router`. The plugin runs, the string is substituted, the build succeeds.
+Three iterations were needed to reach this fix (see "Three-iteration fix history" below). The plugin is added **explicitly** to bypass the `hasModule('expo-router')` check entirely — this is the only reliable solution in an npm-hoisted monorepo.
+
+**Three-iteration fix history:**
+1. **Attempt 1** — created `babel.config.js` with `presets: ['babel-preset-expo']` (string). Failed: `Cannot find module 'babel-preset-expo'` — npm hoisted it to workspace root, not resolvable by string from `apps/mobile/`.
+2. **Attempt 2** — added `babel-preset-expo` as direct devDep, changed to `require('babel-preset-expo')`. Failed: `EXPO_ROUTER_APP_ROOT` error returned — npm hoisted the dep to workspace root `node_modules/`, so `hasModule('expo-router')` in the preset still returned `false`.
+3. **Attempt 3 (final)** — explicitly require `expoRouterBabelPlugin` from `babel-preset-expo/build/expo-router-plugin` and add it directly to `plugins`. Bypasses `hasModule` entirely. **Build succeeded.**
 
 ### Known expo-doctor Warnings (Expected — Not Real Issues)
 
