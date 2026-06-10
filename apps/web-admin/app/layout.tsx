@@ -1,4 +1,5 @@
 import './globals.css';
+import MobileOverlay from './MobileOverlay';
 
 export default function RootLayout({
   children,
@@ -39,7 +40,10 @@ export default function RootLayout({
           }
         `}</style>
       </head>
-      <body>{children}</body>
+      <body>
+        <MobileOverlay />
+        {children}
+      </body>
     </html>
   );
 }
