@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { NotificationsService } from '../notifications.service';
 import { Shift, ShiftStatus } from '../../shifts/entities/shift.entity';
-import { ShiftApplication } from '../../shifts/entities/shift-application.entity';
+import { ShiftApplication, ApplicationStatus } from '../../shifts/entities/shift-application.entity';
 
 export interface ReNotificationJobData {
   shiftId: string;
@@ -43,15 +43,40 @@ export class ReNotificationProcessor extends WorkerHost {
     // ── Worker acceptance timeout (2h) ──────────────────────────────────────
     if (job.name === 'acceptance-timeout') {
       const { shiftId: sid, applicationId } = job.data as { shiftId: string; applicationId: string };
-      const shift = await this.shiftRepo.findOne({
-        where: { id: sid },
-        relations: ['employer'],
-      });
-      if (shift && shift.status === ShiftStatus.PENDING_ACCEPTANCE) {
-        shift.status = ShiftStatus.OPEN;
-        (shift as any).assignedWorker = null;
-        await this.shiftRepo.save(shift);
+
+      // Atomically revert shift + clear assignedWorker FK via QueryBuilder.
+      // The WHERE status guard makes this a no-op if the worker already accepted
+      // (status would be FILLED) — safe to retry.
+      const result = await this.shiftRepo
+        .createQueryBuilder()
+        .update(Shift)
+        .set({ status: ShiftStatus.OPEN, assignedWorker: null as any })
+        .where('id = :id AND status = :status', { id: sid, status: ShiftStatus.PENDING_ACCEPTANCE })
+        .execute();
+
+      if (result.affected && result.affected > 0) {
         this.logger.log(`[AcceptanceTimeout] Shift ${sid} reverted to OPEN — worker did not respond in 2h`);
+
+        // Reset application APPROVED → PENDING so the worker's my-shifts screen
+        // no longer shows this shift as "confirmed" (the shift was never accepted).
+        const application = await this.applicationRepo.findOne({
+          where: { id: applicationId },
+          relations: ['worker'],
+        });
+        if (application?.status === ApplicationStatus.APPROVED) {
+          application.status = ApplicationStatus.PENDING;
+          await this.applicationRepo.save(application);
+
+          // Notify the worker that their window expired
+          if (application.worker?.expoPushToken) {
+            this.notificationsService.sendDirectPush(
+              [application.worker.expoPushToken],
+              'Tempo esgotado ⏰',
+              'Não respondeste a tempo — o turno voltou à lista de disponíveis.',
+              { type: 'acceptance_timeout', shiftId: sid },
+            ).catch(() => {});
+          }
+        }
       }
       return;
     }
