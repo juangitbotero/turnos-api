@@ -81,8 +81,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
 
-  // If still 401, session is truly dead → redirect to login
-  if (res.status === 401) {
+  // If still 401 on a request that carried a token, the session is truly dead → redirect.
+  // A 401 with no token (e.g. login itself) is just a normal auth failure — let it
+  // fall through below so the caller sees the server's real message.
+  if (res.status === 401 && token) {
     if (typeof window !== 'undefined') window.location.href = '/login';
     throw new ApiError(401, 'Sessão expirada. Por favor inicia sessão novamente.');
   }
