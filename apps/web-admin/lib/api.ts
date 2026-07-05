@@ -60,7 +60,27 @@ async function doRefreshTokens(): Promise<string | null> {
   } catch { return null; }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+// skipAuth: for public endpoints (currently only login) — never attaches a token,
+// never runs refresh, never redirects. A stale/expired token sitting in localStorage
+// from an unrelated earlier session must not interfere with a fresh login attempt,
+// and a 401 here (e.g. wrong password) is a normal auth failure, not a dead session.
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  { skipAuth = false }: { skipAuth?: boolean } = {},
+): Promise<T> {
+  if (skipAuth) {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...(options.headers as Record<string, string> ?? {}) },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { message?: string };
+      throw new ApiError(res.status, body.message ?? `HTTP ${res.status}`);
+    }
+    return res.json() as Promise<T>;
+  }
+
   let token = getToken();
 
   // Auto-refresh if expired
@@ -81,10 +101,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
 
-  // If still 401 on a request that carried a token, the session is truly dead → redirect.
-  // A 401 with no token (e.g. login itself) is just a normal auth failure — let it
-  // fall through below so the caller sees the server's real message.
-  if (res.status === 401 && token) {
+  // If still 401, session is truly dead → redirect to login
+  if (res.status === 401) {
     if (typeof window !== 'undefined') window.location.href = '/login';
     throw new ApiError(401, 'Sessão expirada. Por favor inicia sessão novamente.');
   }
@@ -320,6 +338,7 @@ export const adminApi = {
     request<{ accessToken: string; refreshToken: string; message: string }>(
       '/auth/login/employer',
       { method: 'POST', body: JSON.stringify({ email, password }) },
+      { skipAuth: true },
     ),
 
   getMyProfile: () =>
