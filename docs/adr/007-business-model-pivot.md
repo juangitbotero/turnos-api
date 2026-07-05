@@ -36,16 +36,18 @@ is restructured so that **Turnos never holds or routes wages**.
    issues a payment *receipt* (never an invoice for the labor — invoices only
    for Turnos' own fees), and the company absorbs the Stripe processing fee so
    the worker receives the full gross.
-6. **Cancellation (company), revised 2026-07-05:** cancelling a FILLED shift
-   ≤24h before start without justification obliges the company to pay the
-   worker a **2-hour minimum** at the shift's hourly rate (via an
-   auto-generated Pay Link, direct company → worker) and Turnos bills the
-   normal **€3 fee** — replacing the earlier 10%-to-Turnos fee (Supp-inspired;
-   compensation goes to the worker, not the platform). Justified cancellations
-   (worker late/no-capability/dress-code, health & safety, equipment failure,
-   third-party event cancellation) are exempt, case-by-case. A shift ended
-   early after starting pays hours worked or the 2h minimum, whichever is
-   greater. >24h cancellations stay free (worker apology + priority boost).
+6. **Cancellation (company), revised 2026-07-05:** three tiers replacing the
+   earlier 10%-to-Turnos fee (Supp-inspired; compensation goes to the worker,
+   not the platform): **>24h** free (worker apology + priority boost);
+   **24h–3h** free of payment but recorded on the company's internal
+   reliability metric; **<3h without justification** the company pays the
+   worker a **2-hour minimum** at the shift's hourly rate (via auto-generated
+   Pay Link, direct company → worker) and Turnos bills the normal **€3 fee**.
+   Justified cancellations (worker late/no-capability/dress-code, health &
+   safety, equipment failure, third-party event cancellation) are exempt,
+   case-by-case, selected at cancel time and reviewed by ops (48h SLA). A
+   shift ended early after starting pays hours worked or the 2h minimum,
+   whichever is greater.
    Full text: `docs/policies/cancellation-and-noshow-policy.md`.
 7. **Worker cancellation policy:** >24h before start = free, shift reopens +
    re-notification wave. ≤24h = "cancelamento tardio" strike (blocks RELIABLE

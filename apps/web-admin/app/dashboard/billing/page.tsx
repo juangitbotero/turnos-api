@@ -242,10 +242,11 @@ export default function BillingPage() {
 
             <h3 style={s.subSectionTitle}>Política de cancelamento de turnos</h3>
             <p style={s.infoText}>
-              Cancelar um turno preenchido com menos de <strong>24 horas</strong> de antecedência,
+              Cancelar um turno preenchido com menos de <strong>3 horas</strong> de antecedência,
               sem justificação, obriga ao pagamento de um <strong>mínimo de 2 horas</strong> ao
-              trabalhador (via Pay Link) + a taxa normal de 3€. Cancelamentos justificados
-              (atraso do trabalhador, força maior, etc.) e cancelamentos com mais de 24h são{' '}
+              trabalhador (via Pay Link) + a taxa normal de 3€. Entre 24h e 3h o cancelamento é
+              gratuito mas fica registado na fiabilidade da empresa. Cancelamentos justificados
+              (atraso do trabalhador, força maior, etc.) e com mais de 24h são{' '}
               <strong>gratuitos</strong>.
             </p>
 
