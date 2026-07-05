@@ -45,7 +45,7 @@ export class MailService {
       'O seu perfil foi aprovado — Turnos',
       `<p>Olá ${name},</p>
        <p>O seu perfil foi aprovado! Já pode candidatar-se a turnos na app Turnos.</p>
-       <p><strong>Recebe amanhã</strong> após cada turno concluído.</p>`,
+       <p><strong>Recebe o valor bruto por inteiro</strong> — pago diretamente pela empresa após cada turno concluído, sem comissões.</p>`,
     );
   }
 

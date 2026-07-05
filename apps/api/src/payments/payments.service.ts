@@ -1,14 +1,17 @@
 /**
- * PaymentsService — Stint 6
+ * PaymentsService — reworked 2026-07 (business model pivot)
  *
- * Handles all financial flows for the Turnos platform:
+ * Turnos is OUT of the wage money flow: companies pay workers directly.
+ * This service only bills Turnos' own revenue:
  *   1. Employer Stripe Customer creation + card setup
- *   2. Worker Stripe Connect Express account onboarding
- *   3. Shift charge on checkout (scheduledHours × grossHourlyRate)
- *   4. Worker T+1 payout via Stripe transfer
- *   5. €55/mo subscription billing with posting guard
- *   6. Cancellation fee (15% split: 11% Turnos + 4% worker compensation)
+ *   2. €45/mo "Turnos Starter" subscription with posting guard
+ *   3. Fixed per-shift platform fee (€3 Starter / €2 Pro) recorded at checkout
+ *      as a Stripe InvoiceItem → aggregated on the next monthly invoice
+ *   4. Cancellation fee: 10% of shift gross when a FILLED shift is cancelled
+ *      ≤24h before start (fully to Turnos — no worker share)
+ *   5. Worker Stripe Connect onboarding (kept, optional — used by Pay Link)
  *
+ * Wage/TSU amounts stored on PaymentRecord are INFORMATIVE only.
  * All amounts in EUR. Stripe API works in cents (×100).
  */
 import {
@@ -16,24 +19,19 @@ import {
   NotFoundException, UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
-import { calculateTSU } from '@turnos/shared';
+import { calculateTSU, TURNOS_FEE_FIXED_EUR, SUBSCRIPTION_TIERS } from '@turnos/shared';
 import { PaymentRecord, PaymentStatus, PaymentType } from './entities/payment-record.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { Worker } from '../users/entities/worker.entity';
 import { Shift } from '../shifts/entities/shift.entity';
 
-// Revenue split constants
-const TURNOS_FEE_RATE        = 0.10;   // 10% platform fee from worker gross
-const EMPLOYER_TSU_RATE      = 0.2375; // 23.75% employer SS contribution (informational)
-const WORKER_TSU_RATE        = 0.11;   // 11% worker SS contribution (informational)
-const CANCELLATION_FEE_RATE  = 0.15;   // 15% of shift gross on late cancellation
-const WORKER_COMPENSATION_RATE = 0.04; // 4% of shift gross → worker
-const CANCELLATION_WINDOW_HOURS = 12;  // Hours before shift start that triggers fee
-const SUBSCRIPTION_MONTHLY_EUR = 55;   // €55/mo platform subscription
-const MAX_ACTIVE_SHIFTS      = 15;     // Max concurrent active shifts on starter plan
+const CANCELLATION_FEE_RATE     = 0.10; // 10% of shift gross on late cancellation (fully to Turnos)
+const CANCELLATION_WINDOW_HOURS = 24;   // J-1 — hours before shift start that triggers the fee
+const SUBSCRIPTION_MONTHLY_EUR  = SUBSCRIPTION_TIERS.STARTER.monthlyEur; // €45/mo Turnos Starter
+const MAX_ACTIVE_SHIFTS         = SUBSCRIPTION_TIERS.STARTER.maxActiveShifts; // 15 on Starter (Pro: unlimited)
 
 @Injectable()
 export class PaymentsService {
@@ -130,8 +128,10 @@ export class PaymentsService {
   }
 
   /**
-   * Create the €55/mo Stripe Subscription for the employer.
+   * Create the €45/mo "Turnos Starter" Stripe Subscription for the employer.
    * Requires a payment method already saved (savePaymentMethod called first).
+   * Per-shift fees accumulate as pending InvoiceItems and are billed on this
+   * subscription's monthly invoice.
    */
   async createSubscription(employerUserId: string): Promise<{ subscriptionId: string; status: string }> {
     const employer = await this.ensureStripeCustomer(employerUserId);
@@ -266,20 +266,20 @@ export class PaymentsService {
     return { url: loginLink.url };
   }
 
-  // ── Shift payment on checkout ─────────────────────────────────────────────
+  // ── Platform fee on checkout ──────────────────────────────────────────────
 
   /**
-   * Charge the employer for a completed shift and schedule the worker payout.
+   * Record the fixed platform fee for a completed shift.
    * Called by AttendanceService.checkOut() (non-blocking).
    *
-   * Flow:
-   *   1. Calculate amounts using calculateTSU()
-   *   2. Charge employer's saved card via PaymentIntent (off-session)
-   *   3. Create Stripe Transfer to worker's Connect account
-   *   4. Store PaymentRecord with full breakdown
-   *   5. Send worker a push notification: "Recebe amanhã"
+   * The wage is NOT charged here — the company pays the worker directly.
+   * The fee (€3 Starter / €2 Pro) is added as a Stripe InvoiceItem, which
+   * automatically attaches to the employer's next subscription invoice, so
+   * fees accumulate and are billed once a month, itemized per shift.
+   * The PaymentRecord also stores the informative wage/TSU breakdown for
+   * dashboards and accounting exports.
    */
-  async chargeShiftOnCheckout(
+  async recordShiftFeeOnCheckout(
     shiftId:       string,
     employerId:    string,
     workerId:      string,
@@ -289,32 +289,25 @@ export class PaymentsService {
     shiftTitle:    string,
   ): Promise<void> {
     const employer = await this.employerRepo.findOne({ where: { id: employerId } });
-    const worker   = await this.workerRepo.findOne({ where: { id: workerId } });
-
-    if (!employer?.stripeCustomerId || !employer.stripePaymentMethodId) {
-      this.logger.warn(`[Payments] Employer ${employerId} has no payment method — shift ${shiftId} not charged`);
-      return;
-    }
 
     const tsu         = calculateTSU(grossHourlyRate);
     const grossAmount = tsu.grossAmount * scheduledHours;
-    const turnosFee   = tsu.turnosFee   * scheduledHours;
-    const workerNet   = (tsu.grossAmount - tsu.turnosFee) * scheduledHours;
-    const employerTsu = tsu.employerContribution * scheduledHours;
-    const workerTsu   = tsu.workerDeduction * scheduledHours;
+    const workerNet   = tsu.workerNetAmount * scheduledHours;      // informative
+    const employerTsu = tsu.employerContribution * scheduledHours; // informative
+    const workerTsu   = tsu.workerDeduction * scheduledHours;      // informative
 
-    const amountCents = Math.round(grossAmount * 100);
+    const tier   = employer?.subscriptionTier === 'PRO' ? SUBSCRIPTION_TIERS.PRO : SUBSCRIPTION_TIERS.STARTER;
+    const feeEur = tier.shiftFeeEur ?? TURNOS_FEE_FIXED_EUR;
 
-    // Create payment record (PENDING)
     const record = await this.paymentRepo.save(
       this.paymentRepo.create({
         shiftId,
         employerId,
         workerId,
-        type:           PaymentType.SHIFT_CHARGE,
+        type:           PaymentType.SHIFT_FEE,
         status:         PaymentStatus.PENDING,
         grossAmount,
-        turnosFee,
+        turnosFee:      feeEur,
         workerNet,
         employerTsu,
         workerTsu,
@@ -323,71 +316,32 @@ export class PaymentsService {
       }),
     );
 
+    if (!employer?.stripeCustomerId) {
+      this.logger.warn(`[Payments] Employer ${employerId} has no Stripe customer — fee for shift ${shiftId} recorded but not invoiced`);
+      return;
+    }
+
     try {
-      // Charge employer
-      const paymentIntent = await this.stripe.paymentIntents.create({
-        amount:               amountCents,
-        currency:             'eur',
-        customer:             employer.stripeCustomerId,
-        payment_method:       employer.stripePaymentMethodId,
-        confirm:              true,
-        off_session:          true,
-        description:          `Turnos — ${shiftTitle} (${scheduledHours}h)`,
-        metadata:             { shiftId, shiftTitle, employerId, workerId, shiftDate },
-        transfer_group:       `shift_${shiftId}`,
+      // Pending invoice items are swept onto the next subscription invoice
+      // automatically — this is what aggregates the fees monthly, one line per shift.
+      const invoiceItem = await this.stripe.invoiceItems.create({
+        customer:    employer.stripeCustomerId,
+        amount:      Math.round(feeEur * 100),
+        currency:    'eur',
+        description: `Taxa de serviço Turnos — ${shiftTitle} (${shiftDate})`,
+        metadata:    { shiftId, employerId, workerId, shiftDate, type: 'shift_fee' },
       });
 
-      record.stripePaymentIntentId = paymentIntent.id;
-      record.stripeChargeId        = paymentIntent.latest_charge as string | null;
-      record.status                = PaymentStatus.SUCCEEDED;
+      record.stripeChargeId = invoiceItem.id; // invoice item ref (billed on next invoice)
+      record.status         = PaymentStatus.SUCCEEDED;
       await this.paymentRepo.save(record);
 
-      this.logger.log(`[Payments] Employer ${employerId} charged €${grossAmount.toFixed(2)} for shift ${shiftId}`);
-
-      // Transfer worker net to their Connect account (T+1 natural Stripe payout schedule)
-      if (worker?.stripeAccountId) {
-        const workerNetCents = Math.round(workerNet * 100);
-        const transfer = await this.stripe.transfers.create({
-          amount:         workerNetCents,
-          currency:       'eur',
-          destination:    worker.stripeAccountId,
-          transfer_group: `shift_${shiftId}`,
-          description:    `Turnos payout — ${shiftTitle}`,
-          metadata:       { shiftId, workerId, shiftDate },
-        });
-
-        record.stripeTransferId = transfer.id;
-        await this.paymentRepo.save(record);
-
-        // Also create a worker payout record for their earnings dashboard
-        await this.paymentRepo.save(
-          this.paymentRepo.create({
-            shiftId,
-            employerId,
-            workerId,
-            type:                 PaymentType.WORKER_PAYOUT,
-            status:               PaymentStatus.SUCCEEDED,
-            grossAmount,
-            turnosFee,
-            workerNet,
-            employerTsu,
-            workerTsu,
-            scheduledHours,
-            shiftDate,
-            stripeTransferId:     transfer.id,
-            stripePaymentIntentId: paymentIntent.id,
-          }),
-        );
-
-        this.logger.log(`[Payments] Worker ${workerId} transfer €${workerNet.toFixed(2)} scheduled (T+1)`);
-      } else {
-        this.logger.warn(`[Payments] Worker ${workerId} has no Connect account — payout skipped. Will retry after onboarding.`);
-      }
+      this.logger.log(`[Payments] Shift fee €${feeEur.toFixed(2)} queued on next invoice for employer ${employerId} (shift ${shiftId})`);
     } catch (err) {
       record.status        = PaymentStatus.FAILED;
       record.failureReason = (err as Error).message;
       await this.paymentRepo.save(record);
-      this.logger.error(`[Payments] Charge failed for shift ${shiftId}: ${(err as Error).message}`);
+      this.logger.error(`[Payments] Shift fee invoicing failed for shift ${shiftId}: ${(err as Error).message}`);
       // Not re-thrown — non-blocking from checkout flow. Admin will see FAILED record.
     }
   }
@@ -395,16 +349,16 @@ export class PaymentsService {
   // ── Cancellation fee ──────────────────────────────────────────────────────
 
   /**
-   * Charge the employer a 15% cancellation fee when a FILLED shift is cancelled
-   * within 12h of the shift start.
+   * Charge the employer a 10% cancellation fee when a FILLED shift is cancelled
+   * within 24h of the shift start (J-1). The fee is fully Turnos revenue — the
+   * worker is compensated non-monetarily (priority boost, employer reliability
+   * metric) since wages no longer flow through the platform.
    * Returns { feeCents, isLate } — caller checks isLate before calling.
    */
   async checkCancellationFee(shiftId: string): Promise<{
     isLate:       boolean;
     grossAmount:  number;
     feeCents:     number;
-    workerShareCents: number;
-    turnosCents:  number;
   }> {
     const shift = await this.shiftRepo.findOne({
       where: { id: shiftId },
@@ -417,21 +371,17 @@ export class PaymentsService {
     const isLate     = hoursUntil <= CANCELLATION_WINDOW_HOURS && hoursUntil > -1;
 
     if (!isLate) {
-      return { isLate: false, grossAmount: 0, feeCents: 0, workerShareCents: 0, turnosCents: 0 };
+      return { isLate: false, grossAmount: 0, feeCents: 0 };
     }
 
     const hours      = this.calcHours(shift.startTime, shift.endTime);
     const grossAmount = Number(shift.grossHourlyRate) * hours;
     const totalFee   = grossAmount * CANCELLATION_FEE_RATE;
-    const workerShare = grossAmount * WORKER_COMPENSATION_RATE;
-    const turnosShare = grossAmount * (CANCELLATION_FEE_RATE - WORKER_COMPENSATION_RATE);
 
     return {
       isLate,
       grossAmount,
-      feeCents:         Math.round(totalFee * 100),
-      workerShareCents: Math.round(workerShare * 100),
-      turnosCents:      Math.round(turnosShare * 100),
+      feeCents: Math.round(totalFee * 100),
     };
   }
 
@@ -441,7 +391,6 @@ export class PaymentsService {
     workerId: string | null,
     grossAmount: number,
     feeCents: number,
-    workerShareCents: number,
     shiftDate: string,
     shiftTitle: string,
   ): Promise<void> {
@@ -459,6 +408,7 @@ export class PaymentsService {
         type:        PaymentType.CANCELLATION_FEE,
         status:      PaymentStatus.PENDING,
         grossAmount,
+        turnosFee:   feeCents / 100,
         shiftDate,
       }),
     );
@@ -473,7 +423,6 @@ export class PaymentsService {
         off_session:    true,
         description:    `Turnos — Taxa de cancelamento: ${shiftTitle}`,
         metadata:       { shiftId, employerId, type: 'cancellation_fee' },
-        transfer_group: `cancel_${shiftId}`,
       });
 
       record.status                = PaymentStatus.SUCCEEDED;
@@ -482,32 +431,6 @@ export class PaymentsService {
       await this.paymentRepo.save(record);
 
       this.logger.log(`[Payments] Cancellation fee charged for shift ${shiftId}: €${(feeCents / 100).toFixed(2)}`);
-
-      // Transfer worker compensation (4%) if worker has a Connect account
-      if (workerId && workerShareCents > 0) {
-        const worker = await this.workerRepo.findOne({ where: { id: workerId } });
-        if (worker?.stripeAccountId) {
-          const transfer = await this.stripe.transfers.create({
-            amount:         workerShareCents,
-            currency:       'eur',
-            destination:    worker.stripeAccountId,
-            transfer_group: `cancel_${shiftId}`,
-            description:    `Turnos — Compensação de cancelamento: ${shiftTitle}`,
-          });
-
-          await this.paymentRepo.save(
-            this.paymentRepo.create({
-              shiftId, employerId, workerId,
-              type:             PaymentType.WORKER_COMPENSATION,
-              status:           PaymentStatus.SUCCEEDED,
-              grossAmount:      workerShareCents / 100,
-              shiftDate,
-              stripeTransferId: transfer.id,
-            }),
-          );
-          this.logger.log(`[Payments] Worker compensation €${(workerShareCents / 100).toFixed(2)} transferred to worker ${workerId}`);
-        }
-      }
     } catch (err) {
       record.status        = PaymentStatus.FAILED;
       record.failureReason = (err as Error).message;
@@ -606,7 +529,8 @@ export class PaymentsService {
     const records = await this.paymentRepo.find({
       where: {
         employerId: employer.id,
-        type:       PaymentType.SHIFT_CHARGE,
+        // SHIFT_FEE = current model (informative gross + fee); SHIFT_CHARGE = legacy rows
+        type:       In([PaymentType.SHIFT_FEE, PaymentType.SHIFT_CHARGE]),
         status:     PaymentStatus.SUCCEEDED,
         shiftDate:  Between(fromDate, toDate) as any,
       },
@@ -673,7 +597,9 @@ export class PaymentsService {
     const records = await this.paymentRepo.find({
       where: {
         workerId: worker.id,
-        type:     PaymentType.WORKER_PAYOUT,
+        // SHIFT_FEE rows carry the informative wage breakdown for the new model
+        // (company pays worker directly); WORKER_PAYOUT = legacy payout rows.
+        type:     In([PaymentType.SHIFT_FEE, PaymentType.WORKER_PAYOUT]),
         status:   PaymentStatus.SUCCEEDED,
         shiftDate: Between(fromDate, toDate) as any,
       },
@@ -681,11 +607,12 @@ export class PaymentsService {
     });
 
     const totalGross    = records.reduce((s, r) => s + Number(r.grossAmount),  0);
-    const turnosFees    = records.reduce((s, r) => s + Number(r.turnosFee),    0);
     const workerNet     = records.reduce((s, r) => s + Number(r.workerNet),    0);
     const workerTsuOwed = records.reduce((s, r) => s + Number(r.workerTsu),    0);
 
-    return { totalGross, turnosFees, workerNet, workerTsuOwed, shiftCount: records.length, records };
+    // turnosFees kept for mobile API compatibility — always 0 in the new model
+    // (the platform fee is billed to the company, never deducted from the worker).
+    return { totalGross, turnosFees: 0, workerNet, workerTsuOwed, shiftCount: records.length, records };
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

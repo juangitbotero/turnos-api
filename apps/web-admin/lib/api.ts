@@ -296,6 +296,7 @@ export interface CreateShiftDto {
   lng: number;
   skillsRequired?: string[];
   languagesRequired?: string[];
+  paymentMethod: string;   // PaymentMethod from @turnos/shared — required at publish
 }
 
 // ── Payment types ────────────────────────────────────────────────────────────

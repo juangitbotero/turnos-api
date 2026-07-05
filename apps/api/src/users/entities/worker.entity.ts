@@ -81,6 +81,16 @@ export class Worker {
   @Column({ type: 'simple-array', nullable: true })
   badges: string[];                 // e.g. ['TOP_RATED', 'RELIABLE', 'VERIFIED']
 
+  // ── Reliability enforcement ───────────────────────────────────────────────
+  @Column({ type: 'simple-array', nullable: true })
+  lateCancellations?: string[];     // ISO timestamps of confirmed-shift cancellations ≤24h before start
+
+  @Column({ type: 'timestamp', nullable: true })
+  suspendedUntil: Date | null;      // cannot apply until this date (strikes: 7d; no-show: 30d)
+
+  @Column({ type: 'boolean', default: false })
+  isBlocked: boolean;               // permanent block after 2nd no-show — cannot apply ever again
+
   // ── Stripe Connect ────────────────────────────────────────────────────────
   @Column({ type: 'varchar', length: 255, nullable: true })
   stripeAccountId?: string;         // Stripe Connect Express account ID (acct_...)

@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
-import { shiftApi, ratingsApi, MyApplication } from '../lib/api';
+import { shiftApi, ratingsApi, MyApplication, ApiError } from '../lib/api';
 import { getSocket, ShiftStatusChangedPayload, ShiftCancelledPayload } from '../lib/socket';
 import { formatDate } from '../lib/format';
 
@@ -117,6 +117,37 @@ export default function MyShiftsScreen() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // ── Cancel a confirmed shift (24h rule) ──────────────────────────────────
+  const handleCancelConfirmed = useCallback((app: MyApplication) => {
+    const shiftStart = new Date(`${app.shift.date}T${app.shift.startTime.slice(0, 5)}:00`);
+    const hoursUntil = (shiftStart.getTime() - Date.now()) / (1000 * 60 * 60);
+    const isLate = hoursUntil <= 24;
+
+    Alert.alert(
+      'Cancelar turno',
+      isLate
+        ? 'Faltam menos de 24h para o início. Cancelar agora conta como cancelamento tardio e afeta a tua fiabilidade (2 em 30 dias = suspensão de 7 dias). Queres continuar?'
+        : 'Tens a certeza que queres cancelar este turno confirmado? Como faltam mais de 24h, não há penalização.',
+      [
+        { text: 'Voltar', style: 'cancel' },
+        {
+          text: isLate ? 'Cancelar mesmo assim' : 'Sim, cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await shiftApi.cancelAssignment(app.shift.id);
+              Alert.alert('Turno cancelado', res.message);
+              load();
+            } catch (err) {
+              const msg = err instanceof ApiError ? err.message : 'Não foi possível cancelar o turno.';
+              Alert.alert('Erro', msg);
+            }
+          },
+        },
+      ],
+    );
+  }, [load]);
 
   // ── Section buckets ──────────────────────────────────────────────────────
   // 0. Pré-selecionado — employer selected this worker, awaiting worker confirmation
@@ -229,7 +260,12 @@ export default function MyShiftsScreen() {
                 <>
                   <Text style={[s.sectionTitle, nowActive.length > 0 && { marginTop: spacing.lg }]}>✅ Confirmados</Text>
                   {confirmed.map(app => (
-                    <ApplicationCard key={app.id} app={app} onPress={() => router.push(`/shift/${app.shift.id}`)} />
+                    <ApplicationCard
+                      key={app.id}
+                      app={app}
+                      onPress={() => router.push(`/shift/${app.shift.id}`)}
+                      onCancel={() => handleCancelConfirmed(app)}
+                    />
                   ))}
                 </>
               )}
@@ -358,11 +394,13 @@ function ApplicationCard({
   onPress,
   isRated,
   onRate,
+  onCancel,
 }: {
   app: MyApplication;
   onPress: () => void;
   isRated?: boolean;
   onRate?: () => void;
+  onCancel?: () => void;
 }) {
   const shift = app.shift;
 
@@ -419,6 +457,11 @@ function ApplicationCard({
               <Text style={s.rateBtnText}>⭐ Avaliar</Text>
             </TouchableOpacity>
           )
+        )}
+        {onCancel !== undefined && (
+          <TouchableOpacity style={s.cancelBtn} onPress={onCancel} activeOpacity={0.85}>
+            <Text style={s.cancelBtnText}>Cancelar turno</Text>
+          </TouchableOpacity>
         )}
       </View>
     </TouchableOpacity>
@@ -525,6 +568,16 @@ const s = StyleSheet.create({
     borderColor: '#fde047',
   },
   rateBtnText: { fontSize: 11, fontWeight: fontWeight.bold, color: '#854d0e' },
+
+  cancelBtn: {
+    backgroundColor: '#fff',
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#fca5a5',
+  },
+  cancelBtnText: { fontSize: 11, fontWeight: fontWeight.bold, color: '#dc2626' },
 
   ratedChip: {
     backgroundColor: '#f3f4f6',

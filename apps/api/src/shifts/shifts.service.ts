@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
+import { PAYMENT_METHOD_LABELS } from '@turnos/shared';
 import { Shift, ShiftStatus } from './entities/shift.entity';
 import { ShiftApplication, ApplicationStatus } from './entities/shift-application.entity';
 import { Employer } from '../users/entities/employer.entity';
@@ -71,6 +72,7 @@ export class ShiftsService {
     lat: number;
     lng: number;
     skillsRequired?: string[];
+    paymentMethod?: string;
   }): Promise<Shift> {
     // Guard: minimum 2-hour shift duration
     const [sh, sm] = data.startTime.split(':').map(Number);
@@ -79,6 +81,15 @@ export class ShiftsService {
     if (shiftMins < 0) shiftMins += 24 * 60; // overnight shift
     if (shiftMins < 120) {
       throw new BadRequestException('A duração mínima de um turno é 2 horas.');
+    }
+
+    // Guard: payment method is required — workers must know how they'll be
+    // paid (directly by the company) before applying.
+    const validMethods = Object.keys(PAYMENT_METHOD_LABELS);
+    if (!data.paymentMethod || !validMethods.includes(data.paymentMethod)) {
+      throw new BadRequestException(
+        'Indica como vais pagar ao trabalhador (Turnos Pay Link, transferência, MB WAY ou numerário).',
+      );
     }
 
     // Guard: active subscription + concurrent shift limit
@@ -144,7 +155,7 @@ export class ShiftsService {
   async cancel(
     userId: string,
     shiftId: string,
-  ): Promise<Shift & { cancellationFee?: { feeEur: number; workerCompensationEur: number } }> {
+  ): Promise<Shift & { cancellationFee?: { feeEur: number } }> {
     const employer = await this.resolveEmployer(userId);
     const shift = await this.shiftRepo.findOne({
       where: { id: shiftId },
@@ -156,16 +167,13 @@ export class ShiftsService {
       throw new BadRequestException('Cannot cancel an active or completed shift');
     }
 
-    // ── Cancellation fee: 15% if ≤12h before shift start on a FILLED shift ──
-    let cancellationFee: { feeEur: number; workerCompensationEur: number } | undefined;
+    // ── Cancellation fee: 10% if ≤24h before shift start on a FILLED shift ──
+    let cancellationFee: { feeEur: number } | undefined;
     if (shift.status === ShiftStatus.FILLED) {
       try {
         const fee = await this.payments.checkCancellationFee(shiftId);
         if (fee.isLate) {
-          cancellationFee = {
-            feeEur:               fee.feeCents / 100,
-            workerCompensationEur: fee.workerShareCents / 100,
-          };
+          cancellationFee = { feeEur: fee.feeCents / 100 };
           // Fire-and-forget — cancellation proceeds regardless of charge outcome
           this.payments
             .chargeCancellationFee(
@@ -174,7 +182,6 @@ export class ShiftsService {
               shift.assignedWorker?.id ?? null,
               fee.grossAmount,
               fee.feeCents,
-              fee.workerShareCents,
               shift.date,
               shift.title,
             )
@@ -354,6 +361,93 @@ export class ShiftsService {
     return { message: 'Turno recusado. O turno voltou ao estado aberto.' };
   }
 
+  /**
+   * Worker cancels a CONFIRMED (FILLED) shift before it starts.
+   *
+   * Reliability rules:
+   *   - >24h before start: free — no consequence.
+   *   - ≤24h before start: "cancelamento tardio" strike. Two strikes within
+   *     30 days suspend the worker from applying for 7 days.
+   * Either way the shift reopens immediately and the matching-worker
+   * notification wave fires so the employer can refill the slot.
+   */
+  async workerCancelAssignment(workerUserId: string, shiftId: string): Promise<{
+    message: string;
+    lateStrike: boolean;
+  }> {
+    const worker = await this.workerRepo.findOne({ where: { user: { id: workerUserId } } });
+    if (!worker) throw new UnauthorizedException('Worker not found');
+
+    const shift = await this.shiftRepo.findOne({
+      where: { id: shiftId },
+      relations: ['employer', 'employer.user', 'assignedWorker'],
+    });
+    if (!shift) throw new NotFoundException('Shift not found');
+    if (shift.assignedWorker?.id !== worker.id) throw new UnauthorizedException('Not your shift');
+    if (shift.status !== ShiftStatus.FILLED) {
+      throw new BadRequestException('Só podes cancelar turnos confirmados que ainda não começaram.');
+    }
+
+    const shiftStart = new Date(`${shift.date}T${shift.startTime.slice(0, 5)}:00`);
+    const hoursUntil = (shiftStart.getTime() - Date.now()) / (1000 * 60 * 60);
+    if (hoursUntil <= 0) {
+      throw new BadRequestException('O turno já começou — cancela junto do empregador.');
+    }
+    const lateStrike = hoursUntil <= 24;
+
+    if (lateStrike) {
+      const now = new Date();
+      const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      // Keep only strikes from the last 30 days, then add this one
+      const strikes = (worker.lateCancellations ?? [])
+        .filter(iso => new Date(iso) > cutoff);
+      strikes.push(now.toISOString());
+      worker.lateCancellations = strikes;
+
+      if (strikes.length >= 2) {
+        worker.suspendedUntil = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      }
+      await this.workerRepo.save(worker);
+    }
+
+    // Reopen the shift
+    shift.status = ShiftStatus.OPEN;
+    shift.assignedWorker = undefined as any;
+    await this.shiftRepo.save(shift);
+
+    const application = await this.applicationRepo.findOne({
+      where: { shift: { id: shiftId }, worker: { id: worker.id } },
+    });
+    if (application) {
+      application.status = ApplicationStatus.WITHDRAWN;
+      await this.applicationRepo.save(application);
+    }
+
+    // Notify employer in real time
+    this.gateway.notifyApplicationStatus(shift.employer.user.id, {
+      shiftId: shift.id,
+      shiftTitle: shift.title,
+      applicationId: application?.id ?? '',
+      status: 'CANCELLED_BY_WORKER',
+    });
+
+    // Immediately re-notify matching workers — refilling the slot fast is the
+    // real remedy for the employer.
+    this.notifications
+      .notifyMatchingWorkers(shift.id, shift.employer.id, shift.skillsRequired ?? [], shift.title)
+      .catch(() => {});
+
+    const suspended = worker.suspendedUntil && worker.suspendedUntil > new Date();
+    return {
+      lateStrike,
+      message: lateStrike
+        ? suspended
+          ? 'Turno cancelado. Por teres 2 cancelamentos tardios em 30 dias, não podes candidatar-te a turnos durante 7 dias.'
+          : 'Turno cancelado. Atenção: cancelar a menos de 24h do início afeta a tua fiabilidade na plataforma.'
+        : 'Turno cancelado sem penalização. O turno voltou ao estado aberto.',
+    };
+  }
+
   // ── Worker actions ────────────────────────────────────────────────────────
 
   async search(filters: {
@@ -398,6 +492,19 @@ export class ShiftsService {
     });
     if (!shift) throw new NotFoundException('Shift not found');
     if (shift.status !== ShiftStatus.OPEN) throw new BadRequestException('Shift is not open for applications');
+
+    // Reliability enforcement — permanent block (2 no-shows) or active suspension
+    if (worker.isBlocked) {
+      throw new BadRequestException(
+        'A tua conta foi bloqueada por faltas repetidas a turnos confirmados. Contacta o suporte Turnos.',
+      );
+    }
+    if (worker.suspendedUntil && new Date(worker.suspendedUntil) > new Date()) {
+      const until = new Date(worker.suspendedUntil).toLocaleDateString('pt-PT');
+      throw new BadRequestException(
+        `A tua conta está suspensa até ${until} devido a cancelamentos tardios ou faltas.`,
+      );
+    }
 
     // Profile gate — worker must have 80%+ profile to apply
     if (worker.profileQualityScore < 80) {

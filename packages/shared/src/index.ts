@@ -16,7 +16,7 @@ export type WorkerStatus =
   | 'REJECTED';       // Rejected after review
 
 /** Employer subscription tiers */
-export type SubscriptionTier = 'NONE' | 'STARTER' | 'GROWTH' | 'SCALE';
+export type SubscriptionTier = 'NONE' | 'STARTER' | 'PRO';
 
 /** Role-based access for employer accounts */
 export type EmployerRole = 'ADMIN' | 'MANAGER' | 'VIEWER';
@@ -209,13 +209,17 @@ export type Language = typeof LANGUAGES[number];
 
 export type ContractType = 'MCD' | 'RECIBO_VERDE';
 
+/**
+ * Informative TSU/SS breakdown. Turnos does not withhold, collect, or route any
+ * of these amounts — the employer pays the worker directly and settles SS
+ * obligations itself. These values are shown as guidance only.
+ */
 export interface TSUCalculation {
   grossAmount: number;
-  workerDeduction: number;      // 11% of gross
-  employerContribution: number; // 23.75% of gross
-  turnosFee: number;            // 10% of gross
-  workerNetAmount: number;      // gross - workerDeduction - turnosFee
-  employerTotalCost: number;    // gross + employerContribution
+  workerDeduction: number;      // 11% of gross — worker's SS share (informative)
+  employerContribution: number; // 23.75% of gross — employer's SS share (informative)
+  workerNetAmount: number;      // gross - workerDeduction (informative estimate)
+  employerTotalCost: number;    // gross + employerContribution (informative)
 }
 
 // ─── API Response Wrappers ────────────────────────────────────────────────────
@@ -247,7 +251,35 @@ export const TSU_RATES = {
   EMPLOYER_CONTRIBUTION: 0.2375,
 } as const;
 
-export const TURNOS_FEE_RATE = 0.10 as const;
+/**
+ * Fixed platform fee charged to the COMPANY per completed shift (checkout done).
+ * Accumulated as metered usage and invoiced monthly alongside the subscription.
+ * Deliberately a fixed amount, not a % of gross: a percentage indexed to the
+ * worker's remuneration would re-create employment-intermediary optics.
+ */
+export const TURNOS_FEE_FIXED_EUR = 3 as const;
+
+/** Monthly subscription tiers (EUR). */
+export const SUBSCRIPTION_TIERS = {
+  STARTER: { name: 'Turnos Starter', monthlyEur: 45, maxActiveShifts: 15, seats: 1, shiftFeeEur: 3 },
+  PRO:     { name: 'Turnos Pro',     monthlyEur: 99, maxActiveShifts: null, seats: 5, shiftFeeEur: 2 },
+} as const;
+
+/**
+ * How the company pays the worker. Chosen at shift publish; payment happens
+ * directly company → worker and never passes through Turnos.
+ */
+export type PaymentMethod = 'TURNOS_PAY_LINK' | 'TRANSFERENCIA' | 'MBWAY' | 'NUMERARIO';
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  TURNOS_PAY_LINK: 'Turnos Pay Link',
+  TRANSFERENCIA:   'Transferência bancária',
+  MBWAY:           'MB WAY',
+  NUMERARIO:       'Numerário',
+} as const;
+
+/** Recommended default — leaves a paper trail and automates payment confirmation. */
+export const RECOMMENDED_PAYMENT_METHOD: PaymentMethod = 'TURNOS_PAY_LINK';
 
 export const MCD_LIMITS = {
   MAX_DAYS_PER_CONTRACT: 35,
@@ -262,19 +294,20 @@ export const MIN_REST_BETWEEN_SHIFTS_HOURS = 11; // EU Working Time Directive
 // ─── Utility Functions ────────────────────────────────────────────────────────
 
 /**
- * Calculates TSU breakdown for a given gross shift amount.
+ * Calculates the informative TSU/SS breakdown for a given gross shift amount.
+ * No Turnos fee is involved in the worker's pay: the worker receives the full
+ * gross from the company; the €3 platform fee is billed to the company
+ * separately (see TURNOS_FEE_FIXED_EUR).
  */
 export function calculateTSU(grossAmount: number): TSUCalculation {
   const workerDeduction = grossAmount * TSU_RATES.WORKER_DEDUCTION;
   const employerContribution = grossAmount * TSU_RATES.EMPLOYER_CONTRIBUTION;
-  const turnosFee = grossAmount * TURNOS_FEE_RATE;
 
   return {
     grossAmount,
     workerDeduction,
     employerContribution,
-    turnosFee,
-    workerNetAmount: grossAmount - workerDeduction - turnosFee,
+    workerNetAmount: grossAmount - workerDeduction,
     employerTotalCost: grossAmount + employerContribution,
   };
 }

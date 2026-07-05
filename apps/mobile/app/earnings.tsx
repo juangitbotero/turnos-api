@@ -1,9 +1,9 @@
 /**
  * Earnings screen — Worker income dashboard.
  *
- * Shows gross, Turnos fee, net received, and the 11% TSU the worker must
- * declare and pay to the Portuguese Segurança Social as a self-employed
- * worker (recibo verde / MCD contract).
+ * Shows the gross the worker receives in full (paid directly by the company —
+ * Turnos charges workers nothing) and the informative 11% TSU the worker must
+ * declare and pay to the Portuguese Segurança Social (MCD contract).
  *
  * Period toggles: Hoje | Este mês | Este ano
  * Each period fetches from GET /payments/worker/earnings?period=...
@@ -202,21 +202,20 @@ export default function EarningsScreen() {
             <View style={s.card}>
               <Text style={s.cardTitle}>Detalhe de ganhos</Text>
 
-              <Row label="Valor bruto"          value={fmt(report.totalGross)}    />
-              <Row label="Taxa Turnos (10%)"     value={`– ${fmt(report.turnosFees)}`}  negative />
-              <Divider />
-              <Row label="Líquido recebido"      value={fmt(report.workerNet)}     bold    />
+              <Row label="Valor bruto (pago pela empresa)" value={fmt(report.totalGross)} bold />
               <Divider />
               <Row
-                label="TSU a entregar ao Estado"
+                label="TSU a entregar ao Estado (11%)"
                 value={fmt(report.workerTsuOwed)}
                 accent="#d97706"
               />
+              <Row label="Estimativa após TSU" value={fmt(report.workerNet)} />
               <View style={s.tsuNote}>
                 <Text style={s.tsuNoteText}>
-                  ⚠️ Como trabalhador MCD (recibo verde), és responsável por declarar e
-                  pagar <Text style={s.tsuNoteStrong}>11% do teu valor bruto</Text> à
-                  Segurança Social. Este valor já está deduzido no teu líquido acima.
+                  ⚠️ Recebes o valor bruto por inteiro, diretamente da empresa — a Turnos
+                  não cobra qualquer taxa aos trabalhadores. Como trabalhador és responsável
+                  por declarar e pagar <Text style={s.tsuNoteStrong}>11% do teu valor bruto</Text> à
+                  Segurança Social (valor informativo acima).
                 </Text>
               </View>
             </View>
@@ -225,7 +224,7 @@ export default function EarningsScreen() {
             {report.records.length > 0 && (
               <View style={s.card}>
                 <Text style={s.cardTitle}>
-                  Turnos pagos — {PERIOD_LABELS[period].toLowerCase()}
+                  Turnos concluídos — {PERIOD_LABELS[period].toLowerCase()}
                 </Text>
                 {report.records.map(r => (
                   <EarningRow key={r.id} record={r} />

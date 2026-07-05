@@ -102,6 +102,13 @@ export class ShiftsController {
     return this.shiftsService.workerDeclineShift(req.user.userId, id);
   }
 
+  /** Worker cancels a confirmed (FILLED) shift → reverts to OPEN; ≤24h = reliability strike */
+  @Post(':id/cancel-assignment')
+  @Roles('WORKER')
+  cancelAssignment(@Request() req: any, @Param('id') id: string) {
+    return this.shiftsService.workerCancelAssignment(req.user.userId, id);
+  }
+
   @Get('worker/applied')
   @Roles('WORKER')
   getMyApplications(@Request() req: any) {

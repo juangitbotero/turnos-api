@@ -306,12 +306,45 @@ export class RatingsService {
     const flag = this.noShowRepo.create({ shift, worker: shift.assignedWorker, reportedBy: employer, note });
     await this.noShowRepo.save(flag);
 
-    // Increment noShowCount on worker
-    shift.assignedWorker.noShowCount = (shift.assignedWorker.noShowCount ?? 0) + 1;
-    await this.workerRepo.save(shift.assignedWorker);
+    // Increment noShowCount + enforce suspensions:
+    //   1st no-show → 30-day application suspension
+    //   2nd no-show → permanent block (can never apply again)
+    const offender = shift.assignedWorker;
+    offender.noShowCount = (offender.noShowCount ?? 0) + 1;
+    if (offender.noShowCount >= 2) {
+      offender.isBlocked = true;
+    } else {
+      offender.suspendedUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    }
+    await this.workerRepo.save(offender);
 
-    // Recalculate badges (RELIABLE is affected)
-    await this.recalculateWorkerReputation(shift.assignedWorker.id);
+    // Automatic 1★ rating on the worker's profile, keyed on the employer under
+    // the (shift, rater, direction) unique index — if the employer already
+    // rated this shift, that rating is overridden to 1★.
+    const existingRating = await this.ratingRepo.findOne({
+      where: {
+        shift: { id: shiftId },
+        rater: { id: employer.user.id },
+        direction: 'EMPLOYER_TO_WORKER',
+      },
+    });
+    if (existingRating) {
+      existingRating.score  = 1;
+      existingRating.review = existingRating.review ?? 'Falta ao turno (registo automático)';
+      await this.ratingRepo.save(existingRating);
+    } else {
+      await this.ratingRepo.save(this.ratingRepo.create({
+        shift:       { id: shiftId } as any,
+        rater:       { id: employer.user.id } as any,
+        rateeWorker: { id: offender.id } as any,
+        direction:   'EMPLOYER_TO_WORKER',
+        score:       1,
+        review:      'Falta ao turno (registo automático)',
+      }));
+    }
+
+    // Recalculate avgRating + badges (RELIABLE is affected)
+    await this.recalculateWorkerReputation(offender.id);
 
     // Check 60-day window — if ≥ 3 flags, trigger admin review
     const cutoff = new Date();

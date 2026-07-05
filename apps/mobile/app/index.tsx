@@ -7,13 +7,12 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory, calculateTSU } from '@turnos/shared';
+import { colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory, PAYMENT_METHOD_LABELS, PaymentMethod } from '@turnos/shared';
 import { shiftApi, authApi, ShiftSummary, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
 import { formatDate } from '../lib/format';
 
 function toFeedItem(s: ShiftSummary) {
-  const tsu = calculateTSU(Number(s.grossHourlyRate));
   // lat/lng are decimal columns from PostgreSQL — node-pg returns them as strings
   const lat = Number(s.lat) || 38.722;  // fallback: Lisboa centre
   const lng = Number(s.lng) || -9.139;
@@ -24,7 +23,7 @@ function toFeedItem(s: ShiftSummary) {
     category: s.category as ShiftCategory,
     subcategory: s.subcategory,
     grossHourlyRate: Number(s.grossHourlyRate),
-    netHourlyRate: tsu.workerNetAmount,
+    paymentMethodLabel: PAYMENT_METHOD_LABELS[s.paymentMethod as PaymentMethod] ?? null,
     startTime: s.startTime.slice(0, 5),
     endTime: s.endTime.slice(0, 5),
     date: formatDate(s.date),
@@ -252,9 +251,13 @@ export default function FeedScreen() {
               </View>
 
               <Text style={s.netPay}>
-                Líquido: <Text style={s.netPayValue}>€{item.netHourlyRate.toFixed(2)}/hr</Text>
-                {'  ·  '}
-                <Text style={s.recebe}>Recebe amanhã 💳</Text>
+                Recebes o bruto por inteiro
+                {item.paymentMethodLabel ? (
+                  <>
+                    {'  ·  '}
+                    <Text style={s.recebe}>💳 {item.paymentMethodLabel}</Text>
+                  </>
+                ) : null}
               </Text>
 
               <View style={s.cardDivider} />

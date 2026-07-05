@@ -1,7 +1,9 @@
 'use client';
 
 /**
- * Billing page — Employer card setup + €55/mo subscription management.
+ * Billing page — Employer card setup + €45/mo "Turnos Starter" subscription.
+ * Per-shift fees (3€) accumulate as Stripe InvoiceItems and appear on the
+ * monthly subscription invoice, itemized per shift.
  *
  * Flow:
  *   1. If no payment method saved → show "Add card" button (opens Stripe Checkout-like UI).
@@ -157,7 +159,7 @@ export default function BillingPage() {
               <span style={s.planIcon}>💼</span>
               <div>
                 <div style={s.planTitle}>Turnos Starter</div>
-                <div style={s.planPrice}>€55 <span style={s.planPriceSub}>/mês por empresa</span></div>
+                <div style={s.planPrice}>€45 <span style={s.planPriceSub}>/mês por empresa + 3€ por turno concluído</span></div>
               </div>
             </div>
 
@@ -186,7 +188,7 @@ export default function BillingPage() {
                   onClick={handleActivateSubscription}
                   disabled={actionLoading}
                 >
-                  {actionLoading ? 'A processar…' : '🚀 Ativar subscrição — €55/mês'}
+                  {actionLoading ? 'A processar…' : '🚀 Ativar subscrição — €45/mês'}
                 </button>
                 <p style={s.ctaSubNote}>
                   Nota: Se ainda não tens cartão guardado, a ativação irá falhar com uma
@@ -201,7 +203,7 @@ export default function BillingPage() {
                 onClick={handleActivateSubscription}
                 disabled={actionLoading}
               >
-                {actionLoading ? 'A processar…' : '🚀 Ativar subscrição — €55/mês'}
+                {actionLoading ? 'A processar…' : '🚀 Ativar subscrição — €45/mês'}
               </button>
             )}
 
@@ -230,25 +232,30 @@ export default function BillingPage() {
               <InfoRow icon="📋" label="Turnos simultâneos" value="Até 15 turnos ativos" />
               <InfoRow icon="👷" label="Trabalhadores" value="Ilimitados" />
               <InfoRow icon="📲" label="QR Check-in/out" value="Incluído" />
-              <InfoRow icon="📊" label="Relatório TSU" value="Incluído" />
+              <InfoRow icon="📊" label="Relatório TSU" value="Incluído (informativo)" />
               <InfoRow icon="🏛️" label="SS Direta (MCD)" value="Automático" />
-              <InfoRow icon="💶" label="Taxa por turno" value="10% do valor do trabalhador" />
-              <InfoRow icon="⚡" label="Payout ao trabalhador" value="Dia útil seguinte (D+1)" />
+              <InfoRow icon="💶" label="Taxa por turno concluído" value="3€ fixos — faturados 1×/mês" />
+              <InfoRow icon="⚡" label="Salário do trabalhador" value="Pagas diretamente — 0% de comissão" />
             </div>
 
             <div style={s.divider} />
 
             <h3 style={s.subSectionTitle}>Política de cancelamento de turnos</h3>
             <p style={s.infoText}>
-              Cancelamentos com menos de <strong>12 horas</strong> de antecedência estão
-              sujeitos a uma taxa de <strong>15% do valor total do turno</strong>:
+              Cancelar um turno preenchido com menos de <strong>24 horas</strong> de antecedência,
+              sem justificação, obriga ao pagamento de um <strong>mínimo de 2 horas</strong> ao
+              trabalhador (via Pay Link) + a taxa normal de 3€. Cancelamentos justificados
+              (atraso do trabalhador, força maior, etc.) e cancelamentos com mais de 24h são{' '}
+              <strong>gratuitos</strong>.
             </p>
-            <ul style={s.policyList}>
-              <li>11% fica na plataforma Turnos (gestão e reserva do trabalhador)</li>
-              <li>4% é transferido para o trabalhador como compensação</li>
-            </ul>
+
+            <div style={s.divider} />
+
+            <h3 style={s.subSectionTitle}>Turnos Pro — brevemente 🚀</h3>
             <p style={s.infoText}>
-              Cancelamentos com mais de 12 horas de antecedência são <strong>gratuitos</strong>.
+              Turnos ilimitados em simultâneo, 5 utilizadores, taxa de 2€/turno,
+              filtros avançados de pesquisa e convite direto de trabalhadores,
+              relatórios de contabilidade — <strong>€99/mês</strong>. Fala connosco para saber mais.
             </p>
           </div>
 
@@ -295,11 +302,11 @@ function InfoRow({ icon, label, value }: { icon: string; label: string; value: s
 
 const PLAN_FEATURES = [
   'Publicar até 15 turnos em simultâneo',
+  'Procurar e convidar trabalhadores por competência e idioma',
   'Gestão de candidaturas e aprovação de trabalhadores',
   'QR Check-in / Check-out automático no local',
   'Conformidade MCD — contratos e SS Direta automáticos',
-  'Relatório TSU mensal para contabilidade',
-  'Pagamento automático ao trabalhador (D+1)',
+  'Relatório TSU mensal pronto para a contabilidade',
   'Notificações push em tempo real',
 ];
 

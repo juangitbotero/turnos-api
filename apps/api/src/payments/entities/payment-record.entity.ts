@@ -12,11 +12,14 @@ export enum PaymentStatus {
 }
 
 export enum PaymentType {
-  SHIFT_CHARGE       = 'SHIFT_CHARGE',        // Employer charged for completed shift
-  WORKER_PAYOUT      = 'WORKER_PAYOUT',        // Worker paid via Stripe Connect
-  CANCELLATION_FEE   = 'CANCELLATION_FEE',     // 15% fee on late cancellation
-  WORKER_COMPENSATION = 'WORKER_COMPENSATION', // 4% portion of cancellation fee to worker
+  SHIFT_FEE          = 'SHIFT_FEE',            // Fixed platform fee (company-side) per completed shift
+  CANCELLATION_FEE   = 'CANCELLATION_FEE',     // 10% fee on late cancellation (≤24h), company-side
   SUBSCRIPTION       = 'SUBSCRIPTION',         // Monthly platform subscription
+  // Legacy types from the pre-2026-07 model (Turnos held wage custody).
+  // Kept so historical rows remain readable; no new records are created with these.
+  SHIFT_CHARGE       = 'SHIFT_CHARGE',         // (legacy) Employer charged full gross via Turnos
+  WORKER_PAYOUT      = 'WORKER_PAYOUT',        // (legacy) Worker paid via Stripe Connect transfer
+  WORKER_COMPENSATION = 'WORKER_COMPENSATION', // (legacy) 4% cancellation share to worker
 }
 
 /**
@@ -43,15 +46,18 @@ export class PaymentRecord {
   @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
   status: PaymentStatus;
 
-  // Financial values — all in EUR cents stored as decimal(10,2)
+  // Financial values — all in EUR stored as decimal(10,2).
+  // Since 2026-07 the wage itself never passes through Turnos: grossAmount /
+  // workerNet / TSU columns are informative (what the company owes the worker
+  // and the State); only turnosFee and subscription amounts are actually billed.
   @Column({ type: 'decimal', precision: 10, scale: 2 })
-  grossAmount: number;               // Full shift gross value
+  grossAmount: number;               // Full shift gross value (informative for SHIFT_FEE rows)
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  turnosFee: number;                 // 10% Turnos platform fee
+  turnosFee: number;                 // Fixed platform fee billed to the company (€3 Starter / €2 Pro)
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  workerNet: number;                 // Amount sent to worker (gross - turnosFee)
+  workerNet: number;                 // Informative: gross - worker TSU (company pays worker directly)
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   employerTsu: number;               // 23.75% TSU — employer owes to government (informational)

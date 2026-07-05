@@ -24,8 +24,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
 
 const PORTAL_FINANCAS_URL = 'https://irs.portaldasfinancas.gov.pt/recibos/emitirRecibo.action';
-const TURNOS_FEE_RATE     = 0.10; // 10 %
-const WORKER_TSU_RATE     = 0.11; // 11 %
+const WORKER_TSU_RATE     = 0.11; // 11 % — informative, paid by the worker to the State
 
 export default function ReciboVerdeScreen() {
   const router = useRouter();
@@ -39,9 +38,8 @@ export default function ReciboVerdeScreen() {
   const [submitted, setSubmitted] = useState(false);
 
   const gross      = parseFloat(params.grossAmount ?? '0');
-  const turnosFee  = gross * TURNOS_FEE_RATE;
-  const workerNet  = gross - turnosFee;          // what Turnos pays the worker
-  const tsuAmount  = gross * WORKER_TSU_RATE;    // what worker pays the state (from workerNet)
+  // The company pays the full gross directly to the worker — no Turnos fee.
+  const tsuAmount  = gross * WORKER_TSU_RATE;    // informative: what the worker pays the State
 
   const handleOpenPortal = async () => {
     try {
@@ -119,13 +117,8 @@ export default function ReciboVerdeScreen() {
           <View style={s.divider} />
 
           <View style={s.valueRow}>
-            <Text style={s.valueLabel}>Taxa de serviço Turnos (10%)</Text>
-            <Text style={[s.valueAmount, s.amountRed]}>− €{turnosFee.toFixed(2)}</Text>
-          </View>
-
-          <View style={s.valueRow}>
-            <Text style={[s.valueLabel, s.bold]}>Valor que recebes</Text>
-            <Text style={[s.valueAmount, s.amountGreen, s.bold]}>€{workerNet.toFixed(2)}</Text>
+            <Text style={[s.valueLabel, s.bold]}>Valor que recebes da empresa</Text>
+            <Text style={[s.valueAmount, s.amountGreen, s.bold]}>€{gross.toFixed(2)}</Text>
           </View>
 
           <View style={s.divider} />

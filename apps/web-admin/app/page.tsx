@@ -5,10 +5,10 @@ import Link from 'next/link';
 // ── Content ────────────────────────────────────────────────────────────────────
 
 const STATS = [
-  { value: 'T+1',  label: 'Pagamento ao trabalhador' },
+  { value: '3€',   label: 'Taxa fixa por turno concluído' },
   { value: '<10s', label: 'Para publicar um turno' },
-  { value: '0%',   label: 'Pré-financiamento exigido' },
-  { value: '24h',  label: 'Notificação SS Direta' },
+  { value: '0%',   label: 'Comissões sobre salários' },
+  { value: '100%', label: 'Dados prontos para a contabilidade' },
 ];
 
 const HOW_IT_WORKS = [
@@ -17,7 +17,7 @@ const HOW_IT_WORKS = [
   { n: '03', icon: '👤', title: 'Selecionas o worker',    desc: 'Revês perfis, ratings e competências. Selecionar um worker envia-lhe um convite direto com 2h para aceitar.' },
   { n: '04', icon: '✅', title: 'Worker confirma',        desc: 'O worker aceita ou recusa. Se não responder em 2h, o turno reabre automaticamente — sem no-shows silenciosos.' },
   { n: '05', icon: '📲', title: 'QR Check-in/out',        desc: 'O worker escaneia o teu QR fixo na entrada e saída. Horas verificadas com geofence de 200m.' },
-  { n: '06', icon: '💳', title: 'Pagamento automático',   desc: 'Cobrado no checkout. Worker recebe no dia seguinte via Stripe Connect. Contrato MCD gerado automaticamente.' },
+  { n: '06', icon: '💳', title: 'Pagas diretamente ao worker', desc: 'No fim do turno pagas ao worker pelo método que escolheste — transferência, MB WAY ou numerário. A Turnos dá-te todos os valores prontos, incluindo TSU informativo.' },
 ];
 
 const FEATURES = [
@@ -26,7 +26,7 @@ const FEATURES = [
   { icon: '⚡', title: 'Confirmação obrigatória',      body: 'Worker selecionado tem 2h para aceitar. Sem confirmação, o turno volta ao estado aberto automaticamente — fim dos no-shows.' },
   { icon: '📲', title: 'QR Check-in verificado',       body: 'QR fixo por empresa + geofence de 200m. Worker escaneia à entrada e saída. Horas bloqueadas automaticamente.' },
   { icon: '📋', title: 'Conformidade MCD automática',  body: 'Contratos MCD gerados e enviados à SS. Cálculo de TSU 23,75% + 11%. Alertas de limite de 70 dias/ano e descanso de 11h.' },
-  { icon: '💳', title: 'Pagamento T+1',                body: 'Só pagas quando o turno é confirmado. Worker recebe no dia seguinte via Stripe Connect Express. Sem pré-financiamento.' },
+  { icon: '💳', title: 'Pagamento direto, sem comissões', body: 'Pagas o salário diretamente ao worker — a Turnos nunca toca no dinheiro. Só uma taxa fixa de 3€ por turno concluído, faturada uma vez por mês.' },
   { icon: '🔍', title: 'Pesquisa de talent',           body: 'Procura workers por competência, idioma e disponibilidade. Convida diretamente para um turno — ele tem 2h para aceitar.' },
   { icon: '👥', title: 'Candidatos comparáveis',       body: 'Filtra candidatos por rating, perfil completo ou data de candidatura. Vê match de competências em destaque. Nota de apresentação do worker.' },
   { icon: '📊', title: 'Dashboard de conformidade',    body: 'TSU calculado por turno. Log de auditoria ACT imutável. Relatórios exportáveis em CSV. Dependência económica monitorizada.' },
@@ -36,7 +36,7 @@ const FEATURES = [
 const PLATFORM_TRUST = [
   { icon: '🇵🇹', text: 'Construído para o mercado português — MCD, TSU, SS Direta' },
   { icon: '🔒', text: 'Dados seguros · RGPD · Contratos legais automáticos' },
-  { icon: '⚡', text: 'Stripe Connect Express — pagamentos seguros e rápidos' },
+  { icon: '⚡', text: 'Relatórios TSU e contabilidade prontos a exportar' },
   { icon: '📱', text: 'App nativa iOS & Android para os trabalhadores' },
 ];
 
@@ -88,7 +88,7 @@ export default function LandingPage() {
           </h1>
           <p style={s.heroSub}>
             O mercado de turnos para Portugal. Encontra trabalhadores verificados em minutos
-            — com conformidade MCD automática, QR check-in e pagamento no dia seguinte.
+            — com conformidade MCD automática, QR check-in e todos os dados prontos para pagares diretamente ao worker.
           </p>
           <div style={s.heroCtas}>
             <Link href="/register" style={s.primaryBtn}>Publicar Turno →</Link>
@@ -114,7 +114,7 @@ export default function LandingPage() {
               <div style={s.cardSub}>Cozinheiro · Hoje 18h–02h · €10/hr</div>
             </div>
           </div>
-          <div style={s.cardMatch}>✓ Match confirmado · <strong>Recebe amanhã</strong></div>
+          <div style={s.cardMatch}>✓ Match confirmado · <strong>Recebe o bruto por inteiro</strong></div>
 
           <div style={s.cardSteps}>
             <div style={s.cardStep}><span style={s.stepDot} />Turno publicado</div>

@@ -5,9 +5,9 @@
 Turnos is a **labour marketplace for Portugal** — employers post short shifts, workers browse and apply, employers select who they want, and the platform handles Portuguese labor compliance automatically (MCD contracts, TSU calculations, SS Direta notifications). The model is adapted from the French platform Student Pop.
 
 **Target market:** Lisbon beta → Porto expansion  
-**Workers:** Flexible workers on MCD contracts (Muito Curta Duração)  
-**Revenue:** Company monthly subscription (€99–€299) + 10% worker transaction fee per shift  
-**Worker payout:** Next business day ("Recebe amanhã") via Stripe Connect Express
+**Workers:** Flexible workers on MCD contracts (Muito Curta Duração) — join and use the app 100% free  
+**Revenue:** Company subscription ("Turnos Starter" €45/mo, "Pro" €99/mo planned) + fixed €3 company-side fee per completed shift (invoiced monthly)  
+**Worker pay:** Full gross, paid **directly by the company** (Pay Link / transferência / MB WAY / numerário) — Turnos never holds wages. See `docs/adr/007-business-model-pivot.md` (2026-07 pivot).
 
 ---
 
@@ -175,6 +175,16 @@ Stints are 2–3 week development phases. Full roadmap in `docs/turnos_roadmap.m
 | 8 | Product Depth & Operations | 🔄 In Progress |
 | 9 | Growth & Marketplace Flywheel | ⬜ Not started |
 | 10 | Hardening, Security & Launch | ⬜ Not started |
+
+### Stint 8 — Business Model Pivot Implemented (2026-07-05)
+
+Phases 1–3 of the ADR 007 pivot are in the codebase (see the ADR for the full model):
+- **Shared:** `TURNOS_FEE_FIXED_EUR = 3`, `SUBSCRIPTION_TIERS` (Starter €45 / Pro €99), `PaymentMethod` + labels, `calculateTSU()` without worker fee, `SubscriptionTier` now `NONE|STARTER|PRO`
+- **API payments:** `recordShiftFeeOnCheckout()` replaces wage charge/payout — €3 (€2 Pro) Stripe InvoiceItem per completed shift, aggregated on the monthly subscription invoice; cancellation fee 10% / ≤24h window, no worker share; `PaymentType.SHIFT_FEE` (old types legacy); worker earnings endpoint informative (turnosFees always 0)
+- **Worker reliability:** `POST /shifts/:id/cancel-assignment` (>24h free; ≤24h strike, 2 strikes/30d = 7-day suspension via `Worker.lateCancellations`/`suspendedUntil`); no-show → auto 1★ rating + 30-day suspension, 2nd no-show → `Worker.isBlocked` permanent; both enforced at apply stage
+- **paymentMethod on Shift** (required at publish): selector in web-admin new-shift, chips on mobile feed/detail replacing "Recebe amanhã"
+- **Copy sweep:** all T+1/"Recebe amanhã"/Stripe-payout claims removed (landing, login, scan, earnings, recibo-verde, mail); billing page €45 Starter + Pro teaser; sidebar reordered worker-search-first; "Cancelar turno" button on confirmed cards in mobile my-shifts
+- **Pending (phase 4, needs attorney sign-off):** Turnos Pay Link (Stripe Checkout direct-to-worker-Connect), trust loop (mark-paid/Recebi confirmations), €45/metered Stripe price migration in the Stripe Dashboard + `STRIPE_SUBSCRIPTION_PRICE_ID` update
 
 ### Stint 8 — Phase 1 In Progress (as of 2026-06-09)
 
@@ -348,8 +358,8 @@ These are non-negotiable and must be correct before launch:
 
 - **MCD limits:** Max 35 days per contract, max 70 days/year with same employer. Hard-block at **application stage** (worker cannot apply if limit reached).
 - **SS Direta notification:** Must be submitted ≤24h before shift start. BullMQ retry queue required.
-- **TSU rates:** Employer 23.75% / Worker 11% of gross. Always use `calculateTSU()` from shared.
-- **Turnos fee:** 10% of gross, deducted from worker payout. Shown as "Taxa de Serviço Turnos" on payslip.
+- **TSU rates:** Employer 23.75% / Worker 11% of gross — **informative only** since the 2026-07 pivot: Turnos calculates and displays these values but never withholds or routes them; the company settles wages and SS directly. Always use `calculateTSU()` from shared. Never use language like "processamos/garantimos o pagamento".
+- **Turnos fee:** fixed €3 per completed shift, charged to the **company** (Stripe InvoiceItem → monthly invoice). Workers pay nothing. See `TURNOS_FEE_FIXED_EUR` in shared.
 - **Rest periods:** Minimum 11h between shifts for same worker (EU Working Time Directive).
 - **False Recibos Verdes:** Monitor economic dependency per worker. Flag at 40%, block at 50%.
 - **Gross Hourly Value** must be displayed on every shift card (Agenda do Trabalho Digno requirement).
@@ -360,9 +370,9 @@ These are non-negotiable and must be correct before launch:
 
 1. **MCD contracts only** for v1 (Recibos Verdes deferred to Phase 2)
 2. **Lisbon beta** first, Porto after fill rate >70% and NPS >50
-3. **Revenue:** Hybrid — company subscription + 10% worker fee
-4. **Payment:** Pay-per-shift post-completion (no employer pre-funding wallet)
-5. **Worker payout:** T+1 business day via Stripe Connect Express
+3. **Revenue (superseded by ADR 007, 2026-07):** company subscription (€45 Starter / €99 Pro planned) + fixed €3 company-side fee per completed shift. Workers pay nothing.
+4. **Payment (superseded by ADR 007):** company pays the worker **directly** (Pay Link / transferência / MB WAY / numerário, chosen at publish); Turnos never holds wages and only invoices its own fees monthly.
+5. **Worker payout (superseded by ADR 007):** full gross direct from company; Stripe Connect kept optional for the Pay Link rail.
 6. **MVP scope:** Stints 0–5 = v1 launch target (Payments in v1.1)
 7. **Marketplace model:** Workers browse and apply, employers review and confirm. Push notifications target workers by skill match. No auto-assignment. See `docs/turnos_roadmap.md` for full model.
 8. **QR model:** Static HMAC-SHA256 tokens (permanent per employer). Two QR codes: check-in ↑ and check-out ↓. Employer prints once and posts at venue. No rotating/time-expiring QR — security guaranteed by unforgeable HMAC signature.

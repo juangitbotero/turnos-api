@@ -88,6 +88,13 @@ export class Shift {
   @Column({ type: 'simple-array', nullable: true })
   languagesRequired: string[];      // e.g. ['Inglês', 'Espanhol']
 
+  /**
+   * How the company will pay the worker (directly, outside Turnos).
+   * Nullable only for pre-pivot rows — required on new shifts.
+   */
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  paymentMethod: string | null;     // PaymentMethod from @turnos/shared
+
   @OneToMany(() => ShiftApplication, (application) => application.shift)
   applications: ShiftApplication[];
 

@@ -51,7 +51,7 @@ export default function AdminLogin() {
               {[
                 { icon: '⚡', text: 'Preencha turnos em minutos' },
                 { icon: '📋', text: 'Contratos MCD automáticos' },
-                { icon: '💳', text: 'Pagamento T+1 ao trabalhador' },
+                { icon: '💳', text: 'Pagas direto ao worker, sem comissões' },
               ].map(({ icon, text }) => (
                 <div key={text} style={s.panelCard}>
                   <span style={s.panelCardIcon}>{icon}</span>

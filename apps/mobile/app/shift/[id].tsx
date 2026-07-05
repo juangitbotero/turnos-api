@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { colors, spacing, radius, fontSize, fontWeight, calculateTSU } from '@turnos/shared';
+import { colors, spacing, radius, fontSize, fontWeight, calculateTSU, PAYMENT_METHOD_LABELS, PaymentMethod } from '@turnos/shared';
 import {
   shiftApi, ShiftSummary, MyApplication, ApiError,
   attendanceApi, AttendanceRecord, authApi,
@@ -170,8 +170,10 @@ export default function ShiftDetailScreen() {
 
   const tsu             = calculateTSU(Number(shift.grossHourlyRate));
   const hours           = hoursWorked(shift.startTime, shift.endTime);
-  const recebePerHour   = tsu.grossAmount - tsu.turnosFee;   // what Turnos actually pays out
+  // The worker receives the FULL gross, paid directly by the company.
+  const recebePerHour   = tsu.grossAmount;
   const estimatedPayout = recebePerHour * hours;
+  const paymentLabel    = PAYMENT_METHOD_LABELS[shift.paymentMethod as PaymentMethod] ?? null;
 
   return (
     <View style={styles.container}>
@@ -212,7 +214,7 @@ export default function ShiftDetailScreen() {
             ]}>
               <Text style={styles.statusBannerText}>
                 {isShiftDone
-                  ? '✅ Turno concluído — pagamento a processar'
+                  ? '✅ Turno concluído — a empresa paga-te diretamente'
                   : showCheckOut
                     ? '🟢 Em curso — faça check-out ao terminar'
                     : '📋 Confirmado — faça check-in ao chegar'}
@@ -226,20 +228,18 @@ export default function ShiftDetailScreen() {
               <Text style={styles.payLabel}>Bruto/hora</Text>
               <Text style={styles.payVal}>€{tsu.grossAmount.toFixed(2)}</Text>
             </View>
-            <View style={styles.payRow}>
-              <Text style={styles.payLabel}>Taxa Turnos (10%)</Text>
-              <Text style={[styles.payVal, { color: '#ef4444' }]}>− €{tsu.turnosFee.toFixed(2)}</Text>
-            </View>
             <View style={[styles.payRow, styles.payTotal]}>
-              <Text style={styles.payTotalLabel}>Recebe/hora</Text>
+              <Text style={styles.payTotalLabel}>Recebes/hora (sem taxas)</Text>
               <Text style={styles.payTotalVal}>€{recebePerHour.toFixed(2)}</Text>
             </View>
             <View style={styles.tsuNote}>
               <Text style={styles.tsuNoteText}>
-                ℹ️ SS Trabalhador (11%): €{tsu.workerDeduction.toFixed(2)}/hora — a entregar por ti ao Estado
+                ℹ️ SS Trabalhador (11%): €{tsu.workerDeduction.toFixed(2)}/hora — valor informativo, a entregar por ti ao Estado
               </Text>
             </View>
-            <Text style={styles.recebe}>💳 Recebe amanhã</Text>
+            <Text style={styles.recebe}>
+              💳 {paymentLabel ? `Pago pela empresa via ${paymentLabel}` : 'Pago diretamente pela empresa'}
+            </Text>
           </View>
 
           {/* Info card */}
@@ -292,8 +292,8 @@ export default function ShiftDetailScreen() {
             <Text style={styles.doneText}>Turno concluído{'\n'}
               <Text style={styles.doneSubText}>
                 {attendance?.scheduledHours
-                  ? `${attendance.scheduledHours}h pagas · recebe amanhã`
-                  : 'Pagamento a processar'}
+                  ? `${attendance.scheduledHours}h concluídas · a empresa paga-te diretamente`
+                  : 'A empresa paga-te diretamente'}
               </Text>
             </Text>
           </View>

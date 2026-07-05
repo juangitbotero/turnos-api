@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
-import { authApi } from '../lib/api';
+import { authApi, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
 import { disconnectSocket } from '../lib/socket';
 
@@ -78,12 +78,21 @@ export default function ProfileScreen() {
     try {
       const data = await authApi.getMe();
       setProfile(data as WorkerProfile);
-    } catch {
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        await tokenStorage.clear();
+        Alert.alert(
+          'Sessão expirada',
+          'A tua sessão expirou. Por favor inicia sessão novamente.',
+          [{ text: 'Iniciar sessão', onPress: () => router.replace('/login') }],
+        );
+        return;
+      }
       setError('Não foi possível carregar o perfil.');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => { load(); }, [load]);
 

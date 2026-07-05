@@ -247,8 +247,9 @@ export class AttendanceService {
       scheduledHours: Number(saved.scheduledHours),
     });
 
-    // Charge employer + transfer worker payout (non-blocking, best-effort)
-    this.payments.chargeShiftOnCheckout(
+    // Record the fixed platform fee on the employer's next invoice (non-blocking).
+    // The wage is paid directly company → worker, outside Turnos.
+    this.payments.recordShiftFeeOnCheckout(
       shift.id,
       shift.employer.id,
       worker.id,

@@ -172,23 +172,23 @@ export default function SpendingPage() {
           <section style={s.kpiGrid}>
             <KpiCard
               icon="💶"
-              label="Total bruto pago"
+              label="Salários a pagar (informativo)"
               value={formatEuro(report.totalGross)}
-              sub={`${report.shiftCount} turno${report.shiftCount !== 1 ? 's' : ''} no período`}
+              sub={`${report.shiftCount} turno${report.shiftCount !== 1 ? 's' : ''} — pagas diretamente aos workers`}
               color="#6a79ff"
             />
             <KpiCard
               icon="🏛️"
               label="TSU a pagar ao Estado"
               value={formatEuro(report.employerTsu)}
-              sub="23.75% do gross — Segurança Social"
+              sub="23.75% do gross — valor informativo"
               color="#f59e0b"
             />
             <KpiCard
               icon="📊"
               label="Taxas Turnos"
               value={formatEuro(report.turnosFees)}
-              sub="10% de comissão da plataforma"
+              sub={`${report.shiftCount} turno${report.shiftCount !== 1 ? 's' : ''} × 3€ — na próxima fatura mensal`}
               color="#8b5cf6"
             />
             <KpiCard

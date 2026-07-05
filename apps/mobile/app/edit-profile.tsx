@@ -8,7 +8,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory, LANGUAGES, isValidIBAN, isValidNIF } from '@turnos/shared';
-import { authApi } from '../lib/api';
+import { authApi, ApiError } from '../lib/api';
+import { tokenStorage } from '../lib/storage';
 
 const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const SKILL_CATEGORIES = Object.keys(SHIFT_CATEGORIES) as ShiftCategory[];
@@ -143,12 +144,21 @@ export default function EditProfileScreen() {
       setIban(data.iban ?? '');
       setContactEmail((data as any).contactEmail ?? '');
       setPhotoUrl(data.photoUrl ?? null);
-    } catch {
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        await tokenStorage.clear();
+        Alert.alert(
+          'Sessão expirada',
+          'A tua sessão expirou. Por favor inicia sessão novamente.',
+          [{ text: 'Iniciar sessão', onPress: () => router.replace('/login') }],
+        );
+        return;
+      }
       Alert.alert('Erro', 'Não foi possível carregar o perfil.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => { load(); }, [load]);
 

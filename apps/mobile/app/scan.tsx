@@ -61,7 +61,7 @@ export default function ScanScreen() {
         await attendanceApi.checkOut(data, lat, lng);
         Alert.alert(
           '✅ Turno concluído!',
-          'Check-out registado. O pagamento será processado no próximo dia útil.',
+          'Check-out registado. A empresa vai pagar-te diretamente pelo método indicado no turno.',
           [{ text: 'OK', onPress: () => router.back() }],
         );
       }

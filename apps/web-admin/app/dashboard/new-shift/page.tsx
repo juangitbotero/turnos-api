@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { SHIFT_CATEGORIES, ShiftCategory, LANGUAGES, calculateTSU } from '@turnos/shared';
+import {
+  SHIFT_CATEGORIES, ShiftCategory, LANGUAGES, calculateTSU,
+  PAYMENT_METHOD_LABELS, PaymentMethod, RECOMMENDED_PAYMENT_METHOD,
+} from '@turnos/shared';
 import { adminApi, ApiError } from '../../../lib/api';
 
 type GeoResult = { lat: number; lng: number; display: string } | null;
@@ -238,6 +241,7 @@ export default function NewShiftPage() {
   const [address, setAddress]     = useState('');
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(RECOMMENDED_PAYMENT_METHOD);
 
   // Pre-fill form when re-posting a caducated shift
   useEffect(() => {
@@ -340,6 +344,7 @@ export default function NewShiftPage() {
         lng: geo.lng,
         skillsRequired: selectedSkills.length > 0 ? selectedSkills : undefined,
         languagesRequired: selectedLanguages.length > 0 ? selectedLanguages : undefined,
+        paymentMethod,
       });
       router.push('/dashboard/shifts');
     } catch (err) {
@@ -456,6 +461,52 @@ export default function NewShiftPage() {
           {selectedLanguages.length > 0 && (
             <p style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, marginTop: 4 }}>
               {selectedLanguages.length} idioma{selectedLanguages.length !== 1 ? 's' : ''} selecionado{selectedLanguages.length !== 1 ? 's' : ''}: {selectedLanguages.join(', ')}
+            </p>
+          )}
+        </div>
+
+        {/* ── Payment method ── */}
+        <div style={s.section}>
+          <h2 style={s.sectionTitle}>Como vais pagar ao trabalhador?</h2>
+          <p style={s.sectionHint}>
+            O pagamento é feito diretamente por ti ao trabalhador após o turno — não passa pela Turnos.
+            O método escolhido é mostrado ao trabalhador antes de se candidatar.
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {(Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]).map(([method, label]) => {
+              const active = paymentMethod === method;
+              const recommended = method === RECOMMENDED_PAYMENT_METHOD;
+              return (
+                <button
+                  key={method}
+                  type="button"
+                  onClick={() => setPaymentMethod(method)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '10px 16px', borderRadius: 10, fontSize: 14, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    border: active ? '2px solid var(--color-primary)' : '1.5px solid var(--color-border)',
+                    background: active ? 'var(--color-primary-light)' : 'var(--color-surface)',
+                    color: active ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                  }}
+                >
+                  {active ? '✓ ' : ''}{label}
+                  {recommended && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20,
+                      background: active ? 'var(--color-primary)' : 'var(--color-primary-light)',
+                      color: active ? '#fff' : 'var(--color-primary)',
+                    }}>
+                      Recomendado
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {paymentMethod === 'NUMERARIO' && (
+            <p style={{ fontSize: 12, color: '#b45309', marginTop: 8 }}>
+              💡 Pagamentos em numerário: recomendamos guardar um comprovativo assinado pelo trabalhador.
             </p>
           )}
         </div>

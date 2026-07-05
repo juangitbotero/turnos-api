@@ -151,6 +151,8 @@ export interface ShiftSummary {
   grossHourlyRate: number;
   address: string;
   skillsRequired: string[] | null;
+  /** How the company pays the worker directly (PaymentMethod from @turnos/shared) */
+  paymentMethod?: string | null;
   status: string;
   employer: { id: string; companyName: string } | null;
   /** Decimal latitude stored alongside the PostGIS geometry — reliable for client display */
@@ -297,6 +299,10 @@ export const shiftApi = {
   /** Decline pre-selection — shift reverts to OPEN */
   decline: (id: string) =>
     api.post<{ message: string }>(`/shifts/${id}/decline`, {}),
+
+  /** Cancel a confirmed (FILLED) shift — ≤24h before start counts as a reliability strike */
+  cancelAssignment: (id: string) =>
+    api.post<{ message: string; lateStrike: boolean }>(`/shifts/${id}/cancel-assignment`, {}),
 
   getMyApplications: () =>
     api.get<MyApplication[]>('/shifts/worker/applied'),

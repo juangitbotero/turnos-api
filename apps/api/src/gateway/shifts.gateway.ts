@@ -105,7 +105,7 @@ export class ShiftsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       shiftId: string;
       shiftTitle: string;
       applicationId: string;
-      status: 'APPROVED' | 'REJECTED' | 'PRE_SELECTED' | 'DECLINED_BY_WORKER';
+      status: 'APPROVED' | 'REJECTED' | 'PRE_SELECTED' | 'DECLINED_BY_WORKER' | 'CANCELLED_BY_WORKER';
     },
   ) {
     this.server
