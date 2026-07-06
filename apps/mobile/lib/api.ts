@@ -275,7 +275,20 @@ export interface WagePayment {
   createdAt: string;
 }
 
+export interface ConnectStatus {
+  hasAccount: boolean;
+  onboardingComplete: boolean;
+  payoutsEnabled: boolean;
+}
+
 export const wagesApi = {
+  /** Pay Link activation status (Stripe Connect onboarding) */
+  connectStatus: () => api.get<ConnectStatus>('/payments/worker/connect/status'),
+
+  /** Start (or resume) Stripe Connect onboarding — returns the hosted URL */
+  startConnect: () =>
+    api.post<{ onboardingUrl: string }>('/payments/worker/connect', {}),
+
   /** All wage payments for the logged-in worker (payment status per shift) */
   mine: () => api.get<WagePayment[]>('/payments/wages/mine'),
 

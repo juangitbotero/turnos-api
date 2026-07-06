@@ -20,8 +20,9 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
-import { paymentsApi, EarningsReport, EarningRecord } from '../lib/api';
+import { paymentsApi, wagesApi, ConnectStatus, EarningsReport, EarningRecord } from '../lib/api';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -67,6 +68,28 @@ export default function EarningsScreen() {
   const [report,  setReport]  = useState<EarningsReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
+  const [connect, setConnect] = useState<ConnectStatus | null>(null);
+  const [activating, setActivating] = useState(false);
+
+  const loadConnectStatus = useCallback(() => {
+    wagesApi.connectStatus().then(setConnect).catch(() => {});
+  }, []);
+
+  useEffect(() => { loadConnectStatus(); }, [loadConnectStatus]);
+
+  const handleActivatePayLink = useCallback(async () => {
+    setActivating(true);
+    try {
+      const { onboardingUrl } = await wagesApi.startConnect();
+      // Stripe-hosted onboarding — resolves when the worker closes the browser
+      await WebBrowser.openBrowserAsync(onboardingUrl);
+      loadConnectStatus();
+    } catch {
+      Alert.alert('Erro', 'Não foi possível iniciar a ativação. Tenta novamente.');
+    } finally {
+      setActivating(false);
+    }
+  }, [loadConnectStatus]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -137,6 +160,46 @@ export default function EarningsScreen() {
       </LinearGradient>
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* ── Pay Link activation card ── */}
+        {connect && !connect.payoutsEnabled && (
+          <View style={s.payLinkCard}>
+            <Text style={s.payLinkIcon}>💳</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.payLinkTitle}>
+                {connect.onboardingComplete
+                  ? 'Pay Link quase ativo — verificação em curso'
+                  : connect.hasAccount
+                    ? 'Continua a ativação do Pay Link'
+                    : 'Recebe por Turnos Pay Link'}
+              </Text>
+              <Text style={s.payLinkText}>
+                {connect.onboardingComplete
+                  ? 'A Stripe está a verificar os teus dados. Normalmente demora minutos — volta em breve.'
+                  : 'Ativa em ~3 minutos: verificas a identidade e o IBAN com a Stripe, uma única vez. Depois, quando a empresa paga o link, o dinheiro cai na tua conta em 1–2 dias úteis.'}
+              </Text>
+              {!connect.onboardingComplete && (
+                <TouchableOpacity
+                  style={s.payLinkBtn}
+                  onPress={handleActivatePayLink}
+                  disabled={activating}
+                  activeOpacity={0.85}
+                >
+                  <Text style={s.payLinkBtnText}>
+                    {activating ? 'A abrir…' : connect.hasAccount ? 'Continuar ativação →' : 'Ativar Pay Link →'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
+        {connect?.payoutsEnabled && (
+          <View style={s.payLinkActiveCard}>
+            <Text style={s.payLinkActiveText}>
+              ✅ Pay Link ativo — os pagamentos das empresas caem diretamente na tua conta bancária.
+            </Text>
+          </View>
+        )}
 
         {/* Quarterly SS reminder */}
         {isQuarterReminder() && (
@@ -338,6 +401,38 @@ const s = StyleSheet.create({
 
   // Scroll
   scroll: { padding: spacing.md, gap: spacing.md },
+
+  // Pay Link activation card
+  payLinkCard: {
+    flexDirection: 'row',
+    gap: 12,
+    backgroundColor: '#eef0ff',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: '#c7d2fe',
+    padding: spacing.md,
+    alignItems: 'flex-start',
+  },
+  payLinkIcon: { fontSize: 24, marginTop: 2 },
+  payLinkTitle: { fontSize: fontSize.body, fontWeight: fontWeight.bold, color: '#3730a3' },
+  payLinkText: { fontSize: fontSize.caption, color: '#4338ca', lineHeight: 18, marginTop: 2 },
+  payLinkBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 10,
+  },
+  payLinkBtnText: { fontSize: 13, fontWeight: fontWeight.bold, color: '#fff' },
+  payLinkActiveCard: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    padding: spacing.md,
+  },
+  payLinkActiveText: { fontSize: fontSize.caption, fontWeight: fontWeight.semibold, color: '#166534', lineHeight: 18 },
 
   // SS reminder
   ssReminder: {

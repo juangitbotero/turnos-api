@@ -264,6 +264,34 @@ export class PaymentsService {
   }
 
   /**
+   * Connect onboarding status for the worker's Pay Link activation card.
+   * onboardingComplete = worker submitted all details; payoutsEnabled =
+   * Stripe verified them and can pay out to their IBAN.
+   */
+  async getWorkerConnectStatus(workerUserId: string): Promise<{
+    hasAccount: boolean;
+    onboardingComplete: boolean;
+    payoutsEnabled: boolean;
+  }> {
+    const worker = await this.workerRepo.findOne({ where: { user: { id: workerUserId } } });
+    if (!worker) throw new NotFoundException('Worker not found');
+    if (!worker.stripeAccountId) {
+      return { hasAccount: false, onboardingComplete: false, payoutsEnabled: false };
+    }
+    try {
+      const account = await this.stripe.accounts.retrieve(worker.stripeAccountId);
+      return {
+        hasAccount: true,
+        onboardingComplete: account.details_submitted ?? false,
+        payoutsEnabled: account.payouts_enabled ?? false,
+      };
+    } catch (err) {
+      this.logger.warn(`[Payments] Connect status lookup failed for worker ${worker.id}: ${(err as Error).message}`);
+      return { hasAccount: true, onboardingComplete: false, payoutsEnabled: false };
+    }
+  }
+
+  /**
    * Return the Stripe Express dashboard login link for a worker who has
    * already completed onboarding (to view their payouts).
    */

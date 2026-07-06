@@ -1,8 +1,8 @@
 import {
-  Controller, Post, Get, Body, Req, Query, Param,
+  Controller, Post, Get, Body, Req, Res, Query, Param,
   UseGuards, RawBodyRequest, Headers, HttpCode,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/decorators';
@@ -81,8 +81,37 @@ export class PaymentsController {
     @Req() req: Request & { user: { userId: string } },
     @Body() body: { returnUrl?: string },
   ) {
-    const returnUrl = body.returnUrl ?? 'exp://localhost:8081/earnings';
+    // Stripe requires an https return URL — default to our bounce page, which
+    // sends the worker back to the app (turnos:// deep link).
+    const apiUrl = process.env['API_URL'] ?? 'http://localhost:3001';
+    const returnUrl = body.returnUrl ?? `${apiUrl.replace(/\/api\/?$/, '')}/api/payments/connect/return`;
     return this.payments.createWorkerConnectAccount(req.user.userId, returnUrl);
+  }
+
+  /** Pay Link activation status for the worker's card */
+  @Get('worker/connect/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('WORKER')
+  getConnectStatus(@Req() req: Request & { user: { userId: string } }) {
+    return this.payments.getWorkerConnectStatus(req.user.userId);
+  }
+
+  /**
+   * Public bounce page — Stripe redirects the worker here after onboarding.
+   * Shows a success message and deep-links back into the app.
+   */
+  @Get('connect/return')
+  connectReturn(@Res() res: Response) {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!doctype html><html lang="pt"><head><meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Turnos — Ativação concluída</title></head>
+      <body style="font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:90vh;text-align:center;padding:24px;background:#fafdff">
+        <div style="font-size:56px">✅</div>
+        <h1 style="color:#1a1a2e;font-size:22px">Registo Stripe concluído</h1>
+        <p style="color:#555;max-width:320px;line-height:1.5">Já podes fechar esta janela e voltar à app Turnos. O estado do Pay Link atualiza automaticamente.</p>
+        <a href="turnos://earnings" style="margin-top:16px;background:#6a79ff;color:#fff;padding:14px 28px;border-radius:24px;text-decoration:none;font-weight:700">Voltar à app Turnos</a>
+      </body></html>`);
   }
 
   /** Get Stripe Express dashboard login link (for worker to see their payouts) */
