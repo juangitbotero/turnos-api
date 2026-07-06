@@ -51,13 +51,17 @@ export class Employer {
   // ── Billing & Subscription ────────────────────────────────────────────────
   @Column({
     type: 'enum',
-    enum: ['NONE', 'STARTER', 'GROWTH', 'SCALE'],
+    enum: ['NONE', 'STARTER', 'PRO', 'GROWTH', 'SCALE'], // GROWTH/SCALE legacy values, no longer assigned
     default: 'NONE',
   })
   subscriptionTier: SubscriptionTier;
 
   @Column({ type: 'boolean', default: false })
   isActive: boolean;                // Activated after Turnos team review
+
+  // ── Reliability (policy v1.1) ─────────────────────────────────────────────
+  @Column({ type: 'int', default: 0 })
+  lateCancellationCount: number;    // FILLED shifts cancelled <24h before start — internal metric
 
   // ── Stripe Connect ────────────────────────────────────────────────────────
   @Column({ type: 'varchar', length: 255, nullable: true })

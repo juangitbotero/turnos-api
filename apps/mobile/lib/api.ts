@@ -259,6 +259,35 @@ export interface WorkerRatingSummary {
   recentRatings:  RatingRecord[];
 }
 
+// ─── Wage payments (trust loop) ───────────────────────────────────────────────
+
+export interface WagePayment {
+  id: string;
+  shiftId: string;
+  type: 'SHIFT_COMPLETION' | 'CANCELLATION_MINIMUM';
+  status: 'PENDING' | 'PAID' | 'MARKED_PAID' | 'CONFIRMED' | 'DISPUTED' | 'UNDER_REVIEW' | 'WAIVED';
+  amount: number;
+  paymentMethod: string;
+  payLinkUrl: string | null;
+  shiftTitle: string;
+  shiftDate: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export const wagesApi = {
+  /** All wage payments for the logged-in worker (payment status per shift) */
+  mine: () => api.get<WagePayment[]>('/payments/wages/mine'),
+
+  /** Worker confirms receipt ("Recebi") */
+  confirmReceived: (id: string) =>
+    api.post<WagePayment>(`/payments/wages/${id}/confirm-received`, {}),
+
+  /** Worker flags non-payment ("Não recebi") */
+  flagNotReceived: (id: string) =>
+    api.post<WagePayment>(`/payments/wages/${id}/not-received`, {}),
+};
+
 export const ratingsApi = {
   /** Check if current user has already rated a shift */
   hasRatedShift: (shiftId: string) =>
@@ -301,8 +330,8 @@ export const shiftApi = {
     api.post<{ message: string }>(`/shifts/${id}/decline`, {}),
 
   /** Cancel a confirmed (FILLED) shift — ≤24h before start counts as a reliability strike */
-  cancelAssignment: (id: string) =>
-    api.post<{ message: string; lateStrike: boolean }>(`/shifts/${id}/cancel-assignment`, {}),
+  cancelAssignment: (id: string, reason?: { reasonCategory?: string; reasonNote?: string }) =>
+    api.post<{ message: string; lateStrike: boolean }>(`/shifts/${id}/cancel-assignment`, reason ?? {}),
 
   getMyApplications: () =>
     api.get<MyApplication[]>('/shifts/worker/applied'),

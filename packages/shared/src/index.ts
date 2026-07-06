@@ -281,6 +281,31 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
 /** Recommended default — leaves a paper trail and automates payment confirmation. */
 export const RECOMMENDED_PAYMENT_METHOD: PaymentMethod = 'TURNOS_PAY_LINK';
 
+/**
+ * Cancellation reason categories (policy v1.1). A company cancelling a FILLED
+ * shift <3h before start must pick one; ERRO_EMPRESA triggers the 2h-minimum
+ * payment, the others go to ops review as justified exemptions.
+ */
+export const COMPANY_CANCEL_REASONS = {
+  ERRO_EMPRESA:             'Erro / decisão da empresa',
+  TRABALHADOR_ATRASADO:     'Trabalhador chegou atrasado',
+  TRABALHADOR_INDISPONIVEL: 'Trabalhador incapaz ou indisponível para a função',
+  CODIGO_VESTUARIO:         'Incumprimento do código de vestuário/requisitos',
+  SAUDE_SEGURANCA:          'Razões de saúde e segurança',
+  AVARIA_EQUIPAMENTO:       'Avaria de equipamento essencial',
+  EVENTO_CANCELADO:         'Evento cancelado por terceiros',
+} as const;
+export type CompanyCancelReason = keyof typeof COMPANY_CANCEL_REASONS;
+
+/** Worker justification categories for late (≤24h) cancellations. */
+export const WORKER_CANCEL_REASONS = {
+  DOENCA:     'Doença',
+  LESAO:      'Lesão',
+  EMERGENCIA: 'Emergência',
+  OUTRO:      'Outro',
+} as const;
+export type WorkerCancelReason = keyof typeof WORKER_CANCEL_REASONS;
+
 export const MCD_LIMITS = {
   MAX_DAYS_PER_CONTRACT: 35,
   MAX_DAYS_PER_YEAR_SAME_EMPLOYER: 70,

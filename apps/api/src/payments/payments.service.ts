@@ -24,6 +24,7 @@ import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { calculateTSU, TURNOS_FEE_FIXED_EUR, SUBSCRIPTION_TIERS } from '@turnos/shared';
 import { PaymentRecord, PaymentStatus, PaymentType } from './entities/payment-record.entity';
+import { WagePaymentsService } from './wage-payments.service';
 import { Employer } from '../users/entities/employer.entity';
 import { Worker } from '../users/entities/worker.entity';
 import { Shift } from '../shifts/entities/shift.entity';
@@ -52,6 +53,7 @@ export class PaymentsService {
     private readonly shiftRepo: Repository<Shift>,
 
     private readonly config: ConfigService,
+    private readonly wagePayments: WagePaymentsService,
   ) {
     this.stripe = new Stripe(
       this.config.get<string>('STRIPE_SECRET_KEY', ''),
@@ -196,17 +198,26 @@ export class PaymentsService {
       );
     }
 
-    // Count concurrent open/filled/active shifts
-    const activeCount = await this.shiftRepo.count({
-      where: {
-        employer: { id: employer.id },
-        status:   'OPEN' as any,
-      },
-    });
-    if (activeCount >= MAX_ACTIVE_SHIFTS) {
+    // Block posting while a wage payment is unpaid past the 72h window
+    if (await this.wagePayments.hasOverdueUnpaid(employer.id)) {
       throw new BadRequestException(
-        `O plano atual permite até ${MAX_ACTIVE_SHIFTS} turnos ativos em simultâneo. Cancela ou conclui turnos existentes primeiro.`,
+        'Tens pagamentos a trabalhadores em falta há mais de 72 horas. Regulariza-os em Turnos → Pagamentos pendentes para voltares a publicar.',
       );
+    }
+
+    // Count concurrent open/filled/active shifts (Pro tier: unlimited)
+    if (employer.subscriptionTier !== 'PRO' && MAX_ACTIVE_SHIFTS !== null) {
+      const activeCount = await this.shiftRepo.count({
+        where: {
+          employer: { id: employer.id },
+          status:   'OPEN' as any,
+        },
+      });
+      if (activeCount >= MAX_ACTIVE_SHIFTS) {
+        throw new BadRequestException(
+          `O plano atual permite até ${MAX_ACTIVE_SHIFTS} turnos ativos em simultâneo. Cancela ou conclui turnos existentes primeiro.`,
+        );
+      }
     }
   }
 
@@ -346,109 +357,32 @@ export class PaymentsService {
     }
   }
 
-  // ── Cancellation fee ──────────────────────────────────────────────────────
-
-  /**
-   * Charge the employer a 10% cancellation fee when a FILLED shift is cancelled
-   * within 24h of the shift start (J-1). The fee is fully Turnos revenue — the
-   * worker is compensated non-monetarily (priority boost, employer reliability
-   * metric) since wages no longer flow through the platform.
-   * Returns { feeCents, isLate } — caller checks isLate before calling.
-   */
-  async checkCancellationFee(shiftId: string): Promise<{
-    isLate:       boolean;
-    grossAmount:  number;
-    feeCents:     number;
-  }> {
-    const shift = await this.shiftRepo.findOne({
-      where: { id: shiftId },
-      relations: ['employer', 'assignedWorker'],
-    });
-    if (!shift) throw new NotFoundException('Shift not found');
-
-    const shiftStart = new Date(`${shift.date}T${shift.startTime.slice(0, 5)}:00`);
-    const hoursUntil = (shiftStart.getTime() - Date.now()) / (1000 * 60 * 60);
-    const isLate     = hoursUntil <= CANCELLATION_WINDOW_HOURS && hoursUntil > -1;
-
-    if (!isLate) {
-      return { isLate: false, grossAmount: 0, feeCents: 0 };
-    }
-
-    const hours      = this.calcHours(shift.startTime, shift.endTime);
-    const grossAmount = Number(shift.grossHourlyRate) * hours;
-    const totalFee   = grossAmount * CANCELLATION_FEE_RATE;
-
-    return {
-      isLate,
-      grossAmount,
-      feeCents: Math.round(totalFee * 100),
-    };
-  }
-
-  async chargeCancellationFee(
-    shiftId: string,
-    employerId: string,
-    workerId: string | null,
-    grossAmount: number,
-    feeCents: number,
-    shiftDate: string,
-    shiftTitle: string,
-  ): Promise<void> {
-    const employer = await this.employerRepo.findOne({ where: { id: employerId } });
-    if (!employer?.stripeCustomerId || !employer.stripePaymentMethodId) {
-      this.logger.warn(`[Payments] Cancellation fee for shift ${shiftId} — employer has no payment method`);
-      return;
-    }
-
-    const record = await this.paymentRepo.save(
-      this.paymentRepo.create({
-        shiftId,
-        employerId,
-        workerId,
-        type:        PaymentType.CANCELLATION_FEE,
-        status:      PaymentStatus.PENDING,
-        grossAmount,
-        turnosFee:   feeCents / 100,
-        shiftDate,
-      }),
-    );
-
-    try {
-      const pi = await this.stripe.paymentIntents.create({
-        amount:         feeCents,
-        currency:       'eur',
-        customer:       employer.stripeCustomerId,
-        payment_method: employer.stripePaymentMethodId,
-        confirm:        true,
-        off_session:    true,
-        description:    `Turnos — Taxa de cancelamento: ${shiftTitle}`,
-        metadata:       { shiftId, employerId, type: 'cancellation_fee' },
-      });
-
-      record.status                = PaymentStatus.SUCCEEDED;
-      record.stripePaymentIntentId = pi.id;
-      record.stripeChargeId        = pi.latest_charge as string | null;
-      await this.paymentRepo.save(record);
-
-      this.logger.log(`[Payments] Cancellation fee charged for shift ${shiftId}: €${(feeCents / 100).toFixed(2)}`);
-    } catch (err) {
-      record.status        = PaymentStatus.FAILED;
-      record.failureReason = (err as Error).message;
-      await this.paymentRepo.save(record);
-      this.logger.error(`[Payments] Cancellation fee failed for shift ${shiftId}: ${(err as Error).message}`);
-    }
-  }
+  // Cancellation policy v1.1: the interim 10%-fee methods were removed —
+  // <3h unjustified cancellations now owe the worker a 2h minimum via
+  // WagePaymentsService.createForCancellationMinimum() plus the normal €3
+  // fee, orchestrated by ShiftsService.cancel().
 
   // ── Stripe webhook handler ────────────────────────────────────────────────
 
   async handleWebhook(payload: Buffer, signature: string): Promise<void> {
     const webhookSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET', '');
+    // Pay Link checkout sessions live on the WORKERS' connected accounts, so
+    // their events arrive via a separate Connect webhook endpoint with its own
+    // signing secret. Try the platform secret first, then the Connect one.
+    const connectSecret = this.config.get<string>('STRIPE_CONNECT_WEBHOOK_SECRET', '');
 
     let event: ReturnType<typeof this.stripe.webhooks.constructEvent>;
     try {
       event = this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-    } catch (err) {
-      throw new BadRequestException(`Webhook signature verification failed: ${(err as Error).message}`);
+    } catch (platformErr) {
+      if (!connectSecret) {
+        throw new BadRequestException(`Webhook signature verification failed: ${(platformErr as Error).message}`);
+      }
+      try {
+        event = this.stripe.webhooks.constructEvent(payload, signature, connectSecret);
+      } catch (err) {
+        throw new BadRequestException(`Webhook signature verification failed: ${(err as Error).message}`);
+      }
     }
 
     this.logger.log(`[Payments] Webhook received: ${event.type}`);
@@ -467,6 +401,16 @@ export class PaymentsService {
       case 'customer.subscription.deleted':
         await this.handleSubscriptionCancelled(obj['customer'] as string);
         break;
+      case 'checkout.session.completed': {
+        // Turnos Pay Link — direct charge on the worker's Connect account.
+        // Requires a Connect webhook endpoint in the Stripe Dashboard
+        // ("Listen to events on connected accounts") pointing at this URL.
+        const metadata = obj['metadata'] as Record<string, string> | undefined;
+        if (metadata?.['type'] === 'wage_pay_link') {
+          await this.wagePayments.markPaidFromWebhook(obj['id'] as string);
+        }
+        break;
+      }
       default:
         this.logger.debug(`[Payments] Unhandled webhook event: ${event.type}`);
     }

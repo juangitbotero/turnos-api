@@ -187,6 +187,20 @@ export interface Shift {
   employer: { id: string; companyName: string } | null;
 }
 
+export interface WagePayment {
+  id: string;
+  shiftId: string;
+  type: 'SHIFT_COMPLETION' | 'CANCELLATION_MINIMUM';
+  status: 'PENDING' | 'PAID' | 'MARKED_PAID' | 'CONFIRMED' | 'DISPUTED' | 'UNDER_REVIEW' | 'WAIVED';
+  amount: number;
+  processingFee: number;
+  paymentMethod: string;
+  payLinkUrl: string | null;
+  shiftTitle: string;
+  shiftDate: string | null;
+  createdAt: string;
+}
+
 export interface Application {
   id: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
@@ -377,8 +391,19 @@ export const adminApi = {
   updateShift: (id: string, dto: Partial<CreateShiftDto>) =>
     request<Shift>(`/shifts/${id}`, { method: 'PATCH', body: JSON.stringify(dto) }),
 
-  cancelShift: (id: string) =>
-    request<Shift>(`/shifts/${id}/cancel`, { method: 'POST' }),
+  cancelShift: (id: string, reason?: { reasonCategory?: string; reasonNote?: string }) =>
+    request<Shift & { cancellationConsequence?: string }>(
+      `/shifts/${id}/cancel`,
+      { method: 'POST', body: JSON.stringify(reason ?? {}) },
+    ),
+
+  // ── Wage payments (Pay Link + trust loop) ──────────────────────────────────
+
+  getPendingWages: () =>
+    request<WagePayment[]>('/payments/wages/pending', { method: 'GET' }),
+
+  markWagePaid: (id: string) =>
+    request<WagePayment>(`/payments/wages/${id}/mark-paid`, { method: 'POST' }),
 
   /** Mark an expired shift as CANCELLED (soft delete) */
   deleteExpiredShift: (id: string) =>

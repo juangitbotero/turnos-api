@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { adminApi, ApiError, Shift, Application } from '../../../lib/api';
+import { adminApi, ApiError, Shift, Application, WagePayment } from '../../../lib/api';
 import { connectSocket, getSocket, NewApplicationPayload } from '../../../lib/socket';
 import { formatDate } from '../../../lib/format';
+import { COMPANY_CANCEL_REASONS, PAYMENT_METHOD_LABELS, PaymentMethod } from '@turnos/shared';
 
 const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
   DRAFT:              { label: 'Rascunho',          color: '#6b7280', bg: '#f3f4f6' },
@@ -299,12 +300,17 @@ export default function ShiftsPage() {
   const [showExpired, setShowExpired]   = useState(false);
   const [viewingApps, setViewingApps] = useState<Shift | null>(null);
   const [newAppCounts, setNewAppCounts] = useState<Record<string, number>>({});
+  const [cancelTarget, setCancelTarget] = useState<Shift | null>(null);
+  const [pendingWages, setPendingWages] = useState<WagePayment[]>([]);
+  const [markingPaid, setMarkingPaid]   = useState<string | null>(null);
 
   const load = async () => {
     setIsLoading(true);
     setError('');
     try {
       setShifts(await adminApi.getMyShifts());
+      // Best-effort — the pending-payments strip is secondary to the shift list
+      adminApi.getPendingWages().then(setPendingWages).catch(() => {});
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Erro ao carregar turnos.');
     } finally {
@@ -333,16 +339,51 @@ export default function ShiftsPage() {
     return () => { socket.off('shift:new_application', onNewApplication); };
   }, []);
 
-  const handleCancel = async (id: string) => {
+  /** Hours until the shift starts — drives the cancellation-policy tiers. */
+  const hoursUntilStart = (sh: Shift) => {
+    const start = new Date(`${sh.date}T${sh.startTime.slice(0, 5)}:00`);
+    return (start.getTime() - Date.now()) / (1000 * 60 * 60);
+  };
+
+  const handleCancel = (id: string) => {
+    const shift = shifts.find(sh => sh.id === id);
+    if (!shift) return;
+    // FILLED shifts follow the cancellation policy — open the reason modal.
+    // Unfilled shifts cancel freely with a simple confirm.
+    if (shift.status === 'FILLED') {
+      setCancelTarget(shift);
+      return;
+    }
     if (!confirm('Tem a certeza que quer cancelar este turno?')) return;
+    void doCancel(id);
+  };
+
+  const doCancel = async (id: string, reason?: { reasonCategory?: string; reasonNote?: string }) => {
     setCancelling(id);
     try {
-      await adminApi.cancelShift(id);
+      const res = await adminApi.cancelShift(id, reason);
       setShifts(prev => prev.map(sh => sh.id === id ? { ...sh, status: 'CANCELLED' as const } : sh));
+      setCancelTarget(null);
+      if (res.cancellationConsequence) alert(res.cancellationConsequence);
+      // A <3h ERRO_EMPRESA cancellation creates a wage payment — refresh the strip
+      adminApi.getPendingWages().then(setPendingWages).catch(() => {});
     } catch (err) {
       alert(err instanceof ApiError ? err.message : 'Erro ao cancelar.');
     } finally {
       setCancelling(null);
+    }
+  };
+
+  const handleMarkPaid = async (wage: WagePayment) => {
+    if (!confirm(`Confirmas que pagaste €${Number(wage.amount).toFixed(2)} ao trabalhador pelo turno "${wage.shiftTitle}"? O trabalhador será notificado para confirmar a receção.`)) return;
+    setMarkingPaid(wage.id);
+    try {
+      const updated = await adminApi.markWagePaid(wage.id);
+      setPendingWages(prev => prev.map(w => w.id === wage.id ? updated : w));
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : 'Erro ao marcar como pago.');
+    } finally {
+      setMarkingPaid(null);
     }
   };
 
@@ -396,6 +437,64 @@ export default function ShiftsPage() {
       </div>
 
       {error && <div style={s.errorBanner}>⚠️ {error}</div>}
+
+      {/* ── Pending wage payments (Pay Link + trust loop) ── */}
+      {pendingWages.length > 0 && (
+        <section style={{
+          background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12,
+          padding: '16px 20px', marginBottom: 20,
+        }}>
+          <h2 style={{ fontSize: 15, fontWeight: 800, color: '#92400e', marginBottom: 10 }}>
+            💶 Pagamentos pendentes a trabalhadores ({pendingWages.length})
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {pendingWages.map(w => (
+              <div key={w.id} style={{
+                display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                background: '#fff', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px',
+              }}>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1e1b4b' }}>
+                    {w.type === 'CANCELLATION_MINIMUM' ? '⚠️ Mínimo 2h (cancelamento) — ' : ''}{w.shiftTitle}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#6b7280' }}>
+                    {w.shiftDate ?? ''} · {PAYMENT_METHOD_LABELS[w.paymentMethod as PaymentMethod] ?? w.paymentMethod}
+                    {w.status === 'MARKED_PAID' && ' · aguarda confirmação do trabalhador'}
+                    {w.status === 'DISPUTED' && ' · 🚩 trabalhador reporta não ter recebido'}
+                  </div>
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#1e1b4b' }}>
+                  €{Number(w.amount).toFixed(2)}
+                </div>
+                {w.payLinkUrl && w.status === 'PENDING' && (
+                  <a href={w.payLinkUrl} target="_blank" rel="noreferrer" style={{
+                    background: '#6a79ff', color: '#fff', fontWeight: 700, fontSize: 13,
+                    padding: '8px 16px', borderRadius: 8, textDecoration: 'none',
+                  }}>
+                    💳 Pagar agora
+                  </a>
+                )}
+                {!w.payLinkUrl && (w.status === 'PENDING' || w.status === 'DISPUTED') && (
+                  <button
+                    onClick={() => handleMarkPaid(w)}
+                    disabled={markingPaid === w.id}
+                    style={{
+                      background: '#fff', color: '#16a34a', fontWeight: 700, fontSize: 13,
+                      padding: '8px 16px', borderRadius: 8, border: '1.5px solid #86efac',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    {markingPaid === w.id ? '...' : '✓ Marcar como pago'}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 12, color: '#92400e', marginTop: 10 }}>
+            Pagamentos em falta há mais de 72h suspendem a publicação de novos turnos.
+          </p>
+        </section>
+      )}
 
       {/* QR tip banner — shown when there are FILLED/ACTIVE shifts */}
       {active.some(sh => ['FILLED', 'ACTIVE'].includes(sh.status)) && (
@@ -542,6 +641,141 @@ export default function ShiftsPage() {
       {viewingApps && (
         <ShiftApplicationsModal shift={viewingApps} onClose={() => setViewingApps(null)} />
       )}
+
+      {cancelTarget && (
+        <CancelShiftModal
+          shift={cancelTarget}
+          hoursUntil={hoursUntilStart(cancelTarget)}
+          busy={cancelling === cancelTarget.id}
+          onClose={() => setCancelTarget(null)}
+          onConfirm={reason => doCancel(cancelTarget.id, reason)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Cancel-shift modal (policy v1.1) ─────────────────────────────────────────
+
+function CancelShiftModal({ shift, hoursUntil, busy, onClose, onConfirm }: {
+  shift: Shift;
+  hoursUntil: number;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: (reason?: { reasonCategory?: string; reasonNote?: string }) => void;
+}) {
+  const [category, setCategory] = useState<string>('');
+  const [note, setNote]         = useState('');
+
+  const isUnder3h  = hoursUntil <= 3 && hoursUntil > -1;
+  const isUnder24h = hoursUntil <= 24 && hoursUntil > 3;
+  const minimumEur = 2 * Number(shift.grossHourlyRate);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(15,15,35,0.55)', zIndex: 60,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+    }}>
+      <div style={{
+        background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 520,
+        maxHeight: '90vh', overflowY: 'auto',
+      }}>
+        <h2 style={{ fontSize: 18, fontWeight: 800, color: '#1e1b4b', marginBottom: 6 }}>
+          Cancelar turno preenchido
+        </h2>
+        <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
+          {shift.title || shift.subcategory} · {formatDate(shift.date)} · {shift.startTime.slice(0, 5)}
+        </p>
+
+        {isUnder3h ? (
+          <>
+            <div style={{
+              background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10,
+              padding: '12px 14px', fontSize: 13, color: '#991b1b', marginBottom: 16, lineHeight: 1.5,
+            }}>
+              ⚠️ Faltam menos de <strong>3 horas</strong> para o início. Se o cancelamento for por
+              erro/decisão da empresa, deves pagar o <strong>mínimo de 2 horas
+              (€{minimumEur.toFixed(2)})</strong> ao trabalhador + a taxa normal de 3€.
+              Motivos justificados são avaliados pela Turnos em até 48h.
+            </div>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b', marginBottom: 8 }}>
+              Motivo do cancelamento <span style={{ color: '#dc2626' }}>*</span>
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+              {Object.entries(COMPANY_CANCEL_REASONS).map(([key, label]) => (
+                <label key={key} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
+                  border: category === key ? '2px solid #6a79ff' : '1.5px solid #e5e7eb',
+                  borderRadius: 8, cursor: 'pointer', fontSize: 13,
+                  background: category === key ? '#eef0ff' : '#fff',
+                  fontWeight: category === key ? 700 : 500,
+                }}>
+                  <input
+                    type="radio"
+                    name="cancel-reason"
+                    checked={category === key}
+                    onChange={() => setCategory(key)}
+                  />
+                  {label}
+                  {key === 'ERRO_EMPRESA' && (
+                    <span style={{ marginLeft: 'auto', fontSize: 11, color: '#dc2626', fontWeight: 700 }}>
+                      2h mín. + 3€
+                    </span>
+                  )}
+                </label>
+              ))}
+            </div>
+            <textarea
+              placeholder="Descrição (opcional, recomendado para motivos justificados)"
+              value={note}
+              onChange={e => setNote(e.target.value.slice(0, 500))}
+              style={{
+                width: '100%', minHeight: 70, padding: 10, fontSize: 13, fontFamily: 'inherit',
+                border: '1.5px solid #e5e7eb', borderRadius: 8, resize: 'vertical', marginBottom: 16,
+              }}
+            />
+          </>
+        ) : (
+          <div style={{
+            background: isUnder24h ? '#fffbeb' : '#f0fdf4',
+            border: `1px solid ${isUnder24h ? '#fde68a' : '#bbf7d0'}`,
+            borderRadius: 10, padding: '12px 14px', fontSize: 13,
+            color: isUnder24h ? '#92400e' : '#166534', marginBottom: 16, lineHeight: 1.5,
+          }}>
+            {isUnder24h
+              ? '⏳ Faltam menos de 24 horas. O cancelamento é gratuito mas fica registado na fiabilidade da empresa. O trabalhador será notificado com um pedido de desculpas.'
+              : '✓ Faltam mais de 24 horas — cancelamento gratuito. O trabalhador será notificado com um pedido de desculpas e o turno reabre para outros workers.'}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            disabled={busy}
+            style={{
+              padding: '10px 18px', borderRadius: 8, fontSize: 14, fontWeight: 600,
+              background: '#fff', color: '#6b7280', border: '1.5px solid #e5e7eb',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Voltar
+          </button>
+          <button
+            onClick={() => onConfirm(isUnder3h
+              ? { reasonCategory: category, reasonNote: note.trim() || undefined }
+              : undefined)}
+            disabled={busy || (isUnder3h && !category)}
+            style={{
+              padding: '10px 18px', borderRadius: 8, fontSize: 14, fontWeight: 700,
+              background: '#dc2626', color: '#fff', border: 'none',
+              cursor: busy || (isUnder3h && !category) ? 'not-allowed' : 'pointer',
+              opacity: busy || (isUnder3h && !category) ? 0.6 : 1, fontFamily: 'inherit',
+            }}
+          >
+            {busy ? 'A cancelar…' : 'Cancelar turno'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

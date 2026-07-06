@@ -37,6 +37,7 @@ import { ShiftsGateway } from '../gateway/shifts.gateway';
 import { ComplianceService } from '../compliance/compliance.service';
 import { ComplianceEvent } from '../compliance/entities/compliance-audit-log.entity';
 import { PaymentsService } from '../payments/payments.service';
+import { WagePaymentsService } from '../payments/wage-payments.service';
 import { RatingsService } from '../ratings/ratings.service';
 
 // Check-in window: 30 min before → 60 min after scheduled start
@@ -83,6 +84,7 @@ export class AttendanceService {
     private readonly gateway: ShiftsGateway,
     private readonly compliance: ComplianceService,
     private readonly payments: PaymentsService,
+    private readonly wagePayments: WagePaymentsService,
     private readonly ratings: RatingsService,
     private readonly config: ConfigService,
   ) {
@@ -260,6 +262,18 @@ export class AttendanceService {
     ).catch(err => {
       this.logger.warn(`[Attendance] Payment charge failed for shift ${shift.id}: ${(err as Error).message}`);
     });
+
+    // Track the wage the company owes the worker; generates the Turnos Pay
+    // Link when that's the shift's payment method (non-blocking, never throws).
+    this.wagePayments.createForShiftCompletion({
+      shiftId:       shift.id,
+      employerId:    shift.employer.id,
+      workerId:      worker.id,
+      amountEur:     Number(saved.scheduledHours) * Number(shift.grossHourlyRate),
+      paymentMethod: shift.paymentMethod ?? 'TRANSFERENCIA',
+      shiftTitle:    shift.title,
+      shiftDate:     shift.date,
+    }).catch(() => {});
 
     // Schedule Recibo Verde push reminders (non-blocking, best-effort)
     this.compliance.onShiftCompleted(shift, worker).catch(err => {

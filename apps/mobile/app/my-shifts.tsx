@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
-import { shiftApi, ratingsApi, MyApplication, ApiError } from '../lib/api';
+import { shiftApi, ratingsApi, wagesApi, MyApplication, WagePayment, ApiError } from '../lib/api';
 import { getSocket, ShiftStatusChangedPayload, ShiftCancelledPayload } from '../lib/socket';
 import { formatDate } from '../lib/format';
 
@@ -53,6 +53,7 @@ export default function MyShiftsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [ratedShiftIds, setRatedShiftIds] = useState<Set<string>>(new Set());
+  const [wagesByShift, setWagesByShift]   = useState<Record<string, WagePayment>>({});
 
   const load = useCallback(async (refreshing = false) => {
     if (refreshing) setIsRefreshing(true);
@@ -60,6 +61,18 @@ export default function MyShiftsScreen() {
     try {
       const data = await shiftApi.getMyApplications();
       setApplications(data);
+
+      // Payment status per shift (best-effort — chips simply hide on failure)
+      wagesApi.mine()
+        .then(wages => {
+          const byShift: Record<string, WagePayment> = {};
+          for (const w of wages) {
+            // Completion wage wins over a cancellation minimum for the same shift
+            if (!byShift[w.shiftId] || w.type === 'SHIFT_COMPLETION') byShift[w.shiftId] = w;
+          }
+          setWagesByShift(byShift);
+        })
+        .catch(() => {});
 
       // Check which concluded shifts have already been rated (best-effort, ignore errors)
       const completedIds = data
@@ -119,6 +132,17 @@ export default function MyShiftsScreen() {
   useEffect(() => { load(); }, [load]);
 
   // ── Cancel a confirmed shift (24h rule) ──────────────────────────────────
+  const doCancelAssignment = useCallback(async (shiftId: string, reasonCategory?: string) => {
+    try {
+      const res = await shiftApi.cancelAssignment(shiftId, reasonCategory ? { reasonCategory } : undefined);
+      Alert.alert('Turno cancelado', res.message);
+      load();
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Não foi possível cancelar o turno.';
+      Alert.alert('Erro', msg);
+    }
+  }, [load]);
+
   const handleCancelConfirmed = useCallback((app: MyApplication) => {
     const shiftStart = new Date(`${app.shift.date}T${app.shift.startTime.slice(0, 5)}:00`);
     const hoursUntil = (shiftStart.getTime() - Date.now()) / (1000 * 60 * 60);
@@ -134,20 +158,63 @@ export default function MyShiftsScreen() {
         {
           text: isLate ? 'Cancelar mesmo assim' : 'Sim, cancelar',
           style: 'destructive',
+          onPress: () => {
+            if (!isLate) {
+              void doCancelAssignment(app.shift.id);
+              return;
+            }
+            // Late cancel — offer a justification (reviewed by Turnos in 48h;
+            // if accepted the strike is removed). Android caps alerts at 3
+            // buttons, so illness/injury share one option.
+            Alert.alert(
+              'Tens um motivo válido?',
+              'Doença, lesão ou emergência com comprovativo são avaliados pela Turnos — se aceites, o cancelamento tardio é removido do teu registo. Envia o comprovativo para suporte@turnos.pt.',
+              [
+                { text: '🤒 Doença / Lesão', onPress: () => void doCancelAssignment(app.shift.id, 'DOENCA') },
+                { text: '🚨 Emergência',     onPress: () => void doCancelAssignment(app.shift.id, 'EMERGENCIA') },
+                { text: 'Sem justificação',  style: 'destructive', onPress: () => void doCancelAssignment(app.shift.id) },
+              ],
+            );
+          },
+        },
+      ],
+    );
+  }, [doCancelAssignment]);
+
+  // ── Wage trust loop: "Recebi" / "Não recebi" ──────────────────────────────
+  const handleConfirmWage = useCallback((wage: WagePayment) => {
+    Alert.alert(
+      'Confirmar pagamento',
+      `Recebeste €${Number(wage.amount).toFixed(2)} pelo turno "${wage.shiftTitle}"?`,
+      [
+        { text: 'Voltar', style: 'cancel' },
+        {
+          text: '🚩 Não recebi',
+          style: 'destructive',
           onPress: async () => {
             try {
-              const res = await shiftApi.cancelAssignment(app.shift.id);
-              Alert.alert('Turno cancelado', res.message);
-              load();
-            } catch (err) {
-              const msg = err instanceof ApiError ? err.message : 'Não foi possível cancelar o turno.';
-              Alert.alert('Erro', msg);
+              const updated = await wagesApi.flagNotReceived(wage.id);
+              setWagesByShift(prev => ({ ...prev, [wage.shiftId]: updated }));
+              Alert.alert('Registado', 'A equipa Turnos foi notificada e vai acompanhar o caso.');
+            } catch {
+              Alert.alert('Erro', 'Não foi possível registar. Tenta novamente.');
+            }
+          },
+        },
+        {
+          text: '✓ Recebi',
+          onPress: async () => {
+            try {
+              const updated = await wagesApi.confirmReceived(wage.id);
+              setWagesByShift(prev => ({ ...prev, [wage.shiftId]: updated }));
+            } catch {
+              Alert.alert('Erro', 'Não foi possível confirmar. Tenta novamente.');
             }
           },
         },
       ],
     );
-  }, [load]);
+  }, []);
 
   // ── Section buckets ──────────────────────────────────────────────────────
   // 0. Pré-selecionado — employer selected this worker, awaiting worker confirmation
@@ -289,6 +356,8 @@ export default function MyShiftsScreen() {
                       onPress={() => router.push(`/shift/${app.shift.id}`)}
                       isRated={ratedShiftIds.has(app.shift.id)}
                       onRate={() => router.push(`/rate/${app.shift.id}`)}
+                      wage={wagesByShift[app.shift.id]}
+                      onConfirmWage={handleConfirmWage}
                     />
                   ))}
                 </>
@@ -395,12 +464,16 @@ function ApplicationCard({
   isRated,
   onRate,
   onCancel,
+  wage,
+  onConfirmWage,
 }: {
   app: MyApplication;
   onPress: () => void;
   isRated?: boolean;
   onRate?: () => void;
   onCancel?: () => void;
+  wage?: WagePayment;
+  onConfirmWage?: (wage: WagePayment) => void;
 }) {
   const shift = app.shift;
 
@@ -464,6 +537,40 @@ function ApplicationCard({
           </TouchableOpacity>
         )}
       </View>
+
+      {/* ── Payment status (trust loop) ── */}
+      {wage && (
+        <View style={s.wageRow}>
+          {(wage.status === 'PAID' || wage.status === 'CONFIRMED') ? (
+            <View style={[s.wageChip, s.wageChipPaid]}>
+              <Text style={s.wageChipPaidText}>
+                💶 €{Number(wage.amount).toFixed(2)} {wage.status === 'PAID' ? 'pago via Pay Link ✅' : 'recebido ✓'}
+              </Text>
+            </View>
+          ) : wage.status === 'DISPUTED' ? (
+            <View style={[s.wageChip, s.wageChipDisputed]}>
+              <Text style={s.wageChipDisputedText}>🚩 Não-pagamento reportado — em análise pela Turnos</Text>
+            </View>
+          ) : wage.paymentMethod === 'TURNOS_PAY_LINK' && wage.status === 'PENDING' ? (
+            <View style={[s.wageChip, s.wageChipPending]}>
+              <Text style={s.wageChipPendingText}>
+                💳 €{Number(wage.amount).toFixed(2)} — a aguardar pagamento da empresa via Pay Link
+              </Text>
+            </View>
+          ) : onConfirmWage ? (
+            <TouchableOpacity
+              style={[s.wageChip, s.wageChipAction]}
+              onPress={() => onConfirmWage(wage)}
+              activeOpacity={0.85}
+            >
+              <Text style={s.wageChipActionText}>
+                💶 €{Number(wage.amount).toFixed(2)}
+                {wage.status === 'MARKED_PAID' ? ' — a empresa diz que pagou. Recebeste? →' : ' — já recebeste? Confirma aqui →'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -578,6 +685,18 @@ const s = StyleSheet.create({
     borderColor: '#fca5a5',
   },
   cancelBtnText: { fontSize: 11, fontWeight: fontWeight.bold, color: '#dc2626' },
+
+  /* Wage trust-loop chips */
+  wageRow: { marginTop: 8 },
+  wageChip: { borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1 },
+  wageChipPaid:         { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
+  wageChipPaidText:     { fontSize: 12, fontWeight: fontWeight.bold, color: '#166534' },
+  wageChipDisputed:     { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
+  wageChipDisputedText: { fontSize: 12, fontWeight: fontWeight.semibold, color: '#991b1b' },
+  wageChipPending:      { backgroundColor: '#eef0ff', borderColor: '#c7d2fe' },
+  wageChipPendingText:  { fontSize: 12, fontWeight: fontWeight.semibold, color: '#4338ca' },
+  wageChipAction:       { backgroundColor: '#fffbeb', borderColor: '#fde68a' },
+  wageChipActionText:   { fontSize: 12, fontWeight: fontWeight.bold, color: '#92400e' },
 
   ratedChip: {
     backgroundColor: '#f3f4f6',

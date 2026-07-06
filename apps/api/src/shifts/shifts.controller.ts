@@ -40,8 +40,15 @@ export class ShiftsController {
 
   @Post(':id/cancel')
   @Roles('EMPLOYER')
-  cancel(@Request() req: any, @Param('id') id: string) {
-    return this.shiftsService.cancel(req.user.userId, id);
+  cancel(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body?: { reasonCategory?: string; reasonNote?: string },
+  ) {
+    return this.shiftsService.cancel(req.user.userId, id, {
+      category: body?.reasonCategory,
+      note:     body?.reasonNote,
+    });
   }
 
   @Get(':id/applications')
@@ -105,8 +112,15 @@ export class ShiftsController {
   /** Worker cancels a confirmed (FILLED) shift → reverts to OPEN; ≤24h = reliability strike */
   @Post(':id/cancel-assignment')
   @Roles('WORKER')
-  cancelAssignment(@Request() req: any, @Param('id') id: string) {
-    return this.shiftsService.workerCancelAssignment(req.user.userId, id);
+  cancelAssignment(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body?: { reasonCategory?: string; reasonNote?: string },
+  ) {
+    return this.shiftsService.workerCancelAssignment(req.user.userId, id, {
+      category: body?.reasonCategory,
+      note:     body?.reasonNote,
+    });
   }
 
   @Get('worker/applied')

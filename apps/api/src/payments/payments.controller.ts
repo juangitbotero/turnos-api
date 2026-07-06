@@ -1,5 +1,5 @@
 import {
-  Controller, Post, Get, Body, Req, Query,
+  Controller, Post, Get, Body, Req, Query, Param,
   UseGuards, RawBodyRequest, Headers, HttpCode,
 } from '@nestjs/common';
 import { Request } from 'express';
@@ -7,10 +7,14 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/decorators';
 import { PaymentsService } from './payments.service';
+import { WagePaymentsService } from './wage-payments.service';
 
 @Controller('payments')
 export class PaymentsController {
-  constructor(private readonly payments: PaymentsService) {}
+  constructor(
+    private readonly payments: PaymentsService,
+    private readonly wagePayments: WagePaymentsService,
+  ) {}
 
   // ── Employer: card + subscription ─────────────────────────────────────────
 
@@ -107,6 +111,57 @@ export class PaymentsController {
       month ? parseInt(month) : undefined,
       year  ? parseInt(year)  : undefined,
     );
+  }
+
+  // ── Wage payments (Pay Link + trust loop) ─────────────────────────────────
+
+  /** Employer: open wage payments (pending / marked-paid / disputed) */
+  @Get('wages/pending')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('EMPLOYER')
+  getPendingWages(@Req() req: Request & { user: { userId: string } }) {
+    return this.wagePayments.getEmployerPending(req.user.userId);
+  }
+
+  /** Employer: declare a manual payment done ("Marcado como pago") */
+  @Post('wages/:id/mark-paid')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('EMPLOYER')
+  markWagePaid(
+    @Req() req: Request & { user: { userId: string } },
+    @Param('id') id: string,
+  ) {
+    return this.wagePayments.markPaidByEmployer(req.user.userId, id);
+  }
+
+  /** Worker: wage payment status for their shifts */
+  @Get('wages/mine')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('WORKER')
+  getMyWages(@Req() req: Request & { user: { userId: string } }) {
+    return this.wagePayments.getWorkerWagePayments(req.user.userId);
+  }
+
+  /** Worker: confirm receipt ("Recebi") */
+  @Post('wages/:id/confirm-received')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('WORKER')
+  confirmWageReceived(
+    @Req() req: Request & { user: { userId: string } },
+    @Param('id') id: string,
+  ) {
+    return this.wagePayments.confirmReceived(req.user.userId, id);
+  }
+
+  /** Worker: flag non-payment ("Não recebi") */
+  @Post('wages/:id/not-received')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('WORKER')
+  flagWageNotReceived(
+    @Req() req: Request & { user: { userId: string } },
+    @Param('id') id: string,
+  ) {
+    return this.wagePayments.flagNotReceived(req.user.userId, id);
   }
 
   // ── Stripe webhook (no auth — Stripe signs the payload) ───────────────────

@@ -8,7 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
-import { PAYMENT_METHOD_LABELS } from '@turnos/shared';
+import { PAYMENT_METHOD_LABELS, COMPANY_CANCEL_REASONS, WORKER_CANCEL_REASONS } from '@turnos/shared';
 import { Shift, ShiftStatus } from './entities/shift.entity';
 import { ShiftApplication, ApplicationStatus } from './entities/shift-application.entity';
 import { Employer } from '../users/entities/employer.entity';
@@ -18,6 +18,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ReNotificationJobData } from '../notifications/processors/re-notification.processor';
 import { ComplianceService } from '../compliance/compliance.service';
 import { PaymentsService } from '../payments/payments.service';
+import { WagePaymentsService } from '../payments/wage-payments.service';
+import { MailService } from '../mail/mail.service';
 
 // 5 hours in milliseconds — delay before re-notification job fires
 const RE_NOTIFY_DELAY_MS = 5 * 60 * 60 * 1000;
@@ -39,6 +41,8 @@ export class ShiftsService {
     private readonly notifications: NotificationsService,
     private readonly compliance: ComplianceService,
     private readonly payments: PaymentsService,
+    private readonly wagePayments: WagePaymentsService,
+    private readonly mail: MailService,
   ) {}
 
   // ── Internal helpers ──────────────────────────────────────────────────────
@@ -155,7 +159,8 @@ export class ShiftsService {
   async cancel(
     userId: string,
     shiftId: string,
-  ): Promise<Shift & { cancellationFee?: { feeEur: number } }> {
+    reason?: { category?: string; note?: string },
+  ): Promise<Shift & { cancellationConsequence?: string }> {
     const employer = await this.resolveEmployer(userId);
     const shift = await this.shiftRepo.findOne({
       where: { id: shiftId },
@@ -167,28 +172,80 @@ export class ShiftsService {
       throw new BadRequestException('Cannot cancel an active or completed shift');
     }
 
-    // ── Cancellation fee: 10% if ≤24h before shift start on a FILLED shift ──
-    let cancellationFee: { feeEur: number } | undefined;
-    if (shift.status === ShiftStatus.FILLED) {
-      try {
-        const fee = await this.payments.checkCancellationFee(shiftId);
-        if (fee.isLate) {
-          cancellationFee = { feeEur: fee.feeCents / 100 };
-          // Fire-and-forget — cancellation proceeds regardless of charge outcome
-          this.payments
-            .chargeCancellationFee(
-              shiftId,
-              employer.id,
-              shift.assignedWorker?.id ?? null,
-              fee.grossAmount,
-              fee.feeCents,
-              shift.date,
-              shift.title,
-            )
-            .catch(err => console.error('[Payments] chargeCancellationFee error:', err));
+    // ── Company cancellation policy v1.1 (FILLED shifts only) ────────────────
+    //   >24h: free · 24h–3h: free but reliability metric · <3h: reason required —
+    //   ERRO_EMPRESA → 2h-minimum Pay Link + €3 fee; justified → ops review.
+    let cancellationConsequence: string | undefined;
+    if (shift.status === ShiftStatus.FILLED && shift.assignedWorker) {
+      const shiftStart = new Date(`${shift.date}T${shift.startTime.slice(0, 5)}:00`);
+      const hoursUntil = (shiftStart.getTime() - Date.now()) / (1000 * 60 * 60);
+      const worker = shift.assignedWorker;
+
+      if (hoursUntil <= 3 && hoursUntil > -1) {
+        const validReasons = Object.keys(COMPANY_CANCEL_REASONS);
+        const category = reason?.category;
+        if (!category || !validReasons.includes(category)) {
+          throw new BadRequestException(
+            'Cancelamentos a menos de 3 horas do início exigem um motivo (erro da empresa ou uma das exceções justificadas).',
+          );
         }
-      } catch (err) {
-        console.error('[Payments] checkCancellationFee error:', err);
+
+        if (category === 'ERRO_EMPRESA') {
+          const minimumEur = 2 * Number(shift.grossHourlyRate);
+          // 2h-minimum owed to the worker (Pay Link when possible) — fire-and-forget
+          this.wagePayments.createForCancellationMinimum({
+            shiftId:       shift.id,
+            employerId:    employer.id,
+            workerId:      worker.id,
+            amountEur:     minimumEur,
+            paymentMethod: shift.paymentMethod ?? 'TRANSFERENCIA',
+            shiftTitle:    shift.title,
+            shiftDate:     shift.date,
+            reason:        category,
+            note:          reason?.note,
+          }).catch(() => {});
+
+          // Normal €3 platform fee, as for a completed shift (2h informative basis)
+          this.payments.recordShiftFeeOnCheckout(
+            shift.id, employer.id, worker.id,
+            2, Number(shift.grossHourlyRate),
+            shift.date, `Cancelamento tardio — ${shift.title}`,
+          ).catch(() => {});
+
+          cancellationConsequence =
+            `Cancelamento a menos de 3h do início: deves pagar o mínimo de 2 horas (€${minimumEur.toFixed(2)}) ao trabalhador + taxa de 3€.`;
+        } else {
+          // Justified exemption — ops reviews within 48h; no payment generated now
+          this.mail.sendMail({
+            to: 'ops@turnos.pt',
+            subject: `⚖️ Cancelamento <3h justificado — revisão necessária: ${shift.title}`,
+            html: `<p>A empresa <strong>${employer.companyName}</strong> cancelou o turno
+                   <strong>${shift.title}</strong> (${shift.date}) a menos de 3h do início.</p>
+                   <p>Motivo declarado: <strong>${COMPANY_CANCEL_REASONS[category as keyof typeof COMPANY_CANCEL_REASONS]}</strong></p>
+                   ${reason?.note ? `<p>Nota: ${reason.note}</p>` : ''}
+                   <p>Trabalhador afetado: ${worker.fullName ?? worker.id}</p>
+                   <p>Se a justificação for recusada, gerar o mínimo de 2h (€${(2 * Number(shift.grossHourlyRate)).toFixed(2)}) — shift ${shift.id}.</p>`,
+          }).catch(() => {});
+          cancellationConsequence = 'Motivo justificado registado — será avaliado pela equipa Turnos em até 48h.';
+        }
+
+        employer.lateCancellationCount = (employer.lateCancellationCount ?? 0) + 1;
+        await this.employerRepo.save(employer);
+      } else if (hoursUntil <= 24 && hoursUntil > -1) {
+        // 24h–3h: free of payment but recorded on the reliability metric
+        employer.lateCancellationCount = (employer.lateCancellationCount ?? 0) + 1;
+        await this.employerRepo.save(employer);
+        cancellationConsequence = 'Cancelamento entre 24h e 3h: sem custos, registado na fiabilidade da empresa.';
+      }
+
+      // Apology push to the affected worker (all tiers)
+      if (worker.expoPushToken) {
+        this.notifications.sendDirectPush(
+          [worker.expoPushToken],
+          'Turno cancelado pela empresa 😔',
+          `O turno "${shift.title}" (${shift.date}) foi cancelado. Pedimos desculpa — vais ter prioridade em turnos semelhantes na tua zona.`,
+          { type: 'shift_cancelled_by_employer', shiftId: shift.id },
+        ).catch(() => {});
       }
     }
 
@@ -210,7 +267,7 @@ export class ShiftsService {
       });
     }
 
-    return cancellationFee ? { ...saved, cancellationFee } : saved;
+    return cancellationConsequence ? { ...saved, cancellationConsequence } : saved;
   }
 
   async getApplications(userId: string, shiftId: string): Promise<ShiftApplication[]> {
@@ -371,7 +428,11 @@ export class ShiftsService {
    * Either way the shift reopens immediately and the matching-worker
    * notification wave fires so the employer can refill the slot.
    */
-  async workerCancelAssignment(workerUserId: string, shiftId: string): Promise<{
+  async workerCancelAssignment(
+    workerUserId: string,
+    shiftId: string,
+    justification?: { category?: string; note?: string },
+  ): Promise<{
     message: string;
     lateStrike: boolean;
   }> {
@@ -408,6 +469,21 @@ export class ShiftsService {
         worker.suspendedUntil = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
       }
       await this.workerRepo.save(worker);
+
+      // Justification (doença/lesão/emergência) → ops review; if accepted,
+      // the strike is removed manually (48h SLA per policy v1.1)
+      const category = justification?.category;
+      if (category && Object.keys(WORKER_CANCEL_REASONS).includes(category)) {
+        this.mail.sendMail({
+          to: 'ops@turnos.pt',
+          subject: `⚖️ Justificação de cancelamento tardio — ${worker.fullName ?? worker.id}`,
+          html: `<p>O trabalhador <strong>${worker.fullName ?? worker.id}</strong> cancelou o turno
+                 <strong>${shift.title}</strong> (${shift.date}) a menos de 24h do início.</p>
+                 <p>Motivo: <strong>${WORKER_CANCEL_REASONS[category as keyof typeof WORKER_CANCEL_REASONS]}</strong></p>
+                 ${justification?.note ? `<p>Descrição: ${justification.note}</p>` : ''}
+                 <p>Se aceite, remover o strike (worker ${worker.id}, registado ${now.toISOString()}).</p>`,
+        }).catch(() => {});
+      }
     }
 
     // Reopen the shift
