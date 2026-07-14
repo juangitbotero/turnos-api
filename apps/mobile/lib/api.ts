@@ -191,8 +191,7 @@ export const attendanceApi = {
     api.post<AttendanceRecord>('/attendance/check-in', { token, lat, lng }),
 
   /** Worker scans employer QR to check out. */
-  checkOut: (token: string, lat: number, lng: number) =>
-    api.post<AttendanceRecord>('/attendance/check-out', { token, lat, lng }),
+  // v2.1: check-out removed — shifts auto-complete at their scheduled end time.
 
   /** Worker raises a dispute on a completed shift. */
   raiseDispute: (shiftId: string, note: string) =>

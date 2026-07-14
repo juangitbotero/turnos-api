@@ -376,7 +376,7 @@ These are non-negotiable and must be correct before launch:
 5. **Worker payout (superseded by ADR 007):** full gross direct from company; Stripe Connect kept optional for the Pay Link rail.
 6. **MVP scope:** Stints 0–5 = v1 launch target (Payments in v1.1)
 7. **Marketplace model:** Workers browse and apply, employers review and confirm. Push notifications target workers by skill match. No auto-assignment. See `docs/turnos_roadmap.md` for full model.
-8. **QR model:** Static HMAC-SHA256 tokens (permanent per employer). Two QR codes: check-in ↑ and check-out ↓. Employer prints once and posts at venue. No rotating/time-expiring QR — security guaranteed by unforgeable HMAC signature.
+8. **QR model (amended by ADR 008, 2026-07-14):** Static HMAC-SHA256 token (permanent per employer) — **single check-in QR only**. The worker scans on arrival; the shift **auto-completes at its scheduled end** (BullMQ job at check-in + 15-min sweep). No check-out scan. Auto-completion triggers the fee/wage/review chain; employer can "Ajustar horas" (2h floor, regenerates Pay Link) or "Reportar problema" (pauses reminders, ops review) before paying. Two-way review prompts fire at completion and +8h.
 
 ---
 

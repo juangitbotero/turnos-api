@@ -16,7 +16,7 @@ const HOW_IT_WORKS = [
   { n: '02', icon: '🔔', title: 'Workers candidatam-se',  desc: 'Notificação push automática aos 20 workers mais compatíveis por competência. Candidaturas chegam em minutos.' },
   { n: '03', icon: '👤', title: 'Selecionas o worker',    desc: 'Revês perfis, ratings e competências. Selecionar um worker envia-lhe um convite direto com 2h para aceitar.' },
   { n: '04', icon: '✅', title: 'Worker confirma',        desc: 'O worker aceita ou recusa. Se não responder em 2h, o turno reabre automaticamente — sem no-shows silenciosos.' },
-  { n: '05', icon: '📲', title: 'QR Check-in/out',        desc: 'O worker escaneia o teu QR fixo na entrada e saída. Horas verificadas com geofence de 200m.' },
+  { n: '05', icon: '📲', title: 'QR Check-in',            desc: 'O worker escaneia o teu QR fixo à chegada (geofence de 200m). O turno conclui automaticamente à hora de fim — sem passos extra.' },
   { n: '06', icon: '💳', title: 'Pagas diretamente ao worker', desc: 'No fim do turno pagas ao worker pelo método que escolheste — transferência, MB WAY ou numerário. A Turnos dá-te todos os valores prontos, incluindo TSU informativo.' },
 ];
 
@@ -24,7 +24,7 @@ const FEATURES = [
   { icon: '🔔', title: 'Notificações inteligentes',   body: 'Push notification automático aos 20 workers mais compatíveis em segundos após publicação. Segunda vaga ao fim de 5h se sem candidatos.' },
   { icon: '⭐', title: 'Ratings & Reputação',          body: 'Avalia workers após cada turno. Badges TOP_RATED e FIÁVEL para os melhores. Motor de matching prioriza os mais bem avaliados.' },
   { icon: '⚡', title: 'Confirmação obrigatória',      body: 'Worker selecionado tem 2h para aceitar. Sem confirmação, o turno volta ao estado aberto automaticamente — fim dos no-shows.' },
-  { icon: '📲', title: 'QR Check-in verificado',       body: 'QR fixo por empresa + geofence de 200m. Worker escaneia à entrada e saída. Horas bloqueadas automaticamente.' },
+  { icon: '📲', title: 'QR Check-in verificado',       body: 'QR fixo por empresa + geofence de 200m. Worker escaneia à chegada; o turno conclui sozinho à hora de fim. Podes ajustar horas antes de pagar.' },
   { icon: '📋', title: 'Conformidade MCD automática',  body: 'Contratos MCD gerados e enviados à SS. Cálculo de TSU 23,75% + 11%. Alertas de limite de 70 dias/ano e descanso de 11h.' },
   { icon: '💳', title: 'Pagamento direto, sem comissões', body: 'Pagas o salário diretamente ao worker — a Turnos nunca toca no dinheiro. Só uma taxa fixa de 3€ por turno concluído, faturada uma vez por mês.' },
   { icon: '🔍', title: 'Pesquisa de talent',           body: 'Procura workers por competência, idioma e disponibilidade. Convida diretamente para um turno — ele tem 2h para aceitar.' },
@@ -46,7 +46,7 @@ const ROADMAP = [
   { n: 2, label: 'Marketplace de Turnos',       done: true },
   { n: 3, label: 'Notificações & Real-Time',    done: true },
   { n: 4, label: 'Conformidade Portugal',       done: true },
-  { n: 5, label: 'QR Check-In / Check-Out',     done: true },
+  { n: 5, label: 'QR Check-In automático',      done: true },
   { n: 6, label: 'Pagamentos & Payroll',        done: true },
   { n: 7, label: 'Ratings & Reputação',         done: true },
   { n: 8, label: 'Produto & Operações',         active: true },

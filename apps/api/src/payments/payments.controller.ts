@@ -163,6 +163,30 @@ export class PaymentsController {
     return this.wagePayments.markPaidByEmployer(req.user.userId, id);
   }
 
+  /** Employer: adjust the hours actually worked before paying (2h floor) */
+  @Post('wages/:id/adjust-hours')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('EMPLOYER')
+  adjustWageHours(
+    @Req() req: Request & { user: { userId: string } },
+    @Param('id') id: string,
+    @Body() body: { hoursWorked: number; note?: string },
+  ) {
+    return this.wagePayments.adjustHours(req.user.userId, id, Number(body.hoursWorked), body.note);
+  }
+
+  /** Employer: report a problem with the completed shift (pauses reminders, ops review) */
+  @Post('wages/:id/report-problem')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('EMPLOYER')
+  reportWageProblem(
+    @Req() req: Request & { user: { userId: string } },
+    @Param('id') id: string,
+    @Body() body: { category: string; note?: string },
+  ) {
+    return this.wagePayments.reportProblem(req.user.userId, id, body.category, body.note);
+  }
+
   /** Worker: wage payment status for their shifts */
   @Get('wages/mine')
   @UseGuards(JwtAuthGuard, RolesGuard)

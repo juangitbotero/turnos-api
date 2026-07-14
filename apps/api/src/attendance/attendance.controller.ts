@@ -15,11 +15,11 @@ export class AttendanceController {
 
   /**
    * GET /attendance/employer-qr
-   * Returns the employer's two permanent static QR codes (check-in + check-out).
-   * These are printed once and posted at the venue.  Re-request anytime to
-   * re-display on screen or regenerate a lost/damaged print.
+   * Returns the employer's single permanent static check-in QR code.
+   * Printed once and posted at the venue. There is no check-out QR —
+   * shifts auto-complete at their scheduled end time (v2.1).
    *
-   * Response: { checkInQrDataUrl, checkOutQrDataUrl, employerName, checkInToken, checkOutToken }
+   * Response: { checkInQrDataUrl, checkInToken, employerName }
    */
   @Get('employer-qr')
   @Roles('EMPLOYER')
@@ -79,21 +79,9 @@ export class AttendanceController {
     return this.attendanceService.checkIn(req.user.userId, token, lat, lng);
   }
 
-  /**
-   * POST /attendance/check-out
-   * Worker scans the employer's printed CHECK-OUT QR to register departure.
-   * Body: { token: string, lat: number, lng: number }
-   */
-  @Post('check-out')
-  @Roles('WORKER')
-  checkOut(
-    @Request() req: any,
-    @Body('token') token: string,
-    @Body('lat') lat: number,
-    @Body('lng') lng: number,
-  ) {
-    return this.attendanceService.checkOut(req.user.userId, token, lat, lng);
-  }
+  // v2.1: POST /attendance/check-out removed — shifts auto-complete at their
+  // scheduled end. End-of-shift problems are handled by the employer's
+  // "Ajustar horas / Reportar problema" flow before paying.
 
   /**
    * POST /attendance/:shiftId/dispute/worker

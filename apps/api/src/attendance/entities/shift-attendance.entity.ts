@@ -9,7 +9,7 @@ import { Worker } from '../../users/entities/worker.entity';
 export enum AttendanceStatus {
   PENDING     = 'PENDING',      // Confirmed shift, no check-in yet
   CHECKED_IN  = 'CHECKED_IN',   // Worker scanned QR at start
-  COMPLETED   = 'COMPLETED',    // Worker scanned QR at end — triggers payment
+  COMPLETED   = 'COMPLETED',    // Shift ended (auto-completed at scheduled end since v2.1)
   DISPUTED    = 'DISPUTED',     // Flagged by worker or employer
   MANUAL      = 'MANUAL',       // Employer used manual override
   NO_SHOW     = 'NO_SHOW',      // Worker never checked in (set by scheduled job)
@@ -18,11 +18,15 @@ export enum AttendanceStatus {
 /**
  * ShiftAttendance — one record per confirmed (FILLED) shift.
  *
+ * v2.1 (check-in only): the worker scans a single QR at the start. The shift
+ * auto-completes at its scheduled end time — there is no check-out scan.
+ * checkOutAt is set to the scheduled end (autoCompleted = true) or by the
+ * employer's manual override. Legacy rows keep their real scan-out data.
+ *
  * IMPORTANT: Payment is always calculated from the scheduled shift hours
- * (shift.startTime → shift.endTime), NOT from the delta between checkInAt
- * and checkOutAt. The QR scans are attendance proof only — they confirm the
- * worker showed up and completed the shift. Any extra time worked beyond the
- * agreed hours is handled between employer and worker outside the platform.
+ * (shift.startTime → shift.endTime), NOT from scan timestamps. The check-in
+ * proves the worker showed up; problems at the end of a shift are handled by
+ * the employer's "Ajustar horas / Reportar problema" flow before paying.
  */
 @Entity('shift_attendance')
 export class ShiftAttendance {
@@ -64,6 +68,9 @@ export class ShiftAttendance {
   // ── Status & overrides ────────────────────────────────────────────────────
   @Column({ type: 'enum', enum: AttendanceStatus, default: AttendanceStatus.PENDING })
   status: AttendanceStatus;
+
+  @Column({ type: 'boolean', default: false })
+  autoCompleted: boolean;         // true when completed by the scheduled-end job (no scan)
 
   @Column({ type: 'boolean', default: false })
   isManualOverride: boolean;      // true when employer used manual confirm

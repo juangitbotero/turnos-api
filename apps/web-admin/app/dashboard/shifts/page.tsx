@@ -303,6 +303,7 @@ export default function ShiftsPage() {
   const [cancelTarget, setCancelTarget] = useState<Shift | null>(null);
   const [pendingWages, setPendingWages] = useState<WagePayment[]>([]);
   const [markingPaid, setMarkingPaid]   = useState<string | null>(null);
+  const [wageAction, setWageAction]     = useState<{ wage: WagePayment; mode: 'adjust' | 'problem' } | null>(null);
 
   const load = async () => {
     setIsLoading(true);
@@ -391,7 +392,7 @@ export default function ShiftsPage() {
     if (!confirm(
       `Marcar como concluído: "${shift.title || shift.subcategory}"\n\n` +
       `O turno será encerrado e o pagamento será desencadeado automaticamente. Esta ação não pode ser desfeita.\n\n` +
-      `Usa esta opção apenas se o trabalhador não conseguiu fazer check-out via QR.`
+      `Usa esta opção apenas se o turno não concluiu automaticamente (ex.: check-in falhou).`
     )) return;
     setConfirming(shift.id);
     try {
@@ -486,6 +487,35 @@ export default function ShiftsPage() {
                   >
                     {markingPaid === w.id ? '...' : '✓ Marcar como pago'}
                   </button>
+                )}
+                {w.status === 'PENDING' && w.type === 'SHIFT_COMPLETION' && (
+                  <>
+                    <button
+                      onClick={() => setWageAction({ wage: w, mode: 'adjust' })}
+                      style={{
+                        background: '#fff', color: '#6b7280', fontWeight: 600, fontSize: 12,
+                        padding: '8px 12px', borderRadius: 8, border: '1.5px solid #e5e7eb',
+                        cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      ✏️ Ajustar horas
+                    </button>
+                    <button
+                      onClick={() => setWageAction({ wage: w, mode: 'problem' })}
+                      style={{
+                        background: '#fff', color: '#dc2626', fontWeight: 600, fontSize: 12,
+                        padding: '8px 12px', borderRadius: 8, border: '1.5px solid #fecaca',
+                        cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      ⚠️ Reportar problema
+                    </button>
+                  </>
+                )}
+                {w.status === 'UNDER_REVIEW' && (
+                  <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                    ⚖️ Em análise pela Turnos (48h)
+                  </span>
                 )}
               </div>
             ))}
@@ -651,6 +681,141 @@ export default function ShiftsPage() {
           onConfirm={reason => doCancel(cancelTarget.id, reason)}
         />
       )}
+
+      {wageAction && (
+        <WageActionModal
+          wage={wageAction.wage}
+          mode={wageAction.mode}
+          onClose={() => setWageAction(null)}
+          onDone={updated => {
+            setPendingWages(prev => prev.map(w => w.id === updated.id ? updated : w));
+            setWageAction(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Wage adjust-hours / report-problem modal (guardrail A) ───────────────────
+
+function WageActionModal({ wage, mode, onClose, onDone }: {
+  wage: WagePayment;
+  mode: 'adjust' | 'problem';
+  onClose: () => void;
+  onDone: (updated: WagePayment) => void;
+}) {
+  const [hours, setHours] = useState('');
+  const [note, setNote]   = useState('');
+  const [busy, setBusy]   = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const updated = mode === 'adjust'
+        ? await adminApi.adjustWageHours(wage.id, parseFloat(hours), note.trim() || undefined)
+        : await adminApi.reportWageProblem(wage.id, 'PROBLEMA_TURNO', note.trim());
+      onDone(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Erro — tenta novamente.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const hoursNum = parseFloat(hours);
+  const canSubmit = mode === 'adjust'
+    ? !Number.isNaN(hoursNum) && hoursNum > 0
+    : note.trim().length >= 10;
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(15,15,35,0.55)', zIndex: 60,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+    }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 460 }}>
+        <h2 style={{ fontSize: 17, fontWeight: 800, color: '#1e1b4b', marginBottom: 6 }}>
+          {mode === 'adjust' ? 'Ajustar horas trabalhadas' : 'Reportar problema no turno'}
+        </h2>
+        <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
+          {wage.shiftTitle} · {wage.shiftDate ?? ''} · atual: €{Number(wage.amount).toFixed(2)}
+        </p>
+
+        {mode === 'adjust' ? (
+          <>
+            <p style={{ fontSize: 13, color: '#374151', marginBottom: 8 }}>
+              Quantas horas trabalhou realmente? <strong>Mínimo 2 horas</strong> (política de
+              turno terminado antecipadamente). O valor e o Pay Link são recalculados e o
+              trabalhador é notificado.
+            </p>
+            <input
+              type="number"
+              min={2}
+              step={0.5}
+              placeholder="Ex.: 3.5"
+              value={hours}
+              onChange={e => setHours(e.target.value)}
+              style={{
+                width: '100%', height: 44, padding: '0 12px', fontSize: 15,
+                border: '1.5px solid #e5e7eb', borderRadius: 8, marginBottom: 10, fontFamily: 'inherit',
+              }}
+            />
+          </>
+        ) : (
+          <p style={{ fontSize: 13, color: '#374151', marginBottom: 8 }}>
+            Descreve o que aconteceu (ex.: o trabalhador abandonou o turno a meio). O ciclo
+            de lembretes de pagamento fica <strong>pausado</strong> enquanto a equipa Turnos
+            analisa (até 48h).
+          </p>
+        )}
+
+        <textarea
+          placeholder={mode === 'adjust' ? 'Motivo (opcional)' : 'Descrição do problema (obrigatório)'}
+          value={note}
+          onChange={e => setNote(e.target.value.slice(0, 500))}
+          style={{
+            width: '100%', minHeight: 80, padding: 10, fontSize: 13, fontFamily: 'inherit',
+            border: '1.5px solid #e5e7eb', borderRadius: 8, resize: 'vertical', marginBottom: 12,
+          }}
+        />
+
+        {error && (
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
+            padding: '8px 12px', fontSize: 13, color: '#991b1b', marginBottom: 12,
+          }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            disabled={busy}
+            style={{
+              padding: '10px 18px', borderRadius: 8, fontSize: 14, fontWeight: 600,
+              background: '#fff', color: '#6b7280', border: '1.5px solid #e5e7eb',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Voltar
+          </button>
+          <button
+            onClick={submit}
+            disabled={busy || !canSubmit}
+            style={{
+              padding: '10px 18px', borderRadius: 8, fontSize: 14, fontWeight: 700,
+              background: mode === 'adjust' ? '#6a79ff' : '#dc2626', color: '#fff', border: 'none',
+              cursor: busy || !canSubmit ? 'not-allowed' : 'pointer',
+              opacity: busy || !canSubmit ? 0.6 : 1, fontFamily: 'inherit',
+            }}
+          >
+            {busy ? 'A enviar…' : mode === 'adjust' ? 'Ajustar e recalcular' : 'Reportar problema'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -819,7 +984,7 @@ function ShiftRow({ shift, onCancel, onManualConfirm, cancelling, confirming, on
             style={{ ...s.confirmBtn, opacity: confirming === shift.id ? 0.6 : 1 }}
             onClick={() => onManualConfirm(shift)}
             disabled={confirming === shift.id}
-            title="Marcar como concluído (sem QR) — usar quando o trabalhador não conseguiu fazer check-out"
+            title="Marcar como concluído (sem QR) — usar quando o turno não concluiu automaticamente"
           >
             {confirming === shift.id ? '...' : '🏁 Concluído'}
           </button>

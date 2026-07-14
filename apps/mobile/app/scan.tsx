@@ -1,18 +1,14 @@
 /**
- * /scan — QR code scanner for shift check-in and check-out.
- *
- * Route params:
- *   action: 'check-in' | 'check-out'
+ * /scan — QR code scanner for shift check-in (v2.1: check-in only).
  *
  * Flow:
  *   1. Request camera + location permissions
- *   2. Worker points camera at the static QR on employer's screen
- *   3. CameraView decodes the QR → we call check-in or check-out API
+ *   2. Worker points camera at the printed check-in QR at the venue
+ *   3. CameraView decodes the QR → check-in API
  *   4. Success alert → back to shift detail page
  *
- * Payment note: the QR token embeds the shiftId. Payment is ALWAYS based on
- * scheduled shift hours (set at check-in time from shift offer), never from
- * the delta between QR scan timestamps.
+ * There is no check-out scan — the shift completes automatically at its
+ * scheduled end time. Payment is ALWAYS based on scheduled shift hours.
  */
 import { useRef, useCallback } from 'react';
 import {
@@ -20,14 +16,12 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import * as Location from 'expo-location';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
 import { attendanceApi, ApiError } from '../lib/api';
 
 export default function ScanScreen() {
   const router = useRouter();
-  const { action } = useLocalSearchParams<{ action: string }>();
-  const isCheckIn = action === 'check-in';
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
@@ -50,21 +44,12 @@ export default function ScanScreen() {
         lng = pos.coords.longitude;
       }
 
-      if (isCheckIn) {
-        await attendanceApi.checkIn(data, lat, lng);
-        Alert.alert(
-          '✅ Check-in registado!',
-          'O seu turno começou. Boa sorte!',
-          [{ text: 'OK', onPress: () => router.back() }],
-        );
-      } else {
-        await attendanceApi.checkOut(data, lat, lng);
-        Alert.alert(
-          '✅ Turno concluído!',
-          'Check-out registado. A empresa vai pagar-te diretamente pelo método indicado no turno.',
-          [{ text: 'OK', onPress: () => router.back() }],
-        );
-      }
+      await attendanceApi.checkIn(data, lat, lng);
+      Alert.alert(
+        '✅ Check-in registado!',
+        'O teu turno começou. No fim do horário, o turno conclui automaticamente — não precisas de digitalizar nada à saída. Boa sorte!',
+        [{ text: 'OK', onPress: () => router.back() }],
+      );
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'Erro ao processar QR code.';
       Alert.alert('Erro', msg, [
@@ -80,7 +65,7 @@ export default function ScanScreen() {
       ]);
       // Don't reset processingRef here — user must explicitly tap "Tentar novamente"
     }
-  }, [isCheckIn, router]);
+  }, [router]);
 
   // ── Permission: loading ──────────────────────────────────────────────────
 
@@ -121,9 +106,7 @@ export default function ScanScreen() {
         <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <Text style={styles.closeIcon}>✕</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isCheckIn ? 'Check-in' : 'Check-out'}
-        </Text>
+        <Text style={styles.headerTitle}>Check-in</Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -155,9 +138,7 @@ export default function ScanScreen() {
       {/* Instructions */}
       <View style={styles.bottomArea}>
         <Text style={styles.hint}>
-          {isCheckIn
-            ? 'Aponte para o QR code no ecrã do empregador para fazer check-in'
-            : 'Aponte para o QR code no ecrã do empregador para registar o fim do turno'}
+          Aponta para o QR code afixado no local para fazer check-in
         </Text>
         <Text style={styles.subHint}>
           O QR code do empregador é permanente — não precisa de atualizar. Peça ao empregador para abrir o ecrã de QR codes.

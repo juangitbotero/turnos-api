@@ -159,7 +159,7 @@ export default function SpendingPage() {
           <div style={s.emptyIcon}>💶</div>
           <div style={s.emptyTitle}>Sem turnos pagos em {periodLabel}</div>
           <p style={s.emptySub}>
-            Os dados aparecem aqui após os trabalhadores fazerem check-out e o pagamento ser processado.
+            Os dados aparecem aqui quando os turnos são concluídos (automaticamente à hora de fim).
           </p>
           <Link href="/dashboard/shifts" style={s.emptyLink}>Ver Turnos →</Link>
         </div>

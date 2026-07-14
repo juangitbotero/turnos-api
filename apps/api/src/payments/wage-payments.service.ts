@@ -27,6 +27,7 @@ import Stripe from 'stripe';
 import { WagePayment, WagePaymentStatus, WagePaymentType } from './entities/wage-payment.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { Worker } from '../users/entities/worker.entity';
+import { Shift } from '../shifts/entities/shift.entity';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -58,6 +59,9 @@ export class WagePaymentsService {
 
     @InjectRepository(Worker)
     private readonly workerRepo: Repository<Worker>,
+
+    @InjectRepository(Shift)
+    private readonly shiftRepo: Repository<Shift>,
 
     @InjectQueue('wage-reminders')
     private readonly reminderQueue: Queue,
@@ -266,6 +270,151 @@ export class WagePaymentsService {
     }
   }
 
+  // ── Guardrail A: adjust hours / report problem (v2.1, no check-out) ────────
+
+  /**
+   * Employer adjusts the hours actually worked before paying — the safety
+   * valve for auto-completion (early departure, shift cut short). Floor of
+   * 2 hours per policy v1.1. Recomputes the amount and regenerates the Pay
+   * Link when one exists.
+   */
+  async adjustHours(
+    employerUserId: string,
+    wagePaymentId: string,
+    hoursWorked: number,
+    note?: string,
+  ): Promise<WagePayment> {
+    const employer = await this.employerRepo.findOne({ where: { user: { id: employerUserId } } });
+    if (!employer) throw new UnauthorizedException('Employer not found');
+
+    const wage = await this.wageRepo.findOne({ where: { id: wagePaymentId } });
+    if (!wage) throw new NotFoundException('Pagamento não encontrado');
+    if (wage.employerId !== employer.id) throw new UnauthorizedException('Not your payment');
+    if (wage.type !== WagePaymentType.SHIFT_COMPLETION) {
+      throw new BadRequestException('O mínimo de cancelamento não pode ser ajustado.');
+    }
+    if (wage.status !== WagePaymentStatus.PENDING) {
+      throw new BadRequestException('Só podes ajustar pagamentos ainda pendentes.');
+    }
+
+    const shift = await this.shiftRepo.findOne({ where: { id: wage.shiftId } });
+    if (!shift) throw new NotFoundException('Turno não encontrado');
+
+    const rate           = Number(shift.grossHourlyRate);
+    const originalHours  = Number(wage.amount) / rate;
+    const clamped        = Math.min(Math.max(hoursWorked, 2), Math.ceil(originalHours * 100) / 100);
+    const newAmount      = Math.round(clamped * rate * 100) / 100;
+
+    if (Math.abs(newAmount - Number(wage.amount)) < 0.01) return wage; // no-op
+
+    // Regenerate the Pay Link with the corrected amount
+    if (wage.stripeCheckoutSessionId) {
+      const worker = await this.workerRepo.findOne({ where: { id: wage.workerId } });
+      try {
+        if (worker?.stripeAccountId) {
+          await this.stripe.checkout.sessions.expire(
+            wage.stripeCheckoutSessionId,
+            {},
+            { stripeAccount: worker.stripeAccountId },
+          ).catch(() => {}); // may already be expired
+
+          const chargeEur = Math.ceil(((newAmount + STRIPE_FEE_FIXED) / (1 - STRIPE_FEE_PCT)) * 100) / 100;
+          const webUrl = this.config.get<string>('WEB_ADMIN_URL', 'http://localhost:3000');
+          const session = await this.stripe.checkout.sessions.create(
+            {
+              mode: 'payment',
+              line_items: [{
+                quantity: 1,
+                price_data: {
+                  currency: 'eur',
+                  unit_amount: Math.round(chargeEur * 100),
+                  product_data: {
+                    name: `Salário do turno (horas ajustadas: ${clamped}h) — ${wage.shiftTitle} (${wage.shiftDate ?? ''})`,
+                  },
+                },
+              }],
+              success_url: `${webUrl}/dashboard/shifts?wage_paid=1`,
+              cancel_url:  `${webUrl}/dashboard/shifts?wage_paid=0`,
+              metadata: {
+                type: 'wage_pay_link',
+                shiftId: wage.shiftId,
+                employerId: wage.employerId,
+                workerId: wage.workerId,
+              },
+            },
+            { stripeAccount: worker.stripeAccountId },
+          );
+          wage.payLinkUrl              = session.url ?? null;
+          wage.stripeCheckoutSessionId = session.id;
+          wage.processingFee           = Math.round((chargeEur - newAmount) * 100) / 100;
+        }
+      } catch (err) {
+        this.logger.error(`[Wage] Pay Link regeneration failed for wage ${wage.id}: ${(err as Error).message}`);
+      }
+    }
+
+    const previousAmount = Number(wage.amount);
+    wage.amount           = newAmount;
+    wage.cancellationNote = note ?? `Horas ajustadas pela empresa: ${clamped}h (antes: ${originalHours.toFixed(2)}h)`;
+    await this.wageRepo.save(wage);
+
+    // The worker must know — and can contest via "Não recebi" / support
+    const worker = await this.workerRepo.findOne({ where: { id: wage.workerId } });
+    if (worker?.expoPushToken) {
+      this.notifications.sendDirectPush(
+        [worker.expoPushToken],
+        'A empresa ajustou as horas do turno',
+        `"${wage.shiftTitle}": €${previousAmount.toFixed(2)} → €${newAmount.toFixed(2)} (${clamped}h). Se não concordas, contesta na app ou contacta suporte@turnos.pt.`,
+        { type: 'wage_adjusted', shiftId: wage.shiftId },
+      ).catch(() => {});
+    }
+
+    this.logger.log(`[Wage] Hours adjusted on ${wage.id}: €${previousAmount} → €${newAmount} (${clamped}h)`);
+    return wage;
+  }
+
+  /**
+   * Employer reports a problem with the completed shift (abandonment,
+   * misconduct). Pauses the reminder ladder (UNDER_REVIEW) and alerts ops.
+   */
+  async reportProblem(
+    employerUserId: string,
+    wagePaymentId: string,
+    category: string,
+    note?: string,
+  ): Promise<WagePayment> {
+    const employer = await this.employerRepo.findOne({
+      where: { user: { id: employerUserId } },
+      relations: ['user'],
+    });
+    if (!employer) throw new UnauthorizedException('Employer not found');
+
+    const wage = await this.wageRepo.findOne({ where: { id: wagePaymentId } });
+    if (!wage) throw new NotFoundException('Pagamento não encontrado');
+    if (wage.employerId !== employer.id) throw new UnauthorizedException('Not your payment');
+    if (![WagePaymentStatus.PENDING, WagePaymentStatus.DISPUTED].includes(wage.status)) {
+      throw new BadRequestException('Este pagamento já não pode ser reportado.');
+    }
+
+    wage.status           = WagePaymentStatus.UNDER_REVIEW;
+    wage.cancellationNote = `[PROBLEMA: ${category}] ${note ?? ''}`.trim();
+    await this.wageRepo.save(wage);
+
+    await this.mail.sendMail({
+      to: 'ops@turnos.pt',
+      subject: `⚖️ Problema reportado no turno "${wage.shiftTitle}" — revisão necessária`,
+      html: `<p>A empresa <strong>${employer.companyName}</strong> reportou um problema no turno
+             <strong>${wage.shiftTitle}</strong> (${wage.shiftDate ?? '—'}).</p>
+             <p>Categoria: <strong>${category}</strong></p>
+             ${note ? `<p>Descrição: ${note}</p>` : ''}
+             <p>Pagamento em causa: €${Number(wage.amount).toFixed(2)} · WagePayment ${wage.id} · Shift ${wage.shiftId}</p>
+             <p>O ciclo de lembretes está pausado até decisão (SLA 48h).</p>`,
+    }).catch(() => {});
+
+    this.logger.warn(`[Wage] Problem reported on ${wage.id} (${category}) — reminder ladder paused`);
+    return wage;
+  }
+
   // ── Trust loop (manual methods) ────────────────────────────────────────────
 
   /** Employer declares a manual payment done ("Marcado como pago"). */
@@ -444,7 +593,11 @@ export class WagePaymentsService {
        ${wage.payLinkUrl
           ? `<p><a href="${wage.payLinkUrl}" style="background:#6a79ff;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none">💳 Pagar agora com Turnos Pay Link</a></p>
              <p><small>O pagamento vai diretamente para a conta bancária do trabalhador — a Turnos não recebe nem retém este valor.</small></p>`
-          : `<p>Método escolhido: <strong>${wage.paymentMethod}</strong>. Depois de pagares, marca como pago no dashboard Turnos para notificar o trabalhador.</p>`}`,
+          : `<p>Método escolhido: <strong>${wage.paymentMethod}</strong>. Depois de pagares, marca como pago no dashboard Turnos para notificar o trabalhador.</p>`}
+       ${!isCancellation
+          ? `<p>⭐ Aproveita para <a href="${this.config.get<string>('WEB_ADMIN_URL', 'http://localhost:3000')}/dashboard/ratings">avaliar o trabalhador</a> — demora 10 segundos.</p>
+             <p><small>Correu algo mal (saída antecipada, problema no turno)? Ajusta as horas ou reporta o problema no dashboard antes de pagar.</small></p>`
+          : ''}`,
     );
   }
 

@@ -120,6 +120,10 @@ possível ao trabalhador, e o caso é avaliado individualmente pela Turnos.
 ### Turno já iniciado, terminado mais cedo
 Se a empresa terminar um turno já iniciado antes da duração acordada, deve
 pagar **as horas trabalhadas ou o mínimo de 2 horas — o que for maior**.
+Os turnos concluem automaticamente à hora de fim agendada; a empresa pode
+**ajustar as horas trabalhadas no dashboard antes de pagar** (mínimo 2h) —
+o trabalhador é notificado e pode contestar — ou **reportar um problema**
+(ex.: abandono do turno), que é analisado pela Turnos em até 48h.
 
 ---
 

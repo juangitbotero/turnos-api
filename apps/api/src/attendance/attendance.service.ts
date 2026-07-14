@@ -39,28 +39,30 @@ import { ComplianceEvent } from '../compliance/entities/compliance-audit-log.ent
 import { PaymentsService } from '../payments/payments.service';
 import { WagePaymentsService } from '../payments/wage-payments.service';
 import { RatingsService } from '../ratings/ratings.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 // Check-in window: 30 min before → 60 min after scheduled start
 const CHECKIN_WINDOW_BEFORE_MS = 30 * 60 * 1000;
 const CHECKIN_WINDOW_AFTER_MS  = 60 * 60 * 1000;
-// Check-out window: 30 min before → 2 h after scheduled end (unchanged)
-const CHECKOUT_WINDOW_BEFORE_MS = 30 * 60 * 1000;
-const CHECKOUT_WINDOW_AFTER_MS  =  2 * 60 * 60 * 1000;
 // Geofence radius (metres)
 const GEOFENCE_RADIUS_M = 200;
 
 interface StaticQrPayload {
   employerId: string;
-  action: 'in' | 'out';
+  action: 'in' | 'out'; // 'out' kept for legacy printed QRs — rejected at scan
   v: 1; // token version — allows future migration
 }
 
 export interface EmployerQrResult {
   checkInQrDataUrl:  string;
-  checkOutQrDataUrl: string;
   checkInToken:      string;
-  checkOutToken:     string;
   employerName:      string;
+}
+
+export interface AutoCompleteJobData {
+  shiftId: string;
 }
 
 @Injectable()
@@ -81,11 +83,15 @@ export class AttendanceService {
     @InjectRepository(Employer)
     private readonly employerRepo: Repository<Employer>,
 
+    @InjectQueue('shift-autocomplete')
+    private readonly autoCompleteQueue: Queue,
+
     private readonly gateway: ShiftsGateway,
     private readonly compliance: ComplianceService,
     private readonly payments: PaymentsService,
     private readonly wagePayments: WagePaymentsService,
     private readonly ratings: RatingsService,
+    private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
   ) {
     this.hmacSecret = this.config.get<string>('QR_HMAC_SECRET', 'turnos-dev-qr-secret-change-in-prod');
@@ -94,16 +100,16 @@ export class AttendanceService {
   // ── Static QR generation (employer) ───────────────────────────────────────
 
   /**
-   * Generate the employer's two permanent static QR codes: check-in and check-out.
-   * These are deterministic — same inputs always produce the same QR.
-   * The employer prints them once and posts them at their venue.
+   * Generate the employer's single permanent static check-in QR code.
+   * Deterministic — same inputs always produce the same QR. The employer
+   * prints it once and posts it at the venue. There is no check-out QR:
+   * shifts auto-complete at their scheduled end time (v2.1).
    */
   async getEmployerStaticQr(employerUserId: string): Promise<EmployerQrResult> {
     const employer = await this.employerRepo.findOne({ where: { user: { id: employerUserId } } });
     if (!employer) throw new UnauthorizedException('Employer not found');
 
-    const checkInToken  = this.signStaticToken({ employerId: employer.id, action: 'in',  v: 1 });
-    const checkOutToken = this.signStaticToken({ employerId: employer.id, action: 'out', v: 1 });
+    const checkInToken = this.signStaticToken({ employerId: employer.id, action: 'in', v: 1 });
 
     const qrOpts: QRCode.QRCodeToDataURLOptions = {
       errorCorrectionLevel: 'M',
@@ -112,13 +118,10 @@ export class AttendanceService {
       color: { dark: '#111827', light: '#ffffff' },
     };
 
-    const [checkInQrDataUrl, checkOutQrDataUrl] = await Promise.all([
-      QRCode.toDataURL(checkInToken,  qrOpts),
-      QRCode.toDataURL(checkOutToken, qrOpts),
-    ]);
+    const checkInQrDataUrl = await QRCode.toDataURL(checkInToken, qrOpts);
 
     this.logger.log(`[Attendance] Static QR requested for employer ${employer.id}`);
-    return { checkInQrDataUrl, checkOutQrDataUrl, checkInToken, checkOutToken, employerName: employer.companyName };
+    return { checkInQrDataUrl, checkInToken, employerName: employer.companyName };
   }
 
   // ── Check-in (worker scans printed check-in QR) ───────────────────────────
@@ -134,8 +137,9 @@ export class AttendanceService {
 
     const payload = this.verifyStaticToken(token);
     if (payload.action !== 'in') {
+      // Legacy check-out QR (pre-v2.1 print) — no longer valid
       throw new BadRequestException(
-        'Digitalizou o QR de check-out. Por favor, use o QR de check-in (seta para cima ↑).',
+        'Este QR já não é utilizado. Digitaliza o QR de check-in à entrada.',
       );
     }
 
@@ -186,53 +190,51 @@ export class AttendanceService {
       details:    { action: 'CHECK_IN', lat, lng, scheduledHours },
     });
 
-    this.logger.log(`[Attendance] Check-in: worker ${worker.id} → shift ${shift.id} (${scheduledHours}h)`);
+    // Schedule auto-completion for the scheduled end time — there is no
+    // check-out scan. The 15-min sweep job is the safety net if this job
+    // is ever lost.
+    const delayMs = Math.max(0, this.scheduledEnd(shift).getTime() - Date.now());
+    await this.autoCompleteQueue.add(
+      'auto-complete',
+      { shiftId: shift.id } satisfies AutoCompleteJobData,
+      { delay: delayMs },
+    );
+
+    this.logger.log(`[Attendance] Check-in: worker ${worker.id} → shift ${shift.id} (${scheduledHours}h; auto-complete in ${Math.round(delayMs / 60000)}min)`);
     return saved;
   }
 
-  // ── Check-out (worker scans printed check-out QR) ─────────────────────────
+  // ── Auto-completion (v2.1 — replaces the check-out scan) ──────────────────
 
-  async checkOut(
-    workerUserId: string,
-    token: string,
-    lat: number,
-    lng: number,
-  ): Promise<ShiftAttendance> {
-    const worker = await this.workerRepo.findOne({ where: { user: { id: workerUserId } } });
-    if (!worker) throw new UnauthorizedException('Worker not found');
-
-    const payload = this.verifyStaticToken(token);
-    if (payload.action !== 'out') {
-      throw new BadRequestException(
-        'Digitalizou o QR de check-in. Por favor, use o QR de check-out (seta para baixo ↓).',
-      );
-    }
-
-    const shift = await this.findWorkerShiftForEmployerToday(worker.id, payload.employerId);
-    if (shift.status !== ShiftStatus.ACTIVE) {
-      throw new BadRequestException(
-        shift.status === ShiftStatus.FILLED
-          ? 'Ainda não fez check-in. Por favor, faça check-in primeiro.'
-          : 'O turno não está no estado correto para check-out.',
-      );
-    }
+  /**
+   * Complete an ACTIVE shift at its scheduled end. Called by the BullMQ
+   * auto-complete job (scheduled at check-in) and by the 15-min sweep.
+   * Idempotent — safe to call twice.
+   *
+   * Runs the full completion chain: attendance close, €3 fee, wage payment
+   * (Pay Link), Recibo Verde reminders, review prompts to both parties.
+   */
+  async completeShift(shiftId: string, trigger: 'AUTO' | 'SWEEP' = 'AUTO'): Promise<void> {
+    const shift = await this.shiftRepo.findOne({
+      where: { id: shiftId },
+      relations: ['employer', 'assignedWorker'],
+    });
+    if (!shift || shift.status !== ShiftStatus.ACTIVE) return; // already handled / cancelled
+    const worker = shift.assignedWorker;
+    if (!worker) return;
 
     const attendance = await this.attendanceRepo.findOne({ where: { shift: { id: shift.id } } });
-    if (!attendance?.checkInAt) throw new BadRequestException('Não há check-in registado para este turno.');
-    if (attendance.checkOutAt)  throw new BadRequestException('Já fez check-out neste turno.');
+    if (!attendance?.checkInAt) return; // never checked in — no-show flow handles it
+    if (attendance.checkOutAt) return;  // already closed (manual override)
 
-    this.assertCheckoutWindow(shift);
-    this.assertGeofence(lat, lng, shift);
-
-    attendance.checkOutAt  = new Date();
-    attendance.checkOutLat = lat;
-    attendance.checkOutLng = lng;
-    attendance.status      = AttendanceStatus.COMPLETED;
+    attendance.checkOutAt   = this.scheduledEnd(shift); // scheduled end, not wall-clock
+    attendance.status       = AttendanceStatus.COMPLETED;
+    attendance.autoCompleted = true;
 
     const saved = await this.attendanceRepo.save(attendance);
     await this.shiftRepo.update(shift.id, { status: ShiftStatus.COMPLETED });
 
-    // Notify employer dashboard
+    // Notify employer dashboard + worker app (same events the check-out emitted)
     this.gateway.notifyAttendance(shift.employer.id, {
       event:          'checked_out',
       shiftId:        shift.id,
@@ -241,7 +243,6 @@ export class AttendanceService {
       checkOutAt:     saved.checkOutAt!.toISOString(),
       scheduledHours: Number(saved.scheduledHours),
     });
-    // Notify worker app
     this.gateway.notifyAttendance(worker.id, {
       event:          'shift_completed',
       shiftId:        shift.id,
@@ -260,7 +261,7 @@ export class AttendanceService {
       shift.date,
       shift.title,
     ).catch(err => {
-      this.logger.warn(`[Attendance] Payment charge failed for shift ${shift.id}: ${(err as Error).message}`);
+      this.logger.warn(`[Attendance] Fee recording failed for shift ${shift.id}: ${(err as Error).message}`);
     });
 
     // Track the wage the company owes the worker; generates the Turnos Pay
@@ -280,13 +281,57 @@ export class AttendanceService {
       this.logger.warn(`[Attendance] Failed to schedule Recibo Verde reminders: ${(err as Error).message}`);
     });
 
-    // Schedule 30-min rating reminder email to employer (non-blocking, best-effort)
-    this.ratings.scheduleRatingReminder(shift.id, shift.title, shift.employer.id).catch(err => {
-      this.logger.warn(`[Attendance] Failed to schedule rating reminder: ${(err as Error).message}`);
+    // Two-way review prompts: immediate push to the worker + +8h follow-ups
+    // to whichever side hasn't rated yet (handled by RatingsService).
+    if (worker.expoPushToken) {
+      this.notifications.sendDirectPush(
+        [worker.expoPushToken],
+        'Turno concluído! 🎉',
+        `Como correu o turno "${shift.title}"? Avalia a empresa — demora 10 segundos.`,
+        { type: 'rate_employer', shiftId: shift.id },
+      ).catch(() => {});
+    }
+    this.ratings.scheduleReviewFollowUps(shift.id, shift.title, shift.employer.id, worker.id)
+      .catch(err => {
+        this.logger.warn(`[Attendance] Failed to schedule review follow-ups: ${(err as Error).message}`);
+      });
+
+    await this.compliance.log({
+      event:      ComplianceEvent.CONTRACT_CREATED,
+      shiftId:    shift.id,
+      workerId:   worker.id,
+      employerId: shift.employer.id,
+      details:    { action: 'SHIFT_AUTO_COMPLETED', trigger, scheduledHours: Number(saved.scheduledHours) },
     });
 
-    this.logger.log(`[Attendance] Check-out: worker ${worker.id} → shift ${shift.id} — ${saved.scheduledHours}h`);
-    return saved;
+    this.logger.log(`[Attendance] Auto-complete (${trigger}): shift ${shift.id} — ${saved.scheduledHours}h`);
+  }
+
+  /**
+   * Safety-net sweep (every 15 min): complete any ACTIVE shift whose
+   * scheduled end has passed — covers lost/failed auto-complete jobs.
+   */
+  async sweepOverdueActiveShifts(): Promise<void> {
+    const active = await this.shiftRepo.find({
+      where: { status: ShiftStatus.ACTIVE },
+      relations: ['employer', 'assignedWorker'],
+    });
+    const now = new Date();
+    for (const shift of active) {
+      if (this.scheduledEnd(shift) <= now) {
+        await this.completeShift(shift.id, 'SWEEP').catch(err => {
+          this.logger.error(`[Attendance] Sweep completion failed for shift ${shift.id}: ${(err as Error).message}`);
+        });
+      }
+    }
+  }
+
+  /** Scheduled end datetime — handles overnight shifts (end < start ⇒ +1 day). */
+  private scheduledEnd(shift: Shift): Date {
+    const end = new Date(`${shift.date}T${shift.endTime.slice(0, 5)}:00`);
+    const start = new Date(`${shift.date}T${shift.startTime.slice(0, 5)}:00`);
+    if (end <= start) end.setDate(end.getDate() + 1); // overnight
+    return end;
   }
 
   // ── Manual override (employer) ────────────────────────────────────────────
@@ -465,26 +510,8 @@ export class AttendanceService {
     }
   }
 
-  private assertCheckoutWindow(shift: Shift): void {
-    const [eh, em] = shift.endTime.slice(0, 5).split(':').map(Number);
-    const scheduledEnd = new Date(`${shift.date}T${String(eh!).padStart(2,'0')}:${String(em!).padStart(2,'0')}:00`);
-    const windowStart  = new Date(scheduledEnd.getTime() - CHECKOUT_WINDOW_BEFORE_MS);
-    const windowEnd    = new Date(scheduledEnd.getTime() + CHECKOUT_WINDOW_AFTER_MS);
-    const now          = new Date();
-
-    if (now < windowStart) {
-      throw new BadRequestException(
-        `Ainda é cedo para fazer check-out. Disponível a partir das ` +
-        `${windowStart.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}.`,
-      );
-    }
-    if (now > windowEnd) {
-      throw new BadRequestException(
-        'A janela de check-out expirou (mais de 2h após o fim do turno). ' +
-        'Contacte o empregador para confirmação manual.',
-      );
-    }
-  }
+  // v2.1: the check-out window assertion was removed along with the
+  // check-out scan — shifts auto-complete at their scheduled end time.
 
   // ── Private: geofence (Haversine) ────────────────────────────────────────
 

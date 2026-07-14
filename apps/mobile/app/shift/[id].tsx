@@ -216,7 +216,7 @@ export default function ShiftDetailScreen() {
                 {isShiftDone
                   ? '✅ Turno concluído — a empresa paga-te diretamente'
                   : showCheckOut
-                    ? '🟢 Em curso — faça check-out ao terminar'
+                    ? `🟢 Em curso — conclui automaticamente às ${shift.endTime.slice(0, 5)}`
                     : '📋 Confirmado — faça check-in ao chegar'}
               </Text>
             </View>
@@ -310,7 +310,7 @@ export default function ShiftDetailScreen() {
             )}
             <TouchableOpacity
               style={[styles.checkInBtn]}
-              onPress={() => router.push(`/scan?action=check-in`)}
+              onPress={() => router.push(`/scan`)}
               activeOpacity={0.85}
             >
               <Text style={styles.actionBtnText}>📷 Fazer Check-in</Text>
@@ -318,25 +318,16 @@ export default function ShiftDetailScreen() {
           </>
         )}
 
-        {/* ③ Check-out button */}
+        {/* ③ In progress — auto-completes at scheduled end (v2.1, no check-out) */}
         {!isShiftDone && showCheckOut && (
-          <>
-            {attendance?.checkInAt && (
-              <View style={styles.payoutBox}>
-                <Text style={styles.payoutLabel}>Check-in às</Text>
-                <Text style={styles.payoutValue}>
-                  {new Date(attendance.checkInAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
-                </Text>
-              </View>
-            )}
-            <TouchableOpacity
-              style={[styles.checkOutBtn]}
-              onPress={() => router.push(`/scan?action=check-out`)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.actionBtnText}>📷 Fazer Check-out</Text>
-            </TouchableOpacity>
-          </>
+          <View style={styles.doneBox}>
+            <Text style={styles.doneIcon}>🟢</Text>
+            <Text style={styles.doneText}>Em curso{'\n'}
+              <Text style={styles.doneSubText}>
+                Conclui automaticamente às {shift.endTime.slice(0, 5)} — não precisas de digitalizar nada à saída
+              </Text>
+            </Text>
+          </View>
         )}
 
         {/* ④ Apply button (OPEN shift, no application yet) */}

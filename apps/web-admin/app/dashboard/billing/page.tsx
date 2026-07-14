@@ -305,7 +305,7 @@ const PLAN_FEATURES = [
   'Publicar até 15 turnos em simultâneo',
   'Procurar e convidar trabalhadores por competência e idioma',
   'Gestão de candidaturas e aprovação de trabalhadores',
-  'QR Check-in / Check-out automático no local',
+  'QR Check-in no local + conclusão automática do turno',
   'Conformidade MCD — contratos e SS Direta automáticos',
   'Relatório TSU mensal pronto para a contabilidade',
   'Notificações push em tempo real',

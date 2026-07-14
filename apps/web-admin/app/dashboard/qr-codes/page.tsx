@@ -3,15 +3,14 @@
 /**
  * /dashboard/qr-codes
  *
- * Employer's permanent QR code management page.
+ * Employer's permanent QR code management page (v2.1 — check-in only).
  *
- * The employer prints these two QR codes once and posts them at their venue:
- *   • CHECK-IN  QR  (purple) — worker scans on arrival
- *   • CHECK-OUT QR  (green)  — worker scans on departure
+ * The employer prints ONE QR code and posts it at the venue entrance:
+ * the worker scans it on arrival. There is no check-out scan — shifts
+ * complete automatically at their scheduled end time.
  *
- * Both codes are static (never expire). They encode the employer's ID + action,
- * signed with HMAC-SHA256.  If the printed copies are lost or damaged, the
- * employer regenerates them here and prints again — the codes are deterministic.
+ * The code is static (never expires): employer ID + action signed with
+ * HMAC-SHA256. If the print is lost, regenerate here — it's deterministic.
  */
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
@@ -19,7 +18,6 @@ import { adminApi, ApiError } from '../../../lib/api';
 
 interface QrData {
   checkInQrDataUrl:  string;
-  checkOutQrDataUrl: string;
   employerName:      string;
 }
 
@@ -69,10 +67,10 @@ export default function QrCodesPage() {
       <div style={s.header} className="no-print">
         <div>
           <Link href="/dashboard/shifts" style={s.backLink}>← Voltar aos Turnos</Link>
-          <h1 style={s.title}>Códigos QR de Check-in / Check-out</h1>
+          <h1 style={s.title}>Código QR de Check-in</h1>
           <p style={s.sub}>
-            Imprima estes dois QR codes e afixe-os no seu local de trabalho.
-            Os trabalhadores Turnos usam a aplicação para os digitalizar na chegada e saída.
+            Imprima este QR code e afixe-o à entrada do seu local de trabalho.
+            O trabalhador digitaliza-o na chegada — o turno conclui automaticamente à hora de fim.
           </p>
         </div>
         <div style={s.headerActions} className="no-print">
@@ -89,11 +87,12 @@ export default function QrCodesPage() {
       <div style={s.infoBanner} className="no-print">
         <div style={s.infoIcon}>💡</div>
         <div>
-          <strong>Como funciona:</strong> Estes QR codes são permanentes — não expiram.
-          Imprima-os uma vez e afixe-os na entrada/saída do seu espaço.
-          Em caso de perda ou dano, pode sempre voltar a esta página para imprimir novamente.
-          O trabalhador abre a aplicação Turnos, toca em <em>Check-in</em> ou <em>Check-out</em>,
-          e aponta a câmara para o QR correspondente.
+          <strong>Como funciona:</strong> Este QR code é permanente — não expira.
+          Imprima-o uma vez e afixe-o à entrada do seu espaço.
+          O trabalhador abre a aplicação Turnos, toca em <em>Check-in</em> e aponta a câmara.
+          No fim do horário, o turno <strong>conclui automaticamente</strong> — não é preciso
+          digitalizar à saída. Se algo correr mal (saída antecipada, problema no turno),
+          pode ajustar as horas ou reportar o problema em <em>Os Meus Turnos</em> antes de pagar.
         </div>
       </div>
 
@@ -119,7 +118,7 @@ export default function QrCodesPage() {
 
           {/* Print header (only shows when printing) */}
           <div style={s.printHeader}>
-            <p style={s.printTitle}>Turnos — Check-in / Check-out</p>
+            <p style={s.printTitle}>Turnos — Check-in</p>
             {data.employerName && <p style={s.printEmployer}>{data.employerName}</p>}
           </div>
 
@@ -152,38 +151,11 @@ export default function QrCodesPage() {
               </button>
             </div>
 
-            {/* CHECK-OUT */}
-            <div style={{ ...s.qrCard, ...s.qrCardOut }}>
-              <div style={s.qrCardHeader}>
-                <div style={{ ...s.qrBadge, background: '#16a34a' }}>↓</div>
-                <div>
-                  <h2 style={s.qrCardTitle}>CHECK-OUT</h2>
-                  <p style={s.qrCardSub}>Digitalizar na saída</p>
-                </div>
-              </div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={data.checkOutQrDataUrl}
-                alt="QR Code Check-out"
-                style={s.qrImage}
-              />
-              <p style={s.qrInstruction}>
-                📱 Trabalhador abre a app → toca em <strong>Fazer Check-out</strong> → aponta a câmara aqui
-              </p>
-              <button
-                style={{ ...s.downloadBtn, ...s.downloadBtnOut }}
-                onClick={() => downloadQr(data.checkOutQrDataUrl, `turnos-check-out-${data.employerName.replace(/\s+/g, '-').toLowerCase()}.png`)}
-                className="no-print"
-              >
-                ⬇ Descarregar PNG
-              </button>
-            </div>
-
           </div>
 
           {/* Placement guide */}
           <div style={s.placementCard} className="no-print">
-            <h3 style={s.placementTitle}>📌 Onde colocar os QR codes</h3>
+            <h3 style={s.placementTitle}>📌 Onde colocar o QR code</h3>
             <div style={s.placementGrid}>
               <div style={s.placementItem}>
                 <div style={s.placementIcon}>🚪</div>
@@ -193,10 +165,10 @@ export default function QrCodesPage() {
                 </div>
               </div>
               <div style={s.placementItem}>
-                <div style={s.placementIcon}>🚶</div>
+                <div style={s.placementIcon}>⏱️</div>
                 <div>
-                  <strong>CHECK-OUT</strong> — Saída / Receção
-                  <p style={s.placementDesc}>Junto à saída ou na receção, onde o trabalhador se despede.</p>
+                  <strong>FIM DO TURNO</strong> — Automático
+                  <p style={s.placementDesc}>Não há QR de saída: o turno conclui sozinho à hora de fim agendada.</p>
                 </div>
               </div>
             </div>

@@ -12,12 +12,14 @@ import { Employer } from '../users/entities/employer.entity';
 import { Shift } from '../shifts/entities/shift.entity';
 import { User } from '../users/entities/user.entity';
 import { MailModule } from '../mail/mail.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Rating, NoShowFlag, FavouriteWorker, Worker, Employer, Shift, User]),
     BullModule.registerQueue({ name: 'rating-reminder' }),
     MailModule,
+    NotificationsModule,
   ],
   controllers: [RatingsController],
   providers:   [RatingsService, RatingReminderProcessor],

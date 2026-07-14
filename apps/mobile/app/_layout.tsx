@@ -56,6 +56,12 @@ export default function RootLayout() {
             grossAmount: String(data.grossAmount ?? 0),
           },
         } as any);
+      } else if (data?.type === 'rate_employer' && data?.shiftId) {
+        // Review prompt (at completion + the +8h follow-up) → rating screen
+        router.push(`/rate/${data.shiftId}` as any);
+      } else if (data?.type === 'wage_paid' || data?.type === 'wage_marked_paid' || data?.type === 'wage_adjusted') {
+        // Payment updates → my-shifts, where the wage status chips live
+        router.push('/my-shifts' as any);
       } else if (data?.shiftId) {
         router.push(`/shift/${data.shiftId}` as any);
       }

@@ -37,6 +37,7 @@ export interface RatingReminderJobData {
   shiftTitle: string;
   employerEmail: string;
   employerName: string;
+  workerId?: string;    // v2.1 — enables the worker-side follow-up push
 }
 
 @Injectable()
@@ -415,17 +416,22 @@ export class RatingsService {
   // ── Rating reminder (email to employer 30 min after shift completes) ───────
 
   /**
-   * Called by AttendanceService after shift completes.
-   * Looks up the employer's email from the User entity and enqueues a
-   * delayed BullMQ job (30 min) to send the rating-prompt email.
+   * Called by AttendanceService when a shift auto-completes (v2.1).
+   * Enqueues one +8h follow-up job; at fire time each side is only nudged
+   * if their rating still doesn't exist.
    */
-  async scheduleRatingReminder(shiftId: string, shiftTitle: string, employerId: string): Promise<void> {
+  async scheduleReviewFollowUps(
+    shiftId: string,
+    shiftTitle: string,
+    employerId: string,
+    workerId: string,
+  ): Promise<void> {
     const employer = await this.employerRepo.findOne({
       where: { id: employerId },
       relations: ['user'],
     });
     if (!employer?.user?.email) {
-      this.logger.warn(`[Ratings] Employer ${employerId} has no email — skipping rating reminder`);
+      this.logger.warn(`[Ratings] Employer ${employerId} has no email — skipping review follow-up`);
       return;
     }
 
@@ -434,10 +440,35 @@ export class RatingsService {
       shiftTitle,
       employerEmail: employer.user.email,
       employerName:  employer.companyName,
+      workerId,
     };
 
-    await this.reminderQueue.add('rating-reminder', jobData, { delay: 30 * 60 * 1000 });
-    this.logger.log(`[Ratings] Rating reminder scheduled for employer ${employer.user.email} (shift ${shiftId})`);
+    await this.reminderQueue.add('rating-reminder', jobData, { delay: 8 * 60 * 60 * 1000 });
+    this.logger.log(`[Ratings] +8h review follow-ups scheduled for shift ${shiftId}`);
+  }
+
+  /**
+   * Runs at +8h (called by the processor): nudges only the sides that
+   * haven't reviewed yet — email to the employer, push to the worker.
+   */
+  async processReviewFollowUp(data: RatingReminderJobData): Promise<{
+    remindEmployer: boolean;
+    workerPushToken: string | null;
+  }> {
+    const employerRated = await this.ratingRepo.exist({
+      where: { shift: { id: data.shiftId }, direction: 'EMPLOYER_TO_WORKER' },
+    });
+    const workerRated = await this.ratingRepo.exist({
+      where: { shift: { id: data.shiftId }, direction: 'WORKER_TO_EMPLOYER' },
+    });
+
+    let workerPushToken: string | null = null;
+    if (!workerRated && data.workerId) {
+      const worker = await this.workerRepo.findOne({ where: { id: data.workerId } });
+      workerPushToken = worker?.expoPushToken ?? null;
+    }
+
+    return { remindEmployer: !employerRated, workerPushToken };
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

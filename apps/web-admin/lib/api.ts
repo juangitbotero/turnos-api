@@ -405,6 +405,18 @@ export const adminApi = {
   markWagePaid: (id: string) =>
     request<WagePayment>(`/payments/wages/${id}/mark-paid`, { method: 'POST' }),
 
+  /** Adjust the hours actually worked before paying (2h floor — regenerates the Pay Link) */
+  adjustWageHours: (id: string, hoursWorked: number, note?: string) =>
+    request<WagePayment>(`/payments/wages/${id}/adjust-hours`, {
+      method: 'POST', body: JSON.stringify({ hoursWorked, note }),
+    }),
+
+  /** Report a problem with a completed shift — pauses reminders, goes to ops review */
+  reportWageProblem: (id: string, category: string, note?: string) =>
+    request<WagePayment>(`/payments/wages/${id}/report-problem`, {
+      method: 'POST', body: JSON.stringify({ category, note }),
+    }),
+
   /** Mark an expired shift as CANCELLED (soft delete) */
   deleteExpiredShift: (id: string) =>
     request<{ message: string }>(`/shifts/${id}/expired`, { method: 'DELETE' }),
@@ -433,16 +445,14 @@ export const adminApi = {
   // ── Attendance ─────────────────────────────────────────────────────────────
 
   /**
-   * Fetch the employer's two permanent static QR codes (check-in + check-out).
-   * The same QR codes are always returned — deterministic HMAC tokens.
-   * Employer prints them once and posts them at the venue.
+   * Fetch the employer's single permanent static check-in QR code (v2.1 —
+   * no check-out; shifts auto-complete at scheduled end). Deterministic
+   * HMAC token — print once, post at the venue entrance.
    */
   getEmployerQrCodes: () =>
     request<{
       checkInQrDataUrl:  string;
-      checkOutQrDataUrl: string;
       checkInToken:      string;
-      checkOutToken:     string;
       employerName:      string;
     }>('/attendance/employer-qr', { method: 'GET' }),
 
