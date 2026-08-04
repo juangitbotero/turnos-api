@@ -28,6 +28,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   'Apoio ao Cliente': 'headset-outline',
   'Logística':     'cube-outline',
   'Administração': 'briefcase-outline',
+  'Limpeza e Segurança': 'sparkles-outline',
 } as const;
 
 // Collapsible category accordion for skills

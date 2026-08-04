@@ -27,8 +27,9 @@ const CATEGORY_ICONS: Record<string, string> = {
   'Eventos':          '🎪',
   'Vendas':           '🏷️',
   'Apoio ao Cliente': '🎧',
-  'Logística':        '📦',
-  'Administração':    '💼',
+  'Logística':          '📦',
+  'Administração':      '💼',
+  'Limpeza e Segurança': '🧹',
 };
 
 // ── Skills selector — grouped by category accordion ───────────────────────────

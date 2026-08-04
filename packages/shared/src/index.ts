@@ -170,7 +170,7 @@ export const SHIFT_CATEGORIES = {
     'Padeiro/a',
     'Pasteleiro/a',
   ],
-  'Serviços e Manutenção': [
+  'Limpeza e Segurança': [
     'Empregado/a de limpeza',
     'Técnico/a de manutenção',
     'Segurança/Vigilante',
