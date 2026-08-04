@@ -6,10 +6,14 @@
  *   - TURNOS_PAY_LINK: Stripe Checkout Session created as a DIRECT CHARGE on
  *     the worker's own Connect account — the worker is the merchant, funds
  *     settle straight into their Stripe balance and auto-pay-out to their
- *     IBAN. The amount is grossed-up so the company absorbs Stripe's
- *     processing fee and the worker receives the full wage.
- *   - Manual methods (transferência / MB WAY / numerário): tracked via the
- *     mark-paid ("Marcado como pago") + worker confirmation ("Recebi") loop.
+ *     IBAN. Payable by card or MB WAY. The amount is grossed-up so the company
+ *     absorbs Stripe's processing fee and the worker receives the full wage.
+ *     Turnos takes NO cut of this charge — no application_fee_amount, ever;
+ *     a percentage of the wage would re-create intermediary optics.
+ *   - Manual methods (transferência / MB WAY paid outside the platform):
+ *     tracked via the mark-paid ("Marcado como pago") + worker confirmation
+ *     ("Recebi") loop, with a proof-of-payment upload as the evidence a
+ *     dispute can actually be decided on.
  *
  * Unpaid Pay Links follow a reminder ladder: +8h, +24h, +48h final warning,
  * +72h posting blocked (enforced in PaymentsService.assertCanPostShift).
@@ -30,10 +34,31 @@ import { Worker } from '../users/entities/worker.entity';
 import { Shift } from '../shifts/entities/shift.entity';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StorageService } from '../storage/storage.service';
 
-// Stripe EU card pricing — used to gross-up so the worker nets the full wage
-const STRIPE_FEE_PCT   = 0.015;
+/**
+ * Gross-up basis (Stripe EEA pricing).
+ *
+ * The exact fee is not knowable when we create the session — it depends on the
+ * card the payer picks. Stripe EEA rates: 1.5% + €0.25 standard consumer card,
+ * 2.8% + €0.25 premium/commercial. Company cards are usually commercial, so a
+ * 1.5% gross-up under-collects and the WORKER absorbs the difference (on a €100
+ * wage: charge €101.78, fee €3.10, worker nets €98.68). That is unacceptable —
+ * the worker must always receive the full gross.
+ *
+ * So we gross up at the worst realistic EEA rate. When the payer uses a cheaper
+ * method (standard card, or MB WAY at 1.5% + €0.25) the small surplus goes to
+ * the worker, never to Turnos. `reconcileFromWebhook` records what actually
+ * landed, and flags the residual case a gross-up cannot cover: non-EEA cards
+ * (up to 3.15% + 2% FX).
+ */
+const STRIPE_FEE_PCT   = 0.028;
 const STRIPE_FEE_FIXED = 0.25;
+
+/** Charge the company must pay so the worker nets `amountEur` after Stripe. */
+function grossUp(amountEur: number): number {
+  return Math.ceil(((amountEur + STRIPE_FEE_FIXED) / (1 - STRIPE_FEE_PCT)) * 100) / 100;
+}
 
 // Reminder ladder (hours after creation)
 export const REMINDER_LADDER_HOURS = [8, 24, 48, 72] as const;
@@ -43,6 +68,22 @@ export const POSTING_BLOCK_HOURS = 72;
 export interface WageReminderJobData {
   wagePaymentId: string;
   step: number; // 0-based index into REMINDER_LADDER_HOURS
+}
+
+/**
+ * A wage payment as the employer dashboard sees it — the record plus what the
+ * company needs to actually pay a manual (non-Pay-Link) wage.
+ */
+export interface EmployerWagePaymentView extends WagePayment {
+  workerName: string | null;
+  workerIban: string | null;        // null for Pay Link, or when consent is absent
+  workerIbanWithheld: boolean;      // true = worker has not consented to disclosure
+  paymentReference: string;
+}
+
+/** Short, stable reference the company puts on the bank transfer. */
+function wagePaymentReference(wagePaymentId: string): string {
+  return `TURNOS-${wagePaymentId.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
 }
 
 @Injectable()
@@ -69,6 +110,7 @@ export class WagePaymentsService {
     private readonly config: ConfigService,
     private readonly mail: MailService,
     private readonly notifications: NotificationsService,
+    private readonly storage: StorageService,
   ) {
     this.stripe = new Stripe(
       this.config.get<string>('STRIPE_SECRET_KEY', ''),
@@ -166,8 +208,7 @@ export class WagePaymentsService {
     const wantsLink = params.paymentMethod === 'TURNOS_PAY_LINK' || params.preferLink === true;
     if (wantsLink && worker?.stripeAccountId) {
       try {
-        // Gross-up: charge A so that A - (A×1.5% + €0.25) = wage
-        const chargeEur = Math.ceil(((params.amountEur + STRIPE_FEE_FIXED) / (1 - STRIPE_FEE_PCT)) * 100) / 100;
+        const chargeEur = grossUp(params.amountEur);
         processingFee = Math.round((chargeEur - params.amountEur) * 100) / 100;
 
         const webUrl = this.config.get<string>('WEB_ADMIN_URL', 'http://localhost:3000');
@@ -177,6 +218,11 @@ export class WagePaymentsService {
 
         // DIRECT CHARGE on the worker's connected account: the worker is the
         // merchant of record and funds never touch Turnos' balance.
+        //
+        // No payment_method_types — dynamic payment methods let Stripe offer
+        // whatever the worker's account has active. Card is always there; MB WAY
+        // appears automatically for EUR/PT payers once the mb_way_payments
+        // capability is active (requested at Connect onboarding).
         const session = await this.stripe.checkout.sessions.create(
           {
             mode: 'payment',
@@ -187,7 +233,7 @@ export class WagePaymentsService {
                 unit_amount: Math.round(chargeEur * 100),
                 product_data: {
                   name: label,
-                  description: `Pagamento direto ao trabalhador via Turnos Pay Link. Inclui taxa de processamento (€${processingFee.toFixed(2)}) suportada pela empresa.`,
+                  description: `Pagamento direto ao trabalhador via Turnos Pay Link. Inclui taxa de processamento estimada (€${processingFee.toFixed(2)}), suportada pela empresa.`,
                 },
               },
             }],
@@ -244,8 +290,14 @@ export class WagePaymentsService {
 
   // ── Webhook confirmation (Pay Link) ────────────────────────────────────────
 
-  /** Called by PaymentsService.handleWebhook on checkout.session.completed. */
-  async markPaidFromWebhook(checkoutSessionId: string): Promise<void> {
+  /**
+   * Called by PaymentsService.handleWebhook on checkout.session.completed.
+   *
+   * `connectedAccountId` is the Stripe account the event fired on (event.account)
+   * — required to read the charge back, since the whole transaction lives on the
+   * worker's account, not the platform's.
+   */
+  async markPaidFromWebhook(checkoutSessionId: string, connectedAccountId?: string): Promise<void> {
     const wage = await this.wageRepo.findOne({ where: { stripeCheckoutSessionId: checkoutSessionId } });
     if (!wage) {
       this.logger.warn(`[Wage] Webhook for unknown checkout session ${checkoutSessionId}`);
@@ -255,8 +307,38 @@ export class WagePaymentsService {
 
     wage.status = WagePaymentStatus.PAID;
     wage.paidAt = new Date();
+
+    // Reconcile against the real Stripe fee — the gross-up is an estimate.
+    const actual = await this.readActualSettlement(checkoutSessionId, connectedAccountId);
+    if (actual) {
+      wage.stripeFeeActual = actual.feeEur;
+      wage.netReceived     = actual.netEur;
+    }
     await this.wageRepo.save(wage);
-    this.logger.log(`[Wage] Pay Link PAID for shift ${wage.shiftId} — €${wage.amount}`);
+
+    const wageAmount = Number(wage.amount);
+    const shortfall  = actual ? Math.round((wageAmount - actual.netEur) * 100) / 100 : 0;
+
+    this.logger.log(
+      `[Wage] Pay Link PAID for shift ${wage.shiftId} — wage €${wageAmount}` +
+      (actual ? `, fee €${actual.feeEur}, net €${actual.netEur}` : ', settlement unread'),
+    );
+
+    // A gross-up can't cover every case (non-EEA card ≈3.15% + 2% FX). If the
+    // worker came up short, ops settles the difference — it must never be silent.
+    if (shortfall >= 0.01) {
+      this.logger.warn(`[Wage] Shortfall €${shortfall} on ${wage.id} — worker under-paid`);
+      this.mail.sendMail({
+        to: 'ops@turnos.pt',
+        subject: `⚠️ Pay Link liquidou abaixo do salário — €${shortfall.toFixed(2)} em falta`,
+        html: `<p>O trabalhador recebeu <strong>€${actual!.netEur.toFixed(2)}</strong> em vez de
+               <strong>€${wageAmount.toFixed(2)}</strong> pelo turno <strong>${wage.shiftTitle}</strong>.</p>
+               <p>Taxa Stripe real: €${actual!.feeEur.toFixed(2)} (estimada: €${Number(wage.processingFee).toFixed(2)}).
+               Provável cartão não-EEE.</p>
+               <p>Diferença a regularizar: <strong>€${shortfall.toFixed(2)}</strong> ·
+               WagePayment ${wage.id} · Shift ${wage.shiftId}</p>`,
+      }).catch(() => {});
+    }
 
     // Push to the worker: money is on its way to their IBAN
     const worker = await this.workerRepo.findOne({ where: { id: wage.workerId } });
@@ -264,9 +346,44 @@ export class WagePaymentsService {
       this.notifications.sendDirectPush(
         [worker.expoPushToken],
         'Pagamento recebido ✅',
-        `A empresa pagou €${Number(wage.amount).toFixed(2)} pelo turno "${wage.shiftTitle}". O valor chega à tua conta em 1–2 dias úteis.`,
+        `A empresa pagou €${wageAmount.toFixed(2)} pelo turno "${wage.shiftTitle}". O valor chega à tua conta em 1–2 dias úteis.`,
         { type: 'wage_paid', shiftId: wage.shiftId },
       ).catch(() => {});
+    }
+  }
+
+  /**
+   * Read what actually settled: the charge's balance transaction carries the
+   * real Stripe fee and the net credited to the worker's balance.
+   * Returns null when it can't be read — reconciliation is best-effort and
+   * must never block marking the wage paid.
+   */
+  private async readActualSettlement(
+    checkoutSessionId: string,
+    connectedAccountId?: string,
+  ): Promise<{ feeEur: number; netEur: number } | null> {
+    if (!connectedAccountId) return null;
+    try {
+      const session = await this.stripe.checkout.sessions.retrieve(
+        checkoutSessionId,
+        { expand: ['payment_intent.latest_charge.balance_transaction'] },
+        { stripeAccount: connectedAccountId },
+      );
+
+      const intent = session.payment_intent;
+      if (!intent || typeof intent === 'string') return null;
+      const charge = intent.latest_charge;
+      if (!charge || typeof charge === 'string') return null;
+      const balanceTx = charge.balance_transaction;
+      if (!balanceTx || typeof balanceTx === 'string') return null;
+
+      return {
+        feeEur: Math.round(balanceTx.fee) / 100,
+        netEur: Math.round(balanceTx.net) / 100,
+      };
+    } catch (err) {
+      this.logger.warn(`[Wage] Could not read settlement for ${checkoutSessionId}: ${(err as Error).message}`);
+      return null;
     }
   }
 
@@ -318,7 +435,7 @@ export class WagePaymentsService {
             { stripeAccount: worker.stripeAccountId },
           ).catch(() => {}); // may already be expired
 
-          const chargeEur = Math.ceil(((newAmount + STRIPE_FEE_FIXED) / (1 - STRIPE_FEE_PCT)) * 100) / 100;
+          const chargeEur = grossUp(newAmount);
           const webUrl = this.config.get<string>('WEB_ADMIN_URL', 'http://localhost:3000');
           const session = await this.stripe.checkout.sessions.create(
             {
@@ -417,8 +534,20 @@ export class WagePaymentsService {
 
   // ── Trust loop (manual methods) ────────────────────────────────────────────
 
-  /** Employer declares a manual payment done ("Marcado como pago"). */
-  async markPaidByEmployer(employerUserId: string, wagePaymentId: string): Promise<WagePayment> {
+  /**
+   * Employer declares a manual payment done ("Marcado como pago").
+   *
+   * A bare checkbox leaves a dispute with nothing to review, so the company is
+   * asked for a comprovativo (bank receipt / MB WAY screenshot). It is not a
+   * hard block — a company can still declare payment without one — but the
+   * absence is recorded and shown to ops, which is what makes it evidence.
+   */
+  async markPaidByEmployer(
+    employerUserId: string,
+    wagePaymentId: string,
+    proof?: { buffer: Buffer; mimetype: string },
+    noProofReason?: string,
+  ): Promise<WagePayment> {
     const employer = await this.employerRepo.findOne({ where: { user: { id: employerUserId } } });
     if (!employer) throw new UnauthorizedException('Employer not found');
 
@@ -427,6 +556,19 @@ export class WagePaymentsService {
     if (wage.employerId !== employer.id) throw new UnauthorizedException('Not your payment');
     if (wage.status === WagePaymentStatus.PAID || wage.status === WagePaymentStatus.CONFIRMED) {
       return wage; // already settled
+    }
+
+    if (proof) {
+      try {
+        wage.paymentProofUrl  = await this.storage.upload(proof.buffer, proof.mimetype, 'payment-proofs');
+        wage.paymentProofNote = null;
+      } catch (err) {
+        // Never block a legitimate payment declaration on a storage failure
+        this.logger.error(`[Wage] Proof upload failed for ${wage.id}: ${(err as Error).message}`);
+        wage.paymentProofNote = 'Falha no upload do comprovativo';
+      }
+    } else {
+      wage.paymentProofNote = (noProofReason ?? 'Sem comprovativo anexado').slice(0, 200);
     }
 
     wage.status = WagePaymentStatus.MARKED_PAID;
@@ -439,11 +581,13 @@ export class WagePaymentsService {
       this.notifications.sendDirectPush(
         [worker.expoPushToken],
         'A empresa marcou o teu pagamento como feito 💶',
-        `€${Number(wage.amount).toFixed(2)} pelo turno "${wage.shiftTitle}". Confirma na app se já recebeste.`,
+        `€${Number(wage.amount).toFixed(2)} pelo turno "${wage.shiftTitle}".` +
+        `${wage.paymentProofUrl ? ' Anexou comprovativo.' : ''} Confirma na app se já recebeste.`,
         { type: 'wage_marked_paid', shiftId: wage.shiftId },
       ).catch(() => {});
     }
 
+    this.logger.log(`[Wage] ${wage.id} marked paid by employer (${wage.paymentProofUrl ? 'with' : 'without'} proof)`);
     return wage;
   }
 
@@ -488,16 +632,47 @@ export class WagePaymentsService {
 
   // ── Queries ────────────────────────────────────────────────────────────────
 
-  /** All open (not yet settled) wage payments for the employer dashboard. */
-  async getEmployerPending(employerUserId: string): Promise<WagePayment[]> {
+  /**
+   * All open (not yet settled) wage payments for the employer dashboard.
+   *
+   * For manual methods the company needs the worker's payment coordinates to
+   * actually pay them, so each row carries the worker's name, IBAN and a stable
+   * reference. Scoped to this employer's own open payments only — the IBAN is
+   * disclosed for the sole purpose of settling a wage the company already owes.
+   *
+   * The IBAN is released ONLY if the worker gave explicit consent
+   * (`Worker.ibanShareConsentAt`). Without it the field comes back null and the
+   * dashboard tells the company to use the Pay Link instead.
+   */
+  async getEmployerPending(employerUserId: string): Promise<EmployerWagePaymentView[]> {
     const employer = await this.employerRepo.findOne({ where: { user: { id: employerUserId } } });
     if (!employer) throw new UnauthorizedException('Employer not found');
-    return this.wageRepo.find({
+
+    const wages = await this.wageRepo.find({
       where: {
         employerId: employer.id,
         status: In([WagePaymentStatus.PENDING, WagePaymentStatus.MARKED_PAID, WagePaymentStatus.DISPUTED]),
       },
       order: { createdAt: 'DESC' },
+    });
+    if (wages.length === 0) return [];
+
+    const workers = await this.workerRepo.find({
+      where: { id: In([...new Set(wages.map(w => w.workerId))]) },
+    });
+    const byId = new Map(workers.map(w => [w.id, w]));
+
+    return wages.map(wage => {
+      const worker = byId.get(wage.workerId);
+      const needsIban = wage.paymentMethod !== 'TURNOS_PAY_LINK';
+      const consented = !!worker?.ibanShareConsentAt;
+      return {
+        ...wage,
+        workerName:       worker?.fullName ?? null,
+        workerIban:       needsIban && consented ? (worker?.iban ?? null) : null,
+        workerIbanWithheld: needsIban && !consented,
+        paymentReference: wagePaymentReference(wage.id),
+      };
     });
   }
 
@@ -513,6 +688,18 @@ export class WagePaymentsService {
   }
 
   /** True if the employer has a Pay-Link-or-manual wage unpaid past the block window. */
+  /**
+   * Does a completion wage payment already exist for any of these shifts?
+   * Used to keep multi-day settlement idempotent: a series is paid once, and
+   * the row is attached to whichever day triggered the settlement.
+   */
+  async existsForShifts(shiftIds: string[]): Promise<boolean> {
+    if (shiftIds.length === 0) return false;
+    return (await this.wageRepo.count({
+      where: { shiftId: In(shiftIds), type: WagePaymentType.SHIFT_COMPLETION },
+    })) > 0;
+  }
+
   async hasOverdueUnpaid(employerId: string): Promise<boolean> {
     const cutoff = new Date(Date.now() - POSTING_BLOCK_HOURS * 60 * 60 * 1000);
     const count = await this.wageRepo.count({

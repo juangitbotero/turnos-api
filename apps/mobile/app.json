@@ -29,7 +29,9 @@
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
       ],
       "versionCode": 6
     },
@@ -59,6 +61,13 @@
           "color": "#6366F1"
         }
       ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "A Turnos precisa de acesso ao calendário para adicionar os teus turnos confirmados."
+        }
+      ],
+      "expo-document-picker",
       "expo-font"
     ],
     "scheme": "turnos",

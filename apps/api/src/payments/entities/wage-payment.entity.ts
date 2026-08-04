@@ -51,7 +51,13 @@ export class WagePayment {
   amount: number;                    // Wage the worker receives (full gross)
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  processingFee: number;             // Stripe fee grossed-up on top — paid by the company
+  processingFee: number;             // Estimated Stripe fee grossed-up on top — paid by the company
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  stripeFeeActual: number | null;    // Real fee from the balance transaction (set on webhook)
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  netReceived: number | null;        // What actually landed in the worker's balance (set on webhook)
 
   // ── Payment channel ────────────────────────────────────────────────────────
   @Column({ type: 'varchar', length: 20 })
@@ -62,6 +68,17 @@ export class WagePayment {
 
   @Column({ type: 'varchar', nullable: true })
   stripeCheckoutSessionId: string | null;
+
+  /**
+   * Proof of payment uploaded by the company for a manual method
+   * (transferência / MB WAY) — bank receipt or app screenshot. Null when the
+   * company declared the payment without evidence; see paymentProofNote.
+   */
+  @Column({ type: 'varchar', length: 512, nullable: true })
+  paymentProofUrl: string | null;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  paymentProofNote: string | null;   // Reason given when marking paid with no proof
 
   // ── Cancellation context ───────────────────────────────────────────────────
   @Column({ type: 'varchar', length: 40, nullable: true })

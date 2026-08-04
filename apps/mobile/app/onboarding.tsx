@@ -6,6 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import {
   colors, spacing, radius, fontSize, fontWeight,
   isValidNIF, isValidIBAN, calculateProfileQualityScore, SHIFT_CATEGORIES, ShiftCategory,
@@ -24,11 +25,14 @@ export default function OnboardingScreen() {
   const [fullName,     setFullName]     = useState('');
   const [nif,          setNif]          = useState('');
   const [iban,         setIban]         = useState('');
+  const [ibanShareConsent, setIbanShareConsent] = useState(false);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [selectedDays,   setSelectedDays]   = useState<string[]>([]);
   const [photoUri,    setPhotoUri]    = useState<string | null>(null);
   const [photoMime,   setPhotoMime]   = useState('image/jpeg');
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  // CV is picked here but uploaded on submit, alongside the photo
+  const [cvAsset, setCvAsset] = useState<{ uri: string; name: string; mimeType: string } | null>(null);
   const [externalMonthlyIncome, setExternalMonthlyIncome] = useState('');
 
   // Validation errors
@@ -47,6 +51,28 @@ export default function OnboardingScreen() {
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day],
     );
   }, []);
+
+  const pickCv = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ],
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    if (asset.size && asset.size > 10 * 1024 * 1024) {
+      Alert.alert('Ficheiro demasiado grande', 'O CV não pode exceder 10 MB.');
+      return;
+    }
+    setCvAsset({
+      uri: asset.uri,
+      name: asset.name ?? 'cv.pdf',
+      mimeType: asset.mimeType ?? 'application/pdf',
+    });
+  };
 
   const pickPhoto = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -73,6 +99,7 @@ export default function OnboardingScreen() {
     skillsCount:     selectedSkills.length,
     hasFullName:     fullName.trim().length > 0,
     hasAvailability: selectedDays.length > 0,
+    hasCv:           !!cvAsset,
   });
 
   const validateStep = (): boolean => {
@@ -117,10 +144,21 @@ export default function OnboardingScreen() {
         }
       }
 
+      // CV upload — best-effort, same treatment as the photo
+      if (cvAsset) {
+        try {
+          await authApi.uploadWorkerCv(cvAsset.uri, cvAsset.mimeType, cvAsset.name);
+        } catch (err) {
+          const msg = err instanceof ApiError ? err.message : 'Erro ao enviar o CV.';
+          Alert.alert('Aviso', `${msg} O perfil será submetido sem CV.`);
+        }
+      }
+
       await authApi.updateWorkerProfile({
         fullName,
         nif,
         iban,
+        ibanShareConsent: iban.trim() ? ibanShareConsent : false,
         skills: selectedSkills,
         availableDays: selectedDays,
         declaredExternalMonthlyIncome: externalMonthlyIncome
@@ -248,7 +286,35 @@ export default function OnboardingScreen() {
               {!ibanError && iban.length === 25 && isValidIBAN(iban) && (
                 <Text style={s.validText}>✓ IBAN válido</Text>
               )}
-              <Text style={s.fieldHint}>O teu salário será depositado nesta conta no dia seguinte ao turno.</Text>
+              <Text style={s.fieldHint}>
+                A empresa paga-te diretamente o valor bruto. Se pagar por transferência,
+                precisa do teu IBAN.
+              </Text>
+
+              {/* ── IBAN sharing consent (GDPR) ── */}
+              {iban.trim().length > 0 && (
+                <>
+                  <TouchableOpacity
+                    style={s.consentRow}
+                    onPress={() => setIbanShareConsent(v => !v)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[s.checkbox, ibanShareConsent && s.checkboxOn]}>
+                      {ibanShareConsent && <Text style={s.checkboxTick}>✓</Text>}
+                    </View>
+                    <Text style={s.consentText}>
+                      Autorizo a partilha do meu nome e IBAN com as empresas onde fiz turnos,
+                      para que me possam pagar por transferência. Posso retirar esta
+                      autorização no meu perfil a qualquer momento.
+                    </Text>
+                  </TouchableOpacity>
+                  {!ibanShareConsent && (
+                    <Text style={s.consentWarn}>
+                      Sem esta autorização, as empresas só te podem pagar por Turnos Pay Link ou MB WAY.
+                    </Text>
+                  )}
+                </>
+              )}
             </View>
 
             <View style={s.fieldGroup}>
@@ -303,6 +369,22 @@ export default function OnboardingScreen() {
                 </Pressable>
               ))}
             </View>
+
+            {/* CV — optional, worth 10 points */}
+            <Text style={[s.sectionTitle, { marginTop: 28 }]}>Currículo (CV)</Text>
+            <Text style={s.sectionSub}>
+              Opcional, mas vale +10 pontos. PDF ou Word, até 10 MB. As empresas veem-no ao escolher candidatos.
+            </Text>
+            <Pressable style={s.cvBtn} onPress={pickCv}>
+              <Text style={s.cvBtnText}>
+                {cvAsset ? `📄 ${cvAsset.name}` : '＋ Escolher ficheiro'}
+              </Text>
+            </Pressable>
+            {cvAsset && (
+              <Pressable onPress={() => setCvAsset(null)}>
+                <Text style={s.cvRemoveText}>Remover CV</Text>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -351,6 +433,7 @@ export default function OnboardingScreen() {
               ['IBAN', iban ? `${iban.slice(0, 8)}...${iban.slice(-4)}` : ''],
               ['Competências', selectedSkills.slice(0, 3).join(', ') + (selectedSkills.length > 3 ? ` +${selectedSkills.length - 3}` : '')],
               ['Disponibilidade', selectedDays.join(', ')],
+              ['CV', cvAsset?.name ?? ''],
             ].map(([k, v]) => v ? (
               <View key={k} style={s.summaryRow}>
                 <Text style={s.summaryKey}>{k}</Text>
@@ -450,6 +533,22 @@ const s = StyleSheet.create({
   errorText: { fontSize: fontSize.caption, color: colors.error, fontWeight: fontWeight.semibold },
   validText: { fontSize: fontSize.caption, color: colors.success, fontWeight: fontWeight.bold },
 
+  // IBAN sharing consent
+  consentRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 10,
+    padding: 12, borderRadius: radius.sm,
+    backgroundColor: colors.primaryLight, borderWidth: 1, borderColor: '#d7dcff',
+  },
+  checkbox: {
+    width: 20, height: 20, borderRadius: 5, borderWidth: 1.5,
+    borderColor: colors.primary, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#fff', marginTop: 1,
+  },
+  checkboxOn:   { backgroundColor: colors.primary },
+  checkboxTick: { color: '#fff', fontSize: 13, fontWeight: fontWeight.bold as any, lineHeight: 16 },
+  consentText:  { flex: 1, fontSize: fontSize.caption, color: colors.textPrimary, lineHeight: 17 },
+  consentWarn:  { fontSize: fontSize.caption, color: '#b45309', marginTop: 6, lineHeight: 16 },
+
   infoCard: {
     flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start',
     backgroundColor: colors.primaryLight, borderRadius: radius.sm, padding: spacing.md,
@@ -469,6 +568,17 @@ const s = StyleSheet.create({
   chipTextActive: { color: '#fff' },
 
   daysRow: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
+
+  cvBtn: {
+    height: 48, borderRadius: radius.md, marginTop: spacing.sm,
+    borderWidth: 1.5, borderColor: colors.primary, borderStyle: 'dashed',
+    backgroundColor: '#f5f6ff', alignItems: 'center', justifyContent: 'center',
+  },
+  cvBtnText: { fontSize: fontSize.body, fontWeight: fontWeight.bold as any, color: colors.primary },
+  cvRemoveText: {
+    fontSize: fontSize.caption, fontWeight: fontWeight.bold as any,
+    color: '#dc2626', marginTop: 8, textAlign: 'center',
+  },
   dayBtn: {
     width: 42, height: 42, borderRadius: 21, borderWidth: 1.5, borderColor: colors.neutral,
     backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',

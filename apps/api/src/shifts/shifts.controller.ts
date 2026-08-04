@@ -154,13 +154,15 @@ export class ShiftsController {
     @Query('skills') skills?: string,
     @Query('languages') languages?: string,
     @Query('available') available?: string,
+    @Query('availableNow') availableNow?: string,
     @Query('minRating') minRating?: string,
   ) {
     return this.shiftsService.searchWorkersPublic({
-      skills:    skills    ? skills.split(',').filter(Boolean)    : undefined,
-      languages: languages ? languages.split(',').filter(Boolean) : undefined,
-      available: available ? available.split(',').filter(Boolean) : undefined,
-      minRating: minRating ? Number(minRating) : undefined,
+      skills:       skills    ? skills.split(',').filter(Boolean)    : undefined,
+      languages:    languages ? languages.split(',').filter(Boolean) : undefined,
+      available:    available ? available.split(',').filter(Boolean) : undefined,
+      availableNow: availableNow === 'true',
+      minRating:    minRating ? Number(minRating) : undefined,
     });
   }
 

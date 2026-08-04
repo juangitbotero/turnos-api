@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   SHIFT_CATEGORIES, ShiftCategory, LANGUAGES, calculateTSU,
   PAYMENT_METHOD_LABELS, PaymentMethod, RECOMMENDED_PAYMENT_METHOD,
+  MAX_SERIES_DAYS, formatSeriesRange, TURNOS_FEE_FIXED_EUR,
 } from '@turnos/shared';
 import { adminApi, ApiError } from '../../../lib/api';
 
@@ -235,6 +236,11 @@ export default function NewShiftPage() {
   const [title, setTitle]         = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate]               = useState('');
+  // Multi-day: `date` stays the first day; extraDates holds the rest. The API
+  // creates one shift row per day, linked as a series, applied to as one job.
+  const [isMultiDay, setIsMultiDay]   = useState(false);
+  const [extraDates, setExtraDates]   = useState<string[]>([]);
+  const [newExtraDate, setNewExtraDate] = useState('');
   const [startTime, setStartTime]     = useState('');
   const [durationHours, setDuration]  = useState(4); // default 4h, min 2h
   const [hourlyRate, setHourlyRate] = useState('8.00');
@@ -298,6 +304,20 @@ export default function NewShiftPage() {
   const rateNum = parseFloat(hourlyRate) || 0;
   const tsu = rateNum > 0 ? calculateTSU(rateNum) : null;
 
+  // Every day of the job, first day included, deduplicated and ordered
+  const allDates = [...new Set([date, ...(isMultiDay ? extraDates : [])].filter(Boolean))].sort();
+
+  const addExtraDate = () => {
+    if (!newExtraDate) return;
+    if (newExtraDate === date || extraDates.includes(newExtraDate)) { setNewExtraDate(''); return; }
+    if (allDates.length >= MAX_SERIES_DAYS) {
+      setError(`Um trabalho de vários dias pode ter no máximo ${MAX_SERIES_DAYS} dias.`);
+      return;
+    }
+    setExtraDates([...extraDates, newExtraDate].sort());
+    setNewExtraDate('');
+  };
+
   // Compute end time from start + duration
   const computedEndTime = (() => {
     if (!startTime) return '';
@@ -335,7 +355,8 @@ export default function NewShiftPage() {
         category,
         subcategory,
         role: title || undefined,
-        date,
+        date: allDates[0] ?? date,
+        dates: allDates.length > 1 ? allDates : undefined,
         startTime: `${startTime}:00`,
         endTime: `${computedEndTime}:00`,
         grossHourlyRate: rateNum,
@@ -504,9 +525,16 @@ export default function NewShiftPage() {
               );
             })}
           </div>
-          {paymentMethod === 'NUMERARIO' && (
+          {paymentMethod === 'TURNOS_PAY_LINK' && (
+            <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 8 }}>
+              💳 Recebes um link após o turno e pagas por cartão ou MB WAY. O dinheiro vai direto
+              para a conta do trabalhador e o pagamento fica confirmado automaticamente.
+            </p>
+          )}
+          {(paymentMethod === 'TRANSFERENCIA' || paymentMethod === 'MBWAY') && (
             <p style={{ fontSize: 12, color: '#b45309', marginTop: 8 }}>
-              💡 Pagamentos em numerário: recomendamos guardar um comprovativo assinado pelo trabalhador.
+              💡 Depois de pagares, anexa o comprovativo no dashboard. É o que resolve a disputa
+              se o trabalhador reportar que não recebeu.
             </p>
           )}
         </div>
@@ -521,7 +549,7 @@ export default function NewShiftPage() {
           <div style={s.grid3}>
             {/* Date */}
             <div style={s.field}>
-              <label style={s.label}>Data do turno</label>
+              <label style={s.label}>{isMultiDay ? 'Primeiro dia' : 'Data do turno'}</label>
               <input
                 style={s.input}
                 type="date"
@@ -564,6 +592,81 @@ export default function NewShiftPage() {
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* ── Multi-day toggle + day list ── */}
+          <div style={s.multiDayBox}>
+            <label style={s.multiDayToggle}>
+              <input
+                type="checkbox"
+                checked={isMultiDay}
+                onChange={e => {
+                  setIsMultiDay(e.target.checked);
+                  if (!e.target.checked) setExtraDates([]);
+                }}
+              />
+              <span>
+                <strong>Trabalho de vários dias</strong>
+                <span style={s.multiDayHint}>
+                  {' '}— o mesmo horário em várias datas. O trabalhador candidata-se uma vez e
+                  compromete-se com todos os dias.
+                </span>
+              </span>
+            </label>
+
+            {isMultiDay && (
+              <div style={s.multiDayBody}>
+                <div style={s.multiDayAddRow}>
+                  <input
+                    style={{ ...s.input, maxWidth: 200 }}
+                    type="date"
+                    min={date || new Date().toISOString().slice(0, 10)}
+                    value={newExtraDate}
+                    onChange={e => setNewExtraDate(e.target.value)}
+                  />
+                  <button type="button" style={s.multiDayAddBtn} onClick={addExtraDate}>
+                    + Adicionar dia
+                  </button>
+                </div>
+
+                {allDates.length > 0 && (
+                  <>
+                    <div style={s.multiDayChips}>
+                      {allDates.map(d => (
+                        <span key={d} style={s.multiDayChip}>
+                          {new Date(d).toLocaleDateString('pt-PT', {
+                            weekday: 'short', day: '2-digit', month: 'short',
+                          })}
+                          {d !== date && (
+                            <button
+                              type="button"
+                              style={s.multiDayChipX}
+                              onClick={() => setExtraDates(extraDates.filter(x => x !== d))}
+                              aria-label={`Remover ${d}`}
+                            >
+                              ×
+                            </button>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                    <div style={s.multiDaySummary}>
+                      📅 <strong>{allDates.length} dia{allDates.length !== 1 ? 's' : ''}</strong>
+                      {allDates.length > 1 && <> · {formatSeriesRange(allDates)}</>}
+                      {' · '}
+                      {(durationHours * allDates.length).toFixed(0)}h no total
+                      {rateNum > 0 && <> · ≈ €{(rateNum * durationHours * allDates.length).toFixed(2)} bruto</>}
+                    </div>
+                    {allDates.length > 1 && (
+                      <div style={s.multiDayNote}>
+                        A taxa Turnos é de <strong>€{TURNOS_FEE_FIXED_EUR} por trabalho</strong>, não por dia.
+                        O pagamento ao trabalhador é feito <strong>uma vez, no fim</strong> de todos os dias.
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Computed end time display */}
@@ -730,6 +833,45 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: 11, fontWeight: 600, color: '#d97706',
     background: '#fffbeb', border: '1px solid #fcd34d',
     borderRadius: 20, padding: '2px 10px', marginLeft: 10,
+  },
+
+  // Multi-day series
+  multiDayBox: {
+    border: '1px solid var(--color-neutral)', borderRadius: 10,
+    padding: '12px 14px', background: '#fafafa',
+  },
+  multiDayToggle: {
+    display: 'flex', alignItems: 'flex-start', gap: 10,
+    fontSize: 13, color: 'var(--color-text-primary)', cursor: 'pointer', lineHeight: 1.5,
+  },
+  multiDayHint: { color: 'var(--color-text-secondary)', fontWeight: 400 },
+  multiDayBody: { marginTop: 12, display: 'flex', flexDirection: 'column' as const, gap: 10 },
+  multiDayAddRow: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' as const },
+  multiDayAddBtn: {
+    fontSize: 13, fontWeight: 700, color: 'var(--color-primary)',
+    background: '#fff', border: '1px solid var(--color-primary)',
+    borderRadius: 8, padding: '9px 14px', cursor: 'pointer',
+  },
+  multiDayChips: { display: 'flex', flexWrap: 'wrap' as const, gap: 6 },
+  multiDayChip: {
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+    fontSize: 12, fontWeight: 600, color: '#1d4ed8',
+    background: '#dbeafe', border: '1px solid #bfdbfe',
+    borderRadius: 20, padding: '4px 10px',
+  },
+  multiDayChipX: {
+    border: 'none', background: 'transparent', cursor: 'pointer',
+    color: '#1d4ed8', fontSize: 15, lineHeight: 1, padding: 0, fontWeight: 700,
+  },
+  multiDaySummary: {
+    fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)',
+    background: '#fff', border: '1px solid var(--color-neutral)',
+    borderRadius: 8, padding: '8px 12px',
+  },
+  multiDayNote: {
+    fontSize: 12, lineHeight: 1.6, color: '#166534',
+    background: '#f0fdf4', border: '1px solid #bbf7d0',
+    borderRadius: 8, padding: '8px 12px',
   },
 
   // Computed end time

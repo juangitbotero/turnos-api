@@ -47,6 +47,23 @@ export class Shift {
   @Column({ type: 'date' })
   date: string; // YYYY-MM-DD
 
+  // ── Multi-day series ──────────────────────────────────────────────────────
+  /**
+   * A multi-day job is N single-day rows sharing this id. Null for ordinary
+   * one-day shifts. Everything per-day (check-in, attendance, MCD day count)
+   * works unchanged; what's series-level is the €3 fee, the wage payment, the
+   * plan quota and the review prompts — all resolved on the LAST day.
+   */
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  seriesId: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  seriesDayIndex: number | null;    // 1-based position within the series
+
+  @Column({ type: 'int', nullable: true })
+  seriesTotalDays: number | null;
+
   @Column({ type: 'time' })
   startTime: string; // HH:mm:ss
 

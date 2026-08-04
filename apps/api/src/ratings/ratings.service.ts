@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository, MoreThan, In } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Rating } from './entities/rating.entity';
@@ -275,6 +275,34 @@ export class RatingsService {
 
   // ── No-show reporting ──────────────────────────────────────────────────────
 
+  /**
+   * Release the days of a multi-day job the worker is no longer going to work,
+   * after a no-show. Every day still assigned to them and not yet started goes
+   * back to OPEN so the company can refill it. Days already worked keep their
+   * COMPLETED status — the worker is still owed that wage.
+   */
+  private async releaseRemainingSeriesDays(shift: Shift, workerId: string): Promise<void> {
+    const remaining = await this.shiftRepo.find({
+      where: {
+        seriesId: shift.seriesId!,
+        status:   In([ShiftStatus.FILLED, ShiftStatus.PENDING_ACCEPTANCE]),
+        assignedWorker: { id: workerId },
+      },
+      relations: ['assignedWorker'],
+    });
+    if (remaining.length === 0) return;
+
+    for (const day of remaining) {
+      day.status = ShiftStatus.OPEN;
+      day.assignedWorker = null as any;
+    }
+    await this.shiftRepo.save(remaining);
+
+    this.logger.warn(
+      `[Ratings] No-show on series ${shift.seriesId} — released ${remaining.length} remaining day(s) back to OPEN`,
+    );
+  }
+
   async reportNoShow(
     employerUserId: string,
     shiftId: string,
@@ -346,6 +374,13 @@ export class RatingsService {
 
     // Recalculate avgRating + badges (RELIABLE is affected)
     await this.recalculateWorkerReputation(offender.id);
+
+    // Multi-day job: a no-show ends the worker's commitment to the rest of it.
+    // The remaining days go back on the market so the company can refill them;
+    // the days already worked are settled by the attendance sweep.
+    if (shift.seriesId) {
+      await this.releaseRemainingSeriesDays(shift, offender.id);
+    }
 
     // Check 60-day window — if ≥ 3 flags, trigger admin review
     const cutoff = new Date();

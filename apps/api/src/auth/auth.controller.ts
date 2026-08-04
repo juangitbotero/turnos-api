@@ -1,5 +1,5 @@
 import {
-  Controller, Post, Get, Patch, Body, HttpCode, HttpStatus,
+  Controller, Post, Get, Patch, Delete, Body, HttpCode, HttpStatus,
   UseGuards, Request, Param, Query, NotFoundException,
   UseInterceptors, UploadedFile, BadRequestException,
   Res,
@@ -7,6 +7,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { memoryStorage } from 'multer';
+import { WorkerExperience } from '@turnos/shared';
 import { AuthService } from './auth.service';
 import { Public } from './decorators';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -123,6 +124,7 @@ export class AuthController {
       fullName: string; nif: string; iban: string;
       skills: string[]; availableDays: string[];
       declaredExternalMonthlyIncome?: number;
+      ibanShareConsent?: boolean;
     },
   ) {
     const result = await this.authService.updateWorkerProfile(req.user.userId, body);
@@ -149,6 +151,9 @@ export class AuthController {
       nif?: string;
       iban?: string;
       contactEmail?: string;
+      ibanShareConsent?: boolean;
+      isAvailableForWork?: boolean;
+      experiences?: WorkerExperience[];
     },
   ) {
     const result = await this.authService.updateWorkerPartialProfile(req.user.userId, body);
@@ -176,6 +181,46 @@ export class AuthController {
     if (!file) throw new BadRequestException('Nenhuma imagem fornecida');
     const photoUrl = await this.authService.uploadWorkerPhoto(req.user.userId, file);
     return { message: 'Foto atualizada com sucesso', photoUrl };
+  }
+
+  /**
+   * Upload the worker's CV (PDF/DOC/DOCX, max 10 MB). Worth 10 points on the
+   * profile quality score — see calculateProfileQualityScore in shared.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('worker/cv')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('cv', {
+    storage: memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const allowed = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ];
+      if (!allowed.includes(file.mimetype)) {
+        cb(new BadRequestException('O CV tem de ser um ficheiro PDF ou Word (.doc/.docx).'), false);
+      } else {
+        cb(null, true);
+      }
+    },
+  }))
+  async uploadWorkerCv(
+    @Request() req: { user: { userId: string } },
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('Nenhum ficheiro fornecido');
+    const result = await this.authService.uploadWorkerCv(req.user.userId, file);
+    return { message: 'CV carregado com sucesso', ...result };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('worker/cv')
+  @HttpCode(HttpStatus.OK)
+  async deleteWorkerCv(@Request() req: { user: { userId: string } }) {
+    const result = await this.authService.deleteWorkerCv(req.user.userId);
+    return { message: 'CV removido', ...result };
   }
 
   @UseGuards(JwtAuthGuard)

@@ -7,8 +7,12 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { Repository } from 'typeorm';
-import { PAYMENT_METHOD_LABELS, COMPANY_CANCEL_REASONS, WORKER_CANCEL_REASONS } from '@turnos/shared';
+import { Repository, In } from 'typeorm';
+import { randomUUID } from 'crypto';
+import {
+  PAYMENT_METHOD_LABELS, COMPANY_CANCEL_REASONS, WORKER_CANCEL_REASONS,
+  MAX_SERIES_DAYS,
+} from '@turnos/shared';
 import { Shift, ShiftStatus } from './entities/shift.entity';
 import { ShiftApplication, ApplicationStatus } from './entities/shift-application.entity';
 import { Employer } from '../users/entities/employer.entity';
@@ -69,6 +73,11 @@ export class ShiftsService {
     subcategory: string;
     role?: string;
     date: string;
+    /**
+     * Extra dates for a multi-day job. Combined with `date`, deduplicated and
+     * sorted; more than one resulting date creates a series (see Shift.seriesId).
+     */
+    dates?: string[];
     startTime: string;
     endTime: string;
     grossHourlyRate: number;
@@ -87,12 +96,24 @@ export class ShiftsService {
       throw new BadRequestException('A duração mínima de um turno é 2 horas.');
     }
 
+    // Resolve the day set — one date is an ordinary shift, several a series
+    const allDates = [...new Set([data.date, ...(data.dates ?? [])].filter(Boolean))].sort();
+    if (allDates.length === 0) {
+      throw new BadRequestException('Indica pelo menos uma data para o turno.');
+    }
+    if (allDates.length > MAX_SERIES_DAYS) {
+      throw new BadRequestException(
+        `Um turno de vários dias pode ter no máximo ${MAX_SERIES_DAYS} dias (limite do contrato MCD).`,
+      );
+    }
+
     // Guard: payment method is required — workers must know how they'll be
     // paid (directly by the company) before applying.
+    // Cash is deliberately absent — an MCD wage must leave a traceable record.
     const validMethods = Object.keys(PAYMENT_METHOD_LABELS);
     if (!data.paymentMethod || !validMethods.includes(data.paymentMethod)) {
       throw new BadRequestException(
-        'Indica como vais pagar ao trabalhador (Turnos Pay Link, transferência, MB WAY ou numerário).',
+        'Indica como vais pagar ao trabalhador (Turnos Pay Link, transferência bancária ou MB WAY).',
       );
     }
 
@@ -100,43 +121,104 @@ export class ShiftsService {
     await this.payments.assertCanPostShift(userId);
 
     const employer = await this.resolveEmployer(userId);
-    const { lat, lng, ...rest } = data;
-    const shift = this.shiftRepo.create({
-      ...rest,
-      status: ShiftStatus.OPEN,
-      employer: { id: employer.id } as any,
-      lat,
-      lng,
-    });
-    const saved = await this.shiftRepo.save(shift);
+    const { lat, lng, dates: _dates, date: _date, ...rest } = data;
+
+    const isSeries = allDates.length > 1;
+    const seriesId = isSeries ? randomUUID() : null;
+
+    // One row per day. Every downstream system (check-in, attendance, MCD day
+    // counting, auto-completion) is per-day and needs no changes; the series
+    // columns are what let us bill and pay once for the whole job.
+    const created = await this.shiftRepo.save(
+      allDates.map((day, i) => this.shiftRepo.create({
+        ...rest,
+        date: day,
+        status: ShiftStatus.OPEN,
+        employer: { id: employer.id } as any,
+        lat,
+        lng,
+        seriesId,
+        seriesDayIndex:  isSeries ? i + 1 : null,
+        seriesTotalDays: isSeries ? allDates.length : null,
+      })),
+    );
+
+    // The first day represents the whole job in feeds and notifications —
+    // workers see one card, not N.
+    const primary = created[0]!;
 
     // Fire-and-forget: send push notifications to matching workers
     const skills = data.skillsRequired ?? [];
     this.notifications
-      .notifyMatchingWorkers(saved.id, employer.id, skills, saved.title)
+      .notifyMatchingWorkers(primary.id, employer.id, skills, primary.title)
       .catch(() => {}); // non-blocking
 
-    // Schedule re-notification job for 5 hours later
+    // Schedule re-notification job for 5 hours later (once per job, not per day)
     await this.notificationQueue.add(
       're-notify',
       {
-        shiftId: saved.id,
-        shiftTitle: saved.title,
+        shiftId: primary.id,
+        shiftTitle: primary.title,
         requiredSkills: skills,
         employerId: employer.id,
       } satisfies ReNotificationJobData,
       { delay: RE_NOTIFY_DELAY_MS },
     );
 
-    return saved;
+    return primary;
   }
 
-  async findByEmployer(userId: string): Promise<Shift[]> {
-    const employer = await this.resolveEmployer(userId);
+  // ── Series helpers ────────────────────────────────────────────────────────
+
+  /** All shifts of a series, ascending by date. Single-day shifts return [shift]. */
+  private async seriesShifts(shift: Shift): Promise<Shift[]> {
+    if (!shift.seriesId) return [shift];
     return this.shiftRepo.find({
+      where: { seriesId: shift.seriesId },
+      relations: ['employer', 'assignedWorker'],
+      order: { date: 'ASC' },
+    });
+  }
+
+  /** Attach series dates to a shift payload so clients can render the schedule. */
+  private async withSeriesInfo(shift: Shift): Promise<Shift & { seriesDates?: string[] }> {
+    if (!shift.seriesId) return shift;
+    const rows = await this.shiftRepo.find({
+      where: { seriesId: shift.seriesId },
+      select: ['date'],
+      order: { date: 'ASC' },
+    });
+    return { ...shift, seriesDates: rows.map(r => r.date) };
+  }
+
+  async findByEmployer(userId: string): Promise<Array<Shift & { seriesDates?: string[] }>> {
+    const employer = await this.resolveEmployer(userId);
+    const rows = await this.shiftRepo.find({
       where: { employer: { id: employer.id } },
       order: { createdAt: 'DESC' },
     });
+
+    // One row per job: a multi-day series shows as a single entry carrying all
+    // its dates, matching how it is applied to, billed and paid.
+    const bySeries = new Map<string, Shift[]>();
+    for (const row of rows) {
+      if (!row.seriesId) continue;
+      bySeries.set(row.seriesId, [...(bySeries.get(row.seriesId) ?? []), row]);
+    }
+
+    const seen = new Set<string>();
+    const collapsed: Array<Shift & { seriesDates?: string[] }> = [];
+    for (const row of rows) {
+      if (!row.seriesId) { collapsed.push(row); continue; }
+      if (seen.has(row.seriesId)) continue;
+      seen.add(row.seriesId);
+      const days = [...(bySeries.get(row.seriesId) ?? [])].sort((a, b) => a.date.localeCompare(b.date));
+      // Show the day that is live now (or the first still to run), so the
+      // dashboard status reflects where the job actually is.
+      const live = days.find(d => d.status !== ShiftStatus.COMPLETED && d.status !== ShiftStatus.CANCELLED) ?? days[0]!;
+      collapsed.push({ ...live, seriesDates: days.map(d => d.date) });
+    }
+    return collapsed;
   }
 
   async update(userId: string, shiftId: string, data: Partial<Shift> & { lat?: number; lng?: number }): Promise<Shift> {
@@ -255,8 +337,14 @@ export class ShiftsService {
       relations: ['worker'],
     });
 
-    shift.status = ShiftStatus.CANCELLED;
-    const saved = await this.shiftRepo.save(shift);
+    // Cancelling a multi-day job cancels every day that hasn't run yet;
+    // already-worked days keep their status so their wage still settles.
+    const cancellable = (await this.seriesShifts(shift)).filter(
+      d => d.status !== ShiftStatus.ACTIVE && d.status !== ShiftStatus.COMPLETED,
+    );
+    for (const day of cancellable) day.status = ShiftStatus.CANCELLED;
+    await this.shiftRepo.save(cancellable);
+    const saved = cancellable.find(d => d.id === shift.id) ?? shift;
 
     // Notify all applicants that the shift was cancelled
     const workerIds = applications.map(a => a.worker?.id).filter((id): id is string => !!id);
@@ -295,14 +383,26 @@ export class ShiftsService {
     });
     if (!application) throw new NotFoundException('Application not found');
 
-    // Move shift to PENDING_ACCEPTANCE — worker must confirm within 2 hours
-    shift.assignedWorker = application.worker;
-    shift.status = ShiftStatus.PENDING_ACCEPTANCE;
-    await this.shiftRepo.save(shift);
+    // Move shift to PENDING_ACCEPTANCE — worker must confirm within 2 hours.
+    // For a multi-day job every day moves together: the worker is selected for
+    // the job, not for one of its days.
+    const days = (await this.seriesShifts(shift)).filter(d => d.status === ShiftStatus.OPEN);
+    for (const day of days) {
+      day.assignedWorker = application.worker;
+      day.status = ShiftStatus.PENDING_ACCEPTANCE;
+    }
+    await this.shiftRepo.save(days);
 
-    // Application stays PENDING until worker confirms; update to a pre-approved marker
-    application.status = ApplicationStatus.APPROVED;
-    await this.applicationRepo.save(application);
+    // Applications stay PENDING until the worker confirms; mark pre-approved
+    await this.applicationRepo
+      .createQueryBuilder()
+      .update(ShiftApplication)
+      .set({ status: ApplicationStatus.APPROVED })
+      .where('"shiftId" IN (:...shiftIds) AND "workerId" = :workerId', {
+        shiftIds: days.map(d => d.id),
+        workerId: application.worker.id,
+      })
+      .execute();
 
     // Push notification to worker: pre-selected, must accept/decline in 2h
     if (application.worker?.expoPushToken) {
@@ -351,21 +451,22 @@ export class ShiftsService {
     if (shift.assignedWorker?.id !== worker.id) throw new UnauthorizedException('Not your shift');
     if (shift.status !== ShiftStatus.PENDING_ACCEPTANCE) throw new BadRequestException('Shift is not awaiting your confirmation');
 
-    shift.status = ShiftStatus.FILLED;
-    await this.shiftRepo.save(shift);
+    // Confirming accepts the whole job — every day of the series at once
+    const days = (await this.seriesShifts(shift))
+      .filter(d => d.status === ShiftStatus.PENDING_ACCEPTANCE && d.assignedWorker?.id === worker.id);
+    for (const day of days) day.status = ShiftStatus.FILLED;
+    await this.shiftRepo.save(days);
 
-    const application = await this.applicationRepo.findOne({
-      where: { shift: { id: shiftId }, worker: { id: worker.id } },
-    });
+    const dayIds = days.map(d => d.id);
 
-    // Reject all other pending applications now that worker confirmed
+    // Reject the other candidates' pending applications across all days
     await this.applicationRepo
       .createQueryBuilder()
       .update(ShiftApplication)
       .set({ status: ApplicationStatus.REJECTED })
-      .where('"shiftId" = :shiftId AND id != :appId AND status = :status', {
-        shiftId,
-        appId: application?.id ?? '',
+      .where('"shiftId" IN (:...dayIds) AND "workerId" != :workerId AND status = :status', {
+        dayIds,
+        workerId: worker.id,
         status: ApplicationStatus.PENDING,
       })
       .execute();
@@ -373,12 +474,14 @@ export class ShiftsService {
     // Notify employer via WebSocket
     this.gateway.notifyShiftFilled(shift.employer.id, { shiftId: shift.id, shiftTitle: shift.title });
 
-    // Compliance
-    this.compliance.onShiftApproved(shift, worker, shift.employer).catch(err =>
-      console.error('[Compliance] onShiftApproved error:', err),
-    );
+    // Compliance — an MCD contract per day, as each day is its own work period
+    for (const day of days) {
+      this.compliance.onShiftApproved(day, worker, shift.employer).catch(err =>
+        console.error('[Compliance] onShiftApproved error:', err),
+      );
+    }
 
-    return shift;
+    return days.find(d => d.id === shiftId) ?? shift;
   }
 
   async workerDeclineShift(workerUserId: string, shiftId: string): Promise<{ message: string }> {
@@ -393,19 +496,28 @@ export class ShiftsService {
     if (shift.assignedWorker?.id !== worker.id) throw new UnauthorizedException('Not your shift');
     if (shift.status !== ShiftStatus.PENDING_ACCEPTANCE) throw new BadRequestException('Shift is not awaiting your confirmation');
 
-    // Revert shift to OPEN, clear assigned worker
-    shift.status = ShiftStatus.OPEN;
-    shift.assignedWorker = undefined as any;
-    await this.shiftRepo.save(shift);
+    // Revert every day of the job to OPEN, clear assigned worker
+    const days = (await this.seriesShifts(shift))
+      .filter(d => d.status === ShiftStatus.PENDING_ACCEPTANCE && d.assignedWorker?.id === worker.id);
+    for (const day of days) {
+      day.status = ShiftStatus.OPEN;
+      day.assignedWorker = undefined as any;
+    }
+    await this.shiftRepo.save(days);
 
-    // Revert the application to PENDING so employer can pick again
+    // Withdraw this worker's applications so the employer can pick again
     const application = await this.applicationRepo.findOne({
       where: { shift: { id: shiftId }, worker: { id: worker.id } },
     });
-    if (application) {
-      application.status = ApplicationStatus.WITHDRAWN;
-      await this.applicationRepo.save(application);
-    }
+    await this.applicationRepo
+      .createQueryBuilder()
+      .update(ShiftApplication)
+      .set({ status: ApplicationStatus.WITHDRAWN })
+      .where('"shiftId" IN (:...dayIds) AND "workerId" = :workerId', {
+        dayIds: days.map(d => d.id),
+        workerId: worker.id,
+      })
+      .execute();
 
     // Notify employer: worker declined
     this.gateway.notifyApplicationStatus(shift.employer.user.id, {
@@ -427,6 +539,12 @@ export class ShiftsService {
    *     30 days suspend the worker from applying for 7 days.
    * Either way the shift reopens immediately and the matching-worker
    * notification wave fires so the employer can refill the slot.
+   *
+   * Multi-day jobs cancel as a whole — one strike, every remaining day
+   * reopened. Once a series has STARTED (first check-in) it can no longer be
+   * cancelled here at all: the worker committed to the full schedule, so the
+   * only route out is support, who can act with the context. Abandoning it
+   * silently falls through to the standard no-show flow.
    */
   async workerCancelAssignment(
     workerUserId: string,
@@ -449,7 +567,26 @@ export class ShiftsService {
       throw new BadRequestException('Só podes cancelar turnos confirmados que ainda não começaram.');
     }
 
-    const shiftStart = new Date(`${shift.date}T${shift.startTime.slice(0, 5)}:00`);
+    // A started multi-day job cannot be dropped from the app — see the doc
+    // comment above. The check is server-side so hiding the button is not the
+    // only thing standing between a worker and a half-abandoned series.
+    const seriesDays = await this.seriesShifts(shift);
+    const seriesStarted = shift.seriesId != null && seriesDays.some(
+      d => d.status === ShiftStatus.ACTIVE || d.status === ShiftStatus.COMPLETED,
+    );
+    if (seriesStarted) {
+      throw new BadRequestException(
+        'Este é um trabalho de vários dias que já começou. Ao aceitares, comprometeste-te com todos os dias — contacta o suporte (suporte@turnos.pt) se tiveres um imprevisto.',
+      );
+    }
+
+    // For a series the notice period runs to the FIRST day — that's the
+    // commitment the company is counting on.
+    const filledDays = seriesDays.filter(
+      d => d.status === ShiftStatus.FILLED && d.assignedWorker?.id === worker.id,
+    );
+    const firstDay = filledDays[0] ?? shift;
+    const shiftStart = new Date(`${firstDay.date}T${firstDay.startTime.slice(0, 5)}:00`);
     const hoursUntil = (shiftStart.getTime() - Date.now()) / (1000 * 60 * 60);
     if (hoursUntil <= 0) {
       throw new BadRequestException('O turno já começou — cancela junto do empregador.');
@@ -486,18 +623,25 @@ export class ShiftsService {
       }
     }
 
-    // Reopen the shift
-    shift.status = ShiftStatus.OPEN;
-    shift.assignedWorker = undefined as any;
-    await this.shiftRepo.save(shift);
+    // Reopen every day of the job — a series is cancelled whole or not at all
+    for (const day of filledDays) {
+      day.status = ShiftStatus.OPEN;
+      day.assignedWorker = undefined as any;
+    }
+    await this.shiftRepo.save(filledDays);
 
     const application = await this.applicationRepo.findOne({
       where: { shift: { id: shiftId }, worker: { id: worker.id } },
     });
-    if (application) {
-      application.status = ApplicationStatus.WITHDRAWN;
-      await this.applicationRepo.save(application);
-    }
+    await this.applicationRepo
+      .createQueryBuilder()
+      .update(ShiftApplication)
+      .set({ status: ApplicationStatus.WITHDRAWN })
+      .where('"shiftId" IN (:...dayIds) AND "workerId" = :workerId', {
+        dayIds: filledDays.map(d => d.id),
+        workerId: worker.id,
+      })
+      .execute();
 
     // Notify employer in real time
     this.gateway.notifyApplicationStatus(shift.employer.user.id, {
@@ -555,7 +699,28 @@ export class ShiftsService {
       query.andWhere('shift.category = :category', { category: filters.category });
     }
 
-    return query.getMany();
+    const rows = await query.getMany();
+
+    // Collapse each series to a single card — the worker applies to the whole
+    // job, so one row per day would be N duplicate listings. The earliest
+    // still-open day represents the series and carries all its dates.
+    const bySeries = new Map<string, Shift[]>();
+    for (const row of rows) {
+      if (!row.seriesId) continue;
+      bySeries.set(row.seriesId, [...(bySeries.get(row.seriesId) ?? []), row]);
+    }
+
+    const seen = new Set<string>();
+    const collapsed: Array<Shift & { seriesDates?: string[] }> = [];
+    for (const row of rows) {
+      if (!row.seriesId) { collapsed.push(row); continue; }
+      if (seen.has(row.seriesId)) continue;
+      seen.add(row.seriesId);
+      // Keep the surrounding distance ordering, but let the first day speak
+      const days = [...(bySeries.get(row.seriesId) ?? [])].sort((a, b) => a.date.localeCompare(b.date));
+      collapsed.push({ ...days[0]!, seriesDates: days.map(d => d.date) });
+    }
+    return collapsed;
   }
 
   async apply(userId: string, shiftId: string, coverNote?: string): Promise<ShiftApplication & { warning?: string }> {
@@ -594,16 +759,29 @@ export class ShiftsService {
     });
     if (existing) throw new BadRequestException('Already applied to this shift');
 
-    // ── Compliance checks (hard blocks throw; soft warning is returned) ──
-    const { warning } = await this.compliance.checkApplicationEligibility(worker, shift);
+    // Multi-day: applying commits the worker to EVERY day of the series.
+    // Compliance is checked per day and any hard block rejects the whole
+    // application — a worker must never end up holding a partial series.
+    const days = (await this.seriesShifts(shift)).filter(d => d.status === ShiftStatus.OPEN);
+    const warnings: string[] = [];
+    for (const day of days) {
+      // days.length is passed so the MCD 70-day cap is measured against the
+      // whole series, not one day at a time.
+      const { warning: dayWarning } = await this.compliance.checkApplicationEligibility(
+        worker, day, days.length,
+      );
+      if (dayWarning) warnings.push(dayWarning);
+    }
+    const warning = warnings[0];
 
-    const application = this.applicationRepo.create({
-      shift:     { id: shiftId } as any,
-      worker:    { id: worker.id } as any,
-      status:    ApplicationStatus.PENDING,
-      coverNote: coverNote?.slice(0, 200),  // Enforce 200-char limit server-side
-    });
-    const saved = await this.applicationRepo.save(application);
+    const saved = (await this.applicationRepo.save(
+      days.map(day => this.applicationRepo.create({
+        shift:     { id: day.id } as any,
+        worker:    { id: worker.id } as any,
+        status:    ApplicationStatus.PENDING,
+        coverNote: coverNote?.slice(0, 200),  // Enforce 200-char limit server-side
+      })),
+    ))[0]!;
 
     // WebSocket: notify employer in real time
     if (shift.employer?.id) {
@@ -622,11 +800,45 @@ export class ShiftsService {
   async findWorkerApplications(userId: string): Promise<ShiftApplication[]> {
     // Resolve Worker entity from JWT userId
     const worker = await this.resolveWorker(userId);
-    return this.applicationRepo.find({
+    const apps = await this.applicationRepo.find({
       where: { worker: { id: worker.id } },
       relations: ['shift', 'shift.employer'],
       order: { appliedAt: 'DESC' },
     });
+
+    // Collapse a series into one entry — the worker applied to one job, and
+    // "Os Meus Turnos" must not show the same job N times. The soonest day
+    // that hasn't finished represents it, so the card tracks the live day.
+    const bySeries = new Map<string, ShiftApplication[]>();
+    const singles: ShiftApplication[] = [];
+    for (const app of apps) {
+      const seriesId = app.shift?.seriesId;
+      if (!seriesId) { singles.push(app); continue; }
+      bySeries.set(seriesId, [...(bySeries.get(seriesId) ?? []), app]);
+    }
+
+    const collapsed: ShiftApplication[] = [];
+    for (const group of bySeries.values()) {
+      const days = [...group].sort((a, b) => a.shift.date.localeCompare(b.shift.date));
+      const live = days.find(d => d.shift.status !== ShiftStatus.COMPLETED) ?? days[days.length - 1]!;
+      // Has any day been worked yet? Once so, the commitment is locked — the
+      // app hides the cancel action and workerCancelAssignment refuses it.
+      const seriesStarted = days.some(
+        d => d.shift.status === ShiftStatus.ACTIVE || d.shift.status === ShiftStatus.COMPLETED,
+      );
+      collapsed.push({
+        ...live,
+        shift: {
+          ...live.shift,
+          seriesDates: days.map(d => d.shift.date),
+          seriesStarted,
+        },
+      } as ShiftApplication);
+    }
+
+    return [...singles, ...collapsed].sort(
+      (a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime(),
+    );
   }
 
   /** Returns distinct workers who have an APPROVED application on any of this employer's shifts. */
@@ -762,6 +974,7 @@ export class ShiftsService {
     skills?: string[];
     languages?: string[];
     available?: string[];
+    availableNow?: boolean;
     minRating?: number;
   }) {
     const qb = this.workerRepo
@@ -770,10 +983,17 @@ export class ShiftsService {
       .andWhere('w."profileQualityScore" >= 80')
       .select([
         'w.id', 'w.fullName', 'w.photoUrl', 'w.bio',
+        'w.cvUrl', 'w.cvFileName',
         'w.skills', 'w.languages', 'w.availableDays',
+        'w.isAvailableForWork', 'w.experiences',
         'w.avgRating', 'w.totalRatings', 'w.noShowCount',
         'w.badges', 'w.profileQualityScore',
       ]);
+
+    // Master availability switch — the worker says they're open to work at all
+    if (filters.availableNow) {
+      qb.andWhere('w."isAvailableForWork" = true');
+    }
 
     if (filters.skills?.length) {
       // Worker has at least one of the requested skills
@@ -822,12 +1042,12 @@ export class ShiftsService {
 
   // ── Shared ────────────────────────────────────────────────────────────────
 
-  async findById(id: string): Promise<Shift> {
+  async findById(id: string): Promise<Shift & { seriesDates?: string[] }> {
     const shift = await this.shiftRepo.findOne({
       where: { id },
       relations: ['employer', 'assignedWorker'],
     });
     if (!shift) throw new NotFoundException('Shift not found');
-    return shift;
+    return this.withSeriesInfo(shift);
   }
 }

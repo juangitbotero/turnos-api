@@ -57,12 +57,19 @@ export class ComplianceService {
    * Throws BadRequestException if any hard block applies.
    * Returns { warning } string if a soft flag (40% dependency) applies.
    */
+  /**
+   * @param daysBeingAdded how many MCD days this application would consume in
+   *   one go. 1 for an ordinary shift; the full length of the series for a
+   *   multi-day job, where every day is committed to at once and checking them
+   *   one at a time would let a worker cross the 70-day cap in a single apply.
+   */
   async checkApplicationEligibility(
     worker: Worker,
     shift: Shift,
+    daysBeingAdded = 1,
   ): Promise<{ warning?: string }> {
     await this.checkRestPeriod(worker, shift);
-    await this.checkMcdAnnualLimit(worker, shift);
+    await this.checkMcdAnnualLimit(worker, shift, daysBeingAdded);
     const warning = await this.checkEconomicDependency(worker, shift.employer);
     return warning ? { warning } : {};
   }
@@ -360,7 +367,11 @@ export class ComplianceService {
     }
   }
 
-  private async checkMcdAnnualLimit(worker: Worker, shift: Shift): Promise<void> {
+  private async checkMcdAnnualLimit(
+    worker: Worker,
+    shift: Shift,
+    daysBeingAdded = 1,
+  ): Promise<void> {
     const yearStart = `${new Date().getFullYear()}-01-01`;
 
     const count = await this.shiftRepo.count({
@@ -372,18 +383,24 @@ export class ComplianceService {
       },
     });
 
-    if (count >= MCD_MAX_DAYS_PER_YEAR) {
+    // Counted against the days this application would ADD, not just the days
+    // already used — a multi-day job commits to all of them at once.
+    if (count + daysBeingAdded > MCD_MAX_DAYS_PER_YEAR) {
       await this.log({
         event:      ComplianceEvent.MCD_LIMIT_ATTEMPT,
         workerId:   worker.id,
         employerId: shift.employer.id,
         shiftId:    shift.id,
-        details:    { daysUsed: count, limit: MCD_MAX_DAYS_PER_YEAR },
+        details:    { daysUsed: count, daysRequested: daysBeingAdded, limit: MCD_MAX_DAYS_PER_YEAR },
       });
 
       throw new BadRequestException(
-        `Limite MCD atingido: ${count}/${MCD_MAX_DAYS_PER_YEAR} dias com este empregador em ${new Date().getFullYear()}. ` +
-        `Legislação portuguesa (Lei 93/2019) não permite mais de ${MCD_MAX_DAYS_PER_YEAR} dias/ano com o mesmo empregador.`,
+        daysBeingAdded > 1
+          ? `Limite MCD: já tens ${count}/${MCD_MAX_DAYS_PER_YEAR} dias com este empregador em ${new Date().getFullYear()} ` +
+            `e este trabalho tem ${daysBeingAdded} dias — excede o limite legal. ` +
+            `A Lei 93/2019 não permite mais de ${MCD_MAX_DAYS_PER_YEAR} dias/ano com o mesmo empregador.`
+          : `Limite MCD atingido: ${count}/${MCD_MAX_DAYS_PER_YEAR} dias com este empregador em ${new Date().getFullYear()}. ` +
+            `Legislação portuguesa (Lei 93/2019) não permite mais de ${MCD_MAX_DAYS_PER_YEAR} dias/ano com o mesmo empregador.`,
       );
     }
   }

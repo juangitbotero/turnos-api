@@ -8,6 +8,10 @@ import {
   calculateProfileQualityScore,
   isValidNIF,
   isValidIBAN,
+  ProfileQualityResult,
+  WorkerExperience,
+  JOB_TITLES,
+  EXPERIENCE_LEVELS,
 } from '@turnos/shared';
 
 @Injectable()
@@ -101,6 +105,46 @@ export class UsersService {
 
   // ─── Worker Profile Update + Quality Score ─────────────────────────────────
 
+  /**
+   * Record (or withdraw) the worker's consent to disclose their IBAN to
+   * companies they worked for. Stamped once and left alone on re-consent so
+   * the original date survives; `false` withdraws it and the IBAN stops being
+   * disclosed immediately. `undefined` means the client didn't ask — no change.
+   */
+  /**
+   * Recompute the profile score from the worker's CURRENT persisted fields and
+   * apply the status transition. Single source of truth — every write path goes
+   * through here so a new scoring criterion can never be missed at one call site.
+   */
+  private rescoreWorker(worker: Worker): ProfileQualityResult {
+    const result = calculateProfileQualityScore({
+      hasPhoto:        !!worker.photoUrl,
+      hasValidNif:     isValidNIF(worker.nif ?? ''),
+      hasValidIban:    isValidIBAN(worker.iban ?? ''),
+      skillsCount:     worker.skills?.length ?? 0,
+      hasFullName:     !!(worker.fullName?.trim()),
+      hasAvailability: (worker.availableDays?.length ?? 0) > 0,
+      hasCv:           !!worker.cvUrl,
+    });
+
+    worker.profileQualityScore = result.score;
+    if (result.score >= 80 && worker.status !== 'SUSPENDED' && worker.status !== 'REJECTED') {
+      worker.status = 'ACTIVE';
+    } else if (result.score < 80 && worker.status === 'ACTIVE') {
+      worker.status = 'INCOMPLETE'; // demote if profile degrades
+    }
+    return result;
+  }
+
+  private applyIbanShareConsent(worker: Worker, consent: boolean | undefined): void {
+    if (consent === undefined) return;
+    if (consent) {
+      worker.ibanShareConsentAt ??= new Date();
+    } else {
+      worker.ibanShareConsentAt = null;
+    }
+  }
+
   async updateWorkerProfile(
     userId: string,
     dto: {
@@ -110,6 +154,7 @@ export class UsersService {
       skills: string[];
       availableDays: string[];
       declaredExternalMonthlyIncome?: number;
+      ibanShareConsent?: boolean;
     },
   ): Promise<{ profileQualityScore: number; status: string; missingItems: string[] }> {
     const worker = await this.workerRepo.findOne({
@@ -123,21 +168,12 @@ export class UsersService {
     worker.iban          = dto.iban?.trim().replace(/\s/g, '');
     worker.skills        = dto.skills;
     worker.availableDays = dto.availableDays;
+    this.applyIbanShareConsent(worker, dto.ibanShareConsent);
     if (dto.declaredExternalMonthlyIncome !== undefined) {
       worker.declaredExternalMonthlyIncome = dto.declaredExternalMonthlyIncome;
     }
 
-    const qualityResult = calculateProfileQualityScore({
-      hasPhoto:        !!worker.photoUrl,
-      hasValidNif:     isValidNIF(dto.nif ?? ''),
-      hasValidIban:    isValidIBAN(dto.iban ?? ''),
-      skillsCount:     dto.skills?.length ?? 0,
-      hasFullName:     !!(dto.fullName?.trim()),
-      hasAvailability: (dto.availableDays?.length ?? 0) > 0,
-    });
-
-    worker.profileQualityScore = qualityResult.score;
-    worker.status = qualityResult.score >= 80 ? 'ACTIVE' : 'INCOMPLETE';
+    const qualityResult = this.rescoreWorker(worker);
     await this.workerRepo.save(worker);
 
     return {
@@ -159,6 +195,9 @@ export class UsersService {
       nif?: string;
       iban?: string;
       contactEmail?: string;
+      ibanShareConsent?: boolean;
+      isAvailableForWork?: boolean;
+      experiences?: WorkerExperience[];
     },
   ): Promise<{ profileQualityScore: number }> {
     const worker = await this.workerRepo.findOne({
@@ -172,6 +211,19 @@ export class UsersService {
     if (dto.skills        !== undefined) worker.skills        = dto.skills;
     if (dto.languages     !== undefined) worker.languages     = dto.languages;
     if (dto.availableDays !== undefined) worker.availableDays = dto.availableDays;
+    if (dto.isAvailableForWork !== undefined) worker.isAvailableForWork = dto.isAvailableForWork;
+
+    // Experiences — keep only known job titles with a valid level, one per title
+    if (dto.experiences !== undefined) {
+      const byTitle = new Map<string, WorkerExperience>();
+      for (const entry of dto.experiences ?? []) {
+        if (!entry) continue;
+        if (!JOB_TITLES.includes(entry.jobTitle)) continue;
+        if (!Object.keys(EXPERIENCE_LEVELS).includes(entry.level)) continue;
+        byTitle.set(entry.jobTitle, { jobTitle: entry.jobTitle, level: entry.level });
+      }
+      worker.experiences = [...byTitle.values()];
+    }
 
     // NIF — validate before saving; empty string clears it
     if (dto.nif !== undefined) {
@@ -190,6 +242,8 @@ export class UsersService {
       // silently ignore invalid IBAN (client shows live validation anyway)
     }
 
+    this.applyIbanShareConsent(worker, dto.ibanShareConsent);
+
     // Contact email — update on the linked User row
     if (dto.contactEmail !== undefined && worker.user) {
       const email = dto.contactEmail.trim().toLowerCase();
@@ -197,21 +251,7 @@ export class UsersService {
       await this.userRepo.save(worker.user);
     }
 
-    const qualityResult = calculateProfileQualityScore({
-      hasPhoto:        !!worker.photoUrl,
-      hasValidNif:     isValidNIF(worker.nif ?? ''),
-      hasValidIban:    isValidIBAN(worker.iban ?? ''),
-      skillsCount:     worker.skills?.length ?? 0,
-      hasFullName:     !!(worker.fullName?.trim()),
-      hasAvailability: (worker.availableDays?.length ?? 0) > 0,
-    });
-
-    worker.profileQualityScore = qualityResult.score;
-    if (qualityResult.score >= 80 && worker.status !== 'SUSPENDED' && worker.status !== 'REJECTED') {
-      worker.status = 'ACTIVE';
-    } else if (qualityResult.score < 80 && worker.status === 'ACTIVE') {
-      worker.status = 'INCOMPLETE'; // demote if profile degrades
-    }
+    const qualityResult = this.rescoreWorker(worker);
     await this.workerRepo.save(worker);
 
     return { profileQualityScore: qualityResult.score };
@@ -233,24 +273,50 @@ export class UsersService {
 
     worker.photoUrl = photoUrl;
 
-    const qualityResult = calculateProfileQualityScore({
-      hasPhoto:        true,
-      hasValidNif:     isValidNIF(worker.nif ?? ''),
-      hasValidIban:    isValidIBAN(worker.iban ?? ''),
-      skillsCount:     worker.skills?.length ?? 0,
-      hasFullName:     !!(worker.fullName?.trim()),
-      hasAvailability: (worker.availableDays?.length ?? 0) > 0,
-    });
-
-    worker.profileQualityScore = qualityResult.score;
-    if (qualityResult.score >= 80 && worker.status !== 'SUSPENDED' && worker.status !== 'REJECTED') {
-      worker.status = 'ACTIVE';
-    } else if (qualityResult.score < 80 && worker.status === 'ACTIVE') {
-      worker.status = 'INCOMPLETE';
-    }
+    const qualityResult = this.rescoreWorker(worker);
     await this.workerRepo.save(worker);
 
     return { profileQualityScore: qualityResult.score };
+  }
+
+  /** Store (or clear, with null) the worker's CV and rescore the profile. */
+  async updateWorkerCv(
+    userId: string,
+    cv: { url: string; fileName: string } | null,
+  ): Promise<{ profileQualityScore: number; cvUrl: string | null; cvFileName: string | null }> {
+    const worker = await this.workerRepo.findOne({
+      where: { user: { id: userId } },
+      relations: ['user'],
+    });
+    if (!worker) throw new NotFoundException('Worker profile not found');
+
+    worker.cvUrl      = cv?.url      ?? undefined;
+    worker.cvFileName = cv?.fileName ?? undefined;
+    worker.cvUploadedAt = cv ? new Date() : null;
+
+    const qualityResult = this.rescoreWorker(worker);
+    await this.workerRepo.save(worker);
+
+    return {
+      profileQualityScore: qualityResult.score,
+      cvUrl:      worker.cvUrl      ?? null,
+      cvFileName: worker.cvFileName ?? null,
+    };
+  }
+
+  /**
+   * Recompute a stored score against the CURRENT scoring rules and persist it
+   * if it moved. Called on profile read so workers scored under an older rule
+   * set (e.g. before the CV criterion) converge without a migration.
+   */
+  async refreshWorkerScoreIfStale(worker: Worker): Promise<Worker> {
+    const previous = worker.profileQualityScore;
+    const previousStatus = worker.status;
+    this.rescoreWorker(worker);
+    if (worker.profileQualityScore !== previous || worker.status !== previousStatus) {
+      await this.workerRepo.save(worker);
+    }
+    return worker;
   }
 
   // ─── Admin: Worker Approval Queue ─────────────────────────────────────────

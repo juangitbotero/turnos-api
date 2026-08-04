@@ -1,14 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  ActivityIndicator, RefreshControl, Alert,
+  ActivityIndicator, RefreshControl, Alert, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
+import {
+  colors, spacing, radius, fontSize, fontWeight,
+  formatSeriesRange, PAYMENT_METHOD_LABELS, PaymentMethod,
+} from '@turnos/shared';
 import { shiftApi, ratingsApi, wagesApi, MyApplication, WagePayment, ApiError } from '../lib/api';
 import { getSocket, ShiftStatusChangedPayload, ShiftCancelledPayload } from '../lib/socket';
 import { formatDate } from '../lib/format';
+import { syncShiftToCalendar, isShiftInCalendar } from '../lib/calendar';
 
 type AppStatus = MyApplication['status'];
 
@@ -45,6 +50,25 @@ function formatAppliedAt(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('pt-PT', {
     day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
   });
+}
+
+/** Shift start as a Date, from date (YYYY-MM-DD) + startTime (HH:MM:SS). */
+function shiftStart(app: MyApplication): Date {
+  return new Date(`${app.shift.date}T${app.shift.startTime.slice(0, 5)}:00`);
+}
+
+/**
+ * Human countdown to the shift start — "Hoje", "Amanhã", "Faltam 3 dias".
+ * Calendar-day based, so an 18:00 shift today still reads "Hoje" at 09:00.
+ */
+function countdownLabel(start: Date): string {
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const days = Math.round(
+    (startOfDay(start).getTime() - startOfDay(new Date()).getTime()) / (24 * 60 * 60 * 1000),
+  );
+  if (days <= 0) return 'Hoje';
+  if (days === 1) return 'Amanhã';
+  return `Faltam ${days} dias`;
 }
 
 export default function MyShiftsScreen() {
@@ -224,7 +248,11 @@ export default function MyShiftsScreen() {
   // 2. Concluídos — APPROVED + shift has ended (status COMPLETED or end time passed)
   const concluded   = applications.filter(a => a.status === 'APPROVED' && isShiftOver(a) && a.shift.status !== 'ACTIVE');
   // 3. Confirmados — APPROVED + not yet started / not completed / not pre-selected
-  const confirmed   = applications.filter(a => a.status === 'APPROVED' && !isShiftOver(a) && a.shift.status !== 'ACTIVE' && a.shift.status !== 'PENDING_ACCEPTANCE');
+  const allConfirmed = applications.filter(a => a.status === 'APPROVED' && !isShiftOver(a) && a.shift.status !== 'ACTIVE' && a.shift.status !== 'PENDING_ACCEPTANCE');
+  // The soonest confirmed shift gets its own hero card; the rest fill the section
+  // below it, so the same shift is never rendered twice.
+  const nextJob     = [...allConfirmed].sort((a, b) => shiftStart(a).getTime() - shiftStart(b).getTime())[0];
+  const confirmed   = allConfirmed.filter(a => a.id !== nextJob?.id);
   // 4. Pendentes — awaiting employer decision
   const pending     = applications.filter(a => a.status === 'PENDING');
   // 5. Histórico — rejected or withdrawn
@@ -270,6 +298,14 @@ export default function MyShiftsScreen() {
                     <Text style={s.exploreBtnText}>Ver Turnos</Text>
                   </TouchableOpacity>
                 </View>
+              )}
+
+              {/* 📌 Próximo turno — the soonest confirmed shift, always on top */}
+              {nextJob && (
+                <NextJobCard
+                  app={nextJob}
+                  onPress={() => router.push(`/shift/${nextJob.shift.id}`)}
+                />
               )}
 
               {/* ⚡ Pre-selected — worker must accept/decline within 2h */}
@@ -397,6 +433,146 @@ export default function MyShiftsScreen() {
   );
 }
 
+// ── Próximo turno — hero card for the soonest confirmed shift ────────────────
+function NextJobCard({ app, onPress }: { app: MyApplication; onPress: () => void }) {
+  const shift = app.shift;
+  const start = shiftStart(app);
+  const countdown = countdownLabel(start);
+  const isImminent = countdown === 'Hoje' || countdown === 'Amanhã';
+  const seriesDays = shift.seriesDates?.length ?? 1;
+  const [syncing, setSyncing] = useState(false);
+  const [inCalendar, setInCalendar] = useState(false);
+
+  useEffect(() => {
+    isShiftInCalendar(shift.id).then(setInCalendar).catch(() => {});
+  }, [shift.id]);
+
+  const addToCalendar = async () => {
+    setSyncing(true);
+    const result = await syncShiftToCalendar({
+      id: shift.id,
+      title: shift.title,
+      subcategory: shift.subcategory,
+      address: shift.address,
+      startTime: shift.startTime,
+      endTime: shift.endTime,
+      grossHourlyRate: Number(shift.grossHourlyRate),
+      paymentMethod: shift.paymentMethod
+        ? PAYMENT_METHOD_LABELS[shift.paymentMethod as PaymentMethod] ?? shift.paymentMethod
+        : null,
+      companyName: shift.employer?.companyName ?? null,
+      dates: shift.seriesDates?.length ? shift.seriesDates : [shift.date],
+    });
+    setSyncing(false);
+
+    if (result.ok) {
+      setInCalendar(true);
+      Alert.alert(
+        result.replaced ? 'Calendário atualizado' : 'Adicionado ao calendário 📅',
+        result.created > 1
+          ? `${result.created} dias adicionados, com lembretes 1 dia e 2 horas antes de cada um.`
+          : 'Com lembretes 1 dia e 2 horas antes do turno.',
+      );
+    } else {
+      Alert.alert(
+        'Não foi possível adicionar',
+        result.reason === 'permission'
+          ? 'A Turnos precisa de permissão para aceder ao teu calendário.'
+          : 'Ocorreu um erro ao aceder ao calendário. Tenta novamente.',
+      );
+    }
+  };
+
+  return (
+    <TouchableOpacity style={s.nextCard} onPress={onPress} activeOpacity={0.92}>
+      <LinearGradient
+        colors={['#6a79ff', '#9b6dff']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={s.nextBanner}
+      >
+        <View style={s.nextBannerLeft}>
+          <Ionicons name="bookmark" size={14} color="#fff" />
+          <Text style={s.nextBannerText}>PRÓXIMO TURNO</Text>
+        </View>
+        <View style={[s.nextCountdown, isImminent && s.nextCountdownHot]}>
+          <Text style={[s.nextCountdownText, isImminent && s.nextCountdownTextHot]}>{countdown}</Text>
+        </View>
+      </LinearGradient>
+
+      <View style={s.nextBody}>
+        <Text style={s.nextTitle} numberOfLines={1}>{shift.title || shift.subcategory}</Text>
+        <Text style={s.nextEmployer}>{shift.employer?.companyName ?? 'Empresa'}</Text>
+
+        {seriesDays > 1 && (
+          <View style={s.nextSeriesPill}>
+            <Ionicons name="repeat" size={12} color="#1d4ed8" />
+            <Text style={s.nextSeriesText}>
+              Trabalho de {seriesDays} dias · {formatSeriesRange(shift.seriesDates!)}
+            </Text>
+          </View>
+        )}
+
+        <View style={s.nextRows}>
+          <View style={s.nextRow}>
+            <Ionicons name="calendar-outline" size={15} color={colors.primary} />
+            {/* Full weekday+date here — the countdown pill above already says Hoje/Amanhã */}
+            <Text style={s.nextRowText}>
+              {new Date(shift.date).toLocaleDateString('pt-PT', {
+                weekday: 'long', day: '2-digit', month: 'long',
+              })}
+            </Text>
+          </View>
+          <View style={s.nextRow}>
+            <Ionicons name="time-outline" size={15} color={colors.primary} />
+            <Text style={s.nextRowText}>
+              {shift.startTime.slice(0, 5)} – {shift.endTime.slice(0, 5)}
+            </Text>
+          </View>
+          {!!shift.address && (
+            <View style={s.nextRow}>
+              <Ionicons name="location-outline" size={15} color={colors.primary} />
+              <Text style={s.nextRowText} numberOfLines={1}>{shift.address}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Calendar sync — right where the worker checks what's next */}
+        <TouchableOpacity
+          style={s.nextCalendarBtn}
+          onPress={addToCalendar}
+          disabled={syncing}
+          activeOpacity={0.85}
+        >
+          {syncing ? (
+            <ActivityIndicator color={colors.primary} size="small" />
+          ) : (
+            <>
+              <Ionicons
+                name={inCalendar ? 'checkmark-circle' : 'calendar-outline'}
+                size={16}
+                color={inCalendar ? '#16a34a' : colors.primary}
+              />
+              <Text style={[s.nextCalendarText, inCalendar && { color: '#16a34a' }]}>
+                {inCalendar
+                  ? 'No teu calendário'
+                  : seriesDays > 1
+                    ? `Adicionar ${seriesDays} dias ao calendário`
+                    : 'Adicionar ao calendário'}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <View style={s.nextFooter}>
+          <Text style={s.nextRate}>€{Number(shift.grossHourlyRate).toFixed(2)}/hora</Text>
+          <Text style={s.nextCta}>Ver detalhes →</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 // ── Pre-selected card with Accept / Decline ───────────────────────────────────
 function PreSelectedCard({
   app, onPress, onAccept, onDecline,
@@ -476,6 +652,8 @@ function ApplicationCard({
   onConfirmWage?: (wage: WagePayment) => void;
 }) {
   const shift = app.shift;
+  const seriesDays    = shift.seriesDates?.length ?? 1;
+  const seriesStarted = !!shift.seriesStarted;
 
   // Derive badge from real-world state rather than just application status
   let badgeLabel: string;
@@ -508,8 +686,15 @@ function ApplicationCard({
 
       <View style={s.cardFooter}>
         <View style={s.footerChip}>
-          <Text style={s.footerText}>📅 {formatDate(shift.date)}</Text>
+          <Text style={s.footerText}>
+            📅 {seriesDays > 1 ? formatSeriesRange(shift.seriesDates!) : formatDate(shift.date)}
+          </Text>
         </View>
+        {seriesDays > 1 && (
+          <View style={[s.footerChip, s.seriesChip]}>
+            <Text style={[s.footerText, s.seriesChipText]}>🔁 {seriesDays} dias</Text>
+          </View>
+        )}
         <View style={s.footerChip}>
           <Text style={s.footerText}>⏰ {shift.startTime.slice(0, 5)}–{shift.endTime.slice(0, 5)}</Text>
         </View>
@@ -531,10 +716,33 @@ function ApplicationCard({
             </TouchableOpacity>
           )
         )}
+        {/* A started multi-day job has no cancel path in the app — the worker
+            committed to the full schedule. Support handles genuine emergencies
+            with the context to judge them. The server enforces this too. */}
         {onCancel !== undefined && (
-          <TouchableOpacity style={s.cancelBtn} onPress={onCancel} activeOpacity={0.85}>
-            <Text style={s.cancelBtnText}>Cancelar turno</Text>
-          </TouchableOpacity>
+          seriesStarted ? (
+            <TouchableOpacity
+              style={s.supportBtn}
+              onPress={() => Alert.alert(
+                'Compromisso de vários dias',
+                'Aceitaste um trabalho de vários dias que já começou, por isso não podes cancelá-lo aqui. ' +
+                'Se tiveres um imprevisto sério, fala com o suporte: suporte@turnos.pt',
+                [
+                  { text: 'Voltar', style: 'cancel' },
+                  { text: 'Contactar suporte', onPress: () => Linking.openURL('mailto:suporte@turnos.pt') },
+                ],
+              )}
+              activeOpacity={0.85}
+            >
+              <Text style={s.supportBtnText}>Contactar suporte</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={s.cancelBtn} onPress={onCancel} activeOpacity={0.85}>
+              <Text style={s.cancelBtnText}>
+                {(shift.seriesDates?.length ?? 1) > 1 ? 'Cancelar trabalho' : 'Cancelar turno'}
+              </Text>
+            </TouchableOpacity>
+          )
         )}
       </View>
 
@@ -558,16 +766,27 @@ function ApplicationCard({
               </Text>
             </View>
           ) : onConfirmWage ? (
-            <TouchableOpacity
-              style={[s.wageChip, s.wageChipAction]}
-              onPress={() => onConfirmWage(wage)}
-              activeOpacity={0.85}
-            >
-              <Text style={s.wageChipActionText}>
-                💶 €{Number(wage.amount).toFixed(2)}
-                {wage.status === 'MARKED_PAID' ? ' — a empresa diz que pagou. Recebeste? →' : ' — já recebeste? Confirma aqui →'}
-              </Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                style={[s.wageChip, s.wageChipAction]}
+                onPress={() => onConfirmWage(wage)}
+                activeOpacity={0.85}
+              >
+                <Text style={s.wageChipActionText}>
+                  💶 €{Number(wage.amount).toFixed(2)}
+                  {wage.status === 'MARKED_PAID' ? ' — a empresa diz que pagou. Recebeste? →' : ' — já recebeste? Confirma aqui →'}
+                </Text>
+              </TouchableOpacity>
+              {/* Check the receipt before confirming */}
+              {wage.paymentProofUrl && (
+                <TouchableOpacity
+                  onPress={() => Linking.openURL(wage.paymentProofUrl!)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={s.wageProofLink}>📎 Ver comprovativo da empresa</Text>
+                </TouchableOpacity>
+              )}
+            </>
           ) : null}
         </View>
       )}
@@ -686,6 +905,33 @@ const s = StyleSheet.create({
   },
   cancelBtnText: { fontSize: 11, fontWeight: fontWeight.bold, color: '#dc2626' },
 
+  supportBtn: {
+    backgroundColor: '#fff',
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  supportBtnText: { fontSize: 11, fontWeight: fontWeight.bold, color: '#1d4ed8' },
+
+  seriesChip: { backgroundColor: '#dbeafe', borderColor: '#bfdbfe' },
+  seriesChipText: { color: '#1d4ed8', fontWeight: fontWeight.bold },
+
+  nextSeriesPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
+    marginTop: 8, paddingHorizontal: 10, paddingVertical: 4,
+    backgroundColor: '#dbeafe', borderRadius: radius.full,
+  },
+  nextSeriesText: { fontSize: 12, fontWeight: fontWeight.bold, color: '#1d4ed8' },
+
+  nextCalendarBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    height: 40, borderRadius: radius.md, marginTop: spacing.md,
+    borderWidth: 1.5, borderColor: colors.primary, backgroundColor: '#f5f6ff',
+  },
+  nextCalendarText: { fontSize: 13, fontWeight: fontWeight.bold, color: colors.primary },
+
   /* Wage trust-loop chips */
   wageRow: { marginTop: 8 },
   wageChip: { borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1 },
@@ -697,6 +943,7 @@ const s = StyleSheet.create({
   wageChipPendingText:  { fontSize: 12, fontWeight: fontWeight.semibold, color: '#4338ca' },
   wageChipAction:       { backgroundColor: '#fffbeb', borderColor: '#fde68a' },
   wageChipActionText:   { fontSize: 12, fontWeight: fontWeight.bold, color: '#92400e' },
+  wageProofLink:        { fontSize: 12, fontWeight: fontWeight.semibold, color: '#16a34a', marginTop: 6 },
 
   ratedChip: {
     backgroundColor: '#f3f4f6',
@@ -720,6 +967,79 @@ const s = StyleSheet.create({
   navItemActive: { flex: 1, alignItems: 'center', gap: 3 },
   navLabel: { fontSize: 11, color: colors.textSecondary, fontWeight: fontWeight.semibold },
   navLabelActive: { fontSize: 11, color: colors.primary, fontWeight: fontWeight.bold },
+
+  // Próximo turno hero card
+  nextCard: {
+    backgroundColor: '#fff',
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: '#e0e2ff',
+    shadowColor: '#6a79ff',
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  nextBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+  },
+  nextBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  nextBannerText: { color: '#fff', fontSize: 11, fontWeight: fontWeight.extrabold, letterSpacing: 0.8 },
+  nextCountdown: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  nextCountdownHot: { backgroundColor: '#fff' },
+  nextCountdownText: { color: '#fff', fontSize: 11, fontWeight: fontWeight.bold },
+  nextCountdownTextHot: { color: '#6a79ff' },
+
+  nextBody: { padding: spacing.md },
+  nextTitle: {
+    fontSize: 20,
+    fontWeight: fontWeight.extrabold,
+    color: colors.textPrimary,
+    letterSpacing: -0.4,
+  },
+  nextEmployer: {
+    fontSize: fontSize.body,
+    color: colors.textSecondary,
+    fontWeight: fontWeight.semibold,
+    marginTop: 2,
+  },
+  nextRows: { gap: 8, marginTop: spacing.md },
+  nextRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  nextRowText: {
+    fontSize: fontSize.body,
+    color: colors.textPrimary,
+    fontWeight: fontWeight.semibold,
+    flex: 1,
+  },
+  nextFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral,
+  },
+  nextRate: { fontSize: fontSize.body, fontWeight: fontWeight.extrabold, color: '#16a34a' },
+  nextCta: { fontSize: fontSize.caption, fontWeight: fontWeight.bold, color: colors.primary },
+
+  // Pre-selected card body — outlined Ionicons + secondary text, matching the
+  // monochrome meta rows used on the other cards.
+  cardBody: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 10 },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  metaText: { fontSize: 12, color: colors.textSecondary, fontWeight: fontWeight.semibold },
 
   // Pre-selected card
   preCard: {

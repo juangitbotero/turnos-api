@@ -41,9 +41,31 @@ export class StorageService {
     }
   }
 
+  /**
+   * File extension for a MIME type. Document types are mapped explicitly —
+   * splitting on '/' would turn a .docx into the whole
+   * "vnd.openxmlformats-officedocument..." subtype.
+   */
+  private static extFor(mimeType: string): string {
+    const map: Record<string, string> = {
+      'application/pdf':  'pdf',
+      'application/msword': 'doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    };
+    return map[mimeType] ?? mimeType.split('/')[1] ?? 'bin';
+  }
+
+  /** Store a profile photo. Thin wrapper kept for call-site readability. */
   async uploadPhoto(buffer: Buffer, mimeType: string, folder = 'photos'): Promise<string> {
-    const ext = mimeType.split('/')[1] ?? 'jpg';
-    const filename = `${folder}/${crypto.randomUUID()}.${ext}`;
+    return this.upload(buffer, mimeType, folder);
+  }
+
+  /**
+   * Store any file (photos, payment proofs — images or PDF) and return its
+   * public URL. R2 in production, local disk in dev.
+   */
+  async upload(buffer: Buffer, mimeType: string, folder = 'files'): Promise<string> {
+    const filename = `${folder}/${crypto.randomUUID()}.${StorageService.extFor(mimeType)}`;
 
     if (this.useLocal) {
       const localPath = path.join(this.uploadsDir, filename);

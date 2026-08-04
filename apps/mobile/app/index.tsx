@@ -7,7 +7,10 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory, PAYMENT_METHOD_LABELS, PaymentMethod } from '@turnos/shared';
+import {
+  colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory,
+  PAYMENT_METHOD_LABELS, PaymentMethod, formatSeriesRange,
+} from '@turnos/shared';
 import { shiftApi, authApi, ShiftSummary, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
 import { formatDate } from '../lib/format';
@@ -26,7 +29,12 @@ function toFeedItem(s: ShiftSummary) {
     paymentMethodLabel: PAYMENT_METHOD_LABELS[s.paymentMethod as PaymentMethod] ?? null,
     startTime: s.startTime.slice(0, 5),
     endTime: s.endTime.slice(0, 5),
-    date: formatDate(s.date),
+    // Multi-day jobs show their range instead of a single date — the API sends
+    // one entry per job, not per day.
+    seriesDays: s.seriesDates?.length && s.seriesDates.length > 1 ? s.seriesDates.length : 0,
+    date: s.seriesDates?.length && s.seriesDates.length > 1
+      ? formatSeriesRange(s.seriesDates)
+      : formatDate(s.date),
     coordinate: { latitude: lat, longitude: lng },
     urgent: false,
   };
@@ -271,6 +279,14 @@ export default function FeedScreen() {
                   <Ionicons name="time-outline" size={11} color={colors.textSecondary} />
                   <Text style={s.footerChipText}>{item.startTime}–{item.endTime}</Text>
                 </View>
+                {item.seriesDays > 0 && (
+                  <View style={[s.footerChip, s.multiDayChip]}>
+                    <Ionicons name="repeat" size={11} color="#1d4ed8" />
+                    <Text style={[s.footerChipText, s.multiDayChipText]}>
+                      {item.seriesDays} dias
+                    </Text>
+                  </View>
+                )}
               </View>
             </TouchableOpacity>
           )}
@@ -571,6 +587,8 @@ const s = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: fontWeight.semibold,
   },
+  multiDayChip: { backgroundColor: '#dbeafe', borderColor: '#bfdbfe' },
+  multiDayChipText: { color: '#1d4ed8', fontWeight: fontWeight.bold },
   ratingChip: {
     backgroundColor: '#fef9c3',
     borderRadius: radius.full,

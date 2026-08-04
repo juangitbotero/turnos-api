@@ -3,6 +3,14 @@
 **Status:** Accepted (2026-07-05)
 **Supersedes:** ADR 003 (revenue model), ADR 004 (payment flow), ADR 006 (worker payout)
 
+**Amended 2026-07-29 — payment methods:** `NUMERARIO` (cash) is retired. An MCD
+wage must leave a traceable record, and a cash payment gives a dispute nothing to
+review. The selectable methods are now `TURNOS_PAY_LINK`, `TRANSFERENCIA` and
+`MBWAY`; manual methods carry a proof-of-payment upload. The Pay Link itself now
+also accepts **MB WAY** (capability `mb_way_payments` on the worker's Connect
+account), not only card. Historical rows keep their cash label via
+`LEGACY_PAYMENT_METHOD_LABELS`.
+
 ## Context
 
 Following a consultation with an accountant and a labor attorney (July 2026), the

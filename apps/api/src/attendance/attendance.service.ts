@@ -25,10 +25,11 @@ import {
   NotFoundException, UnauthorizedException, Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Not, IsNull } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import * as QRCode from 'qrcode';
+import { formatSeriesRange } from '@turnos/shared';
 import { ShiftAttendance, AttendanceStatus } from './entities/shift-attendance.entity';
 import { Shift, ShiftStatus } from '../shifts/entities/shift.entity';
 import { Worker } from '../users/entities/worker.entity';
@@ -250,51 +251,28 @@ export class AttendanceService {
       scheduledHours: Number(saved.scheduledHours),
     });
 
-    // Record the fixed platform fee on the employer's next invoice (non-blocking).
-    // The wage is paid directly company → worker, outside Turnos.
-    this.payments.recordShiftFeeOnCheckout(
-      shift.id,
-      shift.employer.id,
-      worker.id,
-      Number(saved.scheduledHours),
-      Number(shift.grossHourlyRate),
-      shift.date,
-      shift.title,
-    ).catch(err => {
-      this.logger.warn(`[Attendance] Fee recording failed for shift ${shift.id}: ${(err as Error).message}`);
-    });
-
-    // Track the wage the company owes the worker; generates the Turnos Pay
-    // Link when that's the shift's payment method (non-blocking, never throws).
-    this.wagePayments.createForShiftCompletion({
-      shiftId:       shift.id,
-      employerId:    shift.employer.id,
-      workerId:      worker.id,
-      amountEur:     Number(saved.scheduledHours) * Number(shift.grossHourlyRate),
-      paymentMethod: shift.paymentMethod ?? 'TRANSFERENCIA',
-      shiftTitle:    shift.title,
-      shiftDate:     shift.date,
-    }).catch(() => {});
-
-    // Schedule Recibo Verde push reminders (non-blocking, best-effort)
-    this.compliance.onShiftCompleted(shift, worker).catch(err => {
-      this.logger.warn(`[Attendance] Failed to schedule Recibo Verde reminders: ${(err as Error).message}`);
-    });
-
-    // Two-way review prompts: immediate push to the worker + +8h follow-ups
-    // to whichever side hasn't rated yet (handled by RatingsService).
-    if (worker.expoPushToken) {
-      this.notifications.sendDirectPush(
-        [worker.expoPushToken],
-        'Turno concluído! 🎉',
-        `Como correu o turno "${shift.title}"? Avalia a empresa — demora 10 segundos.`,
-        { type: 'rate_employer', shiftId: shift.id },
-      ).catch(() => {});
-    }
-    this.ratings.scheduleReviewFollowUps(shift.id, shift.title, shift.employer.id, worker.id)
-      .catch(err => {
-        this.logger.warn(`[Attendance] Failed to schedule review follow-ups: ${(err as Error).message}`);
+    // ── Series gate ──────────────────────────────────────────────────────────
+    // A multi-day job settles ONCE, when its last worked day closes: one €3
+    // fee, one wage payment / Pay Link covering every day, one set of review
+    // prompts. Days in the middle only close their own attendance record.
+    const settlement = await this.resolveSeriesSettlement(
+      shift, worker.id, Number(saved.scheduledHours),
+    );
+    if (!settlement) {
+      this.logger.log(
+        `[Attendance] Day ${shift.seriesDayIndex}/${shift.seriesTotalDays} of series ${shift.seriesId} complete — settlement deferred to the final day`,
+      );
+      await this.compliance.log({
+        event:      ComplianceEvent.CONTRACT_CREATED,
+        shiftId:    shift.id,
+        workerId:   worker.id,
+        employerId: shift.employer.id,
+        details:    { action: 'SERIES_DAY_COMPLETED', trigger, scheduledHours: Number(saved.scheduledHours) },
       });
+      return;
+    }
+
+    this.settleJob(shift, worker, settlement);
 
     await this.compliance.log({
       event:      ComplianceEvent.CONTRACT_CREATED,
@@ -324,6 +302,160 @@ export class AttendanceService {
         });
       }
     }
+
+    await this.settleStrandedSeries().catch(err => {
+      this.logger.error(`[Attendance] Stranded-series settlement failed: ${(err as Error).message}`);
+    });
+  }
+
+  /**
+   * Settle multi-day jobs whose remaining days went away without a final
+   * completion — the no-show case, where days 4–5 are released back to OPEN
+   * after the worker fails to check in on day 3. Days 1–2 were worked and
+   * deferred their settlement to a last day that now never arrives, so the
+   * wage would otherwise never be generated.
+   *
+   * Idempotent: skips any series that already has a wage payment.
+   */
+  private async settleStrandedSeries(): Promise<void> {
+    const completedDays = await this.shiftRepo.find({
+      where: { status: ShiftStatus.COMPLETED, seriesId: Not(IsNull()) },
+      relations: ['employer', 'assignedWorker'],
+      order: { date: 'ASC' },
+    });
+
+    const bySeries = new Map<string, Shift[]>();
+    for (const day of completedDays) {
+      bySeries.set(day.seriesId!, [...(bySeries.get(day.seriesId!) ?? []), day]);
+    }
+
+    for (const days of bySeries.values()) {
+      const last = days[days.length - 1]!;
+      const worker = last.assignedWorker;
+      if (!worker) continue;
+
+      // Already settled? Then this series is done.
+      if (await this.wagePayments.existsForShifts(days.map(d => d.id))) continue;
+
+      const settlement = await this.resolveSeriesSettlement(last, worker.id);
+      if (!settlement) continue; // days still pending — the normal path will settle it
+
+      this.logger.log(
+        `[Attendance] Settling stranded series ${last.seriesId} — ${days.length} day(s) worked, ${settlement.totalHours}h`,
+      );
+      this.settleJob(last, worker, settlement);
+    }
+  }
+
+  /**
+   * Everything that happens ONCE per job, when the last day has been worked:
+   * the €3 platform fee, the wage payment / Pay Link covering every day, the
+   * Recibo Verde reminders and the two-way review prompts.
+   * All steps are fire-and-forget — none may block or fail the completion.
+   */
+  private settleJob(
+    shift: Shift,
+    worker: Worker,
+    settlement: { totalHours: number; title: string },
+  ): void {
+    // Fee is per JOB, not per day — a 5-day job is still one €3 fee.
+    // The wage is paid directly company → worker, outside Turnos.
+    this.payments.recordShiftFeeOnCheckout(
+      shift.id,
+      shift.employer.id,
+      worker.id,
+      settlement.totalHours,
+      Number(shift.grossHourlyRate),
+      shift.date,
+      settlement.title,
+    ).catch(err => {
+      this.logger.warn(`[Attendance] Fee recording failed for shift ${shift.id}: ${(err as Error).message}`);
+    });
+
+    // One wage payment for the whole job, generated when the last day closes.
+    this.wagePayments.createForShiftCompletion({
+      shiftId:       shift.id,
+      employerId:    shift.employer.id,
+      workerId:      worker.id,
+      amountEur:     settlement.totalHours * Number(shift.grossHourlyRate),
+      paymentMethod: shift.paymentMethod ?? 'TRANSFERENCIA',
+      shiftTitle:    settlement.title,
+      shiftDate:     shift.date,
+    }).catch(() => {});
+
+    // Schedule Recibo Verde push reminders (non-blocking, best-effort)
+    this.compliance.onShiftCompleted(shift, worker).catch(err => {
+      this.logger.warn(`[Attendance] Failed to schedule Recibo Verde reminders: ${(err as Error).message}`);
+    });
+
+    // Two-way review prompts: immediate push to the worker + +8h follow-ups
+    // to whichever side hasn't rated yet (handled by RatingsService).
+    if (worker.expoPushToken) {
+      this.notifications.sendDirectPush(
+        [worker.expoPushToken],
+        'Turno concluído! 🎉',
+        `Como correu o turno "${shift.title}"? Avalia a empresa — demora 10 segundos.`,
+        { type: 'rate_employer', shiftId: shift.id },
+      ).catch(() => {});
+    }
+    this.ratings.scheduleReviewFollowUps(shift.id, shift.title, shift.employer.id, worker.id)
+      .catch(err => {
+        this.logger.warn(`[Attendance] Failed to schedule review follow-ups: ${(err as Error).message}`);
+      });
+  }
+
+  /**
+   * Decide whether this completion settles the job, and with what totals.
+   *
+   * Single-day shift → settles immediately with its own hours.
+   * Multi-day series → settles only once no day is still assigned to the
+   * worker and pending (FILLED or ACTIVE). Hours are summed across every day
+   * the worker actually worked, so a series cut short by a no-show still pays
+   * correctly for the days completed.
+   *
+   * Returns null when days remain, meaning "not yet — defer settlement".
+   */
+  private async resolveSeriesSettlement(
+    shift: Shift,
+    workerId: string,
+    ownHours?: number,
+  ): Promise<{ totalHours: number; title: string } | null> {
+    if (!shift.seriesId) {
+      const hours = ownHours ?? Number(
+        (await this.attendanceRepo.findOne({ where: { shift: { id: shift.id } } }))?.scheduledHours ?? 0,
+      );
+      return { totalHours: hours, title: shift.title };
+    }
+
+    const days = await this.shiftRepo.find({
+      where: { seriesId: shift.seriesId },
+      relations: ['assignedWorker'],
+      order: { date: 'ASC' },
+    });
+
+    // Days still ahead of us for this worker — cancelled/reopened days don't count
+    const stillPending = days.some(d =>
+      d.assignedWorker?.id === workerId &&
+      (d.status === ShiftStatus.FILLED || d.status === ShiftStatus.ACTIVE),
+    );
+    if (stillPending) return null;
+
+    const worked = await this.attendanceRepo.find({
+      where: {
+        shift:  { id: In(days.map(d => d.id)) },
+        worker: { id: workerId },
+        status: AttendanceStatus.COMPLETED,
+      },
+    });
+    const totalHours = worked.reduce((sum, a) => sum + Number(a.scheduledHours ?? 0), 0);
+    const workedDates = days
+      .filter(d => d.status === ShiftStatus.COMPLETED)
+      .map(d => d.date);
+
+    return {
+      totalHours,
+      title: `${shift.title} (${workedDates.length} dias · ${formatSeriesRange(workedDates)})`,
+    };
   }
 
   /** Scheduled end datetime — handles overnight shifts (end < start ⇒ +1 day). */

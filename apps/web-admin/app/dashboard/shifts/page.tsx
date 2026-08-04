@@ -6,7 +6,12 @@ import { useRouter } from 'next/navigation';
 import { adminApi, ApiError, Shift, Application, WagePayment } from '../../../lib/api';
 import { connectSocket, getSocket, NewApplicationPayload } from '../../../lib/socket';
 import { formatDate } from '../../../lib/format';
-import { COMPANY_CANCEL_REASONS, PAYMENT_METHOD_LABELS, PaymentMethod } from '@turnos/shared';
+import {
+  COMPANY_CANCEL_REASONS, paymentMethodLabel, formatSeriesRange, experienceLevelLabel,
+} from '@turnos/shared';
+
+/** A shift row that stands for a multi-day job rather than a single day. */
+const isMultiDay = (shift: Shift): boolean => (shift.seriesDates?.length ?? 0) > 1;
 
 const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
   DRAFT:              { label: 'Rascunho',          color: '#6b7280', bg: '#f3f4f6' },
@@ -104,6 +109,30 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
         </div>
       )}
 
+      {/* Experience — the strongest signal when choosing between candidates */}
+      {w?.experiences && w.experiences.length > 0 && (
+        <div style={s.profileSection}>
+          <p style={s.profileSectionTitle}>Experiência</p>
+          <div style={s.skillTags}>
+            {w.experiences.map(exp => (
+              <span key={exp.jobTitle} style={{ ...s.skillTag, background: '#fef3c7', color: '#92400e' }}>
+                💼 {exp.jobTitle} · {experienceLevelLabel(exp.level)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* CV */}
+      {w?.cvUrl && (
+        <div style={s.profileSection}>
+          <p style={s.profileSectionTitle}>Currículo</p>
+          <a href={w.cvUrl} target="_blank" rel="noopener noreferrer" style={s.cvLink}>
+            📄 {w.cvFileName ?? 'Ver CV'}
+          </a>
+        </div>
+      )}
+
       {/* Languages */}
       {w?.languages && w.languages.length > 0 && (
         <div style={s.profileSection}>
@@ -116,17 +145,22 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
         </div>
       )}
 
-      {/* Available days */}
-      {w?.availableDays && w.availableDays.length > 0 && (
-        <div style={s.profileSection}>
-          <p style={s.profileSectionTitle}>Disponibilidade semanal</p>
-          <div style={s.skillTags}>
-            {w.availableDays.map(d => (
-              <span key={d} style={{ ...s.skillTag, background: '#dbeafe', color: '#1d4ed8' }}>{d}</span>
-            ))}
-          </div>
+      {/* Availability — master switch, then the days it covers */}
+      <div style={s.profileSection}>
+        <p style={s.profileSectionTitle}>Disponibilidade</p>
+        <div style={s.skillTags}>
+          <span style={{
+            ...s.skillTag,
+            background: w?.isAvailableForWork ? '#f0fdf4' : '#f3f4f6',
+            color:      w?.isAvailableForWork ? '#166534' : '#6b7280',
+          }}>
+            {w?.isAvailableForWork ? '🟢 Disponível para trabalhar' : '⚪ Não disponível de momento'}
+          </span>
+          {w?.availableDays?.map(d => (
+            <span key={d} style={{ ...s.skillTag, background: '#dbeafe', color: '#1d4ed8' }}>{d}</span>
+          ))}
         </div>
-      )}
+      </div>
 
       {!w?.bio && (!w?.skills || w.skills.length === 0) && (!w?.availableDays || w.availableDays.length === 0) && (
         <p style={s.emptyApps}>Este candidato ainda não preencheu o perfil completo.</p>
@@ -302,7 +336,7 @@ export default function ShiftsPage() {
   const [newAppCounts, setNewAppCounts] = useState<Record<string, number>>({});
   const [cancelTarget, setCancelTarget] = useState<Shift | null>(null);
   const [pendingWages, setPendingWages] = useState<WagePayment[]>([]);
-  const [markingPaid, setMarkingPaid]   = useState<string | null>(null);
+  const [markPaidTarget, setMarkPaidTarget] = useState<WagePayment | null>(null);
   const [wageAction, setWageAction]     = useState<{ wage: WagePayment; mode: 'adjust' | 'problem' } | null>(null);
 
   const load = async () => {
@@ -372,19 +406,6 @@ export default function ShiftsPage() {
       alert(err instanceof ApiError ? err.message : 'Erro ao cancelar.');
     } finally {
       setCancelling(null);
-    }
-  };
-
-  const handleMarkPaid = async (wage: WagePayment) => {
-    if (!confirm(`Confirmas que pagaste €${Number(wage.amount).toFixed(2)} ao trabalhador pelo turno "${wage.shiftTitle}"? O trabalhador será notificado para confirmar a receção.`)) return;
-    setMarkingPaid(wage.id);
-    try {
-      const updated = await adminApi.markWagePaid(wage.id);
-      setPendingWages(prev => prev.map(w => w.id === wage.id ? updated : w));
-    } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Erro ao marcar como pago.');
-    } finally {
-      setMarkingPaid(null);
     }
   };
 
@@ -459,10 +480,47 @@ export default function ShiftsPage() {
                     {w.type === 'CANCELLATION_MINIMUM' ? '⚠️ Mínimo 2h (cancelamento) — ' : ''}{w.shiftTitle}
                   </div>
                   <div style={{ fontSize: 12, color: '#6b7280' }}>
-                    {w.shiftDate ?? ''} · {PAYMENT_METHOD_LABELS[w.paymentMethod as PaymentMethod] ?? w.paymentMethod}
+                    {w.shiftDate ?? ''} · {paymentMethodLabel(w.paymentMethod)}
                     {w.status === 'MARKED_PAID' && ' · aguarda confirmação do trabalhador'}
                     {w.status === 'DISPUTED' && ' · 🚩 trabalhador reporta não ter recebido'}
                   </div>
+                  {/* Coordinates for a manual transfer — the company needs these to pay */}
+                  {w.workerIban && w.status === 'PENDING' && (
+                    <div style={{
+                      fontSize: 12, color: '#374151', marginTop: 6, lineHeight: 1.6,
+                      background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6,
+                      padding: '6px 10px',
+                    }}>
+                      <div><strong>{w.workerName ?? 'Trabalhador'}</strong></div>
+                      <div>IBAN: <code style={{ fontSize: 12 }}>{w.workerIban}</code></div>
+                      <div>Referência: <code style={{ fontSize: 12 }}>{w.paymentReference}</code></div>
+                    </div>
+                  )}
+                  {w.workerIbanWithheld && w.status === 'PENDING' && (
+                    <div style={{
+                      fontSize: 12, color: '#92400e', marginTop: 6, lineHeight: 1.5,
+                      background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6,
+                      padding: '6px 10px',
+                    }}>
+                      O trabalhador não autorizou a partilha do IBAN. Combina outro método
+                      (MB WAY) diretamente com ele, ou pede-lhe que ative o Turnos Pay Link.
+                    </div>
+                  )}
+                  {w.paymentProofUrl && (
+                    <a
+                      href={w.paymentProofUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}
+                    >
+                      📎 Ver comprovativo
+                    </a>
+                  )}
+                  {!w.paymentProofUrl && w.status === 'MARKED_PAID' && (
+                    <div style={{ fontSize: 12, color: '#b45309' }}>
+                      ⚠️ Declarado sem comprovativo
+                    </div>
+                  )}
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: '#1e1b4b' }}>
                   €{Number(w.amount).toFixed(2)}
@@ -477,15 +535,14 @@ export default function ShiftsPage() {
                 )}
                 {!w.payLinkUrl && (w.status === 'PENDING' || w.status === 'DISPUTED') && (
                   <button
-                    onClick={() => handleMarkPaid(w)}
-                    disabled={markingPaid === w.id}
+                    onClick={() => setMarkPaidTarget(w)}
                     style={{
                       background: '#fff', color: '#16a34a', fontWeight: 700, fontSize: 13,
                       padding: '8px 16px', borderRadius: 8, border: '1.5px solid #86efac',
                       cursor: 'pointer', fontFamily: 'inherit',
                     }}
                   >
-                    {markingPaid === w.id ? '...' : '✓ Marcar como pago'}
+                    ✓ Marcar como pago
                   </button>
                 )}
                 {w.status === 'PENDING' && w.type === 'SHIFT_COMPLETION' && (
@@ -693,6 +750,144 @@ export default function ShiftsPage() {
           }}
         />
       )}
+
+      {markPaidTarget && (
+        <MarkPaidModal
+          wage={markPaidTarget}
+          onClose={() => setMarkPaidTarget(null)}
+          onDone={updated => {
+            setPendingWages(prev => prev.map(w => w.id === updated.id ? updated : w));
+            setMarkPaidTarget(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Mark-as-paid modal — manual methods, with proof of payment ───────────────
+
+function MarkPaidModal({ wage, onClose, onDone }: {
+  wage: WagePayment;
+  onClose: () => void;
+  onDone: (updated: WagePayment) => void;
+}) {
+  const [proof, setProof]   = useState<File | null>(null);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy]     = useState(false);
+  const [error, setError]   = useState('');
+
+  const submit = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      onDone(await adminApi.markWagePaid(wage.id, proof ?? undefined, reason.trim() || undefined));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Erro — tenta novamente.');
+      setBusy(false);
+    }
+  };
+
+  // Either attach the receipt, or say why there isn't one — never a bare click.
+  const canSubmit = proof !== null || reason.trim().length >= 5;
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(15,15,35,0.55)', zIndex: 60,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+    }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 460 }}>
+        <h2 style={{ fontSize: 17, fontWeight: 800, color: '#1e1b4b', marginBottom: 6 }}>
+          Confirmar pagamento ao trabalhador
+        </h2>
+        <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
+          {wage.shiftTitle} · {wage.shiftDate ?? ''} · <strong>€{Number(wage.amount).toFixed(2)}</strong>
+          {' '}via {paymentMethodLabel(wage.paymentMethod)}
+        </p>
+
+        {wage.workerIban ? (
+          <div style={{
+            background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8,
+            padding: '10px 12px', fontSize: 13, lineHeight: 1.7, marginBottom: 14,
+          }}>
+            <div><strong>{wage.workerName ?? 'Trabalhador'}</strong></div>
+            <div>IBAN: <code>{wage.workerIban}</code></div>
+            <div>Referência: <code>{wage.paymentReference}</code></div>
+          </div>
+        ) : wage.workerIbanWithheld ? (
+          <div style={{
+            background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8,
+            padding: '10px 12px', fontSize: 13, lineHeight: 1.5, marginBottom: 14, color: '#92400e',
+          }}>
+            O trabalhador não autorizou a partilha do IBAN.
+          </div>
+        ) : null}
+
+        <p style={{ fontSize: 13, color: '#374151', marginBottom: 8 }}>
+          Anexa o <strong>comprovativo</strong> (recibo do banco ou captura do MB WAY). Fica associado
+          a este turno e é o que resolve a disputa se o trabalhador reportar que não recebeu.
+        </p>
+
+        <input
+          type="file"
+          accept="image/*,application/pdf"
+          onChange={e => setProof(e.target.files?.[0] ?? null)}
+          style={{ fontSize: 13, marginBottom: 12, fontFamily: 'inherit', width: '100%' }}
+        />
+
+        {!proof && (
+          <>
+            <p style={{ fontSize: 12, color: '#b45309', marginBottom: 6 }}>
+              Sem comprovativo? Explica porquê — fica registado e visível em caso de disputa.
+            </p>
+            <input
+              type="text"
+              placeholder="Ex.: pagamento feito por terceiro, recibo indisponível"
+              value={reason}
+              onChange={e => setReason(e.target.value.slice(0, 200))}
+              style={{
+                width: '100%', height: 40, padding: '0 12px', fontSize: 13,
+                border: '1.5px solid #e5e7eb', borderRadius: 8, marginBottom: 12, fontFamily: 'inherit',
+              }}
+            />
+          </>
+        )}
+
+        {error && (
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
+            padding: '8px 12px', fontSize: 13, color: '#991b1b', marginBottom: 12,
+          }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            disabled={busy}
+            style={{
+              padding: '10px 18px', borderRadius: 8, fontSize: 14, fontWeight: 600,
+              background: '#fff', color: '#6b7280', border: '1.5px solid #e5e7eb',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Voltar
+          </button>
+          <button
+            onClick={submit}
+            disabled={busy || !canSubmit}
+            style={{
+              padding: '10px 18px', borderRadius: 8, fontSize: 14, fontWeight: 700,
+              background: '#16a34a', color: '#fff', border: 'none',
+              cursor: busy || !canSubmit ? 'not-allowed' : 'pointer',
+              opacity: busy || !canSubmit ? 0.6 : 1, fontFamily: 'inherit',
+            }}
+          >
+            {busy ? 'A enviar…' : '✓ Confirmar pagamento'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -963,10 +1158,17 @@ function ShiftRow({ shift, onCancel, onManualConfirm, cancelling, confirming, on
   return (
     <div style={s.tableRow}>
       <div>
-        <p style={s.rowTitle}>{shift.title || shift.subcategory}</p>
+        <p style={s.rowTitle}>
+          {shift.title || shift.subcategory}
+          {isMultiDay(shift) && (
+            <span style={s.multiDayTag}>🔁 {shift.seriesDates!.length} dias</span>
+          )}
+        </p>
         <p style={s.rowSub}>{shift.category} · {shift.address.split(',')[0]}</p>
       </div>
-      <span style={s.rowCell}>{formatDate(shift.date)}</span>
+      <span style={s.rowCell}>
+        {isMultiDay(shift) ? formatSeriesRange(shift.seriesDates!) : formatDate(shift.date)}
+      </span>
       <span style={s.rowCell}>{shift.startTime.slice(0, 5)}–{shift.endTime.slice(0, 5)}</span>
       <span style={{ ...s.rowCell, fontWeight: 700 }}>€{Number(shift.grossHourlyRate).toFixed(2)}/hr</span>
       <span style={{ ...s.badge, color: st.color, background: st.bg }}>{st.label}</span>
@@ -1064,6 +1266,11 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: 'center', gap: 12, fontSize: 13,
   },
   rowTitle: { fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 2 },
+  multiDayTag: {
+    marginLeft: 8, padding: '2px 8px', borderRadius: 20,
+    fontSize: 11, fontWeight: 700, color: '#1d4ed8',
+    background: '#dbeafe', border: '1px solid #bfdbfe',
+  },
   rowSub: { fontSize: 12, color: 'var(--color-text-secondary)' },
   rowCell: { color: 'var(--color-text-primary)' },
   badge: { display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: '#fef9c3', border: '1px solid #fde68a', color: '#92400e' },
@@ -1163,6 +1370,12 @@ const s: Record<string, React.CSSProperties> = {
     padding: '4px 10px', background: 'var(--color-primary-light)', borderRadius: 20,
     fontSize: 12, fontWeight: 600, color: 'var(--color-primary)',
     border: '1px solid rgba(106,121,255,0.2)',
+  },
+  cvLink: {
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+    fontSize: 13, fontWeight: 700, color: 'var(--color-primary)',
+    textDecoration: 'none', padding: '8px 12px', borderRadius: 8,
+    background: 'var(--color-primary-light)', border: '1px solid rgba(106,121,255,0.2)',
   },
   coverNoteBox: {
     background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10,

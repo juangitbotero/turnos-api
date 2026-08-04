@@ -1,7 +1,10 @@
 import {
   Controller, Post, Get, Body, Req, Res, Query, Param,
   UseGuards, RawBodyRequest, Headers, HttpCode,
+  UseInterceptors, UploadedFile, BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -152,15 +155,34 @@ export class PaymentsController {
     return this.wagePayments.getEmployerPending(req.user.userId);
   }
 
-  /** Employer: declare a manual payment done ("Marcado como pago") */
+  /**
+   * Employer: declare a manual payment done ("Marcado como pago").
+   * Multipart — optional `proof` file (bank receipt / MB WAY screenshot) and an
+   * optional `noProofReason` when the company has no document to attach.
+   */
   @Post('wages/:id/mark-paid')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('EMPLOYER')
+  @UseInterceptors(FileInterceptor('proof', {
+    storage: memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const ok = file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf';
+      cb(ok ? null : new BadRequestException('O comprovativo deve ser uma imagem ou PDF'), ok);
+    },
+  }))
   markWagePaid(
     @Req() req: Request & { user: { userId: string } },
     @Param('id') id: string,
+    @UploadedFile() proof: Express.Multer.File | undefined,
+    @Body() body: { noProofReason?: string },
   ) {
-    return this.wagePayments.markPaidByEmployer(req.user.userId, id);
+    return this.wagePayments.markPaidByEmployer(
+      req.user.userId,
+      id,
+      proof ? { buffer: proof.buffer, mimetype: proof.mimetype } : undefined,
+      body?.noProofReason,
+    );
   }
 
   /** Employer: adjust the hours actually worked before paying (2h floor) */

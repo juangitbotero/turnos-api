@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShiftCategory, LANGUAGES, ALL_SKILLS } from '@turnos/shared';
+import {
+  ShiftCategory, LANGUAGES, ALL_SKILLS,
+  EXPERIENCE_LEVEL_SHORT, ExperienceLevel, experienceLevelLabel,
+} from '@turnos/shared';
 import { adminApi, WorkerSearchResult, Shift, ApiError } from '../../../lib/api';
 import { SIDEBAR_NAV } from '../../../lib/nav';
 
@@ -88,6 +91,31 @@ function WorkerDetailPanel({
             </div>
           )}
 
+          {/* CV */}
+          {worker.cvUrl && (
+            <div style={p.section}>
+              <div style={p.sectionTitle}>Currículo</div>
+              <a href={worker.cvUrl} target="_blank" rel="noopener noreferrer" style={p.cvLink}>
+                📄 {worker.cvFileName ?? 'Ver CV'}
+              </a>
+            </div>
+          )}
+
+          {/* Experience per job title */}
+          {worker.experiences && worker.experiences.length > 0 && (
+            <div style={p.section}>
+              <div style={p.sectionTitle}>Experiência</div>
+              <div style={p.expList}>
+                {worker.experiences.map(exp => (
+                  <div key={exp.jobTitle} style={p.expRow}>
+                    <span style={p.expTitle}>{exp.jobTitle}</span>
+                    <span style={p.expLevel}>{experienceLevelLabel(exp.level)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Skills */}
           {worker.skills && worker.skills.length > 0 && (
             <div style={p.section}>
@@ -108,15 +136,20 @@ function WorkerDetailPanel({
             </div>
           )}
 
-          {/* Availability */}
-          {worker.availableDays && worker.availableDays.length > 0 && (
-            <div style={p.section}>
-              <div style={p.sectionTitle}>Disponibilidade</div>
-              <div style={p.tags}>
+          {/* Availability — master switch first, then the days it covers */}
+          <div style={p.section}>
+            <div style={p.sectionTitle}>Disponibilidade</div>
+            <div style={worker.isAvailableForWork ? p.availOn : p.availOff}>
+              {worker.isAvailableForWork
+                ? '🟢 Disponível para trabalhar'
+                : '⚪ Não disponível de momento'}
+            </div>
+            {worker.availableDays && worker.availableDays.length > 0 && (
+              <div style={{ ...p.tags, marginTop: 8 }}>
                 {worker.availableDays.map(d => <span key={d} style={{ ...p.tag, background: '#dbeafe', color: '#1d4ed8' }}>{d}</span>)}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Stats */}
           <div style={p.statsRow}>
@@ -190,6 +223,7 @@ export default function WorkersSearchPage() {
   const [filterSkills, setFilterSkills] = useState<string[]>([]);
   const [filterLangs, setFilterLangs] = useState<string[]>([]);
   const [filterDays, setFilterDays]   = useState<string[]>([]);
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [minRating, setMinRating]     = useState<number>(0);
   const [showSkillFilter, setShowSkillFilter] = useState(false);
 
@@ -198,6 +232,16 @@ export default function WorkersSearchPage() {
     doSearch();
   }, []);
 
+  // The availability toggle re-queries immediately — unlike the other filters
+  // it's a single click with an obvious expected result, so making the employer
+  // also press "Pesquisar" would feel broken. Skips the initial mount, which
+  // the effect above already covers.
+  const didMount = useRef(false);
+  useEffect(() => {
+    if (!didMount.current) { didMount.current = true; return; }
+    doSearch();
+  }, [onlyAvailable]);
+
   const doSearch = useCallback(async () => {
     setLoading(true);
     try {
@@ -205,6 +249,7 @@ export default function WorkersSearchPage() {
         skills:    filterSkills.length   ? filterSkills   : undefined,
         languages: filterLangs.length    ? filterLangs    : undefined,
         available: filterDays.length     ? filterDays     : undefined,
+        availableNow: onlyAvailable      ? true           : undefined,
         minRating: minRating > 0         ? minRating      : undefined,
       });
       setWorkers(results);
@@ -213,7 +258,7 @@ export default function WorkersSearchPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterSkills, filterLangs, filterDays, minRating]);
+  }, [filterSkills, filterLangs, filterDays, onlyAvailable, minRating]);
 
   const filtered = workers.filter(w => {
     if (!searchText.trim()) return true;
@@ -318,6 +363,15 @@ export default function WorkersSearchPage() {
             )}
           </div>
 
+          {/* Availability — master switch, ANDs with the day chips below */}
+          <button
+            style={onlyAvailable ? s.availFilterOn : s.filterBtn}
+            onClick={() => setOnlyAvailable(v => !v)}
+            title="Mostrar apenas trabalhadores que se declararam disponíveis"
+          >
+            🟢 Disponíveis {onlyAvailable ? '✓' : ''}
+          </button>
+
           {/* Languages */}
           <select style={s.filterBtn} value="" onChange={e => { if (e.target.value) toggleFilter(filterLangs, setFilterLangs, e.target.value); }}>
             <option value="">🌐 Idioma{filterLangs.length > 0 ? ` (${filterLangs.length})` : ''}...</option>
@@ -413,8 +467,22 @@ export default function WorkersSearchPage() {
                   </div>
                 )}
 
+                {/* Top experience — most relevant thing when picking a candidate */}
+                {w.experiences && w.experiences.length > 0 && (
+                  <div style={s.skillRow}>
+                    {w.experiences.slice(0, 2).map(exp => (
+                      <span key={exp.jobTitle} style={s.expPill}>
+                        💼 {exp.jobTitle} · {EXPERIENCE_LEVEL_SHORT[exp.level as ExperienceLevel] ?? exp.level}
+                      </span>
+                    ))}
+                    {w.experiences.length > 2 && <span style={s.more}>+{w.experiences.length - 2}</span>}
+                  </div>
+                )}
+
                 {/* Languages + availability */}
                 <div style={s.cardMeta}>
+                  {w.isAvailableForWork && <span style={s.availPill}>🟢 Disponível</span>}
+                  {w.cvUrl && <span style={s.metaItem}>📄 CV</span>}
                   {w.languages && w.languages.length > 0 && (
                     <span style={s.metaItem}>🌐 {w.languages.slice(0,2).join(', ')}{w.languages.length > 2 ? ` +${w.languages.length - 2}` : ''}</span>
                   )}
@@ -497,6 +565,32 @@ const p: Record<string, React.CSSProperties> = {
     padding: '4px 10px', background: 'var(--color-primary-light)', borderRadius: 20,
     fontSize: 12, fontWeight: 600, color: 'var(--color-primary)',
     border: '1px solid rgba(106,121,255,0.2)',
+  },
+  cvLink: {
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+    fontSize: 13, fontWeight: 700, color: 'var(--color-primary)',
+    textDecoration: 'none',
+    padding: '8px 12px', borderRadius: 8,
+    background: 'var(--color-primary-light)',
+    border: '1px solid rgba(106,121,255,0.2)',
+  },
+  expList: { display: 'flex', flexDirection: 'column' as const, gap: 6 },
+  expRow: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+    padding: '8px 12px', background: '#f9fafb',
+    border: '1px solid var(--color-border)', borderRadius: 8,
+  },
+  expTitle: { fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' },
+  expLevel: { fontSize: 12, fontWeight: 700, color: 'var(--color-primary)', whiteSpace: 'nowrap' as const },
+  availOn: {
+    fontSize: 13, fontWeight: 700, color: '#166534',
+    background: '#f0fdf4', border: '1px solid #bbf7d0',
+    borderRadius: 8, padding: '8px 12px',
+  },
+  availOff: {
+    fontSize: 13, fontWeight: 600, color: '#6b7280',
+    background: '#f9fafb', border: '1px solid var(--color-border)',
+    borderRadius: 8, padding: '8px 12px',
   },
   statsRow: {
     display: 'flex', gap: 0,
@@ -593,6 +687,11 @@ const s: Record<string, React.CSSProperties> = {
     background: 'var(--color-surface)', fontSize: 13, fontWeight: 500,
     cursor: 'pointer', fontFamily: 'inherit', color: 'var(--color-text-primary)',
   },
+  availFilterOn: {
+    padding: '7px 12px', border: '1.5px solid #86efac', borderRadius: 8,
+    background: '#f0fdf4', fontSize: 13, fontWeight: 700,
+    cursor: 'pointer', fontFamily: 'inherit', color: '#166534',
+  },
   dayChips: { display: 'flex', gap: 4 },
   dayChip: {
     padding: '5px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
@@ -670,6 +769,14 @@ const s: Record<string, React.CSSProperties> = {
     border: '1px solid rgba(106,121,255,0.2)',
   },
   more: { fontSize: 11, color: 'var(--color-text-secondary)', padding: '3px 4px', fontWeight: 600 },
+  expPill: {
+    padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+    background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a',
+  },
+  availPill: {
+    padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+    background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0',
+  },
   cardMeta: { display: 'flex', flexDirection: 'column' as const, gap: 3 },
   metaItem: { fontSize: 11, color: 'var(--color-text-secondary)' },
   viewBtn: {

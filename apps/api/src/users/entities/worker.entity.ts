@@ -7,7 +7,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { WorkerStatus } from '@turnos/shared';
+import { WorkerStatus, WorkerExperience } from '@turnos/shared';
 import { User } from './user.entity';
 
 /**
@@ -33,8 +33,27 @@ export class Worker {
   @Column({ type: 'varchar', length: 34, nullable: true })
   iban?: string;                    // IBAN for payouts (PT50... format)
 
+  /**
+   * When the worker consented to their IBAN being shown to companies they
+   * worked a shift for, so those companies can pay the wage by transfer.
+   * Null = no consent: the IBAN is never disclosed to an employer.
+   * Timestamp rather than boolean — consent needs a date to be evidenced.
+   */
+  @Column({ type: 'timestamp', nullable: true })
+  ibanShareConsentAt?: Date | null;
+
   @Column({ type: 'varchar', length: 512, nullable: true })
   photoUrl?: string;                // Profile photo URL (Cloudflare R2)
+
+  // ── CV ────────────────────────────────────────────────────────────────────
+  @Column({ type: 'varchar', length: 512, nullable: true })
+  cvUrl?: string;                   // PDF/DOC CV (R2 in prod, local disk in dev)
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  cvFileName?: string;              // Original filename, shown in the UI
+
+  @Column({ type: 'timestamp', nullable: true })
+  cvUploadedAt?: Date | null;
 
   // ── Bio ───────────────────────────────────────────────────────────────────
   @Column({ type: 'varchar', length: 200, nullable: true })
@@ -47,8 +66,27 @@ export class Worker {
   @Column({ type: 'simple-array', nullable: true })
   languages?: string[];             // e.g. ['Português', 'Inglês', 'Francês']
 
+  /**
+   * Master switch for the availability concept: is this worker currently open
+   * to work at all? `availableDays` is the detail of WHEN — the two are one
+   * concept, not two. Deliberately does NOT feed the profile score: switching
+   * off is a normal state, not an incomplete profile, and must never drop a
+   * worker under the 80-point gate needed to apply.
+   * Defaults to true so existing workers stay visible in employer search.
+   */
+  @Column({ type: 'boolean', default: true })
+  isAvailableForWork: boolean;
+
   @Column({ type: 'simple-array', nullable: true })
   availableDays?: string[];         // e.g. ['Seg', 'Ter', 'Sex']
+
+  /**
+   * Declared experience per job title — [{ jobTitle, level }]. jsonb rather
+   * than a join table: it's only ever read as a whole with the profile, and
+   * jobTitle values come from the shared JOB_TITLES list.
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  experiences?: WorkerExperience[];
 
   // ── Status & Trust ────────────────────────────────────────────────────────
   @Column({ type: 'boolean', default: false })

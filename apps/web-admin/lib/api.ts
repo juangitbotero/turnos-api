@@ -93,8 +93,11 @@ async function request<T>(
     }
   }
 
+  // FormData must set its own Content-Type — the browser appends the multipart
+  // boundary, and forcing application/json here would make the upload unparseable.
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers as Record<string, string> ?? {}),
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -185,6 +188,10 @@ export interface Shift {
   status: ShiftStatus;
   createdAt: string;
   employer: { id: string; companyName: string } | null;
+  /** Multi-day job: id shared by every day, and all its dates (ascending). */
+  seriesId?: string | null;
+  seriesDates?: string[];
+  seriesTotalDays?: number | null;
 }
 
 export interface WagePayment {
@@ -199,6 +206,15 @@ export interface WagePayment {
   shiftTitle: string;
   shiftDate: string | null;
   createdAt: string;
+  /** Proof of payment attached by the company (manual methods) */
+  paymentProofUrl: string | null;
+  paymentProofNote: string | null;
+  /** Coordinates for paying a manual wage — absent on Pay Link rows */
+  workerName: string | null;
+  workerIban: string | null;
+  /** Worker has not consented to sharing their IBAN — use the Pay Link instead */
+  workerIbanWithheld: boolean;
+  paymentReference: string;
 }
 
 export interface Application {
@@ -212,9 +228,13 @@ export interface Application {
     profileQualityScore: number;
     photoUrl: string | null;
     bio?: string | null;
+    cvUrl?: string | null;
+    cvFileName?: string | null;
     skills: string[] | null;
     languages?: string[] | null;
+    isAvailableForWork?: boolean;
     availableDays: string[] | null;
+    experiences?: Array<{ jobTitle: string; level: string }> | null;
     status: string;
     avgRating?: number | null;
     totalRatings?: number;
@@ -272,9 +292,14 @@ export interface WorkerSearchResult {
   fullName: string | null;
   photoUrl: string | null;
   bio: string | null;
+  cvUrl: string | null;
+  cvFileName: string | null;
   skills: string[] | null;
   languages: string[] | null;
+  /** Master availability switch; `availableDays` says which days it covers. */
+  isAvailableForWork: boolean;
   availableDays: string[] | null;
+  experiences: Array<{ jobTitle: string; level: string }> | null;
   avgRating: number | null;
   totalRatings: number;
   noShowCount: number;
@@ -302,6 +327,8 @@ export interface CreateShiftDto {
   subcategory: string;
   role?: string;
   date: string;
+  /** Multi-day job: every date including `date`. Omit for a single-day shift. */
+  dates?: string[];
   startTime: string;
   endTime: string;
   grossHourlyRate: number;
@@ -402,8 +429,17 @@ export const adminApi = {
   getPendingWages: () =>
     request<WagePayment[]>('/payments/wages/pending', { method: 'GET' }),
 
-  markWagePaid: (id: string) =>
-    request<WagePayment>(`/payments/wages/${id}/mark-paid`, { method: 'POST' }),
+  /**
+   * Declare a manual wage paid. Attach the comprovativo (bank receipt / MB WAY
+   * screenshot) — without one, `noProofReason` records why, so a later dispute
+   * shows the payment was declared with no evidence.
+   */
+  markWagePaid: (id: string, proof?: File, noProofReason?: string) => {
+    const form = new FormData();
+    if (proof) form.append('proof', proof);
+    if (!proof && noProofReason) form.append('noProofReason', noProofReason);
+    return request<WagePayment>(`/payments/wages/${id}/mark-paid`, { method: 'POST', body: form });
+  },
 
   /** Adjust the hours actually worked before paying (2h floor — regenerates the Pay Link) */
   adjustWageHours: (id: string, hoursWorked: number, note?: string) =>
@@ -432,11 +468,15 @@ export const adminApi = {
     request<Shift>(`/shifts/${shiftId}/applications/${appId}/approve`, { method: 'POST' }),
 
   /** Search active workers (80%+ profile) for employer talent browsing */
-  searchWorkers: (params?: { skills?: string[]; languages?: string[]; available?: string[]; minRating?: number }) => {
+  searchWorkers: (params?: {
+    skills?: string[]; languages?: string[]; available?: string[];
+    availableNow?: boolean; minRating?: number;
+  }) => {
     const qs = new URLSearchParams();
     if (params?.skills?.length)    qs.set('skills',    params.skills.join(','));
     if (params?.languages?.length) qs.set('languages', params.languages.join(','));
     if (params?.available?.length) qs.set('available', params.available.join(','));
+    if (params?.availableNow)      qs.set('availableNow', 'true');
     if (params?.minRating)         qs.set('minRating', String(params.minRating));
     const q = qs.toString() ? `?${qs.toString()}` : '';
     return request<WorkerSearchResult[]>(`/shifts/workers/search${q}`, { method: 'GET' });

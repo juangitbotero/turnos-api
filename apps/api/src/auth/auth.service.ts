@@ -11,7 +11,7 @@ import { StorageService } from '../storage/storage.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { Twilio } from 'twilio';
-import { isValidNIF, isValidIBAN, isValidNIPC, isValidPostalCode } from '@turnos/shared';
+import { isValidNIF, isValidIBAN, isValidNIPC, isValidPostalCode, WorkerExperience } from '@turnos/shared';
 
 const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
@@ -236,6 +236,7 @@ export class AuthService {
     fullName: string; nif: string; iban: string;
     skills: string[]; availableDays: string[];
     declaredExternalMonthlyIncome?: number;
+    ibanShareConsent?: boolean;
   }): Promise<{ profileQualityScore: number; status: string; missingItems: string[] }> {
     if (!isValidNIF(dto.nif)) {
       throw new BadRequestException('NIF inválido.');
@@ -256,6 +257,9 @@ export class AuthService {
     nif?: string;
     iban?: string;
     contactEmail?: string;
+    ibanShareConsent?: boolean;
+    isAvailableForWork?: boolean;
+    experiences?: WorkerExperience[];
   }): Promise<{ profileQualityScore: number }> {
     return this.usersService.updateWorkerPartialFields(userId, dto);
   }
@@ -267,6 +271,22 @@ export class AuthService {
     return photoUrl;
   }
 
+  async uploadWorkerCv(userId: string, file: Express.Multer.File): Promise<{
+    cvUrl: string | null; cvFileName: string | null; profileQualityScore: number;
+  }> {
+    const cvUrl = await this.storage.upload(file.buffer, file.mimetype, 'worker-cvs');
+    const fileName = file.originalname?.slice(0, 255) || 'CV';
+    const result = await this.usersService.updateWorkerCv(userId, { url: cvUrl, fileName });
+    this.logger.log(`Worker ${userId} CV uploaded (score: ${result.profileQualityScore})`);
+    return result;
+  }
+
+  async deleteWorkerCv(userId: string): Promise<{
+    cvUrl: string | null; cvFileName: string | null; profileQualityScore: number;
+  }> {
+    return this.usersService.updateWorkerCv(userId, null);
+  }
+
   async savePushToken(userId: string, token: string): Promise<void> {
     await this.usersService.saveWorkerPushToken(userId, token);
   }
@@ -276,20 +296,28 @@ export class AuthService {
   async getProfile(userId: string, role: string): Promise<Record<string, unknown>> {
     if (role === 'WORKER') {
       const worker = await this.usersService.findWorkerProfile(userId);
+      // Converge scores written under an older rule set (e.g. before the CV
+      // criterion existed) without needing a migration.
+      if (worker) await this.usersService.refreshWorkerScoreIfStale(worker);
       return {
         userId,
         role,
         fullName:            worker?.fullName            ?? null,
         photoUrl:            worker?.photoUrl            ?? null,
+        cvUrl:               worker?.cvUrl               ?? null,
+        cvFileName:          worker?.cvFileName          ?? null,
         bio:                 worker?.bio                 ?? null,
         contactEmail:        worker?.user?.email         ?? null,
         skills:              worker?.skills              ?? [],
         languages:           worker?.languages           ?? [],
+        isAvailableForWork:  worker?.isAvailableForWork  ?? true,
         availableDays:       worker?.availableDays       ?? [],
+        experiences:         worker?.experiences         ?? [],
         profileQualityScore: worker?.profileQualityScore ?? 0,
         status:              worker?.status              ?? 'INCOMPLETE',
         nif:                 worker?.nif                 ?? null,
         iban:                worker?.iban                ?? null,
+        ibanShareConsent:    !!worker?.ibanShareConsentAt,
         // ── Reputation (Stint 7) ────────────────────────────────────────────
         avgRating:           worker?.avgRating           ?? null,
         totalRatings:        worker?.totalRatings        ?? 0,

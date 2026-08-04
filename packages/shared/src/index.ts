@@ -36,8 +36,13 @@ export interface Worker extends BaseUser {
   nif?: string;
   iban?: string;
   photoUrl?: string;
+  cvUrl?: string;
+  cvFileName?: string;
   skills?: string[];
+  /** Master availability switch — see `availableDays` for which days it applies to. */
+  isAvailableForWork?: boolean;
   availableDays?: string[];
+  experiences?: WorkerExperience[];
   status: WorkerStatus;
   isVerified: boolean;
   profileQualityScore: number;  // 0–100, rule-based
@@ -150,6 +155,7 @@ export const SHIFT_CATEGORIES = {
     'Montagem e desmontagem',
   ],
   'Hotelaria': [
+    'Rececionista',
     'Rececionista de hotel',
     'Barista',
     'Assistente de cozinha',
@@ -161,8 +167,14 @@ export const SHIFT_CATEGORIES = {
     'Barman/Barmaid',
     'Barista',
     'Cozinheiro/a',
+    'Lavador/a de loiça',
     'Padeiro/a',
     'Pasteleiro/a',
+  ],
+  'Serviços e Manutenção': [
+    'Empregado/a de limpeza',
+    'Técnico/a de manutenção',
+    'Segurança/Vigilante',
   ],
   'Logística': [
     'Preparação de encomendas',
@@ -186,6 +198,46 @@ export const ALL_SKILLS: string[] = [
     (Object.values(SHIFT_CATEGORIES) as unknown as string[][]).flat()
   ),
 ].sort();
+
+/**
+ * Canonical job titles. Deliberately the SAME list as `ALL_SKILLS` — a worker's
+ * declared experience, their selected skills and the role an employer posts must
+ * use identical strings, otherwise experience can never be matched to a shift.
+ * Add roles to `SHIFT_CATEGORIES` and every consumer picks them up automatically.
+ */
+export const JOB_TITLES: string[] = ALL_SKILLS;
+
+// ─── Worker Experience ────────────────────────────────────────────────────────
+
+/** Years of experience buckets, declared per job title by the worker. */
+export const EXPERIENCE_LEVELS = {
+  NONE:      'Sem experiência',
+  ZERO_ONE:  '0–1 anos de experiência',
+  ONE_FIVE:  '1–5 anos de experiência',
+  FIVE_PLUS: '5+ anos de experiência',
+} as const;
+
+export type ExperienceLevel = keyof typeof EXPERIENCE_LEVELS;
+
+/** Short label for cards and chips, where the full sentence doesn't fit. */
+export const EXPERIENCE_LEVEL_SHORT: Record<ExperienceLevel, string> = {
+  NONE:      'Sem exp.',
+  ZERO_ONE:  '0–1 anos',
+  ONE_FIVE:  '1–5 anos',
+  FIVE_PLUS: '5+ anos',
+} as const;
+
+/** One declared experience entry — at most one per job title per worker. */
+export interface WorkerExperience {
+  jobTitle: string;        // must be a value from JOB_TITLES
+  level: ExperienceLevel;
+}
+
+/** Label for a stored level, tolerant of unknown/legacy values. */
+export function experienceLevelLabel(level: string | null | undefined): string {
+  if (!level) return '—';
+  return EXPERIENCE_LEVELS[level as ExperienceLevel] ?? level;
+}
 
 /** Languages workers can speak / employers can require */
 export const LANGUAGES = [
@@ -268,15 +320,36 @@ export const SUBSCRIPTION_TIERS = {
 /**
  * How the company pays the worker. Chosen at shift publish; payment happens
  * directly company → worker and never passes through Turnos.
+ *
+ * Cash (NUMERARIO) was retired 2026-07-29: an MCD wage must leave a traceable
+ * record, and a cash payment gives the dispute process nothing to review.
+ * Companies that don't want to use the Pay Link use TRANSFERENCIA, which now
+ * carries a proof-of-payment upload.
  */
-export type PaymentMethod = 'TURNOS_PAY_LINK' | 'TRANSFERENCIA' | 'MBWAY' | 'NUMERARIO';
+export type PaymentMethod = 'TURNOS_PAY_LINK' | 'TRANSFERENCIA' | 'MBWAY';
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   TURNOS_PAY_LINK: 'Turnos Pay Link',
   TRANSFERENCIA:   'Transferência bancária',
   MBWAY:           'MB WAY',
-  NUMERARIO:       'Numerário',
 } as const;
+
+/**
+ * Retired methods, kept only so historical shifts and wage records still
+ * render a human label. Never offered at publish — `PAYMENT_METHOD_LABELS` is
+ * what the selector and the server-side validation read.
+ */
+export const LEGACY_PAYMENT_METHOD_LABELS: Record<string, string> = {
+  NUMERARIO: 'Numerário (descontinuado)',
+} as const;
+
+/** Label for any stored payment method, current or retired. */
+export function paymentMethodLabel(method: string | null | undefined): string {
+  if (!method) return '—';
+  return PAYMENT_METHOD_LABELS[method as PaymentMethod]
+    ?? LEGACY_PAYMENT_METHOD_LABELS[method]
+    ?? method;
+}
 
 /** Recommended default — leaves a paper trail and automates payment confirmation. */
 export const RECOMMENDED_PAYMENT_METHOD: PaymentMethod = 'TURNOS_PAY_LINK';
@@ -305,6 +378,41 @@ export const WORKER_CANCEL_REASONS = {
   OUTRO:      'Outro',
 } as const;
 export type WorkerCancelReason = keyof typeof WORKER_CANCEL_REASONS;
+
+// ─── Multi-day shift series ───────────────────────────────────────────────────
+
+/**
+ * A multi-day job is stored as N single-day `Shift` rows sharing a `seriesId`,
+ * not as one shift with many dates. Every downstream system (QR check-in,
+ * attendance, MCD day counting, the auto-complete job) already works per day,
+ * so the series is a grouping layer on top rather than a new primitive.
+ *
+ * What IS series-level, not per-day:
+ *   - the €3 platform fee — charged once, on the final day
+ *   - the wage payment / Pay Link — one payment for all days, at the end
+ *   - the plan's concurrent-shift quota — a series counts as one job
+ *   - review prompts and Recibo Verde reminders — once, at the end
+ */
+export const MAX_SERIES_DAYS = 35; // aligned with MCD_LIMITS.MAX_DAYS_PER_CONTRACT
+
+/** Dates of a series, plus which one this row is. Attached to shift payloads. */
+export interface ShiftSeriesInfo {
+  seriesId: string;
+  seriesDates: string[];   // every date in the series, ascending (YYYY-MM-DD)
+  seriesTotalDays: number;
+  seriesDayIndex: number;  // 1-based position of this row within the series
+}
+
+/** "25 Jul – 26 Jul" style range label for a set of dates. */
+export function formatSeriesRange(dates: string[]): string {
+  if (dates.length === 0) return '';
+  const sorted = [...dates].sort();
+  const fmt = (d: string) =>
+    new Date(d).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' });
+  const first = fmt(sorted[0]!);
+  const last  = fmt(sorted[sorted.length - 1]!);
+  return first === last ? first : `${first} – ${last}`;
+}
 
 export const MCD_LIMITS = {
   MAX_DAYS_PER_CONTRACT: 35,
@@ -410,6 +518,7 @@ export interface ProfileQualityInput {
   skillsCount: number;       // number of skills selected
   hasFullName: boolean;
   hasAvailability: boolean;  // at least 1 day selected
+  hasCv?: boolean;           // CV document uploaded
 }
 
 export interface ProfileQualityResult {
@@ -424,12 +533,18 @@ export interface ProfileQualityResult {
  * Replaces the AI interview for the Lisbon beta.
  *
  * Scoring:
- *   Photo uploaded           → +20pts
+ *   Photo uploaded           → +15pts
  *   Valid NIF                → +20pts
  *   Valid IBAN               → +20pts
- *   ≥3 skills selected       → +20pts (partial: 1–2 skills → +10pts)
+ *   ≥3 skills selected       → +15pts (partial: 1–2 skills → +8pts)
  *   Full name entered        → +10pts
  *   Availability set         → +10pts
+ *   CV uploaded              → +10pts
+ *
+ * The CV is worth 10 and photo/skills each gave up 5 so the total stays 100.
+ * A complete profile WITHOUT a CV still reaches 90 — deliberately, so adding
+ * this criterion could never push an existing worker under the 80-point gate
+ * that `ShiftsService.apply()` enforces.
  *
  * Thresholds:
  *   ≥80 → PENDING_REVIEW (auto-queue for team approval)
@@ -439,12 +554,13 @@ export function calculateProfileQualityScore(
   input: ProfileQualityInput,
 ): ProfileQualityResult {
   const breakdown: Record<string, number> = {
-    photo:        input.hasPhoto          ? 20 : 0,
+    photo:        input.hasPhoto          ? 15 : 0,
     nif:          input.hasValidNif       ? 20 : 0,
     iban:         input.hasValidIban      ? 20 : 0,
-    skills:       input.skillsCount >= 3  ? 20 : input.skillsCount >= 1 ? 10 : 0,
+    skills:       input.skillsCount >= 3  ? 15 : input.skillsCount >= 1 ? 8 : 0,
     fullName:     input.hasFullName       ? 10 : 0,
     availability: input.hasAvailability   ? 10 : 0,
+    cv:           input.hasCv             ? 10 : 0,
   };
 
   const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
@@ -456,6 +572,7 @@ export function calculateProfileQualityScore(
   if (input.skillsCount === 0) missingItems.push('Pelo menos 1 competência selecionada');
   if (!input.hasFullName)      missingItems.push('Nome completo');
   if (!input.hasAvailability)  missingItems.push('Disponibilidade semanal');
+  if (!input.hasCv)            missingItems.push('Currículo (CV)');
 
   const status: ProfileQualityResult['status'] =
     score >= 80 ? 'PENDING_REVIEW' : 'INCOMPLETE';

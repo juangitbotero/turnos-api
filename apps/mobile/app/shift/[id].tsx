@@ -5,12 +5,17 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { colors, spacing, radius, fontSize, fontWeight, calculateTSU, PAYMENT_METHOD_LABELS, PaymentMethod } from '@turnos/shared';
+import {
+  colors, spacing, radius, fontSize, fontWeight, calculateTSU,
+  PAYMENT_METHOD_LABELS, PaymentMethod, formatSeriesRange,
+} from '@turnos/shared';
 import {
   shiftApi, ShiftSummary, MyApplication, ApiError,
   attendanceApi, AttendanceRecord, authApi,
 } from '../../lib/api';
 import { formatDate } from '../../lib/format';
+import { ShiftSchedule } from '../../components/ShiftSchedule';
+import { syncShiftToCalendar, isShiftInCalendar } from '../../lib/calendar';
 
 function hoursWorked(start: string, end: string): number {
   const sp = start.split(':').map(Number);
@@ -37,6 +42,9 @@ export default function ShiftDetailScreen() {
   const [showGate, setShowGate]       = useState(false);  // profile-gate modal
   const [showApplySheet, setShowApplySheet] = useState(false); // cover note sheet
   const [coverNote, setCoverNote]     = useState('');
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [inCalendar, setInCalendar]     = useState(false);
+  const [syncingCalendar, setSyncingCalendar] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -66,6 +74,11 @@ export default function ShiftDetailScreen() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Reflect whether this shift is already in the phone calendar
+  useEffect(() => {
+    if (id) isShiftInCalendar(id).then(setInCalendar).catch(() => {});
+  }, [id]);
+
   // ── apply ─────────────────────────────────────────────────────────────────
 
   // Called when worker taps "Candidatar-me"
@@ -76,8 +89,64 @@ export default function ShiftDetailScreen() {
       setShowGate(true);
       return;
     }
+    // Multi-day: make the commitment explicit before the cover-note sheet
+    if ((shift.seriesDates?.length ?? 0) > 1) {
+      Alert.alert(
+        'Trabalho de vários dias',
+        `Este trabalho tem ${shift.seriesDates!.length} dias (${formatSeriesRange(shift.seriesDates!)}).\n\n` +
+        'Ao candidatares-te, comprometes-te a trabalhar TODOS os dias. ' +
+        'Não é possível aceitar apenas alguns.',
+        [
+          { text: 'Voltar', style: 'cancel' },
+          { text: 'Compreendo, continuar', onPress: () => setShowApplySheet(true) },
+        ],
+      );
+      return;
+    }
     // Show cover note sheet (optional message to employer)
     setShowApplySheet(true);
+  };
+
+  // ── calendar sync ─────────────────────────────────────────────────────────
+
+  const handleAddToCalendar = async () => {
+    if (!shift) return;
+    setSyncingCalendar(true);
+    const result = await syncShiftToCalendar({
+      id: shift.id,
+      title: shift.title,
+      subcategory: shift.subcategory,
+      address: shift.address,
+      startTime: shift.startTime,
+      endTime: shift.endTime,
+      grossHourlyRate: Number(shift.grossHourlyRate),
+      paymentMethod: shift.paymentMethod
+        ? PAYMENT_METHOD_LABELS[shift.paymentMethod as PaymentMethod] ?? shift.paymentMethod
+        : null,
+      companyName: shift.employer?.companyName ?? null,
+      dates: shift.seriesDates?.length ? shift.seriesDates : [shift.date],
+    });
+    setSyncingCalendar(false);
+
+    if (result.ok) {
+      setInCalendar(true);
+      Alert.alert(
+        result.replaced ? 'Calendário atualizado' : 'Adicionado ao calendário 📅',
+        result.created > 1
+          ? `${result.created} dias adicionados, com lembretes 1 dia e 2 horas antes de cada um.`
+          : 'Com lembretes 1 dia e 2 horas antes do turno.',
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Não foi possível adicionar',
+      result.reason === 'permission'
+        ? 'A Turnos precisa de permissão para aceder ao teu calendário. Podes ativá-la nas definições do telemóvel.'
+        : result.reason === 'no-calendar'
+          ? 'Não encontrámos um calendário onde possamos escrever neste telemóvel.'
+          : 'Ocorreu um erro ao aceder ao calendário. Tenta novamente.',
+    );
   };
 
   // Called after cover note sheet is confirmed
@@ -174,6 +243,8 @@ export default function ShiftDetailScreen() {
   const recebePerHour   = tsu.grossAmount;
   const estimatedPayout = recebePerHour * hours;
   const paymentLabel    = PAYMENT_METHOD_LABELS[shift.paymentMethod as PaymentMethod] ?? null;
+  const seriesDates     = shift.seriesDates?.length ? shift.seriesDates : [shift.date];
+  const isMultiDay      = seriesDates.length > 1;
 
   return (
     <View style={styles.container}>
@@ -222,6 +293,17 @@ export default function ShiftDetailScreen() {
             </View>
           )}
 
+          {/* ── Multi-day commitment banner ── */}
+          {isMultiDay && (
+            <View style={styles.multiDayBanner}>
+              <Ionicons name="alert-circle" size={20} color="#c2410c" />
+              <Text style={styles.multiDayBannerText}>
+                Este é um trabalho de vários dias. Ao candidatares-te, comprometes-te
+                a trabalhar todos os dias do horário.
+              </Text>
+            </View>
+          )}
+
           {/* Pay breakdown */}
           <View style={styles.payBox}>
             <View style={styles.payRow}>
@@ -244,9 +326,28 @@ export default function ShiftDetailScreen() {
 
           {/* Info card */}
           <View style={styles.infoCard}>
-            <InfoRow icon="📅" label="Data" value={formatDate(shift.date, 'long')} />
+            <InfoRow
+              icon="📅"
+              label={isMultiDay ? 'Dias' : 'Data'}
+              value={isMultiDay ? `${seriesDates.length} dias` : formatDate(shift.date, 'long')}
+            />
             <InfoRow icon="⏰" label="Horário" value={`${shift.startTime.slice(0, 5)} – ${shift.endTime.slice(0, 5)}`} />
-            {hours > 0 && <InfoRow icon="🕐" label="Duração" value={`${hours.toFixed(1)}h`} />}
+            {hours > 0 && (
+              <InfoRow
+                icon="🕐"
+                label="Duração"
+                value={isMultiDay
+                  ? `${(hours * seriesDates.length).toFixed(0)}h no total`
+                  : `${hours.toFixed(1)}h`}
+              />
+            )}
+            {isMultiDay && (
+              <InfoRow
+                icon="💶"
+                label="Total estimado"
+                value={`€${(hours * seriesDates.length * Number(shift.grossHourlyRate)).toFixed(2)} bruto`}
+              />
+            )}
             <InfoRow
               icon="📍"
               label="Morada"
@@ -255,6 +356,72 @@ export default function ShiftDetailScreen() {
               onPress={() => openInMaps(shift.address)}
             />
           </View>
+
+          {/* ── Job period + schedule (multi-day only) ── */}
+          {isMultiDay && (
+            <View style={styles.periodCard}>
+              <TouchableOpacity
+                style={styles.periodHead}
+                onPress={() => setShowSchedule(v => !v)}
+                activeOpacity={0.8}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.periodTitle}>Período do trabalho</Text>
+                  <View style={styles.periodRangePill}>
+                    <Ionicons name="repeat" size={13} color="#1d4ed8" />
+                    <Text style={styles.periodRangeText}>{formatSeriesRange(seriesDates)}</Text>
+                  </View>
+                </View>
+                <Text style={styles.periodToggle}>
+                  {showSchedule ? 'Ocultar' : 'Ver horário'}
+                </Text>
+                <Ionicons
+                  name={showSchedule ? 'chevron-up' : 'chevron-forward'}
+                  size={18}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+
+              {showSchedule && (
+                <View style={styles.periodBody}>
+                  <ShiftSchedule
+                    dates={seriesDates}
+                    startTime={shift.startTime}
+                    endTime={shift.endTime}
+                  />
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* ── Add to phone calendar (confirmed shifts only) ── */}
+          {isApproved && !isShiftDone && (
+            <TouchableOpacity
+              style={styles.calendarBtn}
+              onPress={handleAddToCalendar}
+              disabled={syncingCalendar}
+              activeOpacity={0.85}
+            >
+              {syncingCalendar ? (
+                <ActivityIndicator color={colors.primary} size="small" />
+              ) : (
+                <>
+                  <Ionicons
+                    name={inCalendar ? 'checkmark-circle' : 'calendar-outline'}
+                    size={18}
+                    color={inCalendar ? '#16a34a' : colors.primary}
+                  />
+                  <Text style={[styles.calendarBtnText, inCalendar && { color: '#16a34a' }]}>
+                    {inCalendar
+                      ? 'No teu calendário · tocar para atualizar'
+                      : isMultiDay
+                        ? `Adicionar ${seriesDates.length} dias ao calendário`
+                        : 'Adicionar ao meu calendário'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
 
           {/* Skills */}
           {shift.skillsRequired && shift.skillsRequired.length > 0 && (
@@ -532,6 +699,42 @@ const styles = StyleSheet.create({
   },
   tsuNoteText: { fontSize: 11, color: '#6b7280', lineHeight: 16 },
   recebe: { fontSize: 12, color: '#7c3aed', fontWeight: fontWeight.semibold, textAlign: 'center' },
+
+  /* Multi-day */
+  multiDayBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: '#ffedd5', borderWidth: 1, borderColor: '#fed7aa',
+    borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md,
+  },
+  multiDayBannerText: {
+    flex: 1, fontSize: fontSize.body, lineHeight: 21,
+    fontWeight: fontWeight.bold as any, color: '#9a3412',
+  },
+  periodCard: {
+    backgroundColor: '#fff', borderWidth: 1, borderColor: colors.neutral,
+    borderRadius: radius.md, marginBottom: spacing.md, overflow: 'hidden',
+  },
+  periodHead: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: spacing.md },
+  periodTitle: { fontSize: fontSize.body, fontWeight: fontWeight.bold as any, color: colors.textPrimary },
+  periodRangePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
+    marginTop: 6, paddingHorizontal: 10, paddingVertical: 4,
+    backgroundColor: '#dbeafe', borderRadius: radius.full,
+  },
+  periodRangeText: { fontSize: fontSize.caption, fontWeight: fontWeight.bold as any, color: '#1d4ed8' },
+  periodToggle: { fontSize: fontSize.caption, fontWeight: fontWeight.bold as any, color: colors.primary },
+  periodBody: {
+    padding: spacing.md,
+    borderTopWidth: 1, borderTopColor: colors.neutral,
+  },
+
+  /* Calendar sync */
+  calendarBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    height: 48, borderRadius: radius.md, marginBottom: spacing.md,
+    borderWidth: 1.5, borderColor: colors.primary, backgroundColor: '#f5f6ff',
+  },
+  calendarBtnText: { fontSize: fontSize.body, fontWeight: fontWeight.bold as any, color: colors.primary },
 
   infoCard: {
     backgroundColor: '#fff', borderRadius: radius.md, padding: spacing.md,

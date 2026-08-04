@@ -198,6 +198,11 @@ export default function EarningsScreen() {
             <Text style={s.payLinkActiveText}>
               ✅ Pay Link ativo — os pagamentos das empresas caem diretamente na tua conta bancária.
             </Text>
+            <Text style={s.payLinkActiveSub}>
+              {connect.mbWayEnabled
+                ? 'A empresa pode pagar-te por cartão ou MB WAY. Recebes sempre o valor bruto completo — a taxa de processamento é suportada pela empresa.'
+                : 'A empresa paga por cartão. Recebes sempre o valor bruto completo — a taxa de processamento é suportada pela empresa.'}
+            </Text>
           </View>
         )}
 
@@ -433,6 +438,7 @@ const s = StyleSheet.create({
     padding: spacing.md,
   },
   payLinkActiveText: { fontSize: fontSize.caption, fontWeight: fontWeight.semibold, color: '#166534', lineHeight: 18 },
+  payLinkActiveSub:  { fontSize: fontSize.caption, color: '#15803d', lineHeight: 17, marginTop: 6 },
 
   // SS reminder
   ssReminder: {

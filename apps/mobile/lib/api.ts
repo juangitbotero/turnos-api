@@ -1,3 +1,4 @@
+import { WorkerExperience } from '@turnos/shared';
 import { tokenStorage } from './storage';
 
 // In dev, replace with your machine's local IP if testing on a physical device
@@ -76,6 +77,9 @@ export const api = {
 
   postForm: <T>(path: string, form: FormData) =>
     request<T>(path, { method: 'POST', body: form }),
+
+  delete: <T>(path: string) =>
+    request<T>(path, { method: 'DELETE' }),
 };
 
 // ─── Typed API helpers ────────────────────────────────────────────────────────
@@ -93,6 +97,8 @@ export const authApi = {
     fullName: string; nif: string; iban: string;
     skills: string[]; availableDays: string[];
     declaredExternalMonthlyIncome?: number;
+    /** Consent to disclose name + IBAN to companies the worker did shifts for */
+    ibanShareConsent?: boolean;
   }) =>
     api.post<{ profileQualityScore: number; status: string; missingItems: string[] }>(
       '/auth/worker/profile', dto,
@@ -104,13 +110,31 @@ export const authApi = {
     return api.postForm<{ photoUrl: string }>('/auth/worker/photo', form);
   },
 
+  /** Upload the worker's CV (PDF/DOC/DOCX). Worth 10 pts on the profile score. */
+  uploadWorkerCv: (fileUri: string, mimeType: string, fileName: string) => {
+    const form = new FormData();
+    form.append('cv', { uri: fileUri, type: mimeType, name: fileName } as any);
+    return api.postForm<{
+      cvUrl: string | null; cvFileName: string | null; profileQualityScore: number;
+    }>('/auth/worker/cv', form);
+  },
+
+  deleteWorkerCv: () =>
+    api.delete<{
+      cvUrl: string | null; cvFileName: string | null; profileQualityScore: number;
+    }>('/auth/worker/cv'),
+
   getMe: () => api.get<{
     userId: string; role: string;
     fullName?: string | null; photoUrl?: string | null;
+    cvUrl?: string | null; cvFileName?: string | null;
     bio?: string | null; contactEmail?: string | null;
     skills?: string[]; languages?: string[]; availableDays?: string[];
+    isAvailableForWork?: boolean;
+    experiences?: WorkerExperience[];
     profileQualityScore?: number; status?: string;
     nif?: string | null; iban?: string | null;
+    ibanShareConsent?: boolean;
     avgRating?: number | null; totalRatings?: number;
     noShowCount?: number; badges?: string[];
   }>('/auth/me'),
@@ -121,9 +145,14 @@ export const authApi = {
     skills?: string[];
     languages?: string[];
     availableDays?: string[];
+    /** Master availability switch — `availableDays` says which days it covers */
+    isAvailableForWork?: boolean;
+    experiences?: WorkerExperience[];
     nif?: string;
     iban?: string;
     contactEmail?: string;
+    /** Consent to disclose name + IBAN to companies the worker did shifts for */
+    ibanShareConsent?: boolean;
   }) =>
     api.patch<{ profileQualityScore: number; message: string }>('/auth/worker/profile', dto),
 
@@ -146,6 +175,14 @@ export interface ShiftSummary {
   category: string;
   subcategory: string;
   date: string;
+  /**
+   * Multi-day job: every date of the series, ascending. Absent or length 1 for
+   * an ordinary single-day shift. The API collapses a series to one entry.
+   */
+  seriesDates?: string[];
+  seriesId?: string | null;
+  /** Multi-day job with at least one day already worked — cancelling is closed. */
+  seriesStarted?: boolean;
   startTime: string;
   endTime: string;
   grossHourlyRate: number;
@@ -272,12 +309,17 @@ export interface WagePayment {
   shiftDate: string | null;
   paidAt: string | null;
   createdAt: string;
+  /** Receipt the company attached when declaring a manual payment */
+  paymentProofUrl: string | null;
 }
 
 export interface ConnectStatus {
   hasAccount: boolean;
   onboardingComplete: boolean;
   payoutsEnabled: boolean;
+  /** Which methods the company can use on this worker's Pay Link */
+  cardEnabled: boolean;
+  mbWayEnabled: boolean;
 }
 
 export const wagesApi = {

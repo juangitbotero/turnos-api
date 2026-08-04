@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  ActivityIndicator, Image, Alert,
+  ActivityIndicator, Image, Alert, Switch, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
+import {
+  colors, spacing, radius, fontSize, fontWeight,
+  WorkerExperience, experienceLevelLabel,
+} from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
 import { disconnectSocket } from '../lib/socket';
@@ -14,8 +17,11 @@ import { disconnectSocket } from '../lib/socket';
 type WorkerProfile = {
   userId: string; role: string;
   fullName: string | null; photoUrl: string | null;
+  cvUrl: string | null; cvFileName: string | null;
   bio: string | null;
   skills: string[]; languages: string[]; availableDays: string[];
+  isAvailableForWork: boolean;
+  experiences: WorkerExperience[];
   profileQualityScore: number; status: string;
   nif: string | null; iban: string | null;
   avgRating: number | null; totalRatings: number;
@@ -95,6 +101,21 @@ export default function ProfileScreen() {
   }, [router]);
 
   useEffect(() => { load(); }, [load]);
+
+  /**
+   * Master availability switch. Saved immediately (optimistic, reverted on
+   * failure) — making the worker open the editor and press Guardar for a
+   * one-tap state would defeat the point of having a switch here.
+   */
+  const toggleAvailability = useCallback(async (next: boolean) => {
+    setProfile(prev => prev && { ...prev, isAvailableForWork: next });
+    try {
+      await authApi.updateWorkerPartial({ isAvailableForWork: next });
+    } catch {
+      setProfile(prev => prev && { ...prev, isAvailableForWork: !next });
+      Alert.alert('Erro', 'Não foi possível atualizar a disponibilidade. Tenta novamente.');
+    }
+  }, []);
 
   const handleLogout = () => {
     Alert.alert(
@@ -189,14 +210,94 @@ export default function ProfileScreen() {
             </View>
           )}
 
+          {/* ── Availability master switch ── */}
+          <View style={s.availCard}>
+            <View style={s.availRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.availTitle}>
+                  {profile?.isAvailableForWork ? '🟢 Disponível para trabalhar' : '⚪ Não disponível'}
+                </Text>
+                <Text style={s.availSub}>
+                  {profile?.isAvailableForWork
+                    ? 'As empresas podem encontrar-te quando procuram trabalhadores.'
+                    : 'Estás oculto na pesquisa das empresas. Podes voltar a ativar quando quiseres.'}
+                </Text>
+              </View>
+              <Switch
+                value={profile?.isAvailableForWork ?? true}
+                onValueChange={toggleAvailability}
+                trackColor={{ false: '#d1d5db', true: '#86efac' }}
+                thumbColor={profile?.isAvailableForWork ? '#16a34a' : '#f4f4f5'}
+              />
+            </View>
+            {(profile?.availableDays?.length ?? 0) > 0 && (
+              <View style={[s.availDaysRow, !profile?.isAvailableForWork && { opacity: 0.45 }]}>
+                <Text style={s.availDaysLabel}>Nos dias:</Text>
+                {['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].map(d => (
+                  <View key={d} style={[s.dayDot, profile!.availableDays.includes(d) && s.dayDotActive]}>
+                    <Text style={[s.dayDotText, profile!.availableDays.includes(d) && s.dayDotTextActive]}>
+                      {d[0]}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* ── Experiências ── */}
+          {(profile?.experiences?.length ?? 0) > 0 && (
+            <View style={s.card}>
+              <View style={s.cardHeaderRow}>
+                <Ionicons name="briefcase-outline" size={15} color={colors.primary} />
+                <Text style={s.cardTitle}>AS MINHAS EXPERIÊNCIAS</Text>
+              </View>
+              {profile!.experiences.map(exp => (
+                <View key={exp.jobTitle} style={s.expRow}>
+                  <Text style={s.expTitle}>{exp.jobTitle}</Text>
+                  <Text style={s.expLevel}>{experienceLevelLabel(exp.level)}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* ── CV ── */}
+          <View style={s.card}>
+            <View style={s.cardHeaderRow}>
+              <Ionicons name="document-text-outline" size={15} color={colors.primary} />
+              <Text style={s.cardTitle}>CURRÍCULO</Text>
+            </View>
+            {profile?.cvUrl ? (
+              <TouchableOpacity
+                style={s.cvRow}
+                onPress={() => Linking.openURL(profile.cvUrl!)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="document-attach" size={18} color="#16a34a" />
+                <Text style={s.cvName} numberOfLines={1}>{profile.cvFileName ?? 'Ver CV'}</Text>
+                <Ionicons name="open-outline" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={s.cvEmpty}
+                onPress={() => router.push('/edit-profile' as any)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="cloud-upload-outline" size={18} color={colors.primary} />
+                <Text style={s.cvEmptyText}>Carregar o meu CV · +10pts</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
           {/* ── Quick highlights (skills + languages + availability) ── */}
-          {((profile?.skills?.length ?? 0) > 0 || (profile?.languages?.length ?? 0) > 0 || (profile?.availableDays?.length ?? 0) > 0) && (
+          {((profile?.skills?.length ?? 0) > 0 || (profile?.languages?.length ?? 0) > 0) && (
             <View style={s.highlightCard}>
               {/* Top skills */}
               {profile?.skills && profile.skills.length > 0 && (
                 <View style={s.highlightRow}>
                   <Ionicons name="construct-outline" size={15} color={colors.primary} />
-                  <Text style={s.highlightLabel}>Experiência</Text>
+                  {/* "Competências", not "Experiência" — declared years of
+                      experience are now their own section above. */}
+                  <Text style={s.highlightLabel}>Competências</Text>
                   <View style={s.highlightChips}>
                     {profile.skills.slice(0, 3).map(sk => (
                       <View key={sk} style={s.hlChip}>
@@ -225,22 +326,6 @@ export default function ProfileScreen() {
                 </View>
               )}
 
-              {/* Availability */}
-              {profile?.availableDays && profile.availableDays.length > 0 && (
-                <View style={[s.highlightRow, { marginTop: 10 }]}>
-                  <Ionicons name="calendar-outline" size={15} color={colors.primary} />
-                  <Text style={s.highlightLabel}>Disponível</Text>
-                  <View style={s.highlightChips}>
-                    {['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].map(d => (
-                      <View key={d} style={[s.dayDot, profile.availableDays.includes(d) && s.dayDotActive]}>
-                        <Text style={[s.dayDotText, profile.availableDays.includes(d) && s.dayDotTextActive]}>
-                          {d[0]}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
             </View>
           )}
 
@@ -390,6 +475,47 @@ const s = StyleSheet.create({
   bioText: {
     fontSize: fontSize.body, color: colors.textPrimary, lineHeight: 22, fontStyle: 'italic',
   },
+
+  /* Availability master switch */
+  availCard: {
+    backgroundColor: '#fff', borderRadius: radius.md, padding: spacing.md,
+    borderWidth: 1, borderColor: colors.neutral, marginBottom: spacing.sm,
+  },
+  availRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  availTitle: { fontSize: fontSize.body, fontWeight: fontWeight.bold as any, color: colors.textPrimary },
+  availSub: { fontSize: fontSize.caption, color: colors.textSecondary, marginTop: 2, lineHeight: 16 },
+  availDaysRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 12,
+    paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.neutral,
+  },
+  availDaysLabel: {
+    fontSize: fontSize.caption, color: colors.textSecondary,
+    fontWeight: fontWeight.semibold as any, marginRight: 4,
+  },
+
+  /* Experiences */
+  expRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    gap: 10, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: colors.neutral,
+  },
+  expTitle: { fontSize: fontSize.body, fontWeight: fontWeight.semibold as any, color: colors.textPrimary, flex: 1 },
+  expLevel: { fontSize: fontSize.caption, fontWeight: fontWeight.bold as any, color: colors.primary },
+
+  /* CV */
+  cvRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0',
+    borderRadius: radius.md, padding: spacing.sm, marginTop: 4,
+  },
+  cvName: { flex: 1, fontSize: fontSize.body, fontWeight: fontWeight.semibold as any, color: '#166534' },
+  cvEmpty: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    height: 44, borderRadius: radius.md, marginTop: 4,
+    borderWidth: 1.5, borderColor: colors.primary, borderStyle: 'dashed',
+    backgroundColor: '#f5f6ff',
+  },
+  cvEmptyText: { fontSize: fontSize.body, fontWeight: fontWeight.bold as any, color: colors.primary },
 
   highlightCard: {
     backgroundColor: '#fff', borderRadius: radius.lg, padding: spacing.md,

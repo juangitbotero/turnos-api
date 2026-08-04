@@ -34,6 +34,20 @@ const CANCELLATION_WINDOW_HOURS = 24;   // J-1 — hours before shift start that
 const SUBSCRIPTION_MONTHLY_EUR  = SUBSCRIPTION_TIERS.STARTER.monthlyEur; // €45/mo Turnos Starter
 const MAX_ACTIVE_SHIFTS         = SUBSCRIPTION_TIERS.STARTER.maxActiveShifts; // 15 on Starter (Pro: unlimited)
 
+/**
+ * Capabilities requested on every worker Connect account.
+ *  - transfers     — Stripe pays the worker's balance out to their IBAN
+ *  - card_payments — required to accept the Pay Link as a direct charge
+ *  - mb_way_payments — MB WAY (>45% of PT online payments). Once active, Stripe
+ *    surfaces it automatically in Checkout for EUR/PT payers; same 1.5% + €0.25
+ *    as a standard EEA card, capped at €5,000 per transaction.
+ */
+const PAY_LINK_CAPABILITIES = {
+  transfers:        { requested: true },
+  card_payments:    { requested: true },
+  mb_way_payments:  { requested: true },
+} as const;
+
 @Injectable()
 export class PaymentsService {
   private readonly stripe: InstanceType<typeof Stripe>;
@@ -205,14 +219,17 @@ export class PaymentsService {
       );
     }
 
-    // Count concurrent open/filled/active shifts (Pro tier: unlimited)
+    // Count concurrent open shifts (Pro tier: unlimited). A multi-day job is
+    // stored as one row per day but is billed and counted as ONE job, so
+    // distinct series collapse to a single unit against the plan limit.
     if (employer.subscriptionTier !== 'PRO' && MAX_ACTIVE_SHIFTS !== null) {
-      const activeCount = await this.shiftRepo.count({
-        where: {
-          employer: { id: employer.id },
-          status:   'OPEN' as any,
-        },
-      });
+      const { count } = await this.shiftRepo
+        .createQueryBuilder('s')
+        .select('COUNT(DISTINCT COALESCE(s."seriesId"::text, s.id::text))', 'count')
+        .where('s."employerId" = :employerId', { employerId: employer.id })
+        .andWhere('s.status = :status', { status: 'OPEN' })
+        .getRawOne<{ count: string }>() ?? { count: '0' };
+      const activeCount = Number(count);
       if (activeCount >= MAX_ACTIVE_SHIFTS) {
         throw new BadRequestException(
           `O plano atual permite até ${MAX_ACTIVE_SHIFTS} turnos ativos em simultâneo. Cancela ou conclui turnos existentes primeiro.`,
@@ -226,6 +243,10 @@ export class PaymentsService {
   /**
    * Create a Stripe Connect Express account for the worker and return the
    * onboarding URL. Worker completes bank setup on Stripe's hosted page.
+   *
+   * Capabilities requested (see PAY_LINK_CAPABILITIES): the Pay Link is a
+   * DIRECT charge on this account, so the worker's account — not Turnos —
+   * needs the payment capabilities for each method the company can pay with.
    */
   async createWorkerConnectAccount(workerUserId: string, returnUrl: string): Promise<{ onboardingUrl: string }> {
     const worker = await this.workerRepo.findOne({
@@ -241,9 +262,7 @@ export class PaymentsService {
         type:    'express',
         country: 'PT',
         email:   worker.user?.email,
-        capabilities: {
-          transfers: { requested: true },
-        },
+        capabilities: PAY_LINK_CAPABILITIES,
         business_type: 'individual',
         metadata:      { workerId: worker.id },
       });
@@ -251,6 +270,14 @@ export class PaymentsService {
       worker.stripeAccountId = account.id;
       await this.workerRepo.save(worker);
       this.logger.log(`[Payments] Stripe Connect account ${account.id} created for worker ${worker.id}`);
+    } else {
+      // Accounts created before MB WAY was added only requested `transfers`.
+      // Re-requesting is idempotent, so bring older accounts up to date here.
+      await this.stripe.accounts
+        .update(accountId, { capabilities: PAY_LINK_CAPABILITIES })
+        .catch((err: Error) =>
+          this.logger.warn(`[Payments] Capability refresh failed for ${accountId}: ${err.message}`),
+        );
     }
 
     const accountLink = await this.stripe.accountLinks.create({
@@ -272,11 +299,14 @@ export class PaymentsService {
     hasAccount: boolean;
     onboardingComplete: boolean;
     payoutsEnabled: boolean;
+    cardEnabled: boolean;
+    mbWayEnabled: boolean;
   }> {
     const worker = await this.workerRepo.findOne({ where: { user: { id: workerUserId } } });
     if (!worker) throw new NotFoundException('Worker not found');
+    const inactive = { onboardingComplete: false, payoutsEnabled: false, cardEnabled: false, mbWayEnabled: false };
     if (!worker.stripeAccountId) {
-      return { hasAccount: false, onboardingComplete: false, payoutsEnabled: false };
+      return { hasAccount: false, ...inactive };
     }
     try {
       const account = await this.stripe.accounts.retrieve(worker.stripeAccountId);
@@ -284,10 +314,13 @@ export class PaymentsService {
         hasAccount: true,
         onboardingComplete: account.details_submitted ?? false,
         payoutsEnabled: account.payouts_enabled ?? false,
+        // Which methods the company will actually see on this worker's Pay Link
+        cardEnabled:  account.capabilities?.card_payments === 'active',
+        mbWayEnabled: account.capabilities?.mb_way_payments === 'active',
       };
     } catch (err) {
       this.logger.warn(`[Payments] Connect status lookup failed for worker ${worker.id}: ${(err as Error).message}`);
-      return { hasAccount: true, onboardingComplete: false, payoutsEnabled: false };
+      return { hasAccount: true, ...inactive };
     }
   }
 
@@ -435,7 +468,9 @@ export class PaymentsService {
         // ("Listen to events on connected accounts") pointing at this URL.
         const metadata = obj['metadata'] as Record<string, string> | undefined;
         if (metadata?.['type'] === 'wage_pay_link') {
-          await this.wagePayments.markPaidFromWebhook(obj['id'] as string);
+          // event.account = the worker's connected account the charge lives on;
+          // needed to read back the real Stripe fee for reconciliation.
+          await this.wagePayments.markPaidFromWebhook(obj['id'] as string, event.account);
         }
         break;
       }

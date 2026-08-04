@@ -17,7 +17,7 @@ const HOW_IT_WORKS = [
   { n: '03', icon: '👤', title: 'Selecionas o worker',    desc: 'Revês perfis, ratings e competências. Selecionar um worker envia-lhe um convite direto com 2h para aceitar.' },
   { n: '04', icon: '✅', title: 'Worker confirma',        desc: 'O worker aceita ou recusa. Se não responder em 2h, o turno reabre automaticamente — sem no-shows silenciosos.' },
   { n: '05', icon: '📲', title: 'QR Check-in',            desc: 'O worker escaneia o teu QR fixo à chegada (geofence de 200m). O turno conclui automaticamente à hora de fim — sem passos extra.' },
-  { n: '06', icon: '💳', title: 'Pagas diretamente ao worker', desc: 'No fim do turno pagas ao worker pelo método que escolheste — transferência, MB WAY ou numerário. A Turnos dá-te todos os valores prontos, incluindo TSU informativo.' },
+  { n: '06', icon: '💳', title: 'Pagas diretamente ao worker', desc: 'No fim do turno pagas ao worker pelo método que escolheste — Pay Link (cartão ou MB WAY), transferência bancária ou MB WAY direto. A Turnos dá-te todos os valores prontos, incluindo TSU informativo.' },
 ];
 
 const FEATURES = [
