@@ -149,14 +149,13 @@ export const SHIFT_CATEGORIES = {
   ],
   'Eventos': [
     'Assistente de eventos',
-    'Rececionista de eventos',
+    'Rececionista',
     'Animador/a',
     'Segurança de eventos',
     'Montagem e desmontagem',
   ],
   'Hotelaria': [
     'Rececionista',
-    'Rececionista de hotel',
     'Barista',
     'Assistente de cozinha',
     'Assistente de sala',
@@ -206,6 +205,33 @@ export const ALL_SKILLS: string[] = [
  * Add roles to `SHIFT_CATEGORIES` and every consumer picks them up automatically.
  */
 export const JOB_TITLES: string[] = ALL_SKILLS;
+
+/**
+ * Job titles that were merged into a broader one, mapped old → current.
+ *
+ * `worker.skills` and `shift.subcategory` store plain strings, so retiring a
+ * title would otherwise orphan every row still holding it — the worker's chip
+ * stops appearing selected and skill-matched notifications silently skip them.
+ * Reading through `normalizeSkill()` keeps those rows working, and they heal
+ * permanently the next time the worker saves their profile.
+ *
+ * Same approach as LEGACY_PAYMENT_METHOD_LABELS for retired payment methods.
+ */
+export const LEGACY_SKILL_ALIASES: Record<string, string> = {
+  'Rececionista de hotel':   'Rececionista',
+  'Rececionista de eventos': 'Rececionista',
+} as const;
+
+/** Current name for a stored skill/job title. Unknown values pass through. */
+export function normalizeSkill(skill: string): string {
+  return LEGACY_SKILL_ALIASES[skill] ?? skill;
+}
+
+/** Normalize a stored skill list, de-duplicating what the aliases collapse. */
+export function normalizeSkills(skills: string[] | null | undefined): string[] {
+  if (!skills?.length) return [];
+  return [...new Set(skills.map(normalizeSkill))];
+}
 
 // ─── Worker Experience ────────────────────────────────────────────────────────
 

@@ -141,7 +141,23 @@
       "WebFetch(domain:shifty.es)",
       "Bash(cd \"C:/Users/j3_19/AppData/Roaming/MetaQuotes/Terminal/0727F3F88B5F0FE006962B330B91FF37/Turnos App\" && sed -n '/async assertCanPostShift/,/^  }/p' apps/api/src/payments/payments.service.ts)",
       "Bash(npx turbo *)",
-      "PowerShell(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch 'Loopback|vEthernet|WSL' -and $_.IPAddress -notmatch '^169\\\\.254' } | Select-Object InterfaceAlias, IPAddress | Format-Table -AutoSize)"
+      "PowerShell(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch 'Loopback|vEthernet|WSL' -and $_.IPAddress -notmatch '^169\\\\.254' } | Select-Object InterfaceAlias, IPAddress | Format-Table -AutoSize)",
+      "Bash(git commit -q -m '@ *)",
+      "Bash(git commit *)",
+      "Bash(sed -e :a -e '/^\\\\n*$/{$d;N;};/\\\\n$/ba')",
+      "Bash(grep -v '^@$')",
+      "Bash(curl -s -o /dev/null -w \"health: HTTP %{http_code}\\\\n\" https://turnos-api-production-6c70.up.railway.app/api/health)",
+      "Bash(curl -s -o /dev/null -w \"shifts/search: HTTP %{http_code}\\\\n\" \"https://turnos-api-production-6c70.up.railway.app/api/shifts/search\")",
+      "Bash(curl -s \"https://turnos-api-production-6c70.up.railway.app/api/payments/connect/return\")",
+      "Bash(curl -s -o /dev/null -w \"  HTTP %{http_code}\\\\n\" -X POST https://turnos-api-production-6c70.up.railway.app/api/auth/worker/cv)",
+      "Bash(curl -s -o /dev/null -w \"  HTTP %{http_code}\\\\n\" https://turnos-api-production-6c70.up.railway.app/api/auth/worker/nonexistent)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' https://turnos-api-production-6c70.up.railway.app/api/health)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' -X POST https://turnos-api-production-6c70.up.railway.app/api/auth/worker/cv)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' -X DELETE https://turnos-api-production-6c70.up.railway.app/api/auth/worker/cv)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' https://turnos-api-production-6c70.up.railway.app/api/auth/worker/nonexistent)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' https://turnos-api-production-6c70.up.railway.app/api/shifts/search)",
+      "Bash(curl -s https://turnos-api-production-6c70.up.railway.app/api/shifts/search)",
+      "Read(//c/Users/j3_19/AppData/Roaming/MetaQuotes/Terminal/0727F3F88B5F0FE006962B330B91FF37/**)"
     ]
   }
 }

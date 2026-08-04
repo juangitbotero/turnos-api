@@ -11,7 +11,10 @@ import { StorageService } from '../storage/storage.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { Twilio } from 'twilio';
-import { isValidNIF, isValidIBAN, isValidNIPC, isValidPostalCode, WorkerExperience } from '@turnos/shared';
+import {
+  isValidNIF, isValidIBAN, isValidNIPC, isValidPostalCode,
+  WorkerExperience, normalizeSkills,
+} from '@turnos/shared';
 
 const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
@@ -308,7 +311,9 @@ export class AuthService {
         cvFileName:          worker?.cvFileName          ?? null,
         bio:                 worker?.bio                 ?? null,
         contactEmail:        worker?.user?.email         ?? null,
-        skills:              worker?.skills              ?? [],
+        // Read through the alias map so a worker still holding a retired title
+        // (e.g. 'Rececionista de hotel') sees the current chip selected.
+        skills:              normalizeSkills(worker?.skills),
         languages:           worker?.languages           ?? [],
         isAvailableForWork:  worker?.isAvailableForWork  ?? true,
         availableDays:       worker?.availableDays       ?? [],

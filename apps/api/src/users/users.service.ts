@@ -6,6 +6,7 @@ import { Worker } from './entities/worker.entity';
 import { Employer } from './entities/employer.entity';
 import {
   calculateProfileQualityScore,
+  normalizeSkills,
   isValidNIF,
   isValidIBAN,
   ProfileQualityResult,
@@ -166,7 +167,7 @@ export class UsersService {
     worker.fullName      = dto.fullName?.trim();
     worker.nif           = dto.nif?.trim();
     worker.iban          = dto.iban?.trim().replace(/\s/g, '');
-    worker.skills        = dto.skills;
+    worker.skills        = normalizeSkills(dto.skills);
     worker.availableDays = dto.availableDays;
     this.applyIbanShareConsent(worker, dto.ibanShareConsent);
     if (dto.declaredExternalMonthlyIncome !== undefined) {
@@ -208,7 +209,7 @@ export class UsersService {
 
     if (dto.fullName      !== undefined) worker.fullName      = dto.fullName.trim();
     if (dto.bio           !== undefined) worker.bio           = dto.bio.slice(0, 200);
-    if (dto.skills        !== undefined) worker.skills        = dto.skills;
+    if (dto.skills        !== undefined) worker.skills        = normalizeSkills(dto.skills);
     if (dto.languages     !== undefined) worker.languages     = dto.languages;
     if (dto.availableDays !== undefined) worker.availableDays = dto.availableDays;
     if (dto.isAvailableForWork !== undefined) worker.isAvailableForWork = dto.isAvailableForWork;
