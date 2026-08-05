@@ -552,11 +552,21 @@ export interface ProfileQualityInput {
   hasCv?: boolean;           // CV document uploaded
 }
 
+/** Stable identifiers for the things a profile can still be missing. */
+export type ProfileMissingKey =
+  | 'photo' | 'nif' | 'iban' | 'skills' | 'fullName' | 'availability' | 'cv';
+
 export interface ProfileQualityResult {
   score: number;             // 0–100
   status: 'INCOMPLETE' | 'PENDING_REVIEW' | 'ACTIVE';
   breakdown: Record<string, number>;
+  /**
+   * Portuguese labels — kept for the API response shape and the PT-only
+   * ops/accountant emails. UI code should use `missingKeys` and translate via
+   * `mobile.onboarding.missing.*` so the list follows the app language.
+   */
   missingItems: string[];
+  missingKeys: ProfileMissingKey[];
 }
 
 /**
@@ -597,18 +607,24 @@ export function calculateProfileQualityScore(
   const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
 
   const missingItems: string[] = [];
-  if (!input.hasPhoto)         missingItems.push('Fotografia de perfil');
-  if (!input.hasValidNif)      missingItems.push('NIF válido');
-  if (!input.hasValidIban)     missingItems.push('IBAN válido (conta bancária)');
-  if (input.skillsCount === 0) missingItems.push('Pelo menos 1 competência selecionada');
-  if (!input.hasFullName)      missingItems.push('Nome completo');
-  if (!input.hasAvailability)  missingItems.push('Disponibilidade semanal');
-  if (!input.hasCv)            missingItems.push('Currículo (CV)');
+  const missingKeys: ProfileMissingKey[] = [];
+  const miss = (key: ProfileMissingKey, ptLabel: string) => {
+    missingKeys.push(key);
+    missingItems.push(ptLabel);
+  };
+
+  if (!input.hasPhoto)         miss('photo',        'Fotografia de perfil');
+  if (!input.hasValidNif)      miss('nif',          'NIF válido');
+  if (!input.hasValidIban)     miss('iban',         'IBAN válido (conta bancária)');
+  if (input.skillsCount === 0) miss('skills',       'Pelo menos 1 competência selecionada');
+  if (!input.hasFullName)      miss('fullName',     'Nome completo');
+  if (!input.hasAvailability)  miss('availability', 'Disponibilidade semanal');
+  if (!input.hasCv)            miss('cv',           'Currículo (CV)');
 
   const status: ProfileQualityResult['status'] =
     score >= 80 ? 'PENDING_REVIEW' : 'INCOMPLETE';
 
-  return { score, status, breakdown, missingItems };
+  return { score, status, breakdown, missingItems, missingKeys };
 }
 
 // ─── Ratings & Reputation (Stint 7) ──────────────────────────────────────────

@@ -22,6 +22,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { adminApi, ApiError } from '../../../lib/api';
+import { useT } from '../../../lib/i18n';
+import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 
 type BillingState =
   | 'loading'
@@ -42,6 +44,7 @@ interface EmployerBillingInfo {
 
 export default function BillingPage() {
   const router = useRouter();
+  const { t } = useT();
   const [state, setState]       = useState<BillingState>('loading');
   const [info, setInfo]         = useState<EmployerBillingInfo | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -84,14 +87,14 @@ export default function BillingPage() {
     try {
       const result = await adminApi.createSubscription();
       if (result.status === 'active' || result.status === 'ACTIVE') {
-        setMessage('✅ Subscrição ativada com sucesso! Podes agora publicar turnos.');
+        setMessage(t('admin.billing.activated'));
         setState('active');
         setInfo(prev => prev ? { ...prev, subscriptionStatus: 'ACTIVE', subscriptionTier: 'STARTER' } : prev);
       } else {
-        setMessage(`Estado da subscrição: ${result.status}`);
+        setMessage(t('admin.billing.activateStatus', { status: result.status }));
       }
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Erro ao ativar a subscrição.';
+      const msg = err instanceof ApiError ? err.message : t('admin.billing.activateError');
       setError(msg);
     } finally {
       setActionLoading(false);
@@ -99,16 +102,16 @@ export default function BillingPage() {
   };
 
   const handleCancelSubscription = async () => {
-    if (!confirm('Tens a certeza que queres cancelar a subscrição? Perderás o acesso no final do período atual.')) return;
+    if (!confirm(t('admin.billing.cancelConfirm'))) return;
     setActionLoading(true);
     setError('');
     setMessage('');
     try {
       await adminApi.cancelSubscription();
-      setMessage('Subscrição cancelada. O acesso mantém-se até ao fim do período atual.');
+      setMessage(t('admin.billing.cancelled'));
       setState('cancelled');
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Erro ao cancelar a subscrição.';
+      const msg = err instanceof ApiError ? err.message : t('admin.billing.cancelError');
       setError(msg);
     } finally {
       setActionLoading(false);
@@ -123,25 +126,24 @@ export default function BillingPage() {
       {/* Header */}
       <div style={s.header}>
         <div>
-          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>← Dashboard</button>
-          <h1 style={s.pageTitle}>Faturação</h1>
-          <p style={s.pageSub}>Gerir o teu plano de subscrição Turnos</p>
+          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>{t('admin.chrome.backDashboard')}</button>
+          <h1 style={s.pageTitle}>{t('admin.billing.title')}</h1>
+          <p style={s.pageSub}>{t('admin.billing.sub')}</p>
         </div>
+        <LanguageSwitcher />
       </div>
 
       {/* Loading */}
       {state === 'loading' && (
         <div style={s.loadingCard}>
           <div style={s.spinner} />
-          <p style={s.loadingText}>A carregar informação de faturação…</p>
+          <p style={s.loadingText}>{t('admin.billing.loading')}</p>
         </div>
       )}
 
       {/* Error */}
       {state === 'error' && (
-        <div style={s.errorBanner}>
-          ⚠️ Não foi possível carregar a informação de faturação. Tenta novamente.
-        </div>
+        <div style={s.errorBanner}>⚠️ {t('admin.billing.loadError')}</div>
       )}
 
       {/* Plan card */}
@@ -151,23 +153,23 @@ export default function BillingPage() {
           {/* Current plan */}
           <div style={s.card}>
             <div style={s.cardHeader}>
-              <h2 style={s.cardTitle}>Plano atual</h2>
+              <h2 style={s.cardTitle}>{t('admin.billing.currentPlan')}</h2>
               <StatusBadge status={state} />
             </div>
 
             <div style={s.planName}>
               <span style={s.planIcon}>💼</span>
               <div>
-                <div style={s.planTitle}>Turnos Starter</div>
-                <div style={s.planPrice}>€45 <span style={s.planPriceSub}>/mês por empresa + 3€ por turno concluído</span></div>
+                <div style={s.planTitle}>{t('admin.billing.planName')}</div>
+                <div style={s.planPrice}>{t('admin.billing.planPrice')} <span style={s.planPriceSub}>{t('admin.billing.planPriceSub')}</span></div>
               </div>
             </div>
 
             <ul style={s.featureList}>
-              {PLAN_FEATURES.map(f => (
-                <li key={f} style={s.featureItem}>
+              {PLAN_FEATURE_KEYS.map(key => (
+                <li key={key} style={s.featureItem}>
                   <span style={s.featureCheck}>✓</span>
-                  {f}
+                  {t(`admin.billing.features.${key}`)}
                 </li>
               ))}
             </ul>
@@ -179,21 +181,15 @@ export default function BillingPage() {
             {/* CTA */}
             {(state === 'no_card' || state === 'cancelled') && (
               <div style={s.ctaSection}>
-                <p style={s.ctaNote}>
-                  Para ativar a subscrição, precisas primeiro de adicionar um cartão de crédito.
-                  Usa o painel de pagamentos Stripe para guardar o teu método de pagamento.
-                </p>
+                <p style={s.ctaNote}>{t('admin.billing.ctaNote')}</p>
                 <button
                   style={{ ...s.btn, ...s.btnPrimary }}
                   onClick={handleActivateSubscription}
                   disabled={actionLoading}
                 >
-                  {actionLoading ? 'A processar…' : '🚀 Ativar subscrição — €45/mês'}
+                  {actionLoading ? t('admin.billing.processing') : t('admin.billing.activate')}
                 </button>
-                <p style={s.ctaSubNote}>
-                  Nota: Se ainda não tens cartão guardado, a ativação irá falhar com uma
-                  mensagem clara. Fala com o suporte Turnos para adicionar o cartão via Stripe Dashboard.
-                </p>
+                <p style={s.ctaSubNote}>{t('admin.billing.ctaSubNote')}</p>
               </div>
             )}
 
@@ -203,15 +199,12 @@ export default function BillingPage() {
                 onClick={handleActivateSubscription}
                 disabled={actionLoading}
               >
-                {actionLoading ? 'A processar…' : '🚀 Ativar subscrição — €45/mês'}
+                {actionLoading ? t('admin.billing.processing') : t('admin.billing.activate')}
               </button>
             )}
 
             {state === 'past_due' && (
-              <div style={s.warningBanner}>
-                ⚠️ O pagamento do teu plano falhou. Por favor atualiza o método de pagamento
-                no Stripe Dashboard ou contacta o suporte Turnos.
-              </div>
+              <div style={s.warningBanner}>{t('admin.billing.pastDueBanner')}</div>
             )}
 
             {state === 'active' && (
@@ -220,43 +213,44 @@ export default function BillingPage() {
                 onClick={handleCancelSubscription}
                 disabled={actionLoading}
               >
-                {actionLoading ? 'A processar…' : 'Cancelar subscrição'}
+                {actionLoading ? t('admin.billing.processing') : t('admin.billing.cancel')}
               </button>
             )}
           </div>
 
           {/* What's included */}
           <div style={s.card}>
-            <h2 style={s.cardTitle}>Sobre o plano Starter</h2>
+            <h2 style={s.cardTitle}>{t('admin.billing.aboutTitle')}</h2>
             <div style={s.infoSection}>
-              <InfoRow icon="📋" label="Turnos simultâneos" value="Até 15 turnos ativos" />
-              <InfoRow icon="👷" label="Trabalhadores" value="Ilimitados" />
-              <InfoRow icon="📲" label="QR Check-in/out" value="Incluído" />
-              <InfoRow icon="📊" label="Relatório TSU" value="Incluído (informativo)" />
-              <InfoRow icon="🏛️" label="SS Direta (MCD)" value="Automático" />
-              <InfoRow icon="💶" label="Taxa por turno concluído" value="3€ fixos — faturados 1×/mês" />
-              <InfoRow icon="⚡" label="Salário do trabalhador" value="Pagas diretamente — 0% de comissão" />
+              <InfoRow icon="📋" label={t('admin.billing.rowShifts')} value={t('admin.billing.rowShiftsVal')} />
+              <InfoRow icon="👷" label={t('admin.billing.rowWorkers')} value={t('admin.billing.rowWorkersVal')} />
+              <InfoRow icon="📲" label={t('admin.billing.rowQr')} value={t('admin.billing.rowQrVal')} />
+              <InfoRow icon="📊" label={t('admin.billing.rowTsu')} value={t('admin.billing.rowTsuVal')} />
+              <InfoRow icon="🏛️" label={t('admin.billing.rowSs')} value={t('admin.billing.rowSsVal')} />
+              <InfoRow icon="💶" label={t('admin.billing.rowFee')} value={t('admin.billing.rowFeeVal')} />
+              <InfoRow icon="⚡" label={t('admin.billing.rowWage')} value={t('admin.billing.rowWageVal')} />
             </div>
 
             <div style={s.divider} />
 
-            <h3 style={s.subSectionTitle}>Política de cancelamento de turnos</h3>
+            <h3 style={s.subSectionTitle}>{t('admin.billing.cancelPolicyTitle')}</h3>
             <p style={s.infoText}>
-              Cancelar um turno preenchido com menos de <strong>3 horas</strong> de antecedência,
-              sem justificação, obriga ao pagamento de um <strong>mínimo de 2 horas</strong> ao
-              trabalhador (via Pay Link) + a taxa normal de 3€. Entre 24h e 3h o cancelamento é
-              gratuito mas fica registado na fiabilidade da empresa. Cancelamentos justificados
-              (atraso do trabalhador, força maior, etc.) e com mais de 24h são{' '}
-              <strong>gratuitos</strong>.
+              {t('admin.billing.cancelPolicy1')}
+              <strong>{t('admin.billing.cancelPolicyBold1')}</strong>
+              {t('admin.billing.cancelPolicy2')}
+              <strong>{t('admin.billing.cancelPolicyBold2')}</strong>
+              {t('admin.billing.cancelPolicy3')}
+              <strong>{t('admin.billing.cancelPolicyBold3')}</strong>
+              {t('admin.billing.cancelPolicy4')}
             </p>
 
             <div style={s.divider} />
 
-            <h3 style={s.subSectionTitle}>Turnos Pro — brevemente 🚀</h3>
+            <h3 style={s.subSectionTitle}>{t('admin.billing.proTitle')}</h3>
             <p style={s.infoText}>
-              Turnos ilimitados em simultâneo, 5 utilizadores, taxa de 2€/turno,
-              filtros avançados de pesquisa e convite direto de trabalhadores,
-              relatórios de contabilidade — <strong>€99/mês</strong>. Fala connosco para saber mais.
+              {t('admin.billing.proBody1')}
+              <strong>{t('admin.billing.proPrice')}</strong>
+              {t('admin.billing.proBody2')}
             </p>
           </div>
 
@@ -265,8 +259,8 @@ export default function BillingPage() {
 
       {/* Navigation */}
       <div style={s.navRow}>
-        <Link href="/dashboard/spending" style={s.navLink}>Ver Gastos →</Link>
-        <Link href="/dashboard" style={s.navLink}>← Voltar ao Dashboard</Link>
+        <Link href="/dashboard/spending" style={s.navLink}>{t('admin.billing.navSpending')}</Link>
+        <Link href="/dashboard" style={s.navLink}>{t('admin.chrome.backToDashboard')}</Link>
       </div>
 
     </div>
@@ -276,16 +270,21 @@ export default function BillingPage() {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: BillingState }) {
-  const MAP: Record<string, { label: string; color: string; bg: string }> = {
-    active:    { label: 'Ativo',          color: '#166534', bg: '#dcfce7' },
-    past_due:  { label: 'Pagamento em falta', color: '#92400e', bg: '#fef3c7' },
-    cancelled: { label: 'Cancelado',      color: '#991b1b', bg: '#fee2e2' },
-    no_card:   { label: 'Inativo',        color: '#6b7280', bg: '#f3f4f6' },
-    card_no_sub: { label: 'Inativo',      color: '#6b7280', bg: '#f3f4f6' },
+  const { t } = useT();
+  // Colours here, labels in `admin.billing.status.*`
+  const MAP: Record<string, { key: string; color: string; bg: string }> = {
+    active:      { key: 'active',    color: '#166534', bg: '#dcfce7' },
+    past_due:    { key: 'past_due',  color: '#92400e', bg: '#fef3c7' },
+    cancelled:   { key: 'cancelled', color: '#991b1b', bg: '#fee2e2' },
+    no_card:     { key: 'inactive',  color: '#6b7280', bg: '#f3f4f6' },
+    card_no_sub: { key: 'inactive',  color: '#6b7280', bg: '#f3f4f6' },
   };
-  const cfg = MAP[status] ?? { label: '—', color: '#6b7280', bg: '#f3f4f6' };
+  const cfg = MAP[status];
+  if (!cfg) return <span style={{ ...sb.badge, color: '#6b7280', background: '#f3f4f6' }}>—</span>;
   return (
-    <span style={{ ...sb.badge, color: cfg.color, background: cfg.bg }}>{cfg.label}</span>
+    <span style={{ ...sb.badge, color: cfg.color, background: cfg.bg }}>
+      {t(`admin.billing.status.${cfg.key}`)}
+    </span>
   );
 }
 
@@ -301,15 +300,8 @@ function InfoRow({ icon, label, value }: { icon: string; label: string; value: s
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const PLAN_FEATURES = [
-  'Publicar até 15 turnos em simultâneo',
-  'Procurar e convidar trabalhadores por competência e idioma',
-  'Gestão de candidaturas e aprovação de trabalhadores',
-  'QR Check-in no local + conclusão automática do turno',
-  'Conformidade MCD — contratos e SS Direta automáticos',
-  'Relatório TSU mensal pronto para a contabilidade',
-  'Notificações push em tempo real',
-];
+/** Feature ids — the copy lives in `admin.billing.features.*`. */
+const PLAN_FEATURE_KEYS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7'] as const;
 
 /* ─────────────────────────── Styles ─────────────────────────────────────── */
 

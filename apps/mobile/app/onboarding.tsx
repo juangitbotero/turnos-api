@@ -10,15 +10,18 @@ import * as DocumentPicker from 'expo-document-picker';
 import {
   colors, spacing, radius, fontSize, fontWeight,
   isValidNIF, isValidIBAN, calculateProfileQualityScore, SHIFT_CATEGORIES, ShiftCategory,
+  STORED_WEEKDAYS,
 } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
+import { useT } from '../lib/i18n';
 
 const ALL_SKILLS = [...new Set(Object.values(SHIFT_CATEGORIES).flat())];
-const WEEK_DAYS  = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-const STEPS = ['Identidade', 'Legal', 'Disponibilidade', 'Resumo'];
+/** Wizard step ids — the visible name comes from the catalogue. */
+const STEPS = ['identity', 'legal', 'availability', 'summary'] as const;
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const { t, tSkill, tWeekday } = useT();
   const [step, setStep] = useState(0);
 
   // Form state
@@ -64,7 +67,7 @@ export default function OnboardingScreen() {
     if (result.canceled || !result.assets?.[0]) return;
     const asset = result.assets[0];
     if (asset.size && asset.size > 10 * 1024 * 1024) {
-      Alert.alert('Ficheiro demasiado grande', 'O CV não pode exceder 10 MB.');
+      Alert.alert(t('mobile.onboarding.cvTooBigTitle'), t('mobile.onboarding.cvTooBigBody'));
       return;
     }
     setCvAsset({
@@ -77,7 +80,7 @@ export default function OnboardingScreen() {
   const pickPhoto = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permissão necessária', 'Precisamos de acesso às suas fotos para adicionar uma foto de perfil.');
+      Alert.alert(t('mobile.onboarding.photoPermTitle'), t('mobile.onboarding.photoPermBody'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -104,20 +107,20 @@ export default function OnboardingScreen() {
 
   const validateStep = (): boolean => {
     if (step === 0 && !fullName.trim()) {
-      Alert.alert('Nome obrigatório', 'Por favor introduza o seu nome completo.');
+      Alert.alert(t('mobile.onboarding.nameRequiredTitle'), t('mobile.onboarding.nameRequiredBody'));
       return false;
     }
     if (step === 1) {
       let ok = true;
       // Only validate if the worker has entered something — both are optional
-      if (nif.trim() && !isValidNIF(nif)) { setNifError('NIF inválido (9 dígitos)'); ok = false; }
+      if (nif.trim() && !isValidNIF(nif)) { setNifError(t('mobile.onboarding.nifInvalid')); ok = false; }
       else setNifError('');
-      if (iban.trim() && !isValidIBAN(iban)) { setIbanError('IBAN inválido (formato PT50... com 25 caracteres)'); ok = false; }
+      if (iban.trim() && !isValidIBAN(iban)) { setIbanError(t('mobile.onboarding.ibanInvalid')); ok = false; }
       else setIbanError('');
       return ok;
     }
     if (step === 2 && selectedSkills.length === 0) {
-      Alert.alert('Competências', 'Selecione pelo menos 1 competência.');
+      Alert.alert(t('mobile.onboarding.skillsRequiredTitle'), t('mobile.onboarding.skillsRequiredBody'));
       return false;
     }
     return true;
@@ -137,8 +140,8 @@ export default function OnboardingScreen() {
         try {
           await authApi.uploadWorkerPhoto(photoUri, photoMime);
         } catch (err) {
-          const msg = err instanceof ApiError ? err.message : 'Erro ao enviar foto.';
-          Alert.alert('Aviso', `${msg} O perfil será submetido sem foto.`);
+          const msg = err instanceof ApiError ? err.message : t('mobile.onboarding.photoUploadError');
+          Alert.alert(t('mobile.onboarding.warningTitle'), t('mobile.onboarding.photoSkipped', { message: msg }));
         } finally {
           setIsUploadingPhoto(false);
         }
@@ -149,8 +152,8 @@ export default function OnboardingScreen() {
         try {
           await authApi.uploadWorkerCv(cvAsset.uri, cvAsset.mimeType, cvAsset.name);
         } catch (err) {
-          const msg = err instanceof ApiError ? err.message : 'Erro ao enviar o CV.';
-          Alert.alert('Aviso', `${msg} O perfil será submetido sem CV.`);
+          const msg = err instanceof ApiError ? err.message : t('mobile.onboarding.cvUploadError');
+          Alert.alert(t('mobile.onboarding.warningTitle'), t('mobile.onboarding.cvSkipped', { message: msg }));
         }
       }
 
@@ -168,8 +171,8 @@ export default function OnboardingScreen() {
 
       router.replace('/');
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Não foi possível submeter o perfil.';
-      Alert.alert('Erro', msg);
+      const msg = err instanceof ApiError ? err.message : t('mobile.onboarding.submitError');
+      Alert.alert(t('common.error'), msg);
     } finally {
       setIsLoading(false);
     }
@@ -188,12 +191,18 @@ export default function OnboardingScreen() {
           </TouchableOpacity>
         )}
         <View style={s.headerCenter}>
-          <Text style={s.headerTitle}>Criar Perfil</Text>
-          <Text style={s.headerSub}>Passo {step + 1} de {STEPS.length} · {STEPS[step]}</Text>
+          <Text style={s.headerTitle}>{t('mobile.onboarding.title')}</Text>
+          <Text style={s.headerSub}>
+            {t('mobile.onboarding.stepOf', {
+              current: step + 1,
+              total: STEPS.length,
+              name: t(`mobile.onboarding.steps.${STEPS[step]}`),
+            })}
+          </Text>
         </View>
         {/* Skip for now */}
         <TouchableOpacity onPress={() => router.replace('/')} style={s.skipBtn}>
-          <Text style={s.skipText}>Saltar</Text>
+          <Text style={s.skipText}>{t('mobile.onboarding.skip')}</Text>
         </TouchableOpacity>
       </LinearGradient>
 
@@ -212,11 +221,11 @@ export default function OnboardingScreen() {
         {/* ── Step 0: Identity ── */}
         {step === 0 && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>O seu nome completo</Text>
-            <Text style={s.sectionSub}>Como aparece no seu documento de identificação.</Text>
+            <Text style={s.sectionTitle}>{t('mobile.onboarding.nameTitle')}</Text>
+            <Text style={s.sectionSub}>{t('mobile.onboarding.nameSub')}</Text>
             <TextInput
               style={s.input}
-              placeholder="Ex: Carlos Manuel Silva"
+              placeholder={t('mobile.onboarding.namePlaceholder')}
               placeholderTextColor={colors.textSecondary}
               value={fullName}
               onChangeText={setFullName}
@@ -226,21 +235,21 @@ export default function OnboardingScreen() {
             />
 
             {/* Photo picker */}
-            <Text style={[s.sectionTitle, { marginTop: 24, fontSize: 16 }]}>Foto de perfil (+20 pts)</Text>
-            <Text style={s.sectionSub}>Uma boa foto aumenta as suas hipóteses de aprovação.</Text>
+            <Text style={[s.sectionTitle, { marginTop: 24, fontSize: 16 }]}>{t('mobile.onboarding.photoTitle')}</Text>
+            <Text style={s.sectionSub}>{t('mobile.onboarding.photoSub')}</Text>
             <TouchableOpacity style={s.photoBtn} onPress={pickPhoto} activeOpacity={0.8}>
               {photoUri ? (
                 <Image source={{ uri: photoUri }} style={s.photoPreview} />
               ) : (
                 <View style={s.photoPlaceholder}>
                   <Text style={s.photoPlaceholderIcon}>📷</Text>
-                  <Text style={s.photoPlaceholderText}>Adicionar foto</Text>
+                  <Text style={s.photoPlaceholderText}>{t('mobile.onboarding.photoAdd')}</Text>
                 </View>
               )}
             </TouchableOpacity>
             {photoUri && (
               <TouchableOpacity onPress={() => setPhotoUri(null)} style={s.photoRemove}>
-                <Text style={s.photoRemoveText}>Remover foto</Text>
+                <Text style={s.photoRemoveText}>{t('mobile.onboarding.photoRemove')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -249,13 +258,11 @@ export default function OnboardingScreen() {
         {/* ── Step 1: Legal (NIF + IBAN) ── */}
         {step === 1 && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Dados legais</Text>
-            <Text style={s.sectionSub}>
-              Podes preencher agora ou mais tarde no perfil. O NIF e IBAN são necessários antes do teu primeiro turno.
-            </Text>
+            <Text style={s.sectionTitle}>{t('mobile.onboarding.legalTitle')}</Text>
+            <Text style={s.sectionSub}>{t('mobile.onboarding.legalSub')}</Text>
 
             <View style={s.fieldGroup}>
-              <Text style={s.fieldLabel}>NIF <Text style={s.optLabel}>(opcional)</Text></Text>
+              <Text style={s.fieldLabel}>NIF <Text style={s.optLabel}>{t('common.optional')}</Text></Text>
               <TextInput
                 style={[s.input, nifError ? s.inputError : {}]}
                 placeholder="123 456 789"
@@ -267,12 +274,12 @@ export default function OnboardingScreen() {
               />
               {nifError ? <Text style={s.errorText}>{nifError}</Text> : null}
               {!nifError && nif.length === 9 && isValidNIF(nif) && (
-                <Text style={s.validText}>✓ NIF válido</Text>
+                <Text style={s.validText}>{t('mobile.onboarding.nifValid')}</Text>
               )}
             </View>
 
             <View style={s.fieldGroup}>
-              <Text style={s.fieldLabel}>IBAN <Text style={s.optLabel}>(opcional)</Text></Text>
+              <Text style={s.fieldLabel}>IBAN <Text style={s.optLabel}>{t('common.optional')}</Text></Text>
               <TextInput
                 style={[s.input, ibanError ? s.inputError : {}]}
                 placeholder="PT50 0000 0000 0000 0000 0000 0"
@@ -284,12 +291,9 @@ export default function OnboardingScreen() {
               />
               {ibanError ? <Text style={s.errorText}>{ibanError}</Text> : null}
               {!ibanError && iban.length === 25 && isValidIBAN(iban) && (
-                <Text style={s.validText}>✓ IBAN válido</Text>
+                <Text style={s.validText}>{t('mobile.onboarding.ibanValid')}</Text>
               )}
-              <Text style={s.fieldHint}>
-                A empresa paga-te diretamente o valor bruto. Se pagar por transferência,
-                precisa do teu IBAN.
-              </Text>
+              <Text style={s.fieldHint}>{t('mobile.onboarding.ibanHint')}</Text>
 
               {/* ── IBAN sharing consent (GDPR) ── */}
               {iban.trim().length > 0 && (
@@ -302,36 +306,27 @@ export default function OnboardingScreen() {
                     <View style={[s.checkbox, ibanShareConsent && s.checkboxOn]}>
                       {ibanShareConsent && <Text style={s.checkboxTick}>✓</Text>}
                     </View>
-                    <Text style={s.consentText}>
-                      Autorizo a partilha do meu nome e IBAN com as empresas onde fiz turnos,
-                      para que me possam pagar por transferência. Posso retirar esta
-                      autorização no meu perfil a qualquer momento.
-                    </Text>
+                    <Text style={s.consentText}>{t('mobile.onboarding.ibanConsent')}</Text>
                   </TouchableOpacity>
                   {!ibanShareConsent && (
-                    <Text style={s.consentWarn}>
-                      Sem esta autorização, as empresas só te podem pagar por Turnos Pay Link ou MB WAY.
-                    </Text>
+                    <Text style={s.consentWarn}>{t('mobile.onboarding.ibanConsentWarn')}</Text>
                   )}
                 </>
               )}
             </View>
 
             <View style={s.fieldGroup}>
-              <Text style={s.fieldLabel}>Outros rendimentos mensais (opcional)</Text>
+              <Text style={s.fieldLabel}>{t('mobile.onboarding.incomeLabel')}</Text>
               <TextInput
                 style={s.input}
-                placeholder="Ex: 800 (€ por mês)"
+                placeholder={t('mobile.onboarding.incomePlaceholder')}
                 placeholderTextColor={colors.textSecondary}
                 keyboardType="decimal-pad"
                 value={externalMonthlyIncome}
                 onChangeText={v => setExternalMonthlyIncome(v.replace(/[^0-9.]/g, ''))}
               />
               <View style={s.infoBox}>
-                <Text style={s.infoBoxText}>
-                  💡 Inclua rendimentos de emprego, freelance ou outras fontes fora da Turnos. Deixe em branco se não tiver outros rendimentos.{'\n\n'}
-                  Esta informação é usada para calcular a sua dependência económica por empregador, conforme exigido pela Agenda do Trabalho Digno (Lei 13/2023). Não é partilhada com empregadores.
-                </Text>
+                <Text style={s.infoBoxText}>{t('mobile.onboarding.incomeInfo')}</Text>
               </View>
             </View>
           </View>
@@ -340,8 +335,8 @@ export default function OnboardingScreen() {
         {/* ── Step 2: Skills + Availability ── */}
         {step === 2 && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Competências</Text>
-            <Text style={s.sectionSub}>Selecione as suas competências (escolha todas as aplicáveis).</Text>
+            <Text style={s.sectionTitle}>{t('mobile.onboarding.skillsTitle')}</Text>
+            <Text style={s.sectionSub}>{t('mobile.onboarding.skillsSub')}</Text>
             <View style={s.chips}>
               {ALL_SKILLS.map(skill => (
                 <Pressable
@@ -349,40 +344,39 @@ export default function OnboardingScreen() {
                   style={[s.chip, selectedSkills.includes(skill) && s.chipActive]}
                   onPress={() => toggleSkill(skill)}
                 >
+                  {/* Display only — the stored PT title is what gets submitted */}
                   <Text style={[s.chipText, selectedSkills.includes(skill) && s.chipTextActive]}>
-                    {skill}
+                    {tSkill(skill)}
                   </Text>
                 </Pressable>
               ))}
             </View>
 
-            <Text style={[s.sectionTitle, { marginTop: 28 }]}>Disponibilidade semanal</Text>
-            <Text style={s.sectionSub}>Quais os dias em que está habitualmente disponível?</Text>
+            <Text style={[s.sectionTitle, { marginTop: 28 }]}>{t('mobile.onboarding.availabilityTitle')}</Text>
+            <Text style={s.sectionSub}>{t('mobile.onboarding.availabilitySub')}</Text>
             <View style={s.daysRow}>
-              {WEEK_DAYS.map(day => (
+              {STORED_WEEKDAYS.map(day => (
                 <Pressable
                   key={day}
                   style={[s.dayBtn, selectedDays.includes(day) && s.dayBtnActive]}
                   onPress={() => toggleDay(day)}
                 >
-                  <Text style={[s.dayText, selectedDays.includes(day) && s.dayTextActive]}>{day}</Text>
+                  <Text style={[s.dayText, selectedDays.includes(day) && s.dayTextActive]}>{tWeekday(day)}</Text>
                 </Pressable>
               ))}
             </View>
 
             {/* CV — optional, worth 10 points */}
-            <Text style={[s.sectionTitle, { marginTop: 28 }]}>Currículo (CV)</Text>
-            <Text style={s.sectionSub}>
-              Opcional, mas vale +10 pontos. PDF ou Word, até 10 MB. As empresas veem-no ao escolher candidatos.
-            </Text>
+            <Text style={[s.sectionTitle, { marginTop: 28 }]}>{t('mobile.onboarding.cvTitle')}</Text>
+            <Text style={s.sectionSub}>{t('mobile.onboarding.cvSub')}</Text>
             <Pressable style={s.cvBtn} onPress={pickCv}>
               <Text style={s.cvBtnText}>
-                {cvAsset ? `📄 ${cvAsset.name}` : '＋ Escolher ficheiro'}
+                {cvAsset ? `📄 ${cvAsset.name}` : t('mobile.onboarding.cvPick')}
               </Text>
             </Pressable>
             {cvAsset && (
               <Pressable onPress={() => setCvAsset(null)}>
-                <Text style={s.cvRemoveText}>Remover CV</Text>
+                <Text style={s.cvRemoveText}>{t('mobile.onboarding.cvRemove')}</Text>
               </Pressable>
             )}
           </View>
@@ -391,8 +385,8 @@ export default function OnboardingScreen() {
         {/* ── Step 3: Summary + Score ── */}
         {step === 3 && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Resumo do perfil</Text>
-            <Text style={s.sectionSub}>Verifique os dados antes de submeter.</Text>
+            <Text style={s.sectionTitle}>{t('mobile.onboarding.summaryTitle')}</Text>
+            <Text style={s.sectionSub}>{t('mobile.onboarding.summarySub')}</Text>
 
             {/* Score widget */}
             <View style={s.scoreCard}>
@@ -401,17 +395,21 @@ export default function OnboardingScreen() {
                 <Text style={s.scoreLabel}>/ 100</Text>
               </View>
               <View style={s.scoreInfo}>
-                <Text style={s.scoreTitle}>Perfil Completo</Text>
+                <Text style={s.scoreTitle}>{t('mobile.onboarding.scoreTitle')}</Text>
                 <Text style={s.scoreStatus}>
                   {qualityResult.status === 'PENDING_REVIEW'
-                    ? '✅ Pronto para submeter'
-                    : '⚠️ Perfil incompleto'}
+                    ? t('mobile.onboarding.scoreReady')
+                    : t('mobile.onboarding.scoreIncomplete')}
                 </Text>
                 {qualityResult.score >= 80 ? (
-                  <Text style={s.scoreNote}>O seu perfil será analisado pela equipa Turnos em 24h.</Text>
+                  <Text style={s.scoreNote}>{t('mobile.onboarding.scoreNote')}</Text>
                 ) : (
                   <Text style={s.scoreNoteMissing}>
-                    Em falta: {qualityResult.missingItems.join(', ')}
+                    {t('mobile.onboarding.scoreMissing', {
+                      items: qualityResult.missingKeys
+                        .map(k => t(`mobile.onboarding.missing.${k}`))
+                        .join(', '),
+                    })}
                   </Text>
                 )}
               </View>
@@ -428,12 +426,12 @@ export default function OnboardingScreen() {
 
             {/* Profile summary */}
             {[
-              ['Nome', fullName],
+              [t('mobile.onboarding.summaryName'), fullName],
               ['NIF', nif],
               ['IBAN', iban ? `${iban.slice(0, 8)}...${iban.slice(-4)}` : ''],
-              ['Competências', selectedSkills.slice(0, 3).join(', ') + (selectedSkills.length > 3 ? ` +${selectedSkills.length - 3}` : '')],
-              ['Disponibilidade', selectedDays.join(', ')],
-              ['CV', cvAsset?.name ?? ''],
+              [t('mobile.onboarding.summarySkills'), selectedSkills.slice(0, 3).map(tSkill).join(', ') + (selectedSkills.length > 3 ? ` +${selectedSkills.length - 3}` : '')],
+              [t('mobile.onboarding.summaryAvailability'), selectedDays.map(tWeekday).join(', ')],
+              [t('mobile.onboarding.summaryCv'), cvAsset?.name ?? ''],
             ].map(([k, v]) => v ? (
               <View key={k} style={s.summaryRow}>
                 <Text style={s.summaryKey}>{k}</Text>
@@ -442,7 +440,7 @@ export default function OnboardingScreen() {
             ) : null)}
 
             <View style={s.recebeBadge}>
-              <Text style={s.recebeText}>💳 Após aprovação, receberá pagamentos no dia seguinte a cada turno concluído.</Text>
+              <Text style={s.recebeText}>{t('mobile.onboarding.payNote')}</Text>
             </View>
           </View>
         )}
@@ -453,7 +451,7 @@ export default function OnboardingScreen() {
         {step < STEPS.length - 1 ? (
           <TouchableOpacity style={s.nextBtn} onPress={handleNext} activeOpacity={0.85}>
             <LinearGradient colors={['#6a79ff', '#9b6dff']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.nextBtnGradient}>
-              <Text style={s.nextBtnText}>Continuar →</Text>
+              <Text style={s.nextBtnText}>{t('mobile.onboarding.continue')}</Text>
             </LinearGradient>
           </TouchableOpacity>
         ) : (
@@ -470,12 +468,12 @@ export default function OnboardingScreen() {
             >
               <Text style={s.nextBtnText}>
                 {isUploadingPhoto
-                  ? 'A enviar foto...'
+                  ? t('mobile.onboarding.uploadingPhoto')
                   : isLoading
-                  ? 'A submeter...'
+                  ? t('mobile.onboarding.submitting')
                   : qualityResult.score >= 80
-                  ? '✅ Submeter para aprovação'
-                  : 'Guardar e continuar depois'}
+                  ? t('mobile.onboarding.submitReady')
+                  : t('mobile.onboarding.submitLater')}
               </Text>
             </LinearGradient>
           </TouchableOpacity>

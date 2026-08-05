@@ -6,14 +6,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  colors, spacing, radius, fontSize, fontWeight, calculateTSU,
-  PAYMENT_METHOD_LABELS, PaymentMethod, formatSeriesRange,
+  colors, spacing, radius, fontSize, fontWeight, calculateTSU, PaymentMethod,
 } from '@turnos/shared';
 import {
   shiftApi, ShiftSummary, MyApplication, ApiError,
   attendanceApi, AttendanceRecord, authApi,
 } from '../../lib/api';
-import { formatDate } from '../../lib/format';
+import { useT } from '../../lib/i18n';
 import { ShiftSchedule } from '../../components/ShiftSchedule';
 import { syncShiftToCalendar, isShiftInCalendar } from '../../lib/calendar';
 
@@ -31,6 +30,7 @@ function hoursWorked(start: string, end: string): number {
 export default function ShiftDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { t, tSkill, fSmartDate, fDateRange } = useT();
 
   const [shift, setShift]             = useState<ShiftSummary | null>(null);
   const [myApp, setMyApp]             = useState<MyApplication | null>(null);
@@ -64,13 +64,13 @@ export default function ShiftDetailScreen() {
       setMyApp(myApps.find(a => a.shift.id === id) ?? null);
       setAttendance(att);
     } catch {
-      Alert.alert('Erro', 'Não foi possível carregar o turno.', [
-        { text: 'Voltar', onPress: () => router.back() },
+      Alert.alert(t('common.error'), t('mobile.shiftDetail.loadError'), [
+        { text: t('common.back'), onPress: () => router.back() },
       ]);
     } finally {
       setIsLoading(false);
     }
-  }, [id, router]);
+  }, [id, router, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -92,13 +92,14 @@ export default function ShiftDetailScreen() {
     // Multi-day: make the commitment explicit before the cover-note sheet
     if ((shift.seriesDates?.length ?? 0) > 1) {
       Alert.alert(
-        'Trabalho de vários dias',
-        `Este trabalho tem ${shift.seriesDates!.length} dias (${formatSeriesRange(shift.seriesDates!)}).\n\n` +
-        'Ao candidatares-te, comprometes-te a trabalhar TODOS os dias. ' +
-        'Não é possível aceitar apenas alguns.',
+        t('mobile.shiftDetail.multiDayTitle'),
+        t('mobile.shiftDetail.multiDayBody', {
+          count: shift.seriesDates!.length,
+          range: fDateRange(shift.seriesDates!),
+        }),
         [
-          { text: 'Voltar', style: 'cancel' },
-          { text: 'Compreendo, continuar', onPress: () => setShowApplySheet(true) },
+          { text: t('common.back'), style: 'cancel' },
+          { text: t('mobile.shiftDetail.multiDayContinue'), onPress: () => setShowApplySheet(true) },
         ],
       );
       return;
@@ -120,8 +121,11 @@ export default function ShiftDetailScreen() {
       startTime: shift.startTime,
       endTime: shift.endTime,
       grossHourlyRate: Number(shift.grossHourlyRate),
+      // Calendar notes follow the app language; the stored enum is untouched.
       paymentMethod: shift.paymentMethod
-        ? PAYMENT_METHOD_LABELS[shift.paymentMethod as PaymentMethod] ?? shift.paymentMethod
+        ? t(`domain.paymentMethods.${shift.paymentMethod as PaymentMethod}`, {
+            defaultValue: shift.paymentMethod,
+          })
         : null,
       companyName: shift.employer?.companyName ?? null,
       dates: shift.seriesDates?.length ? shift.seriesDates : [shift.date],
@@ -131,21 +135,21 @@ export default function ShiftDetailScreen() {
     if (result.ok) {
       setInCalendar(true);
       Alert.alert(
-        result.replaced ? 'Calendário atualizado' : 'Adicionado ao calendário 📅',
+        result.replaced ? t('mobile.calendar.updated') : t('mobile.calendar.added'),
         result.created > 1
-          ? `${result.created} dias adicionados, com lembretes 1 dia e 2 horas antes de cada um.`
-          : 'Com lembretes 1 dia e 2 horas antes do turno.',
+          ? t('mobile.calendar.bodyDays', { count: result.created })
+          : t('mobile.calendar.bodyOne'),
       );
       return;
     }
 
     Alert.alert(
-      'Não foi possível adicionar',
+      t('mobile.calendar.failTitle'),
       result.reason === 'permission'
-        ? 'A Turnos precisa de permissão para aceder ao teu calendário. Podes ativá-la nas definições do telemóvel.'
+        ? t('mobile.calendar.failPermission')
         : result.reason === 'no-calendar'
-          ? 'Não encontrámos um calendário onde possamos escrever neste telemóvel.'
-          : 'Ocorreu um erro ao aceder ao calendário. Tenta novamente.',
+          ? t('mobile.calendar.failNoCalendar')
+          : t('mobile.calendar.failOther'),
     );
   };
 
@@ -159,21 +163,24 @@ export default function ShiftDetailScreen() {
       setApplied(true);
       setCoverNote('');
       Alert.alert(
-        'Candidatura enviada! 🎉',
-        'A tua candidatura foi enviada. Serás notificado quando a empresa responder.',
+        t('mobile.shiftDetail.appliedTitle'),
+        t('mobile.shiftDetail.appliedBody'),
         [{ text: 'OK', onPress: () => router.back() }],
       );
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
         Alert.alert(
-          'Sessão expirada',
-          'A tua sessão expirou. Por favor inicia sessão novamente.',
-          [{ text: 'Iniciar sessão', onPress: () => router.replace('/login') }],
+          t('common.sessionExpired'),
+          t('common.sessionExpiredBody'),
+          [{ text: t('common.signIn'), onPress: () => router.replace('/login') }],
         );
       } else {
-        const msg = err instanceof ApiError ? err.message : 'Erro ao candidatar-se.';
-        const is11h = msg.toLowerCase().includes('descanso') || msg.toLowerCase().includes('11h');
-        Alert.alert(is11h ? 'Precisas de descansar 😴' : 'Erro', msg);
+        const msg = err instanceof ApiError ? err.message : t('mobile.shiftDetail.applyError');
+        // The server message is still PT-only until Phase 4 translates it —
+        // match both wordings so this keeps working afterwards.
+        const lower = msg.toLowerCase();
+        const is11h = lower.includes('descanso') || lower.includes('rest') || lower.includes('11h');
+        Alert.alert(is11h ? t('mobile.shiftDetail.restTitle') : t('common.error'), msg);
       }
     } finally {
       setIsApplying(false);
@@ -242,7 +249,9 @@ export default function ShiftDetailScreen() {
   // The worker receives the FULL gross, paid directly by the company.
   const recebePerHour   = tsu.grossAmount;
   const estimatedPayout = recebePerHour * hours;
-  const paymentLabel    = PAYMENT_METHOD_LABELS[shift.paymentMethod as PaymentMethod] ?? null;
+  const paymentLabel    = shift.paymentMethod
+    ? t(`domain.paymentMethods.${shift.paymentMethod as PaymentMethod}`, { defaultValue: '' }) || null
+    : null;
   const seriesDates     = shift.seriesDates?.length ? shift.seriesDates : [shift.date];
   const isMultiDay      = seriesDates.length > 1;
 
@@ -266,7 +275,7 @@ export default function ShiftDetailScreen() {
           <View style={styles.titleRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>{shift.title || shift.subcategory}</Text>
-              <Text style={styles.employer}>{shift.employer?.companyName ?? 'Empresa'}</Text>
+              <Text style={styles.employer}>{shift.employer?.companyName ?? t('common.company')}</Text>
             </View>
             <View style={styles.ratePill}>
               <Text style={styles.rateValue}>€{Number(shift.grossHourlyRate).toFixed(2)}</Text>
@@ -285,10 +294,10 @@ export default function ShiftDetailScreen() {
             ]}>
               <Text style={styles.statusBannerText}>
                 {isShiftDone
-                  ? '✅ Turno concluído — a empresa paga-te diretamente'
+                  ? t('mobile.shiftDetail.bannerDone')
                   : showCheckOut
-                    ? `🟢 Em curso — conclui automaticamente às ${shift.endTime.slice(0, 5)}`
-                    : '📋 Confirmado — faça check-in ao chegar'}
+                    ? t('mobile.shiftDetail.bannerActive', { time: shift.endTime.slice(0, 5) })
+                    : t('mobile.shiftDetail.bannerFilled')}
               </Text>
             </View>
           )}
@@ -297,30 +306,29 @@ export default function ShiftDetailScreen() {
           {isMultiDay && (
             <View style={styles.multiDayBanner}>
               <Ionicons name="alert-circle" size={20} color="#c2410c" />
-              <Text style={styles.multiDayBannerText}>
-                Este é um trabalho de vários dias. Ao candidatares-te, comprometes-te
-                a trabalhar todos os dias do horário.
-              </Text>
+              <Text style={styles.multiDayBannerText}>{t('mobile.shiftDetail.multiDayBanner')}</Text>
             </View>
           )}
 
           {/* Pay breakdown */}
           <View style={styles.payBox}>
             <View style={styles.payRow}>
-              <Text style={styles.payLabel}>Bruto/hora</Text>
+              <Text style={styles.payLabel}>{t('mobile.shiftDetail.payGrossHour')}</Text>
               <Text style={styles.payVal}>€{tsu.grossAmount.toFixed(2)}</Text>
             </View>
             <View style={[styles.payRow, styles.payTotal]}>
-              <Text style={styles.payTotalLabel}>Recebes/hora (sem taxas)</Text>
+              <Text style={styles.payTotalLabel}>{t('mobile.shiftDetail.payNetHour')}</Text>
               <Text style={styles.payTotalVal}>€{recebePerHour.toFixed(2)}</Text>
             </View>
             <View style={styles.tsuNote}>
               <Text style={styles.tsuNoteText}>
-                ℹ️ SS Trabalhador (11%): €{tsu.workerDeduction.toFixed(2)}/hora — valor informativo, a entregar por ti ao Estado
+                {t('mobile.shiftDetail.tsuNote', { amount: tsu.workerDeduction.toFixed(2) })}
               </Text>
             </View>
             <Text style={styles.recebe}>
-              💳 {paymentLabel ? `Pago pela empresa via ${paymentLabel}` : 'Pago diretamente pela empresa'}
+              {paymentLabel
+                ? t('mobile.shiftDetail.payViaMethod', { method: paymentLabel })
+                : t('mobile.shiftDetail.payDirect')}
             </Text>
           </View>
 
@@ -328,32 +336,41 @@ export default function ShiftDetailScreen() {
           <View style={styles.infoCard}>
             <InfoRow
               icon="📅"
-              label={isMultiDay ? 'Dias' : 'Data'}
-              value={isMultiDay ? `${seriesDates.length} dias` : formatDate(shift.date, 'long')}
+              label={isMultiDay ? t('mobile.shiftDetail.labelDays') : t('mobile.shiftDetail.labelDate')}
+              value={isMultiDay
+                ? t('mobile.shiftDetail.valueDays', { count: seriesDates.length })
+                : fSmartDate(shift.date, 'long')}
             />
-            <InfoRow icon="⏰" label="Horário" value={`${shift.startTime.slice(0, 5)} – ${shift.endTime.slice(0, 5)}`} />
+            <InfoRow
+              icon="⏰"
+              label={t('mobile.shiftDetail.labelSchedule')}
+              value={`${shift.startTime.slice(0, 5)} – ${shift.endTime.slice(0, 5)}`}
+            />
             {hours > 0 && (
               <InfoRow
                 icon="🕐"
-                label="Duração"
+                label={t('mobile.shiftDetail.labelDuration')}
                 value={isMultiDay
-                  ? `${(hours * seriesDates.length).toFixed(0)}h no total`
-                  : `${hours.toFixed(1)}h`}
+                  ? t('mobile.shiftDetail.valueTotalHours', { hours: (hours * seriesDates.length).toFixed(0) })
+                  : t('mobile.shiftDetail.valueHours', { hours: hours.toFixed(1) })}
               />
             )}
             {isMultiDay && (
               <InfoRow
                 icon="💶"
-                label="Total estimado"
-                value={`€${(hours * seriesDates.length * Number(shift.grossHourlyRate)).toFixed(2)} bruto`}
+                label={t('mobile.shiftDetail.labelTotal')}
+                value={t('mobile.shiftDetail.valueGrossTotal', {
+                  amount: (hours * seriesDates.length * Number(shift.grossHourlyRate)).toFixed(2),
+                })}
               />
             )}
             <InfoRow
               icon="📍"
-              label="Morada"
+              label={t('mobile.shiftDetail.labelAddress')}
               value={shift.address}
               last
               onPress={() => openInMaps(shift.address)}
+              tapHint={t('mobile.shiftDetail.mapHint')}
             />
           </View>
 
@@ -366,14 +383,14 @@ export default function ShiftDetailScreen() {
                 activeOpacity={0.8}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.periodTitle}>Período do trabalho</Text>
+                  <Text style={styles.periodTitle}>{t('mobile.shiftDetail.periodTitle')}</Text>
                   <View style={styles.periodRangePill}>
                     <Ionicons name="repeat" size={13} color="#1d4ed8" />
-                    <Text style={styles.periodRangeText}>{formatSeriesRange(seriesDates)}</Text>
+                    <Text style={styles.periodRangeText}>{fDateRange(seriesDates)}</Text>
                   </View>
                 </View>
                 <Text style={styles.periodToggle}>
-                  {showSchedule ? 'Ocultar' : 'Ver horário'}
+                  {showSchedule ? t('mobile.shiftDetail.periodHide') : t('mobile.shiftDetail.periodShow')}
                 </Text>
                 <Ionicons
                   name={showSchedule ? 'chevron-up' : 'chevron-forward'}
@@ -413,10 +430,10 @@ export default function ShiftDetailScreen() {
                   />
                   <Text style={[styles.calendarBtnText, inCalendar && { color: '#16a34a' }]}>
                     {inCalendar
-                      ? 'No teu calendário · tocar para atualizar'
+                      ? t('mobile.calendar.inCalendarTap')
                       : isMultiDay
-                        ? `Adicionar ${seriesDates.length} dias ao calendário`
-                        : 'Adicionar ao meu calendário'}
+                        ? t('mobile.calendar.addDays', { count: seriesDates.length })
+                        : t('mobile.calendar.add')}
                   </Text>
                 </>
               )}
@@ -426,11 +443,12 @@ export default function ShiftDetailScreen() {
           {/* Skills */}
           {shift.skillsRequired && shift.skillsRequired.length > 0 && (
             <View style={styles.skillsSection}>
-              <Text style={styles.sectionTitle}>Competências necessárias</Text>
+              <Text style={styles.sectionTitle}>{t('mobile.shiftDetail.skillsTitle')}</Text>
               <View style={styles.skillsWrap}>
+                {/* Stored PT job titles — translated for display only */}
                 {shift.skillsRequired.map(skill => (
                   <View key={skill} style={styles.skillChip}>
-                    <Text style={styles.skillText}>{skill}</Text>
+                    <Text style={styles.skillText}>{tSkill(skill)}</Text>
                   </View>
                 ))}
               </View>
@@ -440,7 +458,7 @@ export default function ShiftDetailScreen() {
           {/* Description */}
           {shift.description && (
             <View style={styles.descSection}>
-              <Text style={styles.sectionTitle}>Sobre o turno</Text>
+              <Text style={styles.sectionTitle}>{t('mobile.shiftDetail.aboutTitle')}</Text>
               <Text style={styles.description}>{shift.description}</Text>
             </View>
           )}
@@ -456,11 +474,11 @@ export default function ShiftDetailScreen() {
         {isShiftDone && (
           <View style={styles.doneBox}>
             <Text style={styles.doneIcon}>✅</Text>
-            <Text style={styles.doneText}>Turno concluído{'\n'}
+            <Text style={styles.doneText}>{t('mobile.shiftDetail.doneTitle')}{'\n'}
               <Text style={styles.doneSubText}>
                 {attendance?.scheduledHours
-                  ? `${attendance.scheduledHours}h concluídas · a empresa paga-te diretamente`
-                  : 'A empresa paga-te diretamente'}
+                  ? t('mobile.shiftDetail.doneSubHours', { hours: attendance.scheduledHours })
+                  : t('mobile.shiftDetail.doneSub')}
               </Text>
             </Text>
           </View>
@@ -471,7 +489,7 @@ export default function ShiftDetailScreen() {
           <>
             {hours > 0 && (
               <View style={styles.payoutBox}>
-                <Text style={styles.payoutLabel}>Total estimado</Text>
+                <Text style={styles.payoutLabel}>{t('mobile.shiftDetail.estimatedTotal')}</Text>
                 <Text style={styles.payoutValue}>€{estimatedPayout.toFixed(2)}</Text>
               </View>
             )}
@@ -480,7 +498,7 @@ export default function ShiftDetailScreen() {
               onPress={() => router.push(`/scan`)}
               activeOpacity={0.85}
             >
-              <Text style={styles.actionBtnText}>📷 Fazer Check-in</Text>
+              <Text style={styles.actionBtnText}>{t('mobile.shiftDetail.checkIn')}</Text>
             </TouchableOpacity>
           </>
         )}
@@ -489,9 +507,9 @@ export default function ShiftDetailScreen() {
         {!isShiftDone && showCheckOut && (
           <View style={styles.doneBox}>
             <Text style={styles.doneIcon}>🟢</Text>
-            <Text style={styles.doneText}>Em curso{'\n'}
+            <Text style={styles.doneText}>{t('mobile.shiftDetail.inProgress')}{'\n'}
               <Text style={styles.doneSubText}>
-                Conclui automaticamente às {shift.endTime.slice(0, 5)} — não precisas de digitalizar nada à saída
+                {t('mobile.shiftDetail.inProgressSub', { time: shift.endTime.slice(0, 5) })}
               </Text>
             </Text>
           </View>
@@ -502,7 +520,7 @@ export default function ShiftDetailScreen() {
           <>
             {hours > 0 && (
               <View style={styles.payoutBox}>
-                <Text style={styles.payoutLabel}>Estimativa total</Text>
+                <Text style={styles.payoutLabel}>{t('mobile.shiftDetail.estimatedTotal')}</Text>
                 <Text style={styles.payoutValue}>€{estimatedPayout.toFixed(2)}</Text>
               </View>
             )}
@@ -513,7 +531,7 @@ export default function ShiftDetailScreen() {
               activeOpacity={0.85}
             >
               <Text style={styles.applyBtnText}>
-                {isApplying ? 'A candidatar...' : 'Candidatar-me'}
+                {isApplying ? t('mobile.shiftDetail.applying') : t('mobile.shiftDetail.apply')}
               </Text>
             </TouchableOpacity>
           </>
@@ -523,7 +541,7 @@ export default function ShiftDetailScreen() {
         {!isShiftDone && !showCheckIn && !showCheckOut && (applied || hasPending) && (
           <View style={styles.pendingBox}>
             <Text style={styles.pendingIcon}>⏳</Text>
-            <Text style={styles.pendingText}>Candidatura enviada — a aguardar confirmação</Text>
+            <Text style={styles.pendingText}>{t('mobile.shiftDetail.chipPending')}</Text>
           </View>
         )}
 
@@ -531,7 +549,7 @@ export default function ShiftDetailScreen() {
         {!isShiftDone && !showCheckIn && !showCheckOut && hasRejected && (
           <View style={styles.rejectedBox}>
             <Text style={styles.pendingIcon}>✕</Text>
-            <Text style={styles.pendingText}>Candidatura não selecionada</Text>
+            <Text style={styles.pendingText}>{t('mobile.shiftDetail.chipRejected')}</Text>
           </View>
         )}
 
@@ -539,7 +557,7 @@ export default function ShiftDetailScreen() {
         {shift.status === 'CANCELLED' && (
           <View style={styles.pendingBox}>
             <Text style={styles.pendingIcon}>🚫</Text>
-            <Text style={styles.pendingText}>Este turno foi cancelado</Text>
+            <Text style={styles.pendingText}>{t('mobile.shiftDetail.chipCancelled')}</Text>
           </View>
         )}
       </View>
@@ -549,17 +567,15 @@ export default function ShiftDetailScreen() {
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowGate(false)}>
           <View style={styles.sheet}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Completa o teu perfil</Text>
-            <Text style={styles.sheetSub}>
-              Precisas de pelo menos 80% de perfil completo para te candidatares a turnos.
-            </Text>
+            <Text style={styles.sheetTitle}>{t('mobile.shiftDetail.gateTitle')}</Text>
+            <Text style={styles.sheetSub}>{t('mobile.shiftDetail.gateSub')}</Text>
 
             {/* Progress ring */}
             <View style={styles.scoreRow}>
               <View style={styles.scoreBg}>
                 <View style={[styles.scoreFill, { width: `${profileScore ?? 0}%` as any }]} />
               </View>
-              <Text style={styles.scoreText}>{profileScore ?? 0}% / 80% necessário</Text>
+              <Text style={styles.scoreText}>{t('mobile.shiftDetail.gateScore', { score: profileScore ?? 0 })}</Text>
             </View>
 
             <TouchableOpacity
@@ -568,10 +584,10 @@ export default function ShiftDetailScreen() {
               activeOpacity={0.85}
             >
               <Ionicons name="person-outline" size={18} color="#fff" />
-              <Text style={styles.completeBtnText}>Completar Perfil</Text>
+              <Text style={styles.completeBtnText}>{t('mobile.shiftDetail.gateCta')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.completeBtnSecondary} onPress={() => setShowGate(false)}>
-              <Text style={styles.completeBtnSecText}>Agora não</Text>
+              <Text style={styles.completeBtnSecText}>{t('mobile.shiftDetail.gateLater')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -582,15 +598,13 @@ export default function ShiftDetailScreen() {
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowApplySheet(false)}>
           <View style={styles.sheet} onStartShouldSetResponder={() => true}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Candidatar-me</Text>
-            <Text style={styles.sheetSub}>
-              Podes deixar uma mensagem curta para o empregador (opcional).
-            </Text>
+            <Text style={styles.sheetTitle}>{t('mobile.shiftDetail.coverTitle')}</Text>
+            <Text style={styles.sheetSub}>{t('mobile.shiftDetail.coverSub')}</Text>
             <TextInput
               style={styles.coverInput}
               value={coverNote}
-              onChangeText={t => setCoverNote(t.slice(0, 200))}
-              placeholder="Ex: Tenho experiência nesta área e estou disponível..."
+              onChangeText={text => setCoverNote(text.slice(0, 200))}
+              placeholder={t('mobile.shiftDetail.coverPlaceholder')}
               placeholderTextColor={colors.textSecondary}
               multiline
               maxLength={200}
@@ -603,11 +617,11 @@ export default function ShiftDetailScreen() {
               activeOpacity={0.85}
             >
               <Text style={styles.completeBtnText}>
-                {isApplying ? 'A enviar...' : 'Enviar candidatura 🚀'}
+                {isApplying ? t('mobile.shiftDetail.coverSending') : t('mobile.shiftDetail.coverSend')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.completeBtnSecondary} onPress={() => setShowApplySheet(false)}>
-              <Text style={styles.completeBtnSecText}>Cancelar</Text>
+              <Text style={styles.completeBtnSecText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -619,9 +633,10 @@ export default function ShiftDetailScreen() {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function InfoRow({
-  icon, label, value, last, onPress,
+  icon, label, value, last, onPress, tapHint,
 }: {
-  icon: string; label: string; value: string; last?: boolean; onPress?: () => void;
+  icon: string; label: string; value: string; last?: boolean;
+  onPress?: () => void; tapHint?: string;
 }) {
   const rowStyle = [styles.infoRow, last && { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }];
   const inner = (
@@ -630,7 +645,7 @@ function InfoRow({
       <View style={{ flex: 1 }}>
         <Text style={styles.infoLabel}>{label}</Text>
         <Text style={[styles.infoValue, onPress && styles.infoValueLink]}>{value}</Text>
-        {onPress && <Text style={styles.infoTapHint}>Toque para abrir no mapa →</Text>}
+        {onPress && tapHint && <Text style={styles.infoTapHint}>{tapHint}</Text>}
       </View>
     </>
   );

@@ -7,22 +7,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-  colors, spacing, radius, fontSize, fontWeight,
-  formatSeriesRange, PAYMENT_METHOD_LABELS, PaymentMethod,
+  colors, spacing, radius, fontSize, fontWeight, PaymentMethod,
 } from '@turnos/shared';
 import { shiftApi, ratingsApi, wagesApi, MyApplication, WagePayment, ApiError } from '../lib/api';
 import { getSocket, ShiftStatusChangedPayload, ShiftCancelledPayload } from '../lib/socket';
-import { formatDate } from '../lib/format';
+import { useT } from '../lib/i18n';
 import { syncShiftToCalendar, isShiftInCalendar } from '../lib/calendar';
 
 type AppStatus = MyApplication['status'];
-
-const STATUS_LABEL: Record<AppStatus, string> = {
-  PENDING: 'Pendente',
-  APPROVED: 'Confirmado',
-  REJECTED: 'Rejeitado',
-  WITHDRAWN: 'Retirado',
-};
 
 const STATUS_COLOR: Record<AppStatus, { bg: string; text: string; border: string }> = {
   PENDING: { bg: '#fef9c3', text: '#854d0e', border: '#fde047' },
@@ -46,33 +38,26 @@ function isShiftOver(app: MyApplication): boolean {
   }
 }
 
-function formatAppliedAt(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('pt-PT', {
-    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-  });
-}
-
 /** Shift start as a Date, from date (YYYY-MM-DD) + startTime (HH:MM:SS). */
 function shiftStart(app: MyApplication): Date {
   return new Date(`${app.shift.date}T${app.shift.startTime.slice(0, 5)}:00`);
 }
 
 /**
- * Human countdown to the shift start — "Hoje", "Amanhã", "Faltam 3 dias".
- * Calendar-day based, so an 18:00 shift today still reads "Hoje" at 09:00.
+ * Whole calendar days until the shift starts, so an 18:00 shift today still
+ * counts as 0 ("Hoje"/"Today") at 09:00. The label itself is built in the
+ * component, where the translator is available.
  */
-function countdownLabel(start: Date): string {
+function daysUntil(start: Date): number {
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const days = Math.round(
+  return Math.round(
     (startOfDay(start).getTime() - startOfDay(new Date()).getTime()) / (24 * 60 * 60 * 1000),
   );
-  if (days <= 0) return 'Hoje';
-  if (days === 1) return 'Amanhã';
-  return `Faltam ${days} dias`;
 }
 
 export default function MyShiftsScreen() {
   const router = useRouter();
+  const { t } = useT();
   const [applications, setApplications] = useState<MyApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -159,13 +144,13 @@ export default function MyShiftsScreen() {
   const doCancelAssignment = useCallback(async (shiftId: string, reasonCategory?: string) => {
     try {
       const res = await shiftApi.cancelAssignment(shiftId, reasonCategory ? { reasonCategory } : undefined);
-      Alert.alert('Turno cancelado', res.message);
+      Alert.alert(t('mobile.myShifts.cancelledTitle'), res.message);
       load();
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Não foi possível cancelar o turno.';
-      Alert.alert('Erro', msg);
+      const msg = err instanceof ApiError ? err.message : t('mobile.myShifts.cancelFailed');
+      Alert.alert(t('common.error'), msg);
     }
-  }, [load]);
+  }, [load, t]);
 
   const handleCancelConfirmed = useCallback((app: MyApplication) => {
     const shiftStart = new Date(`${app.shift.date}T${app.shift.startTime.slice(0, 5)}:00`);
@@ -173,14 +158,14 @@ export default function MyShiftsScreen() {
     const isLate = hoursUntil <= 24;
 
     Alert.alert(
-      'Cancelar turno',
+      t('mobile.myShifts.cancelShift'),
       isLate
-        ? 'Faltam menos de 24h para o início. Cancelar agora conta como cancelamento tardio e afeta a tua fiabilidade (2 em 30 dias = suspensão de 7 dias). Queres continuar?'
-        : 'Tens a certeza que queres cancelar este turno confirmado? Como faltam mais de 24h, não há penalização.',
+        ? t('mobile.myShifts.cancelLateBody')
+        : t('mobile.myShifts.cancelFreeBody'),
       [
-        { text: 'Voltar', style: 'cancel' },
+        { text: t('common.back'), style: 'cancel' },
         {
-          text: isLate ? 'Cancelar mesmo assim' : 'Sim, cancelar',
+          text: isLate ? t('mobile.myShifts.cancelAnyway') : t('mobile.myShifts.cancelYes'),
           style: 'destructive',
           onPress: () => {
             if (!isLate) {
@@ -191,54 +176,57 @@ export default function MyShiftsScreen() {
             // if accepted the strike is removed). Android caps alerts at 3
             // buttons, so illness/injury share one option.
             Alert.alert(
-              'Tens um motivo válido?',
-              'Doença, lesão ou emergência com comprovativo são avaliados pela Turnos — se aceites, o cancelamento tardio é removido do teu registo. Envia o comprovativo para suporte@turnos.pt.',
+              t('mobile.myShifts.reasonTitle'),
+              t('mobile.myShifts.reasonBody'),
               [
-                { text: '🤒 Doença / Lesão', onPress: () => void doCancelAssignment(app.shift.id, 'DOENCA') },
-                { text: '🚨 Emergência',     onPress: () => void doCancelAssignment(app.shift.id, 'EMERGENCIA') },
-                { text: 'Sem justificação',  style: 'destructive', onPress: () => void doCancelAssignment(app.shift.id) },
+                { text: t('mobile.myShifts.reasonIllness'),   onPress: () => void doCancelAssignment(app.shift.id, 'DOENCA') },
+                { text: t('mobile.myShifts.reasonEmergency'), onPress: () => void doCancelAssignment(app.shift.id, 'EMERGENCIA') },
+                { text: t('mobile.myShifts.reasonNone'), style: 'destructive', onPress: () => void doCancelAssignment(app.shift.id) },
               ],
             );
           },
         },
       ],
     );
-  }, [doCancelAssignment]);
+  }, [doCancelAssignment, t]);
 
   // ── Wage trust loop: "Recebi" / "Não recebi" ──────────────────────────────
   const handleConfirmWage = useCallback((wage: WagePayment) => {
     Alert.alert(
-      'Confirmar pagamento',
-      `Recebeste €${Number(wage.amount).toFixed(2)} pelo turno "${wage.shiftTitle}"?`,
+      t('mobile.myShifts.wageConfirmTitle'),
+      t('mobile.myShifts.wageConfirmBody', {
+        amount: Number(wage.amount).toFixed(2),
+        shift: wage.shiftTitle,
+      }),
       [
-        { text: 'Voltar', style: 'cancel' },
+        { text: t('common.back'), style: 'cancel' },
         {
-          text: '🚩 Não recebi',
+          text: t('mobile.myShifts.wageNotReceived'),
           style: 'destructive',
           onPress: async () => {
             try {
               const updated = await wagesApi.flagNotReceived(wage.id);
               setWagesByShift(prev => ({ ...prev, [wage.shiftId]: updated }));
-              Alert.alert('Registado', 'A equipa Turnos foi notificada e vai acompanhar o caso.');
+              Alert.alert(t('mobile.myShifts.wageFlaggedTitle'), t('mobile.myShifts.wageFlaggedBody'));
             } catch {
-              Alert.alert('Erro', 'Não foi possível registar. Tenta novamente.');
+              Alert.alert(t('common.error'), t('mobile.myShifts.wageFlagFailed'));
             }
           },
         },
         {
-          text: '✓ Recebi',
+          text: t('mobile.myShifts.wageReceived'),
           onPress: async () => {
             try {
               const updated = await wagesApi.confirmReceived(wage.id);
               setWagesByShift(prev => ({ ...prev, [wage.shiftId]: updated }));
             } catch {
-              Alert.alert('Erro', 'Não foi possível confirmar. Tenta novamente.');
+              Alert.alert(t('common.error'), t('mobile.myShifts.wageConfirmFailed'));
             }
           },
         },
       ],
     );
-  }, []);
+  }, [t]);
 
   // ── Section buckets ──────────────────────────────────────────────────────
   // 0. Pré-selecionado — employer selected this worker, awaiting worker confirmation
@@ -267,15 +255,19 @@ export default function MyShiftsScreen() {
           <Text style={s.backIcon}>←</Text>
         </TouchableOpacity>
         <View>
-          <Text style={s.headerTitle}>Os Meus Turnos</Text>
-          <Text style={s.headerSub}>{applications.length} candidatura{applications.length !== 1 ? 's' : ''}</Text>
+          <Text style={s.headerTitle}>{t('mobile.myShifts.title')}</Text>
+          <Text style={s.headerSub}>
+            {applications.length === 1
+              ? t('mobile.myShifts.countOne')
+              : t('mobile.myShifts.countOther', { count: applications.length })}
+          </Text>
         </View>
       </View>
 
       {isLoading ? (
         <View style={s.loadingWrap}>
           <ActivityIndicator color={colors.primary} size="large" />
-          <Text style={s.loadingText}>A carregar candidaturas...</Text>
+          <Text style={s.loadingText}>{t('mobile.myShifts.loading')}</Text>
         </View>
       ) : (
         <FlatList
@@ -292,10 +284,10 @@ export default function MyShiftsScreen() {
               {applications.length === 0 && (
                 <View style={s.empty}>
                   <Text style={s.emptyIcon}>📋</Text>
-                  <Text style={s.emptyTitle}>Ainda sem candidaturas</Text>
-                  <Text style={s.emptySub}>Explore os turnos disponíveis e candidate-se ao primeiro!</Text>
+                  <Text style={s.emptyTitle}>{t('mobile.myShifts.emptyTitle')}</Text>
+                  <Text style={s.emptySub}>{t('mobile.myShifts.emptySub')}</Text>
                   <TouchableOpacity style={s.exploreBtn} onPress={() => router.back()} activeOpacity={0.85}>
-                    <Text style={s.exploreBtnText}>Ver Turnos</Text>
+                    <Text style={s.exploreBtnText}>{t('mobile.myShifts.emptyCta')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -311,7 +303,7 @@ export default function MyShiftsScreen() {
               {/* ⚡ Pre-selected — worker must accept/decline within 2h */}
               {preSelected.length > 0 && (
                 <>
-                  <Text style={s.sectionTitle}>⚡ Ação necessária</Text>
+                  <Text style={s.sectionTitle}>{t('mobile.myShifts.sectionActionNeeded')}</Text>
                   {preSelected.map(app => (
                     <PreSelectedCard
                       key={app.id}
@@ -322,23 +314,23 @@ export default function MyShiftsScreen() {
                           await shiftApi.confirm(app.shift.id);
                           load(); // refresh list
                         } catch (e: any) {
-                          Alert.alert('Erro', e?.message ?? 'Não foi possível confirmar.');
+                          Alert.alert(t('common.error'), e?.message ?? t('mobile.myShifts.confirmFailed'));
                         }
                       }}
                       onDecline={async () => {
                         Alert.alert(
-                          'Recusar turno?',
-                          'Tens a certeza que queres recusar este turno? Ele voltará a ficar disponível para outros trabalhadores.',
+                          t('mobile.myShifts.declineTitle'),
+                          t('mobile.myShifts.declineBody'),
                           [
-                            { text: 'Cancelar', style: 'cancel' },
+                            { text: t('common.cancel'), style: 'cancel' },
                             {
-                              text: 'Recusar', style: 'destructive',
+                              text: t('mobile.myShifts.decline'), style: 'destructive',
                               onPress: async () => {
                                 try {
                                   await shiftApi.decline(app.shift.id);
                                   load();
                                 } catch (e: any) {
-                                  Alert.alert('Erro', e?.message ?? 'Não foi possível recusar.');
+                                  Alert.alert(t('common.error'), e?.message ?? t('mobile.myShifts.declineFailed'));
                                 }
                               },
                             },
@@ -352,7 +344,7 @@ export default function MyShiftsScreen() {
 
               {nowActive.length > 0 && (
                 <>
-                  <Text style={[s.sectionTitle, preSelected.length > 0 && { marginTop: spacing.lg }]}>🟢 Em curso</Text>
+                  <Text style={[s.sectionTitle, preSelected.length > 0 && { marginTop: spacing.lg }]}>{t('mobile.myShifts.sectionActive')}</Text>
                   {nowActive.map(app => (
                     <ApplicationCard key={app.id} app={app} onPress={() => router.push(`/shift/${app.shift.id}`)} />
                   ))}
@@ -361,7 +353,7 @@ export default function MyShiftsScreen() {
 
               {confirmed.length > 0 && (
                 <>
-                  <Text style={[s.sectionTitle, nowActive.length > 0 && { marginTop: spacing.lg }]}>✅ Confirmados</Text>
+                  <Text style={[s.sectionTitle, nowActive.length > 0 && { marginTop: spacing.lg }]}>{t('mobile.myShifts.sectionConfirmed')}</Text>
                   {confirmed.map(app => (
                     <ApplicationCard
                       key={app.id}
@@ -375,7 +367,7 @@ export default function MyShiftsScreen() {
 
               {pending.length > 0 && (
                 <>
-                  <Text style={[s.sectionTitle, (nowActive.length > 0 || confirmed.length > 0) && { marginTop: spacing.lg }]}>⏳ Pendentes</Text>
+                  <Text style={[s.sectionTitle, (nowActive.length > 0 || confirmed.length > 0) && { marginTop: spacing.lg }]}>{t('mobile.myShifts.sectionPending')}</Text>
                   {pending.map(app => (
                     <ApplicationCard key={app.id} app={app} onPress={() => router.push(`/shift/${app.shift.id}`)} />
                   ))}
@@ -384,7 +376,7 @@ export default function MyShiftsScreen() {
 
               {concluded.length > 0 && (
                 <>
-                  <Text style={[s.sectionTitle, { marginTop: spacing.lg }]}>🏁 Concluídos</Text>
+                  <Text style={[s.sectionTitle, { marginTop: spacing.lg }]}>{t('mobile.myShifts.sectionConcluded')}</Text>
                   {concluded.map(app => (
                     <ApplicationCard
                       key={app.id}
@@ -401,7 +393,7 @@ export default function MyShiftsScreen() {
 
               {history.length > 0 && (
                 <>
-                  <Text style={[s.sectionTitle, { marginTop: spacing.lg }]}>Histórico</Text>
+                  <Text style={[s.sectionTitle, { marginTop: spacing.lg }]}>{t('mobile.myShifts.sectionHistory')}</Text>
                   {history.map(app => (
                     <ApplicationCard key={app.id} app={app} onPress={() => router.push(`/shift/${app.shift.id}`)} />
                   ))}
@@ -418,15 +410,15 @@ export default function MyShiftsScreen() {
       <View style={s.bottomNav}>
         <TouchableOpacity style={s.navItem} onPress={() => router.replace('/')} activeOpacity={0.7}>
           <Ionicons name="compass-outline" size={24} color={colors.textSecondary} />
-          <Text style={s.navLabel}>Turnos</Text>
+          <Text style={s.navLabel}>{t('mobile.nav.shifts')}</Text>
         </TouchableOpacity>
         <View style={s.navItemActive}>
           <Ionicons name="briefcase" size={24} color={colors.primary} />
-          <Text style={s.navLabelActive}>Os Meus</Text>
+          <Text style={s.navLabelActive}>{t('mobile.nav.myShifts')}</Text>
         </View>
         <TouchableOpacity style={s.navItem} onPress={() => router.push('/profile')} activeOpacity={0.7}>
           <Ionicons name="person-circle-outline" size={24} color={colors.textSecondary} />
-          <Text style={s.navLabel}>Perfil</Text>
+          <Text style={s.navLabel}>{t('mobile.nav.profile')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -435,10 +427,14 @@ export default function MyShiftsScreen() {
 
 // ── Próximo turno — hero card for the soonest confirmed shift ────────────────
 function NextJobCard({ app, onPress }: { app: MyApplication; onPress: () => void }) {
+  const { t, fWeekdayDate, fDateRange } = useT();
   const shift = app.shift;
-  const start = shiftStart(app);
-  const countdown = countdownLabel(start);
-  const isImminent = countdown === 'Hoje' || countdown === 'Amanhã';
+  const days = daysUntil(shiftStart(app));
+  const isImminent = days <= 1;
+  const countdown =
+    days <= 0 ? t('common.today')
+    : days === 1 ? t('common.tomorrow')
+    : t('mobile.myShifts.countdownDays', { count: days });
   const seriesDays = shift.seriesDates?.length ?? 1;
   const [syncing, setSyncing] = useState(false);
   const [inCalendar, setInCalendar] = useState(false);
@@ -457,8 +453,12 @@ function NextJobCard({ app, onPress }: { app: MyApplication; onPress: () => void
       startTime: shift.startTime,
       endTime: shift.endTime,
       grossHourlyRate: Number(shift.grossHourlyRate),
+      // The calendar note follows the app language, like everything else the
+      // worker reads — the stored PaymentMethod enum is untouched.
       paymentMethod: shift.paymentMethod
-        ? PAYMENT_METHOD_LABELS[shift.paymentMethod as PaymentMethod] ?? shift.paymentMethod
+        ? t(`domain.paymentMethods.${shift.paymentMethod as PaymentMethod}`, {
+            defaultValue: shift.paymentMethod,
+          })
         : null,
       companyName: shift.employer?.companyName ?? null,
       dates: shift.seriesDates?.length ? shift.seriesDates : [shift.date],
@@ -468,17 +468,17 @@ function NextJobCard({ app, onPress }: { app: MyApplication; onPress: () => void
     if (result.ok) {
       setInCalendar(true);
       Alert.alert(
-        result.replaced ? 'Calendário atualizado' : 'Adicionado ao calendário 📅',
+        result.replaced ? t('mobile.calendar.updated') : t('mobile.calendar.added'),
         result.created > 1
-          ? `${result.created} dias adicionados, com lembretes 1 dia e 2 horas antes de cada um.`
-          : 'Com lembretes 1 dia e 2 horas antes do turno.',
+          ? t('mobile.calendar.bodyDays', { count: result.created })
+          : t('mobile.calendar.bodyOne'),
       );
     } else {
       Alert.alert(
-        'Não foi possível adicionar',
+        t('mobile.calendar.failTitle'),
         result.reason === 'permission'
-          ? 'A Turnos precisa de permissão para aceder ao teu calendário.'
-          : 'Ocorreu um erro ao aceder ao calendário. Tenta novamente.',
+          ? t('mobile.calendar.failPermission')
+          : t('mobile.calendar.failOther'),
       );
     }
   };
@@ -493,7 +493,7 @@ function NextJobCard({ app, onPress }: { app: MyApplication; onPress: () => void
       >
         <View style={s.nextBannerLeft}>
           <Ionicons name="bookmark" size={14} color="#fff" />
-          <Text style={s.nextBannerText}>PRÓXIMO TURNO</Text>
+          <Text style={s.nextBannerText}>{t('mobile.myShifts.nextBanner')}</Text>
         </View>
         <View style={[s.nextCountdown, isImminent && s.nextCountdownHot]}>
           <Text style={[s.nextCountdownText, isImminent && s.nextCountdownTextHot]}>{countdown}</Text>
@@ -502,13 +502,16 @@ function NextJobCard({ app, onPress }: { app: MyApplication; onPress: () => void
 
       <View style={s.nextBody}>
         <Text style={s.nextTitle} numberOfLines={1}>{shift.title || shift.subcategory}</Text>
-        <Text style={s.nextEmployer}>{shift.employer?.companyName ?? 'Empresa'}</Text>
+        <Text style={s.nextEmployer}>{shift.employer?.companyName ?? t('common.company')}</Text>
 
         {seriesDays > 1 && (
           <View style={s.nextSeriesPill}>
             <Ionicons name="repeat" size={12} color="#1d4ed8" />
             <Text style={s.nextSeriesText}>
-              Trabalho de {seriesDays} dias · {formatSeriesRange(shift.seriesDates!)}
+              {t('mobile.myShifts.seriesPill', {
+                count: seriesDays,
+                range: fDateRange(shift.seriesDates!),
+              })}
             </Text>
           </View>
         )}
@@ -517,11 +520,7 @@ function NextJobCard({ app, onPress }: { app: MyApplication; onPress: () => void
           <View style={s.nextRow}>
             <Ionicons name="calendar-outline" size={15} color={colors.primary} />
             {/* Full weekday+date here — the countdown pill above already says Hoje/Amanhã */}
-            <Text style={s.nextRowText}>
-              {new Date(shift.date).toLocaleDateString('pt-PT', {
-                weekday: 'long', day: '2-digit', month: 'long',
-              })}
-            </Text>
+            <Text style={s.nextRowText}>{fWeekdayDate(shift.date)}</Text>
           </View>
           <View style={s.nextRow}>
             <Ionicons name="time-outline" size={15} color={colors.primary} />
@@ -555,18 +554,18 @@ function NextJobCard({ app, onPress }: { app: MyApplication; onPress: () => void
               />
               <Text style={[s.nextCalendarText, inCalendar && { color: '#16a34a' }]}>
                 {inCalendar
-                  ? 'No teu calendário'
+                  ? t('mobile.calendar.inCalendar')
                   : seriesDays > 1
-                    ? `Adicionar ${seriesDays} dias ao calendário`
-                    : 'Adicionar ao calendário'}
+                    ? t('mobile.calendar.addDays', { count: seriesDays })
+                    : t('mobile.calendar.add')}
               </Text>
             </>
           )}
         </TouchableOpacity>
 
         <View style={s.nextFooter}>
-          <Text style={s.nextRate}>€{Number(shift.grossHourlyRate).toFixed(2)}/hora</Text>
-          <Text style={s.nextCta}>Ver detalhes →</Text>
+          <Text style={s.nextRate}>€{Number(shift.grossHourlyRate).toFixed(2)}{t('common.perHour')}</Text>
+          <Text style={s.nextCta}>{t('common.seeDetails')} →</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -582,6 +581,7 @@ function PreSelectedCard({
   onAccept: () => Promise<void>;
   onDecline: () => Promise<void>;
 }) {
+  const { t, fShortDate } = useT();
   const [accepting, setAccepting] = useState(false);
   const [declining, setDeclining] = useState(false);
   const shift = app.shift;
@@ -591,18 +591,18 @@ function PreSelectedCard({
       {/* Urgency banner */}
       <View style={s.preBanner}>
         <Ionicons name="flash" size={14} color="#fff" />
-        <Text style={s.preBannerText}>Tens 2h para aceitar este turno</Text>
+        <Text style={s.preBannerText}>{t('mobile.myShifts.preBanner')}</Text>
       </View>
 
       <View style={s.cardBody}>
         <Text style={s.cardTitle} numberOfLines={1}>
           {shift.title || shift.subcategory}
         </Text>
-        <Text style={s.cardEmployer}>{shift.employer?.companyName ?? 'Empresa'}</Text>
+        <Text style={s.cardEmployer}>{shift.employer?.companyName ?? t('common.company')}</Text>
         <View style={s.cardMeta}>
           <View style={s.metaItem}>
             <Ionicons name="calendar-outline" size={13} color={colors.textSecondary} />
-            <Text style={s.metaText}>{new Date(shift.date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' })}</Text>
+            <Text style={s.metaText}>{fShortDate(shift.date)}</Text>
           </View>
           <View style={s.metaItem}>
             <Ionicons name="time-outline" size={13} color={colors.textSecondary} />
@@ -619,7 +619,7 @@ function PreSelectedCard({
           disabled={accepting || declining}
           activeOpacity={0.8}
         >
-          <Text style={s.preDeclineText}>{declining ? '...' : 'Recusar'}</Text>
+          <Text style={s.preDeclineText}>{declining ? '...' : t('mobile.myShifts.decline')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[s.preAccept, accepting && { opacity: 0.6 }]}
@@ -627,7 +627,7 @@ function PreSelectedCard({
           disabled={accepting || declining}
           activeOpacity={0.85}
         >
-          <Text style={s.preAcceptText}>{accepting ? 'A confirmar...' : '✓ Aceitar'}</Text>
+          <Text style={s.preAcceptText}>{accepting ? t('mobile.myShifts.accepting') : t('mobile.myShifts.accept')}</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -651,6 +651,7 @@ function ApplicationCard({
   wage?: WagePayment;
   onConfirmWage?: (wage: WagePayment) => void;
 }) {
+  const { t, fDateTime, fDateRange, fSmartDate } = useT();
   const shift = app.shift;
   const seriesDays    = shift.seriesDates?.length ?? 1;
   const seriesStarted = !!shift.seriesStarted;
@@ -660,13 +661,13 @@ function ApplicationCard({
   let badgeStyle: { bg: string; text: string; border: string };
 
   if (app.status === 'APPROVED' && shift.status === 'ACTIVE') {
-    badgeLabel = 'Em curso';
+    badgeLabel = t('mobile.myShifts.badgeActive');
     badgeStyle = { bg: '#dcfce7', text: '#166534', border: '#86efac' };
   } else if (app.status === 'APPROVED' && isShiftOver(app)) {
-    badgeLabel = 'Concluído';
+    badgeLabel = t('mobile.myShifts.badgeCompleted');
     badgeStyle = { bg: '#cffafe', text: '#0e7490', border: '#67e8f9' };
   } else {
-    badgeLabel = STATUS_LABEL[app.status];
+    badgeLabel = t(`domain.applicationStatus.${app.status}`);
     badgeStyle = STATUS_COLOR[app.status];
   }
 
@@ -675,9 +676,9 @@ function ApplicationCard({
       <View style={s.cardTop}>
         <View style={{ flex: 1 }}>
           <Text style={s.cardTitle} numberOfLines={1}>{shift.title || shift.subcategory}</Text>
-          <Text style={s.cardEmployer}>{shift.employer?.companyName ?? 'Empresa'}</Text>
+          <Text style={s.cardEmployer}>{shift.employer?.companyName ?? t('common.company')}</Text>
         </View>
-        <View style={[s.statusBadge, { backgroundColor: badgeStyle.bg, borderColor: badgeStyle.border }]}>
+        <View style={[s.statusBadge,{ backgroundColor: badgeStyle.bg, borderColor: badgeStyle.border }]}>
           <Text style={[s.statusText, { color: badgeStyle.text }]}>{badgeLabel}</Text>
         </View>
       </View>
@@ -687,12 +688,12 @@ function ApplicationCard({
       <View style={s.cardFooter}>
         <View style={s.footerChip}>
           <Text style={s.footerText}>
-            📅 {seriesDays > 1 ? formatSeriesRange(shift.seriesDates!) : formatDate(shift.date)}
+            📅 {seriesDays > 1 ? fDateRange(shift.seriesDates!) : fSmartDate(shift.date)}
           </Text>
         </View>
         {seriesDays > 1 && (
           <View style={[s.footerChip, s.seriesChip]}>
-            <Text style={[s.footerText, s.seriesChipText]}>🔁 {seriesDays} dias</Text>
+            <Text style={[s.footerText, s.seriesChipText]}>{t('mobile.myShifts.multiDayChip', { count: seriesDays })}</Text>
           </View>
         )}
         <View style={s.footerChip}>
@@ -704,15 +705,15 @@ function ApplicationCard({
       </View>
 
       <View style={s.cardBottom}>
-        <Text style={s.appliedAt}>Candidatou-se em {formatAppliedAt(app.appliedAt)}</Text>
+        <Text style={s.appliedAt}>{t('mobile.myShifts.appliedAt', { date: fDateTime(app.appliedAt) })}</Text>
         {onRate !== undefined && (
           isRated ? (
             <View style={s.ratedChip}>
-              <Text style={s.ratedChipText}>✓ Avaliado</Text>
+              <Text style={s.ratedChipText}>{t('mobile.myShifts.rated')}</Text>
             </View>
           ) : (
             <TouchableOpacity style={s.rateBtn} onPress={onRate} activeOpacity={0.85}>
-              <Text style={s.rateBtnText}>⭐ Avaliar</Text>
+              <Text style={s.rateBtnText}>{t('mobile.myShifts.rate')}</Text>
             </TouchableOpacity>
           )
         )}
@@ -724,22 +725,21 @@ function ApplicationCard({
             <TouchableOpacity
               style={s.supportBtn}
               onPress={() => Alert.alert(
-                'Compromisso de vários dias',
-                'Aceitaste um trabalho de vários dias que já começou, por isso não podes cancelá-lo aqui. ' +
-                'Se tiveres um imprevisto sério, fala com o suporte: suporte@turnos.pt',
+                t('mobile.myShifts.seriesLockTitle'),
+                t('mobile.myShifts.seriesLockBody'),
                 [
-                  { text: 'Voltar', style: 'cancel' },
-                  { text: 'Contactar suporte', onPress: () => Linking.openURL('mailto:suporte@turnos.pt') },
+                  { text: t('common.back'), style: 'cancel' },
+                  { text: t('mobile.myShifts.support'), onPress: () => Linking.openURL('mailto:suporte@turnos.pt') },
                 ],
               )}
               activeOpacity={0.85}
             >
-              <Text style={s.supportBtnText}>Contactar suporte</Text>
+              <Text style={s.supportBtnText}>{t('mobile.myShifts.support')}</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity style={s.cancelBtn} onPress={onCancel} activeOpacity={0.85}>
               <Text style={s.cancelBtnText}>
-                {(shift.seriesDates?.length ?? 1) > 1 ? 'Cancelar trabalho' : 'Cancelar turno'}
+                {seriesDays > 1 ? t('mobile.myShifts.cancelJob') : t('mobile.myShifts.cancelShift')}
               </Text>
             </TouchableOpacity>
           )
@@ -752,17 +752,20 @@ function ApplicationCard({
           {(wage.status === 'PAID' || wage.status === 'CONFIRMED') ? (
             <View style={[s.wageChip, s.wageChipPaid]}>
               <Text style={s.wageChipPaidText}>
-                💶 €{Number(wage.amount).toFixed(2)} {wage.status === 'PAID' ? 'pago via Pay Link ✅' : 'recebido ✓'}
+                {t(
+                  wage.status === 'PAID' ? 'mobile.myShifts.wagePaidChip' : 'mobile.myShifts.wageReceivedChip',
+                  { amount: Number(wage.amount).toFixed(2) },
+                )}
               </Text>
             </View>
           ) : wage.status === 'DISPUTED' ? (
             <View style={[s.wageChip, s.wageChipDisputed]}>
-              <Text style={s.wageChipDisputedText}>🚩 Não-pagamento reportado — em análise pela Turnos</Text>
+              <Text style={s.wageChipDisputedText}>{t('mobile.myShifts.wageDisputedChip')}</Text>
             </View>
           ) : wage.paymentMethod === 'TURNOS_PAY_LINK' && wage.status === 'PENDING' ? (
             <View style={[s.wageChip, s.wageChipPending]}>
               <Text style={s.wageChipPendingText}>
-                💳 €{Number(wage.amount).toFixed(2)} — a aguardar pagamento da empresa via Pay Link
+                {t('mobile.myShifts.wagePendingChip', { amount: Number(wage.amount).toFixed(2) })}
               </Text>
             </View>
           ) : onConfirmWage ? (
@@ -773,8 +776,10 @@ function ApplicationCard({
                 activeOpacity={0.85}
               >
                 <Text style={s.wageChipActionText}>
-                  💶 €{Number(wage.amount).toFixed(2)}
-                  {wage.status === 'MARKED_PAID' ? ' — a empresa diz que pagou. Recebeste? →' : ' — já recebeste? Confirma aqui →'}
+                  {t(
+                    wage.status === 'MARKED_PAID' ? 'mobile.myShifts.wageMarkedChip' : 'mobile.myShifts.wageAskChip',
+                    { amount: Number(wage.amount).toFixed(2) },
+                  )}
                 </Text>
               </TouchableOpacity>
               {/* Check the receipt before confirming */}
@@ -783,7 +788,7 @@ function ApplicationCard({
                   onPress={() => Linking.openURL(wage.paymentProofUrl!)}
                   activeOpacity={0.7}
                 >
-                  <Text style={s.wageProofLink}>📎 Ver comprovativo da empresa</Text>
+                  <Text style={s.wageProofLink}>{t('mobile.myShifts.wageProof')}</Text>
                 </TouchableOpacity>
               )}
             </>

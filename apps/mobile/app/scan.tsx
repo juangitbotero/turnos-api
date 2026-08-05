@@ -19,9 +19,11 @@ import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
 import { attendanceApi, ApiError } from '../lib/api';
+import { useT } from '../lib/i18n';
 
 export default function ScanScreen() {
   const router = useRouter();
+  const { t } = useT();
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
@@ -46,26 +48,26 @@ export default function ScanScreen() {
 
       await attendanceApi.checkIn(data, lat, lng);
       Alert.alert(
-        '✅ Check-in registado!',
-        'O teu turno começou. No fim do horário, o turno conclui automaticamente — não precisas de digitalizar nada à saída. Boa sorte!',
+        t('mobile.scan.okTitle'),
+        t('mobile.scan.okBody'),
         [{ text: 'OK', onPress: () => router.back() }],
       );
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Erro ao processar QR code.';
-      Alert.alert('Erro', msg, [
+      const msg = err instanceof ApiError ? err.message : t('mobile.scan.failed');
+      Alert.alert(t('common.error'), msg, [
         {
-          text: 'Tentar novamente',
+          text: t('common.retry'),
           onPress: () => { processingRef.current = false; },
         },
         {
-          text: 'Voltar',
+          text: t('common.back'),
           style: 'cancel',
           onPress: () => router.back(),
         },
       ]);
-      // Don't reset processingRef here — user must explicitly tap "Tentar novamente"
+      // Don't reset processingRef here — the user must explicitly tap retry
     }
-  }, [router]);
+  }, [router, t]);
 
   // ── Permission: loading ──────────────────────────────────────────────────
 
@@ -83,15 +85,13 @@ export default function ScanScreen() {
     return (
       <View style={styles.centered}>
         <Text style={styles.permIcon}>📷</Text>
-        <Text style={styles.permTitle}>Câmara necessária</Text>
-        <Text style={styles.permBody}>
-          Para ler o QR code do empregador, precisamos de acesso à câmara.
-        </Text>
+        <Text style={styles.permTitle}>{t('mobile.scan.permTitle')}</Text>
+        <Text style={styles.permBody}>{t('mobile.scan.permBody')}</Text>
         <TouchableOpacity style={styles.permBtn} onPress={requestCameraPermission} activeOpacity={0.85}>
-          <Text style={styles.permBtnText}>Permitir câmara</Text>
+          <Text style={styles.permBtnText}>{t('mobile.scan.permAllow')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.cancelLink} onPress={() => router.back()} activeOpacity={0.7}>
-          <Text style={styles.cancelLinkText}>Cancelar</Text>
+          <Text style={styles.cancelLinkText}>{t('common.cancel')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -106,7 +106,7 @@ export default function ScanScreen() {
         <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <Text style={styles.closeIcon}>✕</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Check-in</Text>
+        <Text style={styles.headerTitle}>{t('mobile.scan.title')}</Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -137,12 +137,8 @@ export default function ScanScreen() {
 
       {/* Instructions */}
       <View style={styles.bottomArea}>
-        <Text style={styles.hint}>
-          Aponta para o QR code afixado no local para fazer check-in
-        </Text>
-        <Text style={styles.subHint}>
-          O QR code do empregador é permanente — não precisa de atualizar. Peça ao empregador para abrir o ecrã de QR codes.
-        </Text>
+        <Text style={styles.hint}>{t('mobile.scan.hint')}</Text>
+        <Text style={styles.subHint}>{t('mobile.scan.subHint')}</Text>
       </View>
     </View>
   );

@@ -125,3 +125,21 @@ export function translateWorkerLanguage(language: string, lang: AppLanguage): st
 export function translateSkills(skills: readonly string[], lang: AppLanguage): string[] {
   return skills.map(s => translateSkill(s, lang));
 }
+
+/**
+ * The weekday abbreviations stored in `worker.availableDays`. Like job titles,
+ * these are Portuguese DATABASE VALUES — a day button must keep sending 'Seg'
+ * in every language. Only the label on it changes, via the catalogue key this
+ * maps to (`domain.weekdaysShort.*`).
+ */
+export const STORED_WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] as const;
+
+export type WeekdayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+const WEEKDAY_KEYS: readonly WeekdayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+/** Catalogue key for a stored weekday, or null if it is not one we recognise. */
+export function weekdayKey(storedDay: string): WeekdayKey | null {
+  const i = STORED_WEEKDAYS.indexOf(storedDay as typeof STORED_WEEKDAYS[number]);
+  return i === -1 ? null : WEEKDAY_KEYS[i]!;
+}

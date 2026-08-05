@@ -14,6 +14,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { adminApi, ApiError, HiredWorker, Shift } from '../../../lib/api';
 import { WORKER_RATING_TAGS } from '@turnos/shared';
+import { useT } from '../../../lib/i18n';
+import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 
 // ─── Rating Modal ─────────────────────────────────────────────────────────────
 
@@ -25,6 +27,7 @@ interface RatingModalProps {
 }
 
 function RatingModal({ worker, shifts, onClose, onSuccess }: RatingModalProps) {
+  const { t, fMediumDate } = useT();
   // Only COMPLETED shifts that haven't been rated yet
   const [unratedShifts, setUnratedShifts] = useState<Shift[]>([]);
   const [selectedShiftId, setSelectedShiftId] = useState('');
@@ -75,7 +78,7 @@ function RatingModal({ worker, shifts, onClose, onSuccess }: RatingModalProps) {
       });
       onSuccess();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erro ao enviar avaliação.');
+      setError(err instanceof ApiError ? err.message : t('admin.ratings.rateError'));
       setSubmitting(false);
     }
   };
@@ -86,29 +89,29 @@ function RatingModal({ worker, shifts, onClose, onSuccess }: RatingModalProps) {
         {/* Header */}
         <div style={m.header}>
           <div>
-            <p style={m.headerLabel}>Avaliar trabalhador</p>
-            <p style={m.headerName}>{worker.fullName ?? 'Trabalhador'}</p>
+            <p style={m.headerLabel}>{t('admin.ratings.rateTitle')}</p>
+            <p style={m.headerName}>{worker.fullName ?? t('admin.ratings.workerFallback')}</p>
           </div>
           <button style={m.closeBtn} onClick={onClose}>✕</button>
         </div>
 
         {loadingShifts ? (
           <p style={{ padding: 24, textAlign: 'center', color: 'var(--color-text-secondary)' }}>
-            A carregar turnos...
+            {t('admin.ratings.rateLoading')}
           </p>
         ) : unratedShifts.length === 0 ? (
           <div style={m.noShifts}>
             <p style={m.noShiftsIcon}>✓</p>
-            <p style={m.noShiftsTitle}>Todos os turnos já foram avaliados</p>
-            <p style={m.noShiftsSub}>Não há turnos concluídos pendentes de avaliação com este trabalhador.</p>
-            <button style={m.cancelBtn} onClick={onClose}>Fechar</button>
+            <p style={m.noShiftsTitle}>{t('admin.ratings.rateAllDone')}</p>
+            <p style={m.noShiftsSub}>{t('admin.ratings.rateAllDoneSub')}</p>
+            <button style={m.cancelBtn} onClick={onClose}>{t('common.close')}</button>
           </div>
         ) : (
           <div style={m.body}>
             {/* Shift selector */}
             {unratedShifts.length > 1 && (
               <div style={m.field}>
-                <label style={m.label}>Seleciona o turno</label>
+                <label style={m.label}>{t('admin.ratings.pickShift')}</label>
                 <select
                   style={m.select}
                   value={selectedShiftId}
@@ -116,7 +119,7 @@ function RatingModal({ worker, shifts, onClose, onSuccess }: RatingModalProps) {
                 >
                   {unratedShifts.map(s => (
                     <option key={s.id} value={s.id}>
-                      {s.title} — {new Date(s.date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {s.title} — {fMediumDate(s.date)}
                     </option>
                   ))}
                 </select>
@@ -125,7 +128,7 @@ function RatingModal({ worker, shifts, onClose, onSuccess }: RatingModalProps) {
 
             {/* Stars */}
             <div style={m.field}>
-              <label style={m.label}>Como foi o desempenho?</label>
+              <label style={m.label}>{t('admin.ratings.rateQuestion')}</label>
               <div style={m.starsRow}>
                 {[1, 2, 3, 4, 5].map(n => (
                   <button
@@ -138,15 +141,13 @@ function RatingModal({ worker, shifts, onClose, onSuccess }: RatingModalProps) {
                 ))}
               </div>
               {score > 0 && (
-                <p style={m.scoreLabel}>
-                  {['', 'Mau 😞', 'Razoável 😐', 'Bom 😊', 'Muito bom 😄', 'Excelente 🤩'][score]}
-                </p>
+                <p style={m.scoreLabel}>{t(`admin.ratings.scores.${score}`)}</p>
               )}
             </div>
 
             {/* Tags */}
             <div style={m.field}>
-              <label style={m.label}>O que destacas? (opcional)</label>
+              <label style={m.label}>{t('admin.ratings.tagsLabel')}</label>
               <div style={m.tagsRow}>
                 {WORKER_RATING_TAGS.map(tag => (
                   <button
@@ -157,7 +158,7 @@ function RatingModal({ worker, shifts, onClose, onSuccess }: RatingModalProps) {
                     }}
                     onClick={() => toggleTag(tag.key)}
                   >
-                    {tag.label}
+                    {t(`domain.ratingTags.${tag.key}`)}
                   </button>
                 ))}
               </div>
@@ -166,12 +167,12 @@ function RatingModal({ worker, shifts, onClose, onSuccess }: RatingModalProps) {
             {/* Written review — visible to other employers */}
             <div style={m.field}>
               <label style={m.label}>
-                Avaliação escrita <span style={{ fontWeight: 400, color: '#9ca3af' }}>(opcional · visível a outros empregadores)</span>
+                {t('admin.ratings.reviewLabel')} <span style={{ fontWeight: 400, color: '#9ca3af' }}>{t('admin.ratings.reviewHint')}</span>
               </label>
               <textarea
                 style={m.textarea}
                 rows={3}
-                placeholder="Ex: Muito pontual e profissional. Recomendo para turnos de eventos..."
+                placeholder={t('admin.ratings.reviewPlaceholder')}
                 value={review}
                 onChange={e => setReview(e.target.value.slice(0, 150))}
               />
@@ -183,14 +184,14 @@ function RatingModal({ worker, shifts, onClose, onSuccess }: RatingModalProps) {
             {/* Actions */}
             <div style={m.actions}>
               <button style={m.cancelBtn} onClick={onClose} disabled={submitting}>
-                Cancelar
+                {t('common.cancel')}
               </button>
               <button
                 style={{ ...m.submitBtn, ...(score === 0 || submitting ? m.submitBtnDisabled : {}) }}
                 onClick={handleSubmit}
                 disabled={score === 0 || submitting}
               >
-                {submitting ? 'A enviar...' : 'Enviar avaliação'}
+                {submitting ? t('admin.ratings.rateSubmitting') : t('admin.ratings.rateSubmit')}
               </button>
             </div>
           </div>
@@ -210,6 +211,7 @@ interface NoShowModalProps {
 }
 
 function NoShowModal({ worker, shifts, onClose, onSuccess }: NoShowModalProps) {
+  const { t, fShortDate } = useT();
   const filledShifts = shifts.filter(s =>
     ['FILLED', 'ACTIVE', 'OPEN'].includes(s.status),
   );
@@ -226,7 +228,7 @@ function NoShowModal({ worker, shifts, onClose, onSuccess }: NoShowModalProps) {
       await adminApi.reportNoShow(selectedShiftId, note.trim() || undefined);
       onSuccess();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erro ao reportar falta.');
+      setError(err instanceof ApiError ? err.message : t('admin.ratings.noShowError'));
       setSubmitting(false);
     }
   };
@@ -236,8 +238,8 @@ function NoShowModal({ worker, shifts, onClose, onSuccess }: NoShowModalProps) {
       <div style={{ ...m.modal, maxWidth: 440 }}>
         <div style={m.header}>
           <div>
-            <p style={m.headerLabel}>Reportar falta</p>
-            <p style={m.headerName}>{worker.fullName ?? 'Trabalhador'}</p>
+            <p style={m.headerLabel}>{t('admin.ratings.noShowTitle')}</p>
+            <p style={m.headerName}>{worker.fullName ?? t('admin.ratings.workerFallback')}</p>
           </div>
           <button style={m.closeBtn} onClick={onClose}>✕</button>
         </div>
@@ -245,15 +247,15 @@ function NoShowModal({ worker, shifts, onClose, onSuccess }: NoShowModalProps) {
           {filledShifts.length === 0 ? (
             <>
               <p style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>
-                Não há turnos confirmados associados a este trabalhador para reportar falta.
+                {t('admin.ratings.noShowNoShifts')}
               </p>
-              <button style={m.cancelBtn} onClick={onClose}>Fechar</button>
+              <button style={m.cancelBtn} onClick={onClose}>{t('common.close')}</button>
             </>
           ) : (
             <>
               {filledShifts.length > 1 && (
                 <div style={m.field}>
-                  <label style={m.label}>Seleciona o turno</label>
+                  <label style={m.label}>{t('admin.ratings.pickShift')}</label>
                   <select
                     style={m.select}
                     value={selectedShiftId}
@@ -261,31 +263,31 @@ function NoShowModal({ worker, shifts, onClose, onSuccess }: NoShowModalProps) {
                   >
                     {filledShifts.map(s => (
                       <option key={s.id} value={s.id}>
-                        {s.title} — {new Date(s.date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' })}
+                        {s.title} — {fShortDate(s.date)}
                       </option>
                     ))}
                   </select>
                 </div>
               )}
               <div style={m.field}>
-                <label style={m.label}>Nota (opcional)</label>
+                <label style={m.label}>{t('admin.ratings.noShowNoteLabel')}</label>
                 <textarea
                   style={m.textarea}
                   rows={2}
-                  placeholder="Descreve o que aconteceu..."
+                  placeholder={t('admin.ratings.noShowPlaceholder')}
                   value={note}
                   onChange={e => setNote(e.target.value)}
                 />
               </div>
               {error && <p style={m.error}>{error}</p>}
               <div style={m.actions}>
-                <button style={m.cancelBtn} onClick={onClose} disabled={submitting}>Cancelar</button>
+                <button style={m.cancelBtn} onClick={onClose} disabled={submitting}>{t('common.cancel')}</button>
                 <button
                   style={{ ...m.submitBtn, background: '#dc2626', ...(submitting ? m.submitBtnDisabled : {}) }}
                   onClick={handleSubmit}
                   disabled={submitting}
                 >
-                  {submitting ? 'A reportar...' : 'Reportar falta'}
+                  {submitting ? t('admin.ratings.noShowSubmitting') : t('admin.ratings.noShowSubmit')}
                 </button>
               </div>
             </>
@@ -300,6 +302,7 @@ function NoShowModal({ worker, shifts, onClose, onSuccess }: NoShowModalProps) {
 
 export default function RatingsPage() {
   const router = useRouter();
+  const { t } = useT();
   const [workers, setWorkers]       = useState<HiredWorker[]>([]);
   const [shifts, setShifts]         = useState<Shift[]>([]);
   const [isLoading, setIsLoading]   = useState(true);
@@ -319,7 +322,7 @@ export default function RatingsPage() {
       setWorkers(w);
       setShifts(s);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erro ao carregar dados.');
+      setError(err instanceof ApiError ? err.message : t('admin.ratings.loadError'));
     } finally {
       setIsLoading(false);
     }
@@ -342,18 +345,19 @@ export default function RatingsPage() {
       {/* Header */}
       <div style={s.header}>
         <div>
-          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>← Dashboard</button>
-          <h1 style={s.title}>Reputação</h1>
-          <p style={s.sub}>Avaliações e histórico de desempenho dos trabalhadores</p>
+          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>{t('admin.chrome.backDashboard')}</button>
+          <h1 style={s.title}>{t('admin.ratings.title')}</h1>
+          <p style={s.sub}>{t('admin.ratings.sub')}</p>
         </div>
         <div style={s.headerRight}>
+          <LanguageSwitcher />
           <input
             style={s.searchInput}
-            placeholder="Pesquisar trabalhador..."
+            placeholder={t('admin.ratings.searchPlaceholder')}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
-          <button style={s.refreshBtn} onClick={load} disabled={isLoading}>↻ Atualizar</button>
+          <button style={s.refreshBtn} onClick={load} disabled={isLoading}>{t('admin.ratings.refresh')}</button>
         </div>
       </div>
 
@@ -363,12 +367,10 @@ export default function RatingsPage() {
       {!isLoading && workers.length === 0 && !error && (
         <div style={s.empty}>
           <div style={s.emptyIcon}>⭐</div>
-          <p style={s.emptyTitle}>Ainda sem avaliações</p>
-          <p style={s.emptySub}>
-            As avaliações aparecem aqui após a conclusão dos turnos com trabalhadores contratados.
-          </p>
+          <p style={s.emptyTitle}>{t('admin.ratings.emptyTitle')}</p>
+          <p style={s.emptySub}>{t('admin.ratings.emptySub')}</p>
           <button style={s.emptyBtn} onClick={() => router.push('/dashboard/shifts')}>
-            Ver os meus turnos →
+            {t('admin.ratings.emptyCta')}
           </button>
         </div>
       )}
@@ -391,7 +393,7 @@ export default function RatingsPage() {
                   </div>
                 )}
                 <div style={s.cardInfo}>
-                  <p style={s.workerName}>{worker.fullName ?? 'Nome não definido'}</p>
+                  <p style={s.workerName}>{worker.fullName ?? t('admin.ratings.noName')}</p>
 
                   {/* Stars + avg */}
                   <div style={s.starsRow}>
@@ -401,21 +403,21 @@ export default function RatingsPage() {
                     <span style={s.avgVal}>
                       {avgR != null ? avgR.toFixed(1) : '—'}
                     </span>
-                    <span style={s.totalRatings}>· {worker.totalRatings} aval.</span>
+                    <span style={s.totalRatings}>{t('admin.ratings.totalRatings', { count: worker.totalRatings })}</span>
                   </div>
 
                   {/* Badges */}
                   {worker.badges && worker.badges.length > 0 && (
                     <div style={s.badgeRow}>
                       {worker.badges.includes('TOP_RATED') && (
-                        <span style={s.badge}>🏆 Top Rated</span>
+                        <span style={s.badge}>{t('admin.workersSearch.badgeTop')}</span>
                       )}
                       {worker.badges.includes('RELIABLE') && (
-                        <span style={s.badge}>✅ Fiável</span>
+                        <span style={s.badge}>{t('admin.workersSearch.badgeReliable')}</span>
                       )}
                       {worker.badges.includes('VERIFIED') && (
                         <span style={{ ...s.badge, background: '#dbeafe', color: '#1d4ed8', borderColor: '#bfdbfe' }}>
-                          ✔️ Verificado
+                          {t('admin.workersSearch.badgeVerified')}
                         </span>
                       )}
                     </div>
@@ -427,17 +429,21 @@ export default function RatingsPage() {
               <div style={s.statsRow}>
                 <div style={s.stat}>
                   <span style={s.statValue}>{worker.shiftsWorked}</span>
-                  <span style={s.statLabel}>turnos</span>
+                  <span style={s.statLabel}>{t('admin.ratings.statShifts')}</span>
                 </div>
                 <div style={s.statDivider} />
                 <div style={s.stat}>
                   <span style={{ ...s.statValue, color: noShowColor }}>{worker.noShowCount}</span>
-                  <span style={s.statLabel}>falta{worker.noShowCount !== 1 ? 's' : ''}</span>
+                  <span style={s.statLabel}>
+                    {worker.noShowCount === 1
+                      ? t('admin.ratings.statNoShowOne')
+                      : t('admin.ratings.statNoShowOther')}
+                  </span>
                 </div>
                 <div style={s.statDivider} />
                 <div style={s.stat}>
                   <span style={s.statValue}>{worker.profileQualityScore}%</span>
-                  <span style={s.statLabel}>perfil</span>
+                  <span style={s.statLabel}>{t('admin.ratings.statProfile')}</span>
                 </div>
               </div>
 
@@ -457,13 +463,13 @@ export default function RatingsPage() {
                   style={s.rateBtn}
                   onClick={() => setRatingTarget(worker)}
                 >
-                  ⭐ Avaliar
+                  {t('admin.ratings.rateBtn')}
                 </button>
                 <button
                   style={s.noShowBtn}
                   onClick={() => setNoShowTarget(worker)}
                 >
-                  ⚠ Reportar falta
+                  {t('admin.ratings.noShowBtn')}
                 </button>
               </div>
             </div>

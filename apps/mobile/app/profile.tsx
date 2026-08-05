@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-  colors, spacing, radius, fontSize, fontWeight,
+  colors, spacing, radius, fontSize, fontWeight, STORED_WEEKDAYS,
   WorkerExperience, APP_LANGUAGES, APP_LANGUAGE_LABELS, AppLanguage,
 } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
@@ -78,7 +78,7 @@ const sr = StyleSheet.create({
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { t, tSkill, tWorkerLanguage } = useT();
+  const { t, tSkill, tWorkerLanguage, tWeekday } = useT();
   const { language, setLanguage } = useLanguage();
   const [profile, setProfile]     = useState<WorkerProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -259,10 +259,11 @@ export default function ProfileScreen() {
             {(profile?.availableDays?.length ?? 0) > 0 && (
               <View style={[s.availDaysRow, !profile?.isAvailableForWork && { opacity: 0.45 }]}>
                 <Text style={s.availDaysLabel}>{t('mobile.profile.onDays')}</Text>
-                {['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].map(d => (
+                {/* Stored PT values stay the key; only the initial shown changes. */}
+                {STORED_WEEKDAYS.map(d => (
                   <View key={d} style={[s.dayDot, profile!.availableDays.includes(d) && s.dayDotActive]}>
                     <Text style={[s.dayDotText, profile!.availableDays.includes(d) && s.dayDotTextActive]}>
-                      {d[0]}
+                      {tWeekday(d)[0]}
                     </Text>
                   </View>
                 ))}

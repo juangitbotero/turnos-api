@@ -3,28 +3,26 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { adminApi, TsuReport, McdContract, AuditLogEntry } from '../../../lib/api';
-import { formatDate, formatEuro } from '../../../lib/format';
+import { useT } from '../../../lib/i18n';
+import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 
 type Tab = 'tsu' | 'mcd' | 'audit';
 
-const SS_STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
-  PENDING:    { label: 'Pendente',   color: '#92400e', bg: '#fef3c7' },
-  EMAIL_SENT: { label: 'Email Sent', color: '#1d4ed8', bg: '#dbeafe' },
-  SUBMITTED:  { label: 'Submetido', color: '#166534', bg: '#dcfce7' },
-  FAILED:     { label: 'Falhou',    color: '#991b1b', bg: '#fee2e2' },
+/** Colours only — the label comes from `admin.compliance.ssStatus.*`. */
+const SS_STATUS_STYLE: Record<string, { color: string; bg: string }> = {
+  PENDING:    { color: '#92400e', bg: '#fef3c7' },
+  EMAIL_SENT: { color: '#1d4ed8', bg: '#dbeafe' },
+  SUBMITTED:  { color: '#166534', bg: '#dcfce7' },
+  FAILED:     { color: '#991b1b', bg: '#fee2e2' },
 };
 
 function formatEvent(event: string) {
   return event.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 }
 
-const MONTHS = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-];
-
 export default function CompliancePage() {
   const router = useRouter();
+  const { t, fMediumDate, fMoney, fMonthName, fTimestamp } = useT();
   const [tab, setTab] = useState<Tab>('tsu');
 
   // TSU report state
@@ -77,20 +75,19 @@ export default function CompliancePage() {
       {/* Header */}
       <div style={s.header}>
         <div>
-          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>← Dashboard</button>
-          <h1 style={s.title}>📊 Conformidade Legal</h1>
-          <p style={s.subtitle}>
-            TSU / SS Direta · Contratos MCD · Registo de auditoria ACT
-          </p>
+          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>{t('admin.chrome.backDashboard')}</button>
+          <h1 style={s.title}>{t('admin.compliance.title')}</h1>
+          <p style={s.subtitle}>{t('admin.compliance.sub')}</p>
         </div>
+        <LanguageSwitcher />
       </div>
 
       {/* Tabs */}
       <div style={s.tabBar}>
         {([
-          { id: 'tsu',   label: '💶 Relatório TSU' },
-          { id: 'mcd',   label: '📄 Contratos MCD' },
-          { id: 'audit', label: '🔒 Auditoria ACT'  },
+          { id: 'tsu',   label: t('admin.compliance.tabTsu') },
+          { id: 'mcd',   label: t('admin.compliance.tabMcd') },
+          { id: 'audit', label: t('admin.compliance.tabAudit') },
         ] as { id: Tab; label: string }[]).map(t => (
           <button
             key={t.id}
@@ -112,8 +109,8 @@ export default function CompliancePage() {
               value={month}
               onChange={e => setMonth(Number(e.target.value))}
             >
-              {MONTHS.map((m, i) => (
-                <option key={i + 1} value={i + 1}>{m}</option>
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i + 1} value={i + 1}>{fMonthName(i, year)}</option>
               ))}
             </select>
             <select
@@ -128,58 +125,57 @@ export default function CompliancePage() {
           </div>
 
           {tsuLoading ? (
-            <div style={s.center}><span style={s.spinner}>⏳</span> A carregar...</div>
+            <div style={s.center}><span style={s.spinner}>⏳</span> {t('common.loading')}</div>
           ) : !tsuReport || !tsuReport.rows?.length ? (
             <div style={s.emptyState}>
               <p style={s.emptyIcon}>📭</p>
-              <p style={s.emptyText}>Sem turnos concluídos em {MONTHS[(month ?? 1) - 1]} {year}</p>
+              <p style={s.emptyText}>
+                {t('admin.compliance.emptyTsu', { month: fMonthName((month ?? 1) - 1, year), year })}
+              </p>
             </div>
           ) : (
             <>
               {/* Summary KPIs */}
               <div style={s.kpiRow}>
                 <div style={s.kpiCard}>
-                  <span style={s.kpiLabel}>Bruto Total</span>
-                  <span style={s.kpiValue}>{formatEuro(tsuReport.totalGross)}</span>
+                  <span style={s.kpiLabel}>{t('admin.compliance.kpiGross')}</span>
+                  <span style={s.kpiValue}>{fMoney(tsuReport.totalGross)}</span>
                 </div>
                 <div style={s.kpiCard}>
-                  <span style={s.kpiLabel}>TSU Entidade (23.75%)</span>
-                  <span style={{ ...s.kpiValue, color: '#dc2626' }}>{formatEuro(tsuReport.totalEmployerTsu)}</span>
+                  <span style={s.kpiLabel}>{t('admin.compliance.kpiEmployerTsu')}</span>
+                  <span style={{ ...s.kpiValue, color: '#dc2626' }}>{fMoney(tsuReport.totalEmployerTsu)}</span>
                 </div>
                 <div style={s.kpiCard}>
-                  <span style={s.kpiLabel}>Taxas Turnos (10%)</span>
-                  <span style={{ ...s.kpiValue, color: '#7c3aed' }}>{formatEuro(tsuReport.totalTurnosFees)}</span>
+                  <span style={s.kpiLabel}>{t('admin.compliance.kpiTurnosFees')}</span>
+                  <span style={{ ...s.kpiValue, color: '#7c3aed' }}>{fMoney(tsuReport.totalTurnosFees)}</span>
                 </div>
               </div>
 
               {/* Rows table */}
               <div style={s.tableWrap}>
                 <div style={{ ...s.tableRow7, ...s.tableHeader }}>
-                  <span>Turno</span>
-                  <span>Data</span>
-                  <span>Trabalhador</span>
-                  <span>Bruto</span>
-                  <span>Taxa Turnos</span>
-                  <span>TSU Emp.</span>
-                  <span>Líquido Trabalh.</span>
+                  <span>{t('admin.compliance.colShift')}</span>
+                  <span>{t('admin.compliance.colDate')}</span>
+                  <span>{t('admin.compliance.colWorker')}</span>
+                  <span>{t('admin.compliance.colGross')}</span>
+                  <span>{t('admin.compliance.colTurnosFee')}</span>
+                  <span>{t('admin.compliance.colEmployerTsu')}</span>
+                  <span>{t('admin.compliance.colWorkerNet')}</span>
                 </div>
                 {(tsuReport.rows ?? []).map(row => (
                   <div key={row.shiftId} style={s.tableRow7}>
                     <span style={s.rowTitle}>{row.shiftTitle}</span>
-                    <span style={s.rowCell}>{formatDate(row.shiftDate)}</span>
+                    <span style={s.rowCell}>{fMediumDate(row.shiftDate)}</span>
                     <span style={s.rowCell}>{row.workerName}</span>
-                    <span style={{ ...s.rowCell, fontWeight: 700 }}>{formatEuro(row.grossAmount)}</span>
-                    <span style={{ ...s.rowCell, color: '#7c3aed' }}>−{formatEuro(row.turnosFee)}</span>
-                    <span style={{ ...s.rowCell, color: '#dc2626' }}>{formatEuro(row.employerTsu)}</span>
-                    <span style={{ ...s.rowCell, color: '#16a34a', fontWeight: 700 }}>{formatEuro(row.workerNetAmount)}</span>
+                    <span style={{ ...s.rowCell, fontWeight: 700 }}>{fMoney(row.grossAmount)}</span>
+                    <span style={{ ...s.rowCell, color: '#7c3aed' }}>−{fMoney(row.turnosFee)}</span>
+                    <span style={{ ...s.rowCell, color: '#dc2626' }}>{fMoney(row.employerTsu)}</span>
+                    <span style={{ ...s.rowCell, color: '#16a34a', fontWeight: 700 }}>{fMoney(row.workerNetAmount)}</span>
                   </div>
                 ))}
               </div>
 
-              <p style={s.legalNote}>
-                ℹ️ SS Trabalhador (11%) é entregue pelo próprio trabalhador via SS Direta — não incluído acima.
-                TSU Entidade (23.75%) deve ser pago mensalmente pelo empregador.
-              </p>
+              <p style={s.legalNote}>{t('admin.compliance.legalNote')}</p>
             </>
           )}
         </div>
@@ -189,35 +185,36 @@ export default function CompliancePage() {
       {tab === 'mcd' && (
         <div>
           {contractsLoading ? (
-            <div style={s.center}><span style={s.spinner}>⏳</span> A carregar...</div>
+            <div style={s.center}><span style={s.spinner}>⏳</span> {t('common.loading')}</div>
           ) : contracts.length === 0 ? (
             <div style={s.emptyState}>
               <p style={s.emptyIcon}>📭</p>
-              <p style={s.emptyText}>Sem contratos MCD registados ainda</p>
+              <p style={s.emptyText}>{t('admin.compliance.emptyMcd')}</p>
             </div>
           ) : (
             <div style={s.tableWrap}>
               <div style={{ ...s.tableRow, ...s.tableHeader }}>
-                <span>Trabalhador / NIF</span>
-                <span>Data do Turno</span>
-                <span>Horário</span>
-                <span>Função</span>
-                <span>Valor/hora</span>
-                <span>SS Direta</span>
+                <span>{t('admin.compliance.colWorkerNif')}</span>
+                <span>{t('admin.compliance.colShiftDate')}</span>
+                <span>{t('admin.compliance.colSchedule')}</span>
+                <span>{t('admin.compliance.colRole')}</span>
+                <span>{t('admin.compliance.colRate')}</span>
+                <span>{t('admin.compliance.colSsDireta')}</span>
               </div>
               {contracts.map(c => {
-                const st = SS_STATUS_LABEL[c.ssStatus] ?? { label: c.ssStatus, color: '#6b7280', bg: '#f3f4f6' };
+                const st = SS_STATUS_STYLE[c.ssStatus] ?? { color: '#6b7280', bg: '#f3f4f6' };
+                const stLabel = t(`admin.compliance.ssStatus.${c.ssStatus}`, { defaultValue: c.ssStatus });
                 return (
                   <div key={c.id} style={s.tableRow}>
                     <div>
                       <p style={s.rowTitle}>{c.workerName}</p>
                       <p style={s.rowSub}>{c.workerNif}</p>
                     </div>
-                    <span style={s.rowCell}>{formatDate(c.shiftDate)}</span>
+                    <span style={s.rowCell}>{fMediumDate(c.shiftDate)}</span>
                     <span style={s.rowCell}>{c.startTime}–{c.endTime}</span>
                     <span style={s.rowCell}>{c.role || '—'}</span>
                     <span style={{ ...s.rowCell, fontWeight: 700 }}>€{Number(c.grossHourlyRate).toFixed(2)}/hr</span>
-                    <span style={{ ...s.badge, color: st.color, background: st.bg }}>{st.label}</span>
+                    <span style={{ ...s.badge, color: st.color, background: st.bg }}>{stLabel}</span>
                   </div>
                 );
               })}
@@ -229,31 +226,26 @@ export default function CompliancePage() {
       {/* ── Audit log tab ───────────────────────────────────────────────── */}
       {tab === 'audit' && (
         <div>
-          <p style={s.auditNote}>
-            🔒 Registo imutável de todos os eventos de conformidade. Usado em inspeções da ACT.
-          </p>
+          <p style={s.auditNote}>{t('admin.compliance.auditNote')}</p>
           {auditLoading ? (
-            <div style={s.center}><span style={s.spinner}>⏳</span> A carregar...</div>
+            <div style={s.center}><span style={s.spinner}>⏳</span> {t('common.loading')}</div>
           ) : auditLog.length === 0 ? (
             <div style={s.emptyState}>
               <p style={s.emptyIcon}>📭</p>
-              <p style={s.emptyText}>Sem eventos de auditoria</p>
+              <p style={s.emptyText}>{t('admin.compliance.emptyAudit')}</p>
             </div>
           ) : (
             <div style={s.tableWrap}>
               <div style={{ ...s.tableRow, gridTemplateColumns: '1.5fr 2fr 0.8fr 3fr', ...s.tableHeader }}>
-                <span>Data/Hora</span>
-                <span>Evento</span>
-                <span>Turno</span>
-                <span>Detalhes</span>
+                <span>{t('admin.compliance.colDateTime')}</span>
+                <span>{t('admin.compliance.colEvent')}</span>
+                <span>{t('admin.compliance.colShiftShort')}</span>
+                <span>{t('admin.compliance.colDetails')}</span>
               </div>
               {auditLog.map(entry => (
                 <div key={entry.id} style={{ ...s.tableRow, gridTemplateColumns: '1.5fr 2fr 0.8fr 3fr' }}>
                   <span style={s.rowCell}>
-                    {new Date(entry.createdAt).toLocaleString('pt-PT', {
-                      day: '2-digit', month: 'short', year: 'numeric',
-                      hour: '2-digit', minute: '2-digit',
-                    })}
+                    {fTimestamp(entry.createdAt)}
                   </span>
                   <span style={{ ...s.badge, color: '#1d4ed8', background: '#dbeafe', fontSize: 11 }}>
                     {formatEvent(entry.event)}

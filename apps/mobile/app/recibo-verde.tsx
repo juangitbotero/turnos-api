@@ -22,12 +22,17 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
+import { useT } from '../lib/i18n';
+
+/** Step ids — the visible text lives in the catalogue. */
+const STEP_KEYS = ['s1', 's2', 's3', 's4', 's5'] as const;
 
 const PORTAL_FINANCAS_URL = 'https://irs.portaldasfinancas.gov.pt/recibos/emitirRecibo.action';
 const WORKER_TSU_RATE     = 0.11; // 11 % — informative, paid by the worker to the State
 
 export default function ReciboVerdeScreen() {
   const router = useRouter();
+  const { t, fLongDate } = useT();
   const params = useLocalSearchParams<{
     shiftId:     string;
     shiftTitle:  string;
@@ -45,15 +50,15 @@ export default function ReciboVerdeScreen() {
     try {
       await Linking.openURL(PORTAL_FINANCAS_URL);
     } catch {
-      Alert.alert('Erro', 'Não foi possível abrir o Portal das Finanças. Acede em: irs.portaldasfinancas.gov.pt');
+      Alert.alert(t('common.error'), t('mobile.reciboVerde.portalError'));
     }
   };
 
   const handleConfirmSubmission = () => {
     Alert.alert(
-      'Recibo submetido! ✅',
-      'Obrigado por confirmares. Ficamos à tua disposição caso precisares de ajuda.',
-      [{ text: 'Fechar', onPress: () => { setSubmitted(true); router.back(); } }],
+      t('mobile.reciboVerde.confirmTitle'),
+      t('mobile.reciboVerde.confirmBody'),
+      [{ text: t('common.close'), onPress: () => { setSubmitted(true); router.back(); } }],
     );
   };
 
@@ -70,77 +75,69 @@ export default function ReciboVerdeScreen() {
           <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
             <Text style={s.backText}>←</Text>
           </TouchableOpacity>
-          <Text style={s.headerTitle}>Recibo Verde</Text>
+          <Text style={s.headerTitle}>{t('mobile.reciboVerde.title')}</Text>
           <View style={{ width: 36 }} />
         </View>
-        <Text style={s.headerSub}>
-          Turno concluído — submete o teu recibo ao Estado
-        </Text>
+        <Text style={s.headerSub}>{t('mobile.reciboVerde.headerSub')}</Text>
       </LinearGradient>
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Shift info banner */}
         <View style={s.shiftCard}>
-          <Text style={s.shiftTitle}>{params.shiftTitle ?? 'Turno'}</Text>
+          <Text style={s.shiftTitle}>{params.shiftTitle ?? t('mobile.reciboVerde.shiftFallback')}</Text>
           {params.shiftDate ? (
-            <Text style={s.shiftDate}>
-              {new Date(params.shiftDate + 'T12:00:00').toLocaleDateString('pt-PT', {
-                day: 'numeric', month: 'long', year: 'numeric',
-              })}
-            </Text>
+            <Text style={s.shiftDate}>{fLongDate(params.shiftDate + 'T12:00:00')}</Text>
           ) : null}
         </View>
 
         {/* What is Recibo Verde? */}
         <View style={s.card}>
-          <Text style={s.cardTitle}>O que é o Recibo Verde?</Text>
+          <Text style={s.cardTitle}>{t('mobile.reciboVerde.whatTitle')}</Text>
           <Text style={s.cardBody}>
-            Como trabalhador independente em Contrato de Muito Curta Duração (MCD), tens de emitir
-            um <Text style={s.bold}>Recibo Verde</Text> no Portal das Finanças para cada turno concluído.
-            {'\n\n'}
-            O prazo legal é de <Text style={s.bold}>5 dias úteis</Text> após a conclusão do turno.
-            Guardar o comprovativo é obrigatório para declaração de IRS.
+            {t('mobile.reciboVerde.whatBody1')}
+            <Text style={s.bold}>{t('mobile.reciboVerde.whatBoldReceipt')}</Text>
+            {t('mobile.reciboVerde.whatBody2')}
+            <Text style={s.bold}>{t('mobile.reciboVerde.whatBoldDeadline')}</Text>
+            {t('mobile.reciboVerde.whatBody3')}
           </Text>
         </View>
 
         {/* Pre-filled values */}
         <View style={s.card}>
-          <Text style={s.cardTitle}>Valores para o teu recibo</Text>
-          <Text style={s.cardHint}>Copia estes valores para o Portal das Finanças</Text>
+          <Text style={s.cardTitle}>{t('mobile.reciboVerde.valuesTitle')}</Text>
+          <Text style={s.cardHint}>{t('mobile.reciboVerde.valuesHint')}</Text>
 
           <View style={s.valueRow}>
-            <Text style={s.valueLabel}>Valor bruto do turno</Text>
+            <Text style={s.valueLabel}>{t('mobile.reciboVerde.valueGross')}</Text>
             <Text style={s.valueAmount}>€{gross.toFixed(2)}</Text>
           </View>
 
           <View style={s.divider} />
 
           <View style={s.valueRow}>
-            <Text style={[s.valueLabel, s.bold]}>Valor que recebes da empresa</Text>
+            <Text style={[s.valueLabel, s.bold]}>{t('mobile.reciboVerde.valueReceived')}</Text>
             <Text style={[s.valueAmount, s.amountGreen, s.bold]}>€{gross.toFixed(2)}</Text>
           </View>
 
           <View style={s.divider} />
 
           <View style={[s.valueRow, s.tsuRow]}>
-            <Text style={s.tsuLabel}>ℹ️  SS Trabalhador (11% do bruto)</Text>
+            <Text style={s.tsuLabel}>{t('mobile.reciboVerde.valueTsu')}</Text>
             <Text style={s.tsuAmount}>€{tsuAmount.toFixed(2)}</Text>
           </View>
-          <Text style={s.tsuNote}>
-            Este valor é entregue por ti ao Estado via Segurança Social Direta — não é deduzido pela Turnos.
-          </Text>
+          <Text style={s.tsuNote}>{t('mobile.reciboVerde.tsuNote')}</Text>
         </View>
 
         {/* Steps */}
         <View style={s.card}>
-          <Text style={s.cardTitle}>Como submeter</Text>
-          {STEPS.map((step, i) => (
-            <View key={i} style={s.step}>
+          <Text style={s.cardTitle}>{t('mobile.reciboVerde.howTitle')}</Text>
+          {STEP_KEYS.map((key, i) => (
+            <View key={key} style={s.step}>
               <View style={s.stepBadge}>
                 <Text style={s.stepNum}>{i + 1}</Text>
               </View>
-              <Text style={s.stepText}>{step}</Text>
+              <Text style={s.stepText}>{t(`mobile.reciboVerde.steps.${key}`)}</Text>
             </View>
           ))}
         </View>
@@ -153,7 +150,7 @@ export default function ReciboVerdeScreen() {
             end={{ x: 1, y: 0 }}
             style={s.portalBtnGradient}
           >
-            <Text style={s.portalBtnText}>🌐  Abrir Portal das Finanças</Text>
+            <Text style={s.portalBtnText}>{t('mobile.reciboVerde.openPortal')}</Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -164,7 +161,7 @@ export default function ReciboVerdeScreen() {
           activeOpacity={submitted ? 1 : 0.8}
         >
           <Text style={[s.confirmBtnText, submitted && s.confirmBtnTextDone]}>
-            {submitted ? '✅  Recibo já submetido' : 'Já submeti o meu recibo'}
+            {submitted ? t('mobile.reciboVerde.confirmed') : t('mobile.reciboVerde.confirm')}
           </Text>
         </TouchableOpacity>
 
@@ -173,14 +170,6 @@ export default function ReciboVerdeScreen() {
     </View>
   );
 }
-
-const STEPS = [
-  'Acede ao Portal das Finanças com o teu NIF e senha.',
-  'Vai a "Recibos Verdes" → "Emitir Recibo".',
-  'Seleciona "Prestação de Serviços" e preenche com o valor bruto do turno.',
-  'Indica o NIF do empregador (encontras na proposta do turno).',
-  'Emite o recibo e guarda o comprovativo em PDF.',
-];
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.secondary },

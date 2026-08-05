@@ -5,40 +5,36 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { adminApi, ApiError, Shift, Application, WagePayment } from '../../../lib/api';
 import { connectSocket, getSocket, NewApplicationPayload } from '../../../lib/socket';
-import { formatDate } from '../../../lib/format';
-import {
-  COMPANY_CANCEL_REASONS, paymentMethodLabel, formatSeriesRange, experienceLevelLabel,
-} from '@turnos/shared';
+import { COMPANY_CANCEL_REASONS, paymentMethodLabel } from '@turnos/shared';
+import { useT } from '../../../lib/i18n';
+import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 
 /** A shift row that stands for a multi-day job rather than a single day. */
 const isMultiDay = (shift: Shift): boolean => (shift.seriesDates?.length ?? 0) > 1;
 
-const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
-  DRAFT:              { label: 'Rascunho',          color: '#6b7280', bg: '#f3f4f6' },
-  OPEN:               { label: 'Aberto',            color: '#16a34a', bg: '#dcfce7' },
-  PENDING_ACCEPTANCE: { label: 'A aguardar worker', color: '#d97706', bg: '#fef3c7' },
-  FILLED:             { label: 'Preenchido',        color: '#7c3aed', bg: '#ede9fe' },
-  ACTIVE:             { label: 'Ativo',             color: '#2563eb', bg: '#dbeafe' },
-  COMPLETED:          { label: 'Concluído',         color: '#0891b2', bg: '#cffafe' },
-  CANCELLED:          { label: 'Cancelado',         color: '#dc2626', bg: '#fee2e2' },
+/** Colours only — the label comes from `domain.shiftStatus.*`. */
+const STATUS_STYLE: Record<string, { color: string; bg: string }> = {
+  DRAFT:              { color: '#6b7280', bg: '#f3f4f6' },
+  OPEN:               { color: '#16a34a', bg: '#dcfce7' },
+  PENDING_ACCEPTANCE: { color: '#d97706', bg: '#fef3c7' },
+  FILLED:             { color: '#7c3aed', bg: '#ede9fe' },
+  ACTIVE:             { color: '#2563eb', bg: '#dbeafe' },
+  COMPLETED:          { color: '#0891b2', bg: '#cffafe' },
+  CANCELLED:          { color: '#dc2626', bg: '#fee2e2' },
 };
 
 // ── Applicants Modal ──────────────────────────────────────────────────────────
 
 function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => void }) {
+  const { t, tSkill, tWorkerLanguage, tWeekday } = useT();
   const w = app.worker;
   const score = w?.profileQualityScore ?? 0;
   const scoreColor = score >= 80 ? '#16a34a' : score >= 50 ? '#d97706' : '#dc2626';
   const avgR = w?.avgRating != null ? Number(w.avgRating) : null;
   const filledStars = Math.round(avgR ?? 0);
-  const statusLabel: Record<string, string> = {
-    INCOMPLETE: 'Perfil incompleto', PENDING_REVIEW: 'A aguardar aprovação',
-    ACTIVE: 'Ativo', SUSPENDED: 'Suspenso', REJECTED: 'Rejeitado',
-  };
-
   return (
     <div style={s.profilePanel}>
-      <button style={s.backInPanel} onClick={onBack}>← Voltar à lista</button>
+      <button style={s.backInPanel} onClick={onBack}>{t('admin.shifts.backToList')}</button>
 
       {/* Header: photo + name + status + rating */}
       <div style={s.profileTop}>
@@ -47,26 +43,26 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
           : <div style={s.profileAvatar}>{(w?.fullName?.[0] ?? '?').toUpperCase()}</div>
         }
         <div style={{ flex: 1 }}>
-          <p style={s.profileName}>{w?.fullName ?? 'Nome não definido'}</p>
+          <p style={s.profileName}>{w?.fullName ?? t('admin.shifts.noName')}</p>
           <span style={{
             ...s.profileStatusBadge,
             background: w?.status === 'ACTIVE' ? '#dcfce7' : '#fef9c3',
             color:      w?.status === 'ACTIVE' ? '#166534' : '#854d0e',
           }}>
-            {statusLabel[w?.status ?? ''] ?? w?.status ?? '—'}
+            {w?.status ? t(`domain.workerStatus.${w.status}`, { defaultValue: w.status }) : '—'}
           </span>
           {avgR != null && (
             <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ color: '#fbbf24', fontSize: 14 }}>{'★'.repeat(filledStars)}{'☆'.repeat(5 - filledStars)}</span>
               <span style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b' }}>{avgR.toFixed(1)}</span>
-              <span style={{ fontSize: 12, color: '#6b7280' }}>({w?.totalRatings ?? 0} aval.)</span>
+              <span style={{ fontSize: 12, color: '#6b7280' }}>{t('admin.shifts.ratingsCount', { count: w?.totalRatings ?? 0 })}</span>
             </div>
           )}
           {w?.badges && w.badges.length > 0 && (
             <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' as const }}>
-              {w.badges.includes('TOP_RATED') && <span style={s.badge}>🏆 Top Rated</span>}
-              {w.badges.includes('RELIABLE')  && <span style={s.badge}>✅ Fiável</span>}
-              {w.badges.includes('VERIFIED')  && <span style={s.badge}>✔️ Verificado</span>}
+              {w.badges.includes('TOP_RATED') && <span style={s.badge}>{t('admin.workersSearch.badgeTop')}</span>}
+              {w.badges.includes('RELIABLE')  && <span style={s.badge}>{t('admin.workersSearch.badgeReliable')}</span>}
+              {w.badges.includes('VERIFIED')  && <span style={s.badge}>{t('admin.workersSearch.badgeVerified')}</span>}
             </div>
           )}
         </div>
@@ -75,7 +71,7 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
       {/* Cover note from worker */}
       {app.coverNote && (
         <div style={s.coverNoteBox}>
-          <p style={s.profileSectionTitle}>💬 Mensagem do candidato</p>
+          <p style={s.profileSectionTitle}>{t('admin.shifts.coverNoteTitle')}</p>
           <p style={s.coverNoteText}>"{app.coverNote}"</p>
         </div>
       )}
@@ -83,7 +79,7 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
       {/* Bio */}
       {w?.bio && (
         <div style={s.profileSection}>
-          <p style={s.profileSectionTitle}>Apresentação</p>
+          <p style={s.profileSectionTitle}>{t('admin.shifts.panelBio')}</p>
           <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.5, margin: 0 }}>{w.bio}</p>
         </div>
       )}
@@ -91,7 +87,7 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
       {/* Score bar */}
       <div style={s.scoreSection}>
         <div style={s.scoreHeader}>
-          <span style={s.scoreLabel}>Perfil completo</span>
+          <span style={s.scoreLabel}>{t('admin.shifts.panelScore')}</span>
           <span style={{ ...s.scoreValue, color: scoreColor }}>{score}%</span>
         </div>
         <div style={s.scoreBarBg}>
@@ -102,9 +98,9 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
       {/* Skills */}
       {w?.skills && w.skills.length > 0 && (
         <div style={s.profileSection}>
-          <p style={s.profileSectionTitle}>Competências</p>
+          <p style={s.profileSectionTitle}>{t('admin.shifts.panelSkills')}</p>
           <div style={s.skillTags}>
-            {w.skills.map(sk => <span key={sk} style={s.skillTag}>{sk}</span>)}
+            {w.skills.map(sk => <span key={sk} style={s.skillTag}>{tSkill(sk)}</span>)}
           </div>
         </div>
       )}
@@ -112,11 +108,11 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
       {/* Experience — the strongest signal when choosing between candidates */}
       {w?.experiences && w.experiences.length > 0 && (
         <div style={s.profileSection}>
-          <p style={s.profileSectionTitle}>Experiência</p>
+          <p style={s.profileSectionTitle}>{t('admin.shifts.panelExperience')}</p>
           <div style={s.skillTags}>
             {w.experiences.map(exp => (
               <span key={exp.jobTitle} style={{ ...s.skillTag, background: '#fef3c7', color: '#92400e' }}>
-                💼 {exp.jobTitle} · {experienceLevelLabel(exp.level)}
+                💼 {tSkill(exp.jobTitle)} · {t(`domain.experienceLevels.${exp.level}`)}
               </span>
             ))}
           </div>
@@ -126,9 +122,9 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
       {/* CV */}
       {w?.cvUrl && (
         <div style={s.profileSection}>
-          <p style={s.profileSectionTitle}>Currículo</p>
+          <p style={s.profileSectionTitle}>{t('admin.shifts.panelCv')}</p>
           <a href={w.cvUrl} target="_blank" rel="noopener noreferrer" style={s.cvLink}>
-            📄 {w.cvFileName ?? 'Ver CV'}
+            📄 {w.cvFileName ?? t('admin.shifts.panelCvFallback')}
           </a>
         </div>
       )}
@@ -136,10 +132,10 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
       {/* Languages */}
       {w?.languages && w.languages.length > 0 && (
         <div style={s.profileSection}>
-          <p style={s.profileSectionTitle}>Idiomas</p>
+          <p style={s.profileSectionTitle}>{t('admin.shifts.panelLanguages')}</p>
           <div style={s.skillTags}>
             {w.languages.map(lang => (
-              <span key={lang} style={{ ...s.skillTag, background: '#f0fdf4', color: '#15803d' }}>{lang}</span>
+              <span key={lang} style={{ ...s.skillTag, background: '#f0fdf4', color: '#15803d' }}>{tWorkerLanguage(lang)}</span>
             ))}
           </div>
         </div>
@@ -147,23 +143,23 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
 
       {/* Availability — master switch, then the days it covers */}
       <div style={s.profileSection}>
-        <p style={s.profileSectionTitle}>Disponibilidade</p>
+        <p style={s.profileSectionTitle}>{t('admin.shifts.panelAvailability')}</p>
         <div style={s.skillTags}>
           <span style={{
             ...s.skillTag,
             background: w?.isAvailableForWork ? '#f0fdf4' : '#f3f4f6',
             color:      w?.isAvailableForWork ? '#166534' : '#6b7280',
           }}>
-            {w?.isAvailableForWork ? '🟢 Disponível para trabalhar' : '⚪ Não disponível de momento'}
+            {w?.isAvailableForWork ? t('admin.shifts.availableOn') : t('admin.shifts.availableOff')}
           </span>
           {w?.availableDays?.map(d => (
-            <span key={d} style={{ ...s.skillTag, background: '#dbeafe', color: '#1d4ed8' }}>{d}</span>
+            <span key={d} style={{ ...s.skillTag, background: '#dbeafe', color: '#1d4ed8' }}>{tWeekday(d)}</span>
           ))}
         </div>
       </div>
 
       {!w?.bio && (!w?.skills || w.skills.length === 0) && (!w?.availableDays || w.availableDays.length === 0) && (
-        <p style={s.emptyApps}>Este candidato ainda não preencheu o perfil completo.</p>
+        <p style={s.emptyApps}>{t('admin.shifts.profileIncomplete')}</p>
       )}
     </div>
   );
@@ -184,6 +180,7 @@ function ShiftApplicationsModal({
   shift: Shift;
   onClose: () => void;
 }) {
+  const { t, tSkill, fMediumDate } = useT();
   const [apps, setApps]             = useState<Application[]>([]);
   const [loading, setLoading]       = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
@@ -203,7 +200,7 @@ function ShiftApplicationsModal({
       ));
       setViewingProfile(null);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Erro ao aprovar.');
+      alert(err instanceof ApiError ? err.message : t('admin.shifts.approveError'));
     } finally {
       setProcessing(null);
     }
@@ -227,8 +224,19 @@ function ShiftApplicationsModal({
       <div style={s.modal}>
         <div style={s.modalHeader}>
           <div>
-            <h2 style={s.modalTitle}>Candidatos — {shift.title || shift.subcategory}</h2>
-            <p style={s.modalSub}>{formatDate(shift.date)} · {shift.startTime.slice(0, 5)}–{shift.endTime.slice(0, 5)} · {apps.length} candidato{apps.length !== 1 ? 's' : ''}</p>
+            <h2 style={s.modalTitle}>{t('admin.shifts.appsTitle', { shift: shift.title || tSkill(shift.subcategory) })}</h2>
+            <p style={s.modalSub}>
+              {apps.length === 1
+                ? t('admin.shifts.appsSubOne', {
+                    date: fMediumDate(shift.date),
+                    time: `${shift.startTime.slice(0, 5)}–${shift.endTime.slice(0, 5)}`,
+                  })
+                : t('admin.shifts.appsSubOther', {
+                    date: fMediumDate(shift.date),
+                    time: `${shift.startTime.slice(0, 5)}–${shift.endTime.slice(0, 5)}`,
+                    count: apps.length,
+                  })}
+            </p>
           </div>
           <button style={s.closeBtn} onClick={onClose}>✕</button>
         </div>
@@ -236,15 +244,19 @@ function ShiftApplicationsModal({
         {viewingProfile ? (
           <WorkerProfilePanel app={viewingProfile} onBack={() => setViewingProfile(null)} />
         ) : loading ? (
-          <p style={s.loadingText}>A carregar candidatos...</p>
+          <p style={s.loadingText}>{t('admin.shifts.appsLoading')}</p>
         ) : apps.length === 0 ? (
-          <p style={s.emptyApps}>Nenhum candidato ainda.</p>
+          <p style={s.emptyApps}>{t('admin.shifts.appsEmpty')}</p>
         ) : (
           <>
             {/* Sort bar */}
             <div style={s.sortBar}>
-              <span style={s.sortLabel}>Ordenar:</span>
-              {([['rating', '⭐ Melhor avaliação'], ['score', '📋 Perfil mais completo'], ['date', '🕐 Mais antigo']] as [SortMode, string][]).map(([mode, label]) => (
+              <span style={s.sortLabel}>{t('admin.shifts.sortLabel')}</span>
+              {([
+                ['rating', t('admin.shifts.sortRating')],
+                ['score',  t('admin.shifts.sortScore')],
+                ['date',   t('admin.shifts.sortDate')],
+              ] as [SortMode, string][]).map(([mode, label]) => (
                 <button
                   key={mode}
                   style={{ ...s.sortBtn, ...(sortMode === mode ? s.sortBtnActive : {}) }}
@@ -259,7 +271,7 @@ function ShiftApplicationsModal({
               {sorted.map(app => {
                 const match = skillMatch(app, shift);
                 const matchLabel = requiredCount > 0
-                  ? `${match}/${requiredCount} competências`
+                  ? t('admin.shifts.matchCount', { matched: match, total: requiredCount })
                   : null;
                 const isFullMatch = match === requiredCount && requiredCount > 0;
 
@@ -272,10 +284,10 @@ function ShiftApplicationsModal({
                       }
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <p style={s.appName}>{app.worker?.fullName ?? 'Nome não definido'}</p>
-                          {isFullMatch && <span style={s.matchBadge}>✓ Match total</span>}
+                          <p style={s.appName}>{app.worker?.fullName ?? t('admin.shifts.noName')}</p>
+                          {isFullMatch && <span style={s.matchBadge}>{t('admin.shifts.matchBadge')}</span>}
                         </div>
-                        <p style={s.appScore}>Perfil: {app.worker?.profileQualityScore ?? '—'}%
+                        <p style={s.appScore}>{t('admin.shifts.appProfile', { score: app.worker?.profileQualityScore ?? '—' })}
                           {app.worker?.avgRating != null && (
                             <span style={{ marginLeft: 8, color: '#fbbf24' }}>
                               ★ {Number(app.worker.avgRating).toFixed(1)}
@@ -289,7 +301,7 @@ function ShiftApplicationsModal({
                           </p>
                         )}
                         {app.worker?.skills && app.worker.skills.length > 0 && (
-                          <p style={s.appSkills}>{app.worker.skills.slice(0, 3).join(', ')}{app.worker.skills.length > 3 ? ` +${app.worker.skills.length - 3}` : ''}</p>
+                          <p style={s.appSkills}>{app.worker.skills.slice(0, 3).map(tSkill).join(', ')}{app.worker.skills.length > 3 ? ` +${app.worker.skills.length - 3}` : ''}</p>
                         )}
                         {app.coverNote && (
                           <p style={s.coverNote}>💬 "{app.coverNote}"</p>
@@ -297,16 +309,16 @@ function ShiftApplicationsModal({
                       </div>
                     </div>
                     <div style={{ ...s.appRight, gap: 8 }}>
-                      <button style={s.viewProfileBtn} onClick={() => setViewingProfile(app)}>Ver perfil →</button>
-                      {app.status === 'APPROVED' && <span style={{ ...s.statusBadge, ...s.statusApproved }}>✓ Aprovado</span>}
-                      {app.status === 'REJECTED' && <span style={{ ...s.statusBadge, ...s.statusRejected }}>✕ Rejeitado</span>}
+                      <button style={s.viewProfileBtn} onClick={() => setViewingProfile(app)}>{t('admin.shifts.viewProfile')}</button>
+                      {app.status === 'APPROVED' && <span style={{ ...s.statusBadge, ...s.statusApproved }}>{t('admin.shifts.approved')}</span>}
+                      {app.status === 'REJECTED' && <span style={{ ...s.statusBadge, ...s.statusRejected }}>{t('admin.shifts.rejected')}</span>}
                       {app.status === 'PENDING' && (
                         <button
                           style={{ ...s.approveBtn, opacity: processing === app.id ? 0.6 : 1 }}
                           onClick={() => handleApprove(app.id)}
                           disabled={!!processing}
                         >
-                          {processing === app.id ? '...' : 'Selecionar'}
+                          {processing === app.id ? '...' : t('admin.shifts.select')}
                         </button>
                       )}
                     </div>
@@ -325,6 +337,7 @@ function ShiftApplicationsModal({
 
 export default function ShiftsPage() {
   const router = useRouter();
+  const { t, tSkill, fMediumDate } = useT();
   const [shifts, setShifts]           = useState<Shift[]>([]);
   const [isLoading, setIsLoading]     = useState(true);
   const [error, setError]             = useState('');
@@ -347,7 +360,7 @@ export default function ShiftsPage() {
       // Best-effort — the pending-payments strip is secondary to the shift list
       adminApi.getPendingWages().then(setPendingWages).catch(() => {});
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erro ao carregar turnos.');
+      setError(err instanceof ApiError ? err.message : t('admin.shifts.loadError'));
     } finally {
       setIsLoading(false);
     }
@@ -389,7 +402,7 @@ export default function ShiftsPage() {
       setCancelTarget(shift);
       return;
     }
-    if (!confirm('Tem a certeza que quer cancelar este turno?')) return;
+    if (!confirm(t('admin.shifts.cancelConfirmSimple'))) return;
     void doCancel(id);
   };
 
@@ -403,24 +416,22 @@ export default function ShiftsPage() {
       // A <3h ERRO_EMPRESA cancellation creates a wage payment — refresh the strip
       adminApi.getPendingWages().then(setPendingWages).catch(() => {});
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Erro ao cancelar.');
+      alert(err instanceof ApiError ? err.message : t('admin.shifts.cancelError'));
     } finally {
       setCancelling(null);
     }
   };
 
   const handleManualConfirm = async (shift: Shift) => {
-    if (!confirm(
-      `Marcar como concluído: "${shift.title || shift.subcategory}"\n\n` +
-      `O turno será encerrado e o pagamento será desencadeado automaticamente. Esta ação não pode ser desfeita.\n\n` +
-      `Usa esta opção apenas se o turno não concluiu automaticamente (ex.: check-in falhou).`
-    )) return;
+    if (!confirm(t('admin.shifts.manualConfirmBody', {
+      shift: shift.title || tSkill(shift.subcategory),
+    }))) return;
     setConfirming(shift.id);
     try {
       await adminApi.manualConfirmShift(shift.id);
       setShifts(prev => prev.map(sh => sh.id === shift.id ? { ...sh, status: 'COMPLETED' as const } : sh));
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Erro ao confirmar.');
+      alert(err instanceof ApiError ? err.message : t('admin.shifts.confirmError'));
     } finally {
       setConfirming(null);
     }
@@ -444,17 +455,20 @@ export default function ShiftsPage() {
       {/* Header */}
       <div style={s.header}>
         <div>
-          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>← Dashboard</button>
-          <h1 style={s.title}>Os Meus Turnos</h1>
+          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>{t('admin.chrome.backDashboard')}</button>
+          <h1 style={s.title}>{t('admin.shifts.title')}</h1>
           <p style={s.sub}>
-            {isLoading ? 'A carregar...' : `${shifts.length} turnos no total · ${active.length} ativos`}
+            {isLoading
+              ? t('common.loading')
+              : t('admin.shifts.subCount', { total: shifts.length, active: active.length })}
           </p>
         </div>
         <div style={s.headerActions}>
-          <button style={s.refreshBtn} onClick={load} disabled={isLoading}>↻ Atualizar</button>
+          <LanguageSwitcher />
+          <button style={s.refreshBtn} onClick={load} disabled={isLoading}>{t('admin.shifts.refresh')}</button>
           {/* QR codes are per-employer (static), not per shift */}
-          <Link href="/dashboard/qr-codes" style={s.qrCodesBtn}>📲 Códigos QR</Link>
-          <Link href="/dashboard/new-shift" style={s.newBtn}>+ Publicar Turno</Link>
+          <Link href="/dashboard/qr-codes" style={s.qrCodesBtn}>{t('admin.shifts.qrCodes')}</Link>
+          <Link href="/dashboard/new-shift" style={s.newBtn}>{t('admin.shifts.newShift')}</Link>
         </div>
       </div>
 
@@ -467,7 +481,7 @@ export default function ShiftsPage() {
           padding: '16px 20px', marginBottom: 20,
         }}>
           <h2 style={{ fontSize: 15, fontWeight: 800, color: '#92400e', marginBottom: 10 }}>
-            💶 Pagamentos pendentes a trabalhadores ({pendingWages.length})
+            {t('admin.shifts.pendingTitle', { count: pendingWages.length })}
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {pendingWages.map(w => (
@@ -477,12 +491,12 @@ export default function ShiftsPage() {
               }}>
                 <div style={{ flex: 1, minWidth: 220 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#1e1b4b' }}>
-                    {w.type === 'CANCELLATION_MINIMUM' ? '⚠️ Mínimo 2h (cancelamento) — ' : ''}{w.shiftTitle}
+                    {w.type === 'CANCELLATION_MINIMUM' ? t('admin.shifts.cancellationMin') : ''}{w.shiftTitle}
                   </div>
                   <div style={{ fontSize: 12, color: '#6b7280' }}>
-                    {w.shiftDate ?? ''} · {paymentMethodLabel(w.paymentMethod)}
-                    {w.status === 'MARKED_PAID' && ' · aguarda confirmação do trabalhador'}
-                    {w.status === 'DISPUTED' && ' · 🚩 trabalhador reporta não ter recebido'}
+                    {w.shiftDate ? fMediumDate(w.shiftDate) : ''} · {t(`domain.paymentMethods.${w.paymentMethod}`, { defaultValue: paymentMethodLabel(w.paymentMethod) })}
+                    {w.status === 'MARKED_PAID' && t('admin.shifts.awaitingWorker')}
+                    {w.status === 'DISPUTED' && t('admin.shifts.disputed')}
                   </div>
                   {/* Coordinates for a manual transfer — the company needs these to pay */}
                   {w.workerIban && w.status === 'PENDING' && (
@@ -491,9 +505,9 @@ export default function ShiftsPage() {
                       background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6,
                       padding: '6px 10px',
                     }}>
-                      <div><strong>{w.workerName ?? 'Trabalhador'}</strong></div>
-                      <div>IBAN: <code style={{ fontSize: 12 }}>{w.workerIban}</code></div>
-                      <div>Referência: <code style={{ fontSize: 12 }}>{w.paymentReference}</code></div>
+                      <div><strong>{w.workerName ?? t('admin.shifts.workerFallback')}</strong></div>
+                      <div>{t('admin.shifts.ibanLabel')} <code style={{ fontSize: 12 }}>{w.workerIban}</code></div>
+                      <div>{t('admin.shifts.referenceLabel')} <code style={{ fontSize: 12 }}>{w.paymentReference}</code></div>
                     </div>
                   )}
                   {w.workerIbanWithheld && w.status === 'PENDING' && (
@@ -502,8 +516,7 @@ export default function ShiftsPage() {
                       background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6,
                       padding: '6px 10px',
                     }}>
-                      O trabalhador não autorizou a partilha do IBAN. Combina outro método
-                      (MB WAY) diretamente com ele, ou pede-lhe que ative o Turnos Pay Link.
+                      {t('admin.shifts.ibanWithheld')}
                     </div>
                   )}
                   {w.paymentProofUrl && (
@@ -513,12 +526,12 @@ export default function ShiftsPage() {
                       rel="noreferrer"
                       style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}
                     >
-                      📎 Ver comprovativo
+                      {t('admin.shifts.viewProof')}
                     </a>
                   )}
                   {!w.paymentProofUrl && w.status === 'MARKED_PAID' && (
                     <div style={{ fontSize: 12, color: '#b45309' }}>
-                      ⚠️ Declarado sem comprovativo
+                      {t('admin.shifts.noProofDeclared')}
                     </div>
                   )}
                 </div>
@@ -530,7 +543,7 @@ export default function ShiftsPage() {
                     background: '#6a79ff', color: '#fff', fontWeight: 700, fontSize: 13,
                     padding: '8px 16px', borderRadius: 8, textDecoration: 'none',
                   }}>
-                    💳 Pagar agora
+                    {t('admin.shifts.payNow')}
                   </a>
                 )}
                 {!w.payLinkUrl && (w.status === 'PENDING' || w.status === 'DISPUTED') && (
@@ -542,7 +555,7 @@ export default function ShiftsPage() {
                       cursor: 'pointer', fontFamily: 'inherit',
                     }}
                   >
-                    ✓ Marcar como pago
+                    {t('admin.shifts.markPaid')}
                   </button>
                 )}
                 {w.status === 'PENDING' && w.type === 'SHIFT_COMPLETION' && (
@@ -555,7 +568,7 @@ export default function ShiftsPage() {
                         cursor: 'pointer', fontFamily: 'inherit',
                       }}
                     >
-                      ✏️ Ajustar horas
+                      {t('admin.shifts.adjustHours')}
                     </button>
                     <button
                       onClick={() => setWageAction({ wage: w, mode: 'problem' })}
@@ -565,20 +578,20 @@ export default function ShiftsPage() {
                         cursor: 'pointer', fontFamily: 'inherit',
                       }}
                     >
-                      ⚠️ Reportar problema
+                      {t('admin.shifts.reportProblem')}
                     </button>
                   </>
                 )}
                 {w.status === 'UNDER_REVIEW' && (
                   <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
-                    ⚖️ Em análise pela Turnos (48h)
+                    {t('admin.shifts.underReview')}
                   </span>
                 )}
               </div>
             ))}
           </div>
           <p style={{ fontSize: 12, color: '#92400e', marginTop: 10 }}>
-            Pagamentos em falta há mais de 72h suspendem a publicação de novos turnos.
+            {t('admin.shifts.pendingFooter')}
           </p>
         </section>
       )}
@@ -588,11 +601,11 @@ export default function ShiftsPage() {
         <div style={s.qrTipBanner}>
           <span>📲</span>
           <span>
-            Tem turnos confirmados hoje. Certifique-se de que os{' '}
+            {t('admin.shifts.qrTip1')}
             <Link href="/dashboard/qr-codes" style={{ color: '#7c3aed', fontWeight: 700 }}>
-              QR codes
-            </Link>{' '}
-            estão visíveis no seu local de trabalho.
+              {t('admin.shifts.qrTipLink')}
+            </Link>
+            {t('admin.shifts.qrTip2')}
           </span>
         </div>
       )}
@@ -600,15 +613,15 @@ export default function ShiftsPage() {
       {!isLoading && shifts.length === 0 && !error && (
         <div style={s.empty}>
           <div style={s.emptyIcon}>📋</div>
-          <p style={s.emptyText}>Ainda não publicou nenhum turno.</p>
-          <Link href="/dashboard/new-shift" style={s.emptyBtn}>Publicar primeiro turno →</Link>
+          <p style={s.emptyText}>{t('admin.shifts.emptyText')}</p>
+          <Link href="/dashboard/new-shift" style={s.emptyBtn}>{t('admin.shifts.emptyCta')}</Link>
         </div>
       )}
 
       {/* Active shifts */}
       {active.length > 0 && (
         <section style={s.section}>
-          <h2 style={s.sectionTitle}>Turnos Ativos</h2>
+          <h2 style={s.sectionTitle}>{t('admin.shifts.sectionActive')}</h2>
           <div style={s.table}>
             <div style={s.tableHead}>
               <span>Turno</span><span>Data</span><span>Horário</span>
@@ -636,7 +649,7 @@ export default function ShiftsPage() {
       {/* Past shifts */}
       {past.length > 0 && (
         <section style={s.section}>
-          <h2 style={{ ...s.sectionTitle, color: 'var(--color-text-secondary)' }}>Histórico</h2>
+          <h2 style={{ ...s.sectionTitle, color: 'var(--color-text-secondary)' }}>{t('admin.shifts.sectionHistory')}</h2>
           <div style={s.table}>
             <div style={s.tableHead}>
               <span>Turno</span><span>Data</span><span>Horário</span>
@@ -667,9 +680,11 @@ export default function ShiftsPage() {
           >
             <span style={s.expiredToggleIcon}>⚠️</span>
             <span style={s.expiredToggleTitle}>
-              Caducados ({expired.length}) — Turnos sem trabalhador confirmado
+              {t('admin.shifts.expiredToggle', { count: expired.length })}
             </span>
-            <span style={{ marginLeft: 'auto', fontSize: 12 }}>{showExpired ? '▲ Fechar' : '▼ Ver'}</span>
+            <span style={{ marginLeft: 'auto', fontSize: 12 }}>
+              {showExpired ? t('admin.shifts.expiredClose') : t('admin.shifts.expiredOpen')}
+            </span>
           </button>
 
           {showExpired && (
@@ -684,10 +699,10 @@ export default function ShiftsPage() {
                     <p style={s.rowTitle}>{shift.title || shift.subcategory}</p>
                     <p style={s.rowSub}>{shift.employer?.companyName ?? ''}</p>
                   </div>
-                  <span style={s.rowCell}>{formatDate(shift.date)}</span>
+                  <span style={s.rowCell}>{fMediumDate(shift.date)}</span>
                   <span style={s.rowCell}>{shift.startTime.slice(0,5)}–{shift.endTime.slice(0,5)}</span>
                   <span style={s.rowCell}>€{Number(shift.grossHourlyRate).toFixed(2)}/hr</span>
-                  <span style={{ ...s.statusPill, background: '#fee2e2', color: '#dc2626' }}>Caducado</span>
+                  <span style={{ ...s.statusPill, background: '#fee2e2', color: '#dc2626' }}>{t('admin.shifts.expiredPill')}</span>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button
                       style={s.repostBtn}
@@ -697,25 +712,25 @@ export default function ShiftsPage() {
                         window.location.href = '/dashboard/new-shift';
                       }}
                     >
-                      🔁 Re-publicar
+                      {t('admin.shifts.repost')}
                     </button>
                     <button
                       style={{ ...s.deleteBtn, opacity: deletingExpired === shift.id ? 0.5 : 1 }}
                       disabled={deletingExpired === shift.id}
                       onClick={async () => {
-                        if (!confirm('Eliminar este turno caducado?')) return;
+                        if (!confirm(t('admin.shifts.deleteConfirm'))) return;
                         setDeleting(shift.id);
                         try {
                           await adminApi.deleteExpiredShift(shift.id);
                           setShifts(prev => prev.filter(s => s.id !== shift.id));
                         } catch {
-                          alert('Erro ao eliminar.');
+                          alert(t('admin.shifts.deleteError'));
                         } finally {
                           setDeleting(null);
                         }
                       }}
                     >
-                      {deletingExpired === shift.id ? '...' : '🗑 Eliminar'}
+                      {deletingExpired === shift.id ? '...' : t('admin.shifts.deleteExpired')}
                     </button>
                   </div>
                 </div>
@@ -772,6 +787,7 @@ function MarkPaidModal({ wage, onClose, onDone }: {
   onClose: () => void;
   onDone: (updated: WagePayment) => void;
 }) {
+  const { t, fMediumDate } = useT();
   const [proof, setProof]   = useState<File | null>(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy]     = useState(false);
@@ -783,7 +799,7 @@ function MarkPaidModal({ wage, onClose, onDone }: {
     try {
       onDone(await adminApi.markWagePaid(wage.id, proof ?? undefined, reason.trim() || undefined));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erro — tenta novamente.');
+      setError(err instanceof ApiError ? err.message : t('admin.shifts.genericRetry'));
       setBusy(false);
     }
   };
@@ -798,11 +814,12 @@ function MarkPaidModal({ wage, onClose, onDone }: {
     }}>
       <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 460 }}>
         <h2 style={{ fontSize: 17, fontWeight: 800, color: '#1e1b4b', marginBottom: 6 }}>
-          Confirmar pagamento ao trabalhador
+          {t('admin.shifts.markPaidTitle')}
         </h2>
         <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
-          {wage.shiftTitle} · {wage.shiftDate ?? ''} · <strong>€{Number(wage.amount).toFixed(2)}</strong>
-          {' '}via {paymentMethodLabel(wage.paymentMethod)}
+          {t('admin.shifts.markPaidSub', { shift: wage.shiftTitle, date: wage.shiftDate ? fMediumDate(wage.shiftDate) : '' })}
+          <strong>€{Number(wage.amount).toFixed(2)}</strong>
+          {t('admin.shifts.markPaidVia', { method: t(`domain.paymentMethods.${wage.paymentMethod}`, { defaultValue: paymentMethodLabel(wage.paymentMethod) }) })}
         </p>
 
         {wage.workerIban ? (
@@ -810,22 +827,23 @@ function MarkPaidModal({ wage, onClose, onDone }: {
             background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8,
             padding: '10px 12px', fontSize: 13, lineHeight: 1.7, marginBottom: 14,
           }}>
-            <div><strong>{wage.workerName ?? 'Trabalhador'}</strong></div>
-            <div>IBAN: <code>{wage.workerIban}</code></div>
-            <div>Referência: <code>{wage.paymentReference}</code></div>
+            <div><strong>{wage.workerName ?? t('admin.shifts.workerFallback')}</strong></div>
+            <div>{t('admin.shifts.ibanLabel')} <code>{wage.workerIban}</code></div>
+            <div>{t('admin.shifts.referenceLabel')} <code>{wage.paymentReference}</code></div>
           </div>
         ) : wage.workerIbanWithheld ? (
           <div style={{
             background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8,
             padding: '10px 12px', fontSize: 13, lineHeight: 1.5, marginBottom: 14, color: '#92400e',
           }}>
-            O trabalhador não autorizou a partilha do IBAN.
+            {t('admin.shifts.ibanWithheldShort')}
           </div>
         ) : null}
 
         <p style={{ fontSize: 13, color: '#374151', marginBottom: 8 }}>
-          Anexa o <strong>comprovativo</strong> (recibo do banco ou captura do MB WAY). Fica associado
-          a este turno e é o que resolve a disputa se o trabalhador reportar que não recebeu.
+          {t('admin.shifts.proofLead')}
+          <strong>{t('admin.shifts.proofBold')}</strong>
+          {t('admin.shifts.proofRest')}
         </p>
 
         <input
@@ -838,11 +856,11 @@ function MarkPaidModal({ wage, onClose, onDone }: {
         {!proof && (
           <>
             <p style={{ fontSize: 12, color: '#b45309', marginBottom: 6 }}>
-              Sem comprovativo? Explica porquê — fica registado e visível em caso de disputa.
+              {t('admin.shifts.noProofPrompt')}
             </p>
             <input
               type="text"
-              placeholder="Ex.: pagamento feito por terceiro, recibo indisponível"
+              placeholder={t('admin.shifts.noProofPlaceholder')}
               value={reason}
               onChange={e => setReason(e.target.value.slice(0, 200))}
               style={{
@@ -884,7 +902,7 @@ function MarkPaidModal({ wage, onClose, onDone }: {
               opacity: busy || !canSubmit ? 0.6 : 1, fontFamily: 'inherit',
             }}
           >
-            {busy ? 'A enviar…' : '✓ Confirmar pagamento'}
+            {busy ? t('admin.shifts.sending') : t('admin.shifts.markPaidSubmit')}
           </button>
         </div>
       </div>
@@ -900,6 +918,7 @@ function WageActionModal({ wage, mode, onClose, onDone }: {
   onClose: () => void;
   onDone: (updated: WagePayment) => void;
 }) {
+  const { t, fMediumDate } = useT();
   const [hours, setHours] = useState('');
   const [note, setNote]   = useState('');
   const [busy, setBusy]   = useState(false);
@@ -914,7 +933,7 @@ function WageActionModal({ wage, mode, onClose, onDone }: {
         : await adminApi.reportWageProblem(wage.id, 'PROBLEMA_TURNO', note.trim());
       onDone(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erro — tenta novamente.');
+      setError(err instanceof ApiError ? err.message : t('admin.shifts.genericRetry'));
     } finally {
       setBusy(false);
     }
@@ -932,24 +951,28 @@ function WageActionModal({ wage, mode, onClose, onDone }: {
     }}>
       <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 460 }}>
         <h2 style={{ fontSize: 17, fontWeight: 800, color: '#1e1b4b', marginBottom: 6 }}>
-          {mode === 'adjust' ? 'Ajustar horas trabalhadas' : 'Reportar problema no turno'}
+          {mode === 'adjust' ? t('admin.shifts.adjustTitle') : t('admin.shifts.problemTitle')}
         </h2>
         <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
-          {wage.shiftTitle} · {wage.shiftDate ?? ''} · atual: €{Number(wage.amount).toFixed(2)}
+          {t('admin.shifts.wageModalSub', {
+            shift: wage.shiftTitle,
+            date: wage.shiftDate ? fMediumDate(wage.shiftDate) : '',
+            amount: Number(wage.amount).toFixed(2),
+          })}
         </p>
 
         {mode === 'adjust' ? (
           <>
             <p style={{ fontSize: 13, color: '#374151', marginBottom: 8 }}>
-              Quantas horas trabalhou realmente? <strong>Mínimo 2 horas</strong> (política de
-              turno terminado antecipadamente). O valor e o Pay Link são recalculados e o
-              trabalhador é notificado.
+              {t('admin.shifts.adjustLead')}
+              <strong>{t('admin.shifts.adjustBold')}</strong>
+              {t('admin.shifts.adjustRest')}
             </p>
             <input
               type="number"
               min={2}
               step={0.5}
-              placeholder="Ex.: 3.5"
+              placeholder={t('admin.shifts.adjustPlaceholder')}
               value={hours}
               onChange={e => setHours(e.target.value)}
               style={{
@@ -960,14 +983,14 @@ function WageActionModal({ wage, mode, onClose, onDone }: {
           </>
         ) : (
           <p style={{ fontSize: 13, color: '#374151', marginBottom: 8 }}>
-            Descreve o que aconteceu (ex.: o trabalhador abandonou o turno a meio). O ciclo
-            de lembretes de pagamento fica <strong>pausado</strong> enquanto a equipa Turnos
-            analisa (até 48h).
+            {t('admin.shifts.problemLead')}
+            <strong>{t('admin.shifts.problemBold')}</strong>
+            {t('admin.shifts.problemRest')}
           </p>
         )}
 
         <textarea
-          placeholder={mode === 'adjust' ? 'Motivo (opcional)' : 'Descrição do problema (obrigatório)'}
+          placeholder={mode === 'adjust' ? t('admin.shifts.adjustNotePlaceholder') : t('admin.shifts.problemNotePlaceholder')}
           value={note}
           onChange={e => setNote(e.target.value.slice(0, 500))}
           style={{
@@ -1007,7 +1030,7 @@ function WageActionModal({ wage, mode, onClose, onDone }: {
               opacity: busy || !canSubmit ? 0.6 : 1, fontFamily: 'inherit',
             }}
           >
-            {busy ? 'A enviar…' : mode === 'adjust' ? 'Ajustar e recalcular' : 'Reportar problema'}
+            {busy ? t('admin.shifts.sending') : mode === 'adjust' ? t('admin.shifts.adjustSubmit') : t('admin.shifts.problemSubmit')}
           </button>
         </div>
       </div>
@@ -1024,6 +1047,7 @@ function CancelShiftModal({ shift, hoursUntil, busy, onClose, onConfirm }: {
   onClose: () => void;
   onConfirm: (reason?: { reasonCategory?: string; reasonNote?: string }) => void;
 }) {
+  const { t, tSkill, fMediumDate } = useT();
   const [category, setCategory] = useState<string>('');
   const [note, setNote]         = useState('');
 
@@ -1041,10 +1065,14 @@ function CancelShiftModal({ shift, hoursUntil, busy, onClose, onConfirm }: {
         maxHeight: '90vh', overflowY: 'auto',
       }}>
         <h2 style={{ fontSize: 18, fontWeight: 800, color: '#1e1b4b', marginBottom: 6 }}>
-          Cancelar turno preenchido
+          {t('admin.shifts.cancelTitle')}
         </h2>
         <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
-          {shift.title || shift.subcategory} · {formatDate(shift.date)} · {shift.startTime.slice(0, 5)}
+          {t('admin.shifts.cancelSub', {
+            shift: shift.title || tSkill(shift.subcategory),
+            date: fMediumDate(shift.date),
+            time: shift.startTime.slice(0, 5),
+          })}
         </p>
 
         {isUnder3h ? (
@@ -1053,16 +1081,17 @@ function CancelShiftModal({ shift, hoursUntil, busy, onClose, onConfirm }: {
               background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10,
               padding: '12px 14px', fontSize: 13, color: '#991b1b', marginBottom: 16, lineHeight: 1.5,
             }}>
-              ⚠️ Faltam menos de <strong>3 horas</strong> para o início. Se o cancelamento for por
-              erro/decisão da empresa, deves pagar o <strong>mínimo de 2 horas
-              (€{minimumEur.toFixed(2)})</strong> ao trabalhador + a taxa normal de 3€.
-              Motivos justificados são avaliados pela Turnos em até 48h.
+              {t('admin.shifts.under3h1')}
+              <strong>{t('admin.shifts.under3hBold1')}</strong>
+              {t('admin.shifts.under3h2')}
+              <strong>{t('admin.shifts.under3hBold2', { amount: minimumEur.toFixed(2) })}</strong>
+              {t('admin.shifts.under3h3')}
             </div>
             <p style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b', marginBottom: 8 }}>
-              Motivo do cancelamento <span style={{ color: '#dc2626' }}>*</span>
+              {t('admin.shifts.reasonLabel')} <span style={{ color: '#dc2626' }}>*</span>
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
-              {Object.entries(COMPANY_CANCEL_REASONS).map(([key, label]) => (
+              {Object.keys(COMPANY_CANCEL_REASONS).map(key => (
                 <label key={key} style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
                   border: category === key ? '2px solid #6a79ff' : '1.5px solid #e5e7eb',
@@ -1076,17 +1105,17 @@ function CancelShiftModal({ shift, hoursUntil, busy, onClose, onConfirm }: {
                     checked={category === key}
                     onChange={() => setCategory(key)}
                   />
-                  {label}
+                  {t(`domain.companyCancelReasons.${key}`)}
                   {key === 'ERRO_EMPRESA' && (
                     <span style={{ marginLeft: 'auto', fontSize: 11, color: '#dc2626', fontWeight: 700 }}>
-                      2h mín. + 3€
+                      {t('admin.shifts.erroEmpresaTag')}
                     </span>
                   )}
                 </label>
               ))}
             </div>
             <textarea
-              placeholder="Descrição (opcional, recomendado para motivos justificados)"
+              placeholder={t('admin.shifts.cancelNotePlaceholder')}
               value={note}
               onChange={e => setNote(e.target.value.slice(0, 500))}
               style={{
@@ -1102,9 +1131,7 @@ function CancelShiftModal({ shift, hoursUntil, busy, onClose, onConfirm }: {
             borderRadius: 10, padding: '12px 14px', fontSize: 13,
             color: isUnder24h ? '#92400e' : '#166534', marginBottom: 16, lineHeight: 1.5,
           }}>
-            {isUnder24h
-              ? '⏳ Faltam menos de 24 horas. O cancelamento é gratuito mas fica registado na fiabilidade da empresa. O trabalhador será notificado com um pedido de desculpas.'
-              : '✓ Faltam mais de 24 horas — cancelamento gratuito. O trabalhador será notificado com um pedido de desculpas e o turno reabre para outros workers.'}
+            {isUnder24h ? t('admin.shifts.under24h') : t('admin.shifts.over24h')}
           </div>
         )}
 
@@ -1132,7 +1159,7 @@ function CancelShiftModal({ shift, hoursUntil, busy, onClose, onConfirm }: {
               opacity: busy || (isUnder3h && !category) ? 0.6 : 1, fontFamily: 'inherit',
             }}
           >
-            {busy ? 'A cancelar…' : 'Cancelar turno'}
+            {busy ? t('admin.shifts.cancelling') : t('admin.shifts.cancelSubmit')}
           </button>
         </div>
       </div>
@@ -1151,7 +1178,9 @@ function ShiftRow({ shift, onCancel, onManualConfirm, cancelling, confirming, on
   onViewApps: () => void;
   newAppCount: number;
 }) {
-  const st = STATUS_LABEL[shift.status] ?? { label: shift.status, color: '#6b7280', bg: '#f3f4f6' };
+  const { t, tSkill, tCategory, fMediumDate, fDateRange } = useT();
+  const st = STATUS_STYLE[shift.status] ?? { color: '#6b7280', bg: '#f3f4f6' };
+  const statusLabel = t(`domain.shiftStatus.${shift.status}`, { defaultValue: shift.status });
   const canCancel        = ['OPEN', 'DRAFT', 'FILLED'].includes(shift.status);
   const canManualConfirm = ['FILLED', 'ACTIVE'].includes(shift.status);
 
@@ -1159,23 +1188,23 @@ function ShiftRow({ shift, onCancel, onManualConfirm, cancelling, confirming, on
     <div style={s.tableRow}>
       <div>
         <p style={s.rowTitle}>
-          {shift.title || shift.subcategory}
+          {shift.title || tSkill(shift.subcategory)}
           {isMultiDay(shift) && (
-            <span style={s.multiDayTag}>🔁 {shift.seriesDates!.length} dias</span>
+            <span style={s.multiDayTag}>{t('admin.shifts.multiDayTag', { count: shift.seriesDates!.length })}</span>
           )}
         </p>
-        <p style={s.rowSub}>{shift.category} · {shift.address.split(',')[0]}</p>
+        <p style={s.rowSub}>{tCategory(shift.category)} · {shift.address.split(',')[0]}</p>
       </div>
       <span style={s.rowCell}>
-        {isMultiDay(shift) ? formatSeriesRange(shift.seriesDates!) : formatDate(shift.date)}
+        {isMultiDay(shift) ? fDateRange(shift.seriesDates!) : fMediumDate(shift.date)}
       </span>
       <span style={s.rowCell}>{shift.startTime.slice(0, 5)}–{shift.endTime.slice(0, 5)}</span>
       <span style={{ ...s.rowCell, fontWeight: 700 }}>€{Number(shift.grossHourlyRate).toFixed(2)}/hr</span>
-      <span style={{ ...s.badge, color: st.color, background: st.bg }}>{st.label}</span>
+      <span style={{ ...s.badge, color: st.color, background: st.bg }}>{statusLabel}</span>
       <div style={s.rowActions}>
         {['OPEN', 'FILLED'].includes(shift.status) && (
           <button style={s.viewAppsBtn} onClick={onViewApps}>
-            👥 Candidatos
+            {t('admin.shifts.viewApps')}
             {newAppCount > 0 && (
               <span style={s.newBadge}>{newAppCount}</span>
             )}
@@ -1186,9 +1215,9 @@ function ShiftRow({ shift, onCancel, onManualConfirm, cancelling, confirming, on
             style={{ ...s.confirmBtn, opacity: confirming === shift.id ? 0.6 : 1 }}
             onClick={() => onManualConfirm(shift)}
             disabled={confirming === shift.id}
-            title="Marcar como concluído (sem QR) — usar quando o turno não concluiu automaticamente"
+            title={t('admin.shifts.manualDoneTitle')}
           >
-            {confirming === shift.id ? '...' : '🏁 Concluído'}
+            {confirming === shift.id ? '...' : t('admin.shifts.manualDone')}
           </button>
         )}
         {canCancel && (
@@ -1197,7 +1226,7 @@ function ShiftRow({ shift, onCancel, onManualConfirm, cancelling, confirming, on
             onClick={() => onCancel(shift.id)}
             disabled={cancelling === shift.id}
           >
-            {cancelling === shift.id ? '...' : 'Cancelar'}
+            {cancelling === shift.id ? '...' : t('admin.shifts.cancelBtn')}
           </button>
         )}
       </div>

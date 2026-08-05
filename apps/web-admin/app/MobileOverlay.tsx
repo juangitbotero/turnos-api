@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useT } from '../lib/i18n';
 
 const STORAGE_KEY = 'turnos_mobile_overlay_dismissed';
 
 export default function MobileOverlay() {
+  const { t } = useT();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -23,14 +25,10 @@ export default function MobileOverlay() {
     <div style={s.backdrop}>
       <div style={s.card}>
         <div style={s.icon}>💻</div>
-        <h2 style={s.title}>Melhor no computador</h2>
-        <p style={s.body}>
-          O Turnos Web Admin foi desenhado para desktop ou tablet.
-          Para gerir turnos, aprovar candidatos e aceder a todos os relatórios,
-          abre este link num computador ou tablet.
-        </p>
+        <h2 style={s.title}>{t('admin.mobileOverlay.title')}</h2>
+        <p style={s.body}>{t('admin.mobileOverlay.body')}</p>
         <button style={s.continueBtn} onClick={dismiss}>
-          Continuar mesmo assim
+          {t('admin.mobileOverlay.continue')}
         </button>
       </div>
     </div>

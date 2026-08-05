@@ -16,17 +16,12 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { adminApi, SpendingReport, PaymentRecord } from '../../../lib/api';
-import { formatDate, formatEuro } from '../../../lib/format';
+import { useT } from '../../../lib/i18n';
+import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 
 type Period = 'month' | 'year';
 
-const MONTHS_PT = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-];
-
-function downloadCsv(records: PaymentRecord[], period: string) {
-  const header = 'Data,Turno ID,Gross (€),Taxa Turnos (€),TSU Entidade (€),TSU Trabalhador (€),Horas,Líquido Trabalhador (€)';
+function downloadCsv(records: PaymentRecord[], period: string, header: string, filename: string) {
   const rows = records.map(r =>
     [
       r.shiftDate ?? '',
@@ -44,7 +39,7 @@ function downloadCsv(records: PaymentRecord[], period: string) {
   const url   = URL.createObjectURL(blob);
   const link  = document.createElement('a');
   link.href   = url;
-  link.download = `turnos-gastos-${period}.csv`;
+  link.download = `${filename}-${period}.csv`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -53,6 +48,7 @@ function downloadCsv(records: PaymentRecord[], period: string) {
 
 export default function SpendingPage() {
   const router = useRouter();
+  const { t, fMediumDate, fMoney, fMonthName } = useT();
 
   const now   = new Date();
   const [period,      setPeriod]      = useState<Period>('month');
@@ -67,14 +63,14 @@ export default function SpendingPage() {
     setError('');
     adminApi.getEmployerSpending(period, period === 'month' ? month : undefined, year)
       .then(setReport)
-      .catch(err => setError(err instanceof Error ? err.message : 'Erro ao carregar dados.'))
+      .catch(err => setError(err instanceof Error ? err.message : t('admin.spending.loadError')))
       .finally(() => setLoading(false));
   }, [period, month, year]);
 
   useEffect(() => { load(); }, [load]);
 
   const periodLabel = period === 'month'
-    ? `${MONTHS_PT[month - 1]} ${year}`
+    ? `${fMonthName(month - 1, year)} ${year}`
     : String(year);
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -85,18 +81,26 @@ export default function SpendingPage() {
       {/* Header */}
       <div style={s.header}>
         <div>
-          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>← Dashboard</button>
-          <h1 style={s.pageTitle}>Gastos</h1>
-          <p style={s.pageSub}>Análise de custos por turno e relatório TSU para contabilidade</p>
+          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>{t('admin.chrome.backDashboard')}</button>
+          <h1 style={s.pageTitle}>{t('admin.spending.title')}</h1>
+          <p style={s.pageSub}>{t('admin.spending.sub')}</p>
         </div>
-        {report && report.records.length > 0 && (
-          <button
-            style={s.csvBtn}
-            onClick={() => downloadCsv(report.records, periodLabel)}
-          >
-            ⬇ Exportar CSV
-          </button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <LanguageSwitcher />
+          {report && report.records.length > 0 && (
+            <button
+              style={s.csvBtn}
+              onClick={() => downloadCsv(
+                report.records,
+                periodLabel,
+                t('admin.spending.csvHeader'),
+                t('admin.spending.csvFilename'),
+              )}
+            >
+              {t('admin.spending.exportCsv')}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Period controls */}
@@ -106,21 +110,21 @@ export default function SpendingPage() {
             style={{ ...s.toggleBtn, ...(period === 'month' ? s.toggleBtnActive : {}) }}
             onClick={() => setPeriod('month')}
           >
-            Mês
+            {t('admin.spending.periodMonth')}
           </button>
           <button
             style={{ ...s.toggleBtn, ...(period === 'year' ? s.toggleBtnActive : {}) }}
             onClick={() => setPeriod('year')}
           >
-            Ano
+            {t('admin.spending.periodYear')}
           </button>
         </div>
 
         {period === 'month' && (
           <div style={s.pickerRow}>
             <select style={s.select} value={month} onChange={e => setMonth(Number(e.target.value))}>
-              {MONTHS_PT.map((m, i) => (
-                <option key={m} value={i + 1}>{m}</option>
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i} value={i + 1}>{fMonthName(i, year)}</option>
               ))}
             </select>
             <select style={s.select} value={year} onChange={e => setYear(Number(e.target.value))}>
@@ -144,7 +148,7 @@ export default function SpendingPage() {
       {loading && (
         <div style={s.centered}>
           <div style={s.spinner} />
-          <p style={s.loadingText}>A carregar dados de {periodLabel}…</p>
+          <p style={s.loadingText}>{t('admin.spending.loading', { period: periodLabel })}</p>
         </div>
       )}
 
@@ -157,11 +161,9 @@ export default function SpendingPage() {
       {!loading && !error && report?.records.length === 0 && (
         <div style={s.emptyState}>
           <div style={s.emptyIcon}>💶</div>
-          <div style={s.emptyTitle}>Sem turnos pagos em {periodLabel}</div>
-          <p style={s.emptySub}>
-            Os dados aparecem aqui quando os turnos são concluídos (automaticamente à hora de fim).
-          </p>
-          <Link href="/dashboard/shifts" style={s.emptyLink}>Ver Turnos →</Link>
+          <div style={s.emptyTitle}>{t('admin.spending.emptyTitle', { period: periodLabel })}</div>
+          <p style={s.emptySub}>{t('admin.spending.emptySub')}</p>
+          <Link href="/dashboard/shifts" style={s.emptyLink}>{t('admin.spending.emptyCta')}</Link>
         </div>
       )}
 
@@ -172,30 +174,34 @@ export default function SpendingPage() {
           <section style={s.kpiGrid}>
             <KpiCard
               icon="💶"
-              label="Salários a pagar (informativo)"
-              value={formatEuro(report.totalGross)}
-              sub={`${report.shiftCount} turno${report.shiftCount !== 1 ? 's' : ''} — pagas diretamente aos workers`}
+              label={t('admin.spending.kpiWages')}
+              value={fMoney(report.totalGross)}
+              sub={report.shiftCount === 1
+                ? t('admin.spending.kpiWagesSubOne')
+                : t('admin.spending.kpiWagesSubOther', { count: report.shiftCount })}
               color="#6a79ff"
             />
             <KpiCard
               icon="🏛️"
-              label="TSU a pagar ao Estado"
-              value={formatEuro(report.employerTsu)}
-              sub="23.75% do gross — valor informativo"
+              label={t('admin.spending.kpiTsu')}
+              value={fMoney(report.employerTsu)}
+              sub={t('admin.spending.kpiTsuSub')}
               color="#f59e0b"
             />
             <KpiCard
               icon="📊"
-              label="Taxas Turnos"
-              value={formatEuro(report.turnosFees)}
-              sub={`${report.shiftCount} turno${report.shiftCount !== 1 ? 's' : ''} × 3€ — na próxima fatura mensal`}
+              label={t('admin.spending.kpiFees')}
+              value={fMoney(report.turnosFees)}
+              sub={report.shiftCount === 1
+                ? t('admin.spending.kpiFeesSubOne')
+                : t('admin.spending.kpiFeesSubOther', { count: report.shiftCount })}
               color="#8b5cf6"
             />
             <KpiCard
               icon="📈"
-              label="Custo médio por turno"
-              value={formatEuro(report.avgCostPerShift)}
-              sub="Gross + TSU entidade"
+              label={t('admin.spending.kpiAvg')}
+              value={fMoney(report.avgCostPerShift)}
+              sub={t('admin.spending.kpiAvgSub')}
               color="#10b981"
             />
           </section>
@@ -205,11 +211,11 @@ export default function SpendingPage() {
             <div style={s.tsuReminderLeft}>
               <span style={s.tsuReminderIcon}>⚠️</span>
               <div>
-                <div style={s.tsuReminderTitle}>Lembra-te: TSU da entidade empregadora</div>
+                <div style={s.tsuReminderTitle}>{t('admin.spending.tsuReminderTitle')}</div>
                 <div style={s.tsuReminderText}>
-                  Deves entregar <strong>{formatEuro(report.employerTsu)}</strong> à Segurança Social
-                  referente a {periodLabel}. A taxa é de 23,75% sobre o total dos salários brutos.
-                  Prazo de entrega: até ao dia 20 do mês seguinte.
+                  {t('admin.spending.tsuReminder1')}
+                  <strong>{fMoney(report.employerTsu)}</strong>
+                  {t('admin.spending.tsuReminder2', { period: periodLabel })}
                 </div>
               </div>
             </div>
@@ -218,10 +224,10 @@ export default function SpendingPage() {
           {/* Monthly breakdown (year view only) */}
           {period === 'year' && report.monthlyBreakdown && report.monthlyBreakdown.length > 0 && (
             <div style={s.card}>
-              <h2 style={s.cardTitle}>Detalhe mensal — {year}</h2>
+              <h2 style={s.cardTitle}>{t('admin.spending.monthlyTitle', { year })}</h2>
               <div style={s.monthGrid}>
                 {report.monthlyBreakdown.map(({ month: m, gross, tsu }) => {
-                  const mLabel = MONTHS_PT[Number(m.split('-')[1]) - 1] ?? m;
+                  const mLabel = fMonthName(Number(m.split('-')[1]) - 1, year);
                   const maxGross = Math.max(...(report.monthlyBreakdown ?? []).map(x => x.gross), 1);
                   const barPct = Math.round((gross / maxGross) * 100);
                   return (
@@ -230,8 +236,8 @@ export default function SpendingPage() {
                       <div style={s.monthBarBg}>
                         <div style={{ ...s.monthBarFill, height: `${barPct}%` }} />
                       </div>
-                      <div style={s.monthBarValue}>{formatEuro(gross)}</div>
-                      <div style={s.monthBarTsu}>TSU {formatEuro(tsu)}</div>
+                      <div style={s.monthBarValue}>{fMoney(gross)}</div>
+                      <div style={s.monthBarTsu}>TSU {fMoney(tsu)}</div>
                     </div>
                   );
                 })}
@@ -242,46 +248,46 @@ export default function SpendingPage() {
           {/* Shift breakdown table */}
           <div style={s.card}>
             <div style={s.tableCardHeader}>
-              <h2 style={s.cardTitle}>Turnos — {periodLabel}</h2>
-              <span style={s.tableCount}>{report.records.length} registos</span>
+              <h2 style={s.cardTitle}>{t('admin.spending.tableTitle', { period: periodLabel })}</h2>
+              <span style={s.tableCount}>{t('admin.spending.recordsCount', { count: report.records.length })}</span>
             </div>
             <div style={s.tableWrap}>
               <div style={{ ...s.tableRow, ...s.tableHeader }}>
-                <div>Data</div>
-                <div>Gross</div>
-                <div>Taxa Turnos</div>
-                <div>TSU Entidade</div>
-                <div>TSU Trabalhador</div>
-                <div>Horas</div>
-                <div>Líquido Trabalhador</div>
+                <div>{t('admin.spending.colDate')}</div>
+                <div>{t('admin.spending.colGross')}</div>
+                <div>{t('admin.spending.colFee')}</div>
+                <div>{t('admin.spending.colEmployerTsu')}</div>
+                <div>{t('admin.spending.colWorkerTsu')}</div>
+                <div>{t('admin.spending.colHours')}</div>
+                <div>{t('admin.spending.colNet')}</div>
               </div>
               {report.records.map(r => (
                 <div key={r.id} style={s.tableRow}>
-                  <div style={s.cellDate}>{r.shiftDate ? formatDate(r.shiftDate) : '—'}</div>
-                  <div style={s.cellGross}>{formatEuro(Number(r.grossAmount))}</div>
-                  <div style={s.cellFee}>{formatEuro(Number(r.turnosFee ?? 0))}</div>
-                  <div style={s.cellTsu}>{formatEuro(Number(r.employerTsu ?? 0))}</div>
-                  <div style={s.cellTsu}>{formatEuro(Number(r.workerTsu ?? 0))}</div>
+                  <div style={s.cellDate}>{r.shiftDate ? fMediumDate(r.shiftDate) : '—'}</div>
+                  <div style={s.cellGross}>{fMoney(Number(r.grossAmount))}</div>
+                  <div style={s.cellFee}>{fMoney(Number(r.turnosFee ?? 0))}</div>
+                  <div style={s.cellTsu}>{fMoney(Number(r.employerTsu ?? 0))}</div>
+                  <div style={s.cellTsu}>{fMoney(Number(r.workerTsu ?? 0))}</div>
                   <div style={s.cellHours}>{Number(r.scheduledHours ?? 0).toFixed(1)}h</div>
-                  <div style={s.cellNet}>{formatEuro(Number(r.workerNet ?? 0))}</div>
+                  <div style={s.cellNet}>{fMoney(Number(r.workerNet ?? 0))}</div>
                 </div>
               ))}
             </div>
 
             {/* Column totals */}
             <div style={{ ...s.tableRow, ...s.tableTotals }}>
-              <div style={s.totalLabel}>Total</div>
-              <div style={s.totalVal}>{formatEuro(report.totalGross)}</div>
-              <div style={s.totalVal}>{formatEuro(report.turnosFees)}</div>
-              <div style={{ ...s.totalVal, color: '#d97706' }}>{formatEuro(report.employerTsu)}</div>
+              <div style={s.totalLabel}>{t('admin.spending.totalLabel')}</div>
+              <div style={s.totalVal}>{fMoney(report.totalGross)}</div>
+              <div style={s.totalVal}>{fMoney(report.turnosFees)}</div>
+              <div style={{ ...s.totalVal, color: '#d97706' }}>{fMoney(report.employerTsu)}</div>
               <div style={s.totalVal}>
-                {formatEuro(report.records.reduce((s, r) => s + Number(r.workerTsu ?? 0), 0))}
+                {fMoney(report.records.reduce((s, r) => s + Number(r.workerTsu ?? 0), 0))}
               </div>
               <div style={s.totalVal}>
                 {report.records.reduce((s, r) => s + Number(r.scheduledHours ?? 0), 0).toFixed(1)}h
               </div>
               <div style={s.totalVal}>
-                {formatEuro(report.records.reduce((s, r) => s + Number(r.workerNet ?? 0), 0))}
+                {fMoney(report.records.reduce((s, r) => s + Number(r.workerNet ?? 0), 0))}
               </div>
             </div>
           </div>
@@ -290,8 +296,8 @@ export default function SpendingPage() {
 
       {/* Nav */}
       <div style={s.navRow}>
-        <Link href="/dashboard/billing" style={s.navLink}>Ver Faturação →</Link>
-        <Link href="/dashboard" style={s.navLink}>← Dashboard</Link>
+        <Link href="/dashboard/billing" style={s.navLink}>{t('admin.spending.navBilling')}</Link>
+        <Link href="/dashboard" style={s.navLink}>{t('admin.chrome.backDashboard')}</Link>
       </div>
 
     </div>

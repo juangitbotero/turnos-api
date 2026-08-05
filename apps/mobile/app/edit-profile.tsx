@@ -10,13 +10,13 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import {
   colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory,
-  LANGUAGES, isValidIBAN, isValidNIF,
-  JOB_TITLES, EXPERIENCE_LEVELS, ExperienceLevel, WorkerExperience, experienceLevelLabel,
+  LANGUAGES, isValidIBAN, isValidNIF, STORED_WEEKDAYS,
+  JOB_TITLES, EXPERIENCE_LEVELS, ExperienceLevel, WorkerExperience,
 } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
+import { useT } from '../lib/i18n';
 
-const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const SKILL_CATEGORIES = Object.keys(SHIFT_CATEGORIES) as ShiftCategory[];
 
 // Category icons map
@@ -40,6 +40,7 @@ function SkillCategoryAccordion({
   selected: string[];
   onToggle: (sk: string) => void;
 }) {
+  const { tCategory, tSkill } = useT();
   const [open, setOpen] = useState(false);
   const activeInCategory = skills.filter(sk => selected.includes(sk)).length;
 
@@ -51,7 +52,7 @@ function SkillCategoryAccordion({
         activeOpacity={0.7}
       >
         <Ionicons name={(CATEGORY_ICONS[category] ?? 'grid-outline') as any} size={16} color={colors.primary} />
-        <Text style={acc.headerText}>{category}</Text>
+        <Text style={acc.headerText}>{tCategory(category)}</Text>
         {activeInCategory > 0 && (
           <View style={acc.countBadge}>
             <Text style={acc.countText}>{activeInCategory}</Text>
@@ -77,7 +78,8 @@ function SkillCategoryAccordion({
                   onPress={() => onToggle(sk)}
                   activeOpacity={0.8}
                 >
-                  <Text style={[acc.chipText, active && acc.chipTextActive]}>{sk}</Text>
+                  {/* Display only — `sk` stays the stored PT value on toggle */}
+                  <Text style={[acc.chipText, active && acc.chipTextActive]}>{tSkill(sk)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -128,6 +130,7 @@ function ExperiencePicker({
   onCancel: () => void;
   onPick: (jobTitle: string, level: ExperienceLevel) => void;
 }) {
+  const { t, tSkill } = useT();
   const [chosenTitle, setChosenTitle] = useState<string | null>(null);
 
   // Reset to step 1 whenever the modal reopens
@@ -144,14 +147,16 @@ function ExperiencePicker({
               </TouchableOpacity>
             ) : <View style={{ width: 22 }} />}
             <Text style={ep.title}>
-              {chosenTitle ? 'Quantos anos?' : 'Escolhe a função'}
+              {chosenTitle
+                ? t('mobile.editProfile.experiencePickYears')
+                : t('mobile.editProfile.experiencePickJob')}
             </Text>
             <TouchableOpacity onPress={onCancel} activeOpacity={0.7}>
               <Ionicons name="close" size={22} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
-          {chosenTitle && <Text style={ep.chosen}>{chosenTitle}</Text>}
+          {chosenTitle && <Text style={ep.chosen}>{tSkill(chosenTitle)}</Text>}
 
           <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
             {chosenTitle ? (
@@ -162,7 +167,7 @@ function ExperiencePicker({
                   onPress={() => onPick(chosenTitle, level)}
                   activeOpacity={0.75}
                 >
-                  <Text style={ep.rowText}>{EXPERIENCE_LEVELS[level]}</Text>
+                  <Text style={ep.rowText}>{t(`domain.experienceLevels.${level}`)}</Text>
                   <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
                 </TouchableOpacity>
               ))
@@ -176,9 +181,9 @@ function ExperiencePicker({
                     onPress={() => setChosenTitle(title)}
                     activeOpacity={0.75}
                   >
-                    <Text style={ep.rowText}>{title}</Text>
+                    <Text style={ep.rowText}>{tSkill(title)}</Text>
                     {already
-                      ? <Text style={ep.already}>{experienceLevelLabel(already.level)}</Text>
+                      ? <Text style={ep.already}>{t(`domain.experienceLevelsShort.${already.level}`)}</Text>
                       : <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />}
                   </TouchableOpacity>
                 );
@@ -214,6 +219,7 @@ const ep = StyleSheet.create({
 
 export default function EditProfileScreen() {
   const router = useRouter();
+  const { t, tSkill, tWorkerLanguage, tWeekday } = useT();
 
   const [fullName, setFullName]           = useState('');
   const [bio, setBio]                     = useState('');
@@ -263,17 +269,17 @@ export default function EditProfileScreen() {
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
         await tokenStorage.clear();
         Alert.alert(
-          'Sessão expirada',
-          'A tua sessão expirou. Por favor inicia sessão novamente.',
-          [{ text: 'Iniciar sessão', onPress: () => router.replace('/login') }],
+          t('common.sessionExpired'),
+          t('common.sessionExpiredBody'),
+          [{ text: t('common.signIn'), onPress: () => router.replace('/login') }],
         );
         return;
       }
-      Alert.alert('Erro', 'Não foi possível carregar o perfil.');
+      Alert.alert(t('common.error'), t('mobile.profile.loadError'));
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [router, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -293,7 +299,7 @@ export default function EditProfileScreen() {
   const handlePickPhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria para alterar a foto.');
+      Alert.alert(t('mobile.editProfile.photoPermTitle'), t('mobile.editProfile.photoPermBody'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -312,9 +318,9 @@ export default function EditProfileScreen() {
     try {
       const { photoUrl: newUrl } = await authApi.uploadWorkerPhoto(asset.uri, mime);
       setPhotoUrl(newUrl);
-      Alert.alert('Foto atualizada!', 'A tua foto de perfil foi guardada.');
+      Alert.alert(t('mobile.editProfile.photoSavedTitle'), t('mobile.editProfile.photoSavedBody'));
     } catch {
-      Alert.alert('Erro', 'Não foi possível fazer upload da foto. Tenta novamente.');
+      Alert.alert(t('common.error'), t('mobile.editProfile.photoFailed'));
     } finally {
       setUploadingPhoto(false);
     }
@@ -334,7 +340,7 @@ export default function EditProfileScreen() {
 
     const asset = result.assets[0];
     if (asset.size && asset.size > 10 * 1024 * 1024) {
-      Alert.alert('Ficheiro demasiado grande', 'O CV não pode exceder 10 MB.');
+      Alert.alert(t('mobile.editProfile.cvTooBigTitle'), t('mobile.editProfile.cvTooBigBody'));
       return;
     }
 
@@ -347,27 +353,30 @@ export default function EditProfileScreen() {
       );
       setCvUrl(res.cvUrl);
       setCvFileName(res.cvFileName);
-      Alert.alert('CV carregado!', `O teu perfil está agora ${res.profileQualityScore}% completo.`);
+      Alert.alert(
+        t('mobile.editProfile.cvDoneTitle'),
+        t('mobile.editProfile.cvDoneBody', { score: res.profileQualityScore }),
+      );
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Não foi possível carregar o CV. Tenta novamente.';
-      Alert.alert('Erro', msg);
+      const msg = err instanceof ApiError ? err.message : t('mobile.editProfile.cvFailed');
+      Alert.alert(t('common.error'), msg);
     } finally {
       setUploadingCv(false);
     }
   };
 
   const handleRemoveCv = () => {
-    Alert.alert('Remover CV', 'Tens a certeza? Vais perder 10 pontos no perfil.', [
-      { text: 'Cancelar', style: 'cancel' },
+    Alert.alert(t('mobile.editProfile.cvRemoveTitle'), t('mobile.editProfile.cvRemoveBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Remover', style: 'destructive',
+        text: t('common.remove'), style: 'destructive',
         onPress: async () => {
           try {
             await authApi.deleteWorkerCv();
             setCvUrl(null);
             setCvFileName(null);
           } catch {
-            Alert.alert('Erro', 'Não foi possível remover o CV.');
+            Alert.alert(t('common.error'), t('mobile.editProfile.cvRemoveFailed'));
           }
         },
       },
@@ -390,7 +399,7 @@ export default function EditProfileScreen() {
 
   const handleSave = async () => {
     if (!fullName.trim()) {
-      Alert.alert('Nome obrigatório', 'Por favor introduz o teu nome completo.');
+      Alert.alert(t('mobile.editProfile.nameRequiredTitle'), t('mobile.editProfile.nameRequiredBody'));
       return;
     }
     setSaving(true);
@@ -398,7 +407,7 @@ export default function EditProfileScreen() {
       // Validate NIF if provided
       const nifClean = nif.replace(/\D/g, '').slice(0, 9);
       if (nifClean && !isValidNIF(nifClean)) {
-        setNifError('NIF inválido — deve ter 9 dígitos válidos.');
+        setNifError(t('mobile.editProfile.nifInvalid'));
         setSaving(false);
         return;
       }
@@ -406,7 +415,7 @@ export default function EditProfileScreen() {
 
       // Validate IBAN if provided
       if (ibanClean && !isValidIBAN(ibanClean)) {
-        setIbanError('IBAN inválido — verifica o formato PT50...');
+        setIbanError(t('mobile.editProfile.ibanInvalid'));
         setSaving(false);
         return;
       }
@@ -426,11 +435,11 @@ export default function EditProfileScreen() {
         // Only meaningful with an IBAN on file; withdrawing it clears the consent
         ibanShareConsent: ibanClean ? ibanShareConsent : false,
       });
-      Alert.alert('Perfil guardado!', 'As tuas alterações foram guardadas com sucesso.', [
+      Alert.alert(t('mobile.editProfile.savedTitle'), t('mobile.editProfile.savedBody'), [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch {
-      Alert.alert('Erro', 'Não foi possível guardar as alterações. Tenta novamente.');
+      Alert.alert(t('common.error'), t('mobile.editProfile.saveError'));
     } finally {
       setSaving(false);
     }
@@ -451,7 +460,7 @@ export default function EditProfileScreen() {
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Editar perfil</Text>
+        <Text style={s.headerTitle}>{t('mobile.editProfile.title')}</Text>
         <TouchableOpacity
           onPress={handleSave}
           disabled={saving}
@@ -460,7 +469,7 @@ export default function EditProfileScreen() {
         >
           {saving
             ? <ActivityIndicator color="#fff" size="small" />
-            : <Text style={s.saveBtnText}>Guardar</Text>
+            : <Text style={s.saveBtnText}>{t('common.save')}</Text>
           }
         </TouchableOpacity>
       </LinearGradient>
@@ -486,20 +495,20 @@ export default function EditProfileScreen() {
               }
             </View>
           </TouchableOpacity>
-          <Text style={s.photoHint}>Toca para alterar a foto</Text>
+          <Text style={s.photoHint}>{t('mobile.editProfile.photoHint')}</Text>
         </View>
 
         {/* ── Name ── */}
         <View style={s.card}>
           <View style={s.cardHeader}>
             <Ionicons name="person-outline" size={16} color={colors.primary} />
-            <Text style={s.cardTitle}>NOME COMPLETO</Text>
+            <Text style={s.cardTitle}>{t('mobile.editProfile.nameTitle')}</Text>
           </View>
           <TextInput
             style={s.input}
             value={fullName}
             onChangeText={setFullName}
-            placeholder="O teu nome completo"
+            placeholder={t('mobile.editProfile.namePlaceholder')}
             placeholderTextColor={colors.textSecondary}
             autoCapitalize="words"
             returnKeyType="done"
@@ -510,14 +519,14 @@ export default function EditProfileScreen() {
         <View style={s.card}>
           <View style={s.cardHeader}>
             <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.primary} />
-            <Text style={s.cardTitle}>INTRODUÇÃO</Text>
+            <Text style={s.cardTitle}>{t('mobile.editProfile.bioTitle')}</Text>
           </View>
-          <Text style={s.cardSub}>Uma breve apresentação para os empregadores (máx. 200 caracteres)</Text>
+          <Text style={s.cardSub}>{t('mobile.editProfile.bioSub')}</Text>
           <TextInput
             style={[s.input, { height: 80, textAlignVertical: 'top', paddingTop: 10 }]}
             value={bio}
-            onChangeText={t => setBio(t.slice(0, 200))}
-            placeholder="Ex: Tenho 3 anos de experiência em restauração e sou pontual e proativo..."
+            onChangeText={text => setBio(text.slice(0, 200))}
+            placeholder={t('mobile.editProfile.bioPlaceholder')}
             placeholderTextColor={colors.textSecondary}
             multiline
             maxLength={200}
@@ -529,27 +538,25 @@ export default function EditProfileScreen() {
         <View style={s.card}>
           <View style={s.cardHeader}>
             <Ionicons name="document-text-outline" size={16} color={colors.primary} />
-            <Text style={s.cardTitle}>CURRÍCULO (CV)</Text>
+            <Text style={s.cardTitle}>{t('mobile.editProfile.cvTitle')}</Text>
           </View>
-          <Text style={s.cardSub}>
-            PDF ou Word, até 10 MB. As empresas veem-no quando escolhem candidatos. Vale +10pts no perfil.
-          </Text>
+          <Text style={s.cardSub}>{t('mobile.editProfile.cvSub')}</Text>
 
           {cvUrl ? (
             <View style={s.cvRow}>
               <View style={s.cvInfo}>
                 <Ionicons name="document-attach" size={20} color="#16a34a" />
-                <Text style={s.cvName} numberOfLines={1}>{cvFileName ?? 'CV carregado'}</Text>
+                <Text style={s.cvName} numberOfLines={1}>{cvFileName ?? t('mobile.editProfile.cvFallback')}</Text>
               </View>
               <View style={s.cvActions}>
                 <TouchableOpacity onPress={() => Linking.openURL(cvUrl)} activeOpacity={0.7}>
-                  <Text style={s.cvView}>Ver</Text>
+                  <Text style={s.cvView}>{t('mobile.editProfile.cvView')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handlePickCv} disabled={uploadingCv} activeOpacity={0.7}>
-                  <Text style={s.cvReplace}>{uploadingCv ? '...' : 'Substituir'}</Text>
+                  <Text style={s.cvReplace}>{uploadingCv ? '...' : t('mobile.editProfile.cvReplace')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleRemoveCv} activeOpacity={0.7}>
-                  <Text style={s.cvRemove}>Remover</Text>
+                  <Text style={s.cvRemove}>{t('common.remove')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -565,7 +572,7 @@ export default function EditProfileScreen() {
               ) : (
                 <>
                   <Ionicons name="cloud-upload-outline" size={18} color={colors.primary} />
-                  <Text style={s.cvUploadText}>Carregar o meu CV</Text>
+                  <Text style={s.cvUploadText}>{t('mobile.editProfile.cvUpload')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -576,17 +583,15 @@ export default function EditProfileScreen() {
         <View style={s.card}>
           <View style={s.cardHeader}>
             <Ionicons name="briefcase-outline" size={16} color={colors.primary} />
-            <Text style={s.cardTitle}>AS MINHAS EXPERIÊNCIAS</Text>
+            <Text style={s.cardTitle}>{t('mobile.editProfile.experiencesTitle')}</Text>
           </View>
-          <Text style={s.cardSub}>
-            Quantos anos já trabalhaste em cada função. As empresas veem isto ao escolher candidatos.
-          </Text>
+          <Text style={s.cardSub}>{t('mobile.editProfile.experiencesSub')}</Text>
 
           {experiences.map(exp => (
             <View key={exp.jobTitle} style={s.expRow}>
               <View style={{ flex: 1 }}>
-                <Text style={s.expTitle}>{exp.jobTitle}</Text>
-                <Text style={s.expLevel}>{experienceLevelLabel(exp.level)}</Text>
+                <Text style={s.expTitle}>{tSkill(exp.jobTitle)}</Text>
+                <Text style={s.expLevel}>{t(`domain.experienceLevels.${exp.level}`)}</Text>
               </View>
               <TouchableOpacity onPress={() => removeExperience(exp.jobTitle)} activeOpacity={0.7}>
                 <Ionicons name="close-circle" size={22} color="#dc2626" />
@@ -596,7 +601,7 @@ export default function EditProfileScreen() {
 
           <TouchableOpacity style={s.expAddBtn} onPress={() => setExpPickerOpen(true)} activeOpacity={0.85}>
             <Ionicons name="add" size={18} color={colors.primary} />
-            <Text style={s.expAddText}>Adicionar experiência</Text>
+            <Text style={s.expAddText}>{t('mobile.editProfile.experienceAdd')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -604,12 +609,12 @@ export default function EditProfileScreen() {
         <View style={s.card}>
           <View style={s.cardHeader}>
             <Ionicons name="card-outline" size={16} color={colors.primary} />
-            <Text style={s.cardTitle}>DADOS LEGAIS & BANCÁRIOS</Text>
+            <Text style={s.cardTitle}>{t('mobile.editProfile.legalTitle')}</Text>
           </View>
-          <Text style={s.cardSub}>Necessários para contratos MCD e receber pagamentos. Valem +20pts cada no perfil.</Text>
+          <Text style={s.cardSub}>{t('mobile.editProfile.legalSub')}</Text>
 
           {/* NIF — editable */}
-          <Text style={[s.fieldLabel, { marginTop: 4 }]}>NIF <Text style={s.optText}>(opcional)</Text></Text>
+          <Text style={[s.fieldLabel, { marginTop: 4 }]}>NIF <Text style={s.optText}>{t('common.optional')}</Text></Text>
           <TextInput
             style={[s.input, nifError ? s.inputError : {}]}
             value={nif}
@@ -623,13 +628,13 @@ export default function EditProfileScreen() {
           {nifError
             ? <Text style={s.errorText}>{nifError}</Text>
             : nif.length === 9 && isValidNIF(nif)
-              ? <Text style={s.validText}>✓ NIF válido</Text>
+              ? <Text style={s.validText}>{t('mobile.editProfile.nifValid')}</Text>
               : null
           }
-          <Text style={s.fieldHint}>Número de Identificação Fiscal português (9 dígitos).</Text>
+          <Text style={s.fieldHint}>{t('mobile.editProfile.nifHint')}</Text>
 
           {/* IBAN — editable */}
-          <Text style={[s.fieldLabel, { marginTop: 12 }]}>IBAN <Text style={s.optText}>(opcional)</Text></Text>
+          <Text style={[s.fieldLabel, { marginTop: 12 }]}>IBAN <Text style={s.optText}>{t('common.optional')}</Text></Text>
           <TextInput
             style={[s.input, ibanError ? s.inputError : {}]}
             value={iban}
@@ -643,10 +648,10 @@ export default function EditProfileScreen() {
           {ibanError
             ? <Text style={s.errorText}>{ibanError}</Text>
             : iban.replace(/\s/g, '').length === 25 && isValidIBAN(iban.replace(/\s/g, ''))
-              ? <Text style={s.validText}>✓ IBAN válido</Text>
+              ? <Text style={s.validText}>{t('mobile.editProfile.ibanValid')}</Text>
               : null
           }
-          <Text style={s.fieldHint}>Necessário para receberes o pagamento por transferência.</Text>
+          <Text style={s.fieldHint}>{t('mobile.editProfile.ibanHint')}</Text>
 
           {/* ── IBAN sharing consent (GDPR) ── */}
           {ibanClean.length > 0 && (
@@ -658,25 +663,17 @@ export default function EditProfileScreen() {
               <View style={[s.checkbox, ibanShareConsent && s.checkboxOn]}>
                 {ibanShareConsent && <Ionicons name="checkmark" size={14} color="#fff" />}
               </View>
-              <Text style={s.consentText}>
-                Autorizo a partilha do meu nome e IBAN com as empresas onde fiz turnos,
-                para que me possam pagar por transferência. Podes retirar esta autorização
-                aqui a qualquer momento.
-              </Text>
+              <Text style={s.consentText}>{t('mobile.editProfile.ibanConsent')}</Text>
             </TouchableOpacity>
           )}
           {ibanClean.length > 0 && !ibanShareConsent && (
-            <Text style={s.consentWarn}>
-              Sem esta autorização, as empresas só te podem pagar por Turnos Pay Link ou MB WAY.
-            </Text>
+            <Text style={s.consentWarn}>{t('mobile.editProfile.ibanConsentWarn')}</Text>
           )}
 
           {/* removed: NIF read-only note */}
           <View style={[s.mutedRow, { marginTop: 8 }]}>
             <Ionicons name="lock-closed-outline" size={13} color={colors.textSecondary} />
-            <Text style={s.mutedNote}>
-              O NIF não pode ser alterado. Para o corrigir contacta o suporte.
-            </Text>
+            <Text style={s.mutedNote}>{t('mobile.editProfile.nifLocked')}</Text>
           </View>
         </View>
 
@@ -684,9 +681,9 @@ export default function EditProfileScreen() {
         <View style={s.card}>
           <View style={s.cardHeader}>
             <Ionicons name="construct-outline" size={16} color={colors.primary} />
-            <Text style={s.cardTitle}>COMPETÊNCIAS</Text>
+            <Text style={s.cardTitle}>{t('mobile.editProfile.skillsTitle')}</Text>
           </View>
-          <Text style={s.cardSub}>Toca numa categoria para expandir e selecionar</Text>
+          <Text style={s.cardSub}>{t('mobile.editProfile.skillsSub')}</Text>
           {SKILL_CATEGORIES.map(cat => (
             <SkillCategoryAccordion
               key={cat}
@@ -696,16 +693,20 @@ export default function EditProfileScreen() {
               onToggle={toggleSkill}
             />
           ))}
-          <Text style={s.chipCount}>{skills.length} selecionada{skills.length !== 1 ? 's' : ''}</Text>
+          <Text style={s.chipCount}>
+            {skills.length === 1
+              ? t('mobile.editProfile.skillsCountOne')
+              : t('mobile.editProfile.skillsCountOther', { count: skills.length })}
+          </Text>
         </View>
 
         {/* ── Languages ── */}
         <View style={s.card}>
           <View style={s.cardHeader}>
             <Ionicons name="language-outline" size={16} color={colors.primary} />
-            <Text style={s.cardTitle}>IDIOMAS</Text>
+            <Text style={s.cardTitle}>{t('mobile.editProfile.languagesTitle')}</Text>
           </View>
-          <Text style={s.cardSub}>Idiomas em que és fluente</Text>
+          <Text style={s.cardSub}>{t('mobile.editProfile.languagesSub')}</Text>
           <View style={s.chipsWrap}>
             {LANGUAGES.map(lang => {
               const active = languages.includes(lang);
@@ -716,28 +717,33 @@ export default function EditProfileScreen() {
                   onPress={() => toggleLanguage(lang)}
                   activeOpacity={0.8}
                 >
-                  <Text style={[s.chipText, active && s.chipTextActive]}>{lang}</Text>
+                  {/* Display only — `lang` stays the stored PT value on toggle */}
+                  <Text style={[s.chipText, active && s.chipTextActive]}>{tWorkerLanguage(lang)}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-          <Text style={s.chipCount}>{languages.length} selecionado{languages.length !== 1 ? 's' : ''}</Text>
+          <Text style={s.chipCount}>
+            {languages.length === 1
+              ? t('mobile.editProfile.languagesCountOne')
+              : t('mobile.editProfile.languagesCountOther', { count: languages.length })}
+          </Text>
         </View>
 
         {/* ── Availability — one concept: a master switch + the days it covers ── */}
         <View style={s.card}>
           <View style={s.cardHeader}>
             <Ionicons name="calendar-outline" size={16} color={colors.primary} />
-            <Text style={s.cardTitle}>DISPONIBILIDADE</Text>
+            <Text style={s.cardTitle}>{t('mobile.editProfile.availabilityTitle')}</Text>
           </View>
 
           <View style={s.availSwitchRow}>
             <View style={{ flex: 1 }}>
-              <Text style={s.availSwitchTitle}>Estou disponível para trabalhar</Text>
+              <Text style={s.availSwitchTitle}>{t('mobile.editProfile.availabilitySwitch')}</Text>
               <Text style={s.availSwitchSub}>
                 {isAvailableForWork
-                  ? 'As empresas podem encontrar-te na pesquisa de trabalhadores.'
-                  : 'Ficas oculto na pesquisa das empresas. Não afeta a tua pontuação de perfil.'}
+                  ? t('mobile.editProfile.availabilityOnSub')
+                  : t('mobile.editProfile.availabilityOffSub')}
               </Text>
             </View>
             <Switch
@@ -749,10 +755,11 @@ export default function EditProfileScreen() {
           </View>
 
           <Text style={[s.cardSub, { marginTop: 12, opacity: isAvailableForWork ? 1 : 0.45 }]}>
-            Nos dias:
+            {t('mobile.profile.onDays')}
           </Text>
           <View style={[s.daysRow, !isAvailableForWork && { opacity: 0.45 }]}>
-            {DAYS.map(d => {
+            {/* Stored PT values ('Seg'…) are the keys — only the label changes */}
+            {STORED_WEEKDAYS.map(d => {
               const active = availableDays.includes(d);
               return (
                 <TouchableOpacity
@@ -761,7 +768,7 @@ export default function EditProfileScreen() {
                   onPress={() => toggleDay(d)}
                   activeOpacity={0.8}
                 >
-                  <Text style={[s.dayText, active && s.dayTextActive]}>{d}</Text>
+                  <Text style={[s.dayText, active && s.dayTextActive]}>{tWeekday(d)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -772,16 +779,14 @@ export default function EditProfileScreen() {
         <View style={s.card}>
           <View style={s.cardHeader}>
             <Ionicons name="mail-outline" size={16} color={colors.primary} />
-            <Text style={s.cardTitle}>EMAIL DE CONTACTO</Text>
+            <Text style={s.cardTitle}>{t('mobile.editProfile.emailTitle')}</Text>
           </View>
-          <Text style={s.cardSub}>
-            O teu acesso usa SMS — este email é só para recibos e comunicações.
-          </Text>
+          <Text style={s.cardSub}>{t('mobile.editProfile.emailSub')}</Text>
           <TextInput
             style={s.input}
             value={contactEmail}
             onChangeText={setContactEmail}
-            placeholder="o.teu@email.com"
+            placeholder={t('mobile.editProfile.emailPlaceholder')}
             placeholderTextColor={colors.textSecondary}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -799,7 +804,7 @@ export default function EditProfileScreen() {
         >
           {saving
             ? <ActivityIndicator color="#fff" />
-            : <Text style={s.submitBtnText}>Guardar alterações</Text>
+            : <Text style={s.submitBtnText}>{t('mobile.editProfile.saveAll')}</Text>
           }
         </TouchableOpacity>
 

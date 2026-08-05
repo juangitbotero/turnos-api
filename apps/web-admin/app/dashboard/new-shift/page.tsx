@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import {
   SHIFT_CATEGORIES, ShiftCategory, LANGUAGES, calculateTSU,
   PAYMENT_METHOD_LABELS, PaymentMethod, RECOMMENDED_PAYMENT_METHOD,
-  MAX_SERIES_DAYS, formatSeriesRange, TURNOS_FEE_FIXED_EUR,
+  MAX_SERIES_DAYS, TURNOS_FEE_FIXED_EUR,
 } from '@turnos/shared';
 import { adminApi, ApiError } from '../../../lib/api';
+import { useT } from '../../../lib/i18n';
+import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 
 type GeoResult = { lat: number; lng: number; display: string } | null;
 
@@ -42,6 +44,7 @@ function CategoryRow({
   selected: string[];
   onToggle: (skill: string) => void;
 }) {
+  const { tCategory, tSkill } = useT();
   const [open, setOpen] = useState(false);
   const count = skills.filter(sk => selected.includes(sk)).length;
 
@@ -54,7 +57,7 @@ function CategoryRow({
         onClick={() => setOpen(v => !v)}
       >
         <span style={sk.catIcon}>{CATEGORY_ICONS[cat] ?? '📋'}</span>
-        <span style={sk.catLabel}>{cat}</span>
+        <span style={sk.catLabel}>{tCategory(cat)}</span>
         {count > 0 && (
           <span style={sk.catBadge}>{count}</span>
         )}
@@ -76,7 +79,8 @@ function CategoryRow({
                   style={{ ...sk.tag, ...(isSelected ? sk.tagSelected : sk.tagUnselected) }}
                   onClick={() => onToggle(skill)}
                 >
-                  {isSelected ? '✓ ' : '+ '}{skill}
+                  {/* Display only — the stored PT title is what gets submitted */}
+                  {isSelected ? '✓ ' : '+ '}{tSkill(skill)}
                 </button>
               );
             })}
@@ -94,6 +98,7 @@ function SkillsSelector({
   selected: string[];
   onChange: (skills: string[]) => void;
 }) {
+  const { t, tSkill } = useT();
   const [customInput, setCustomInput] = useState('');
 
   const toggle = (skill: string) =>
@@ -125,7 +130,7 @@ function SkillsSelector({
         <input
           style={sk.customInput}
           type="text"
-          placeholder="Adicionar competência personalizada..."
+          placeholder={t('admin.newShift.customSkillPlaceholder')}
           value={customInput}
           onChange={e => setCustomInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }}
@@ -136,18 +141,18 @@ function SkillsSelector({
           onClick={addCustom}
           disabled={!customInput.trim()}
         >
-          + Adicionar
+          {t('admin.newShift.addSkill')}
         </button>
       </div>
 
       {/* Selected summary */}
       {selected.length > 0 && (
         <div style={sk.selectedWrap}>
-          <span style={sk.selectedLabel}>Selecionadas:</span>
+          <span style={sk.selectedLabel}>{t('admin.newShift.selectedLabel')}</span>
           <div style={sk.selectedChips}>
             {selected.map(skill => (
               <span key={skill} style={sk.chip}>
-                {skill}
+                {tSkill(skill)}
                 <button
                   type="button"
                   style={sk.chipRemove}
@@ -231,6 +236,7 @@ const sk: Record<string, React.CSSProperties> = {
 
 export default function NewShiftPage() {
   const router = useRouter();
+  const { t, tCategory, tSkill, tWorkerLanguage, fShortDate, fDateRange } = useT();
 
   const [category, setCategory]   = useState<ShiftCategory>('Hotelaria');
   const [subcategory, setSubcategory] = useState<string>(SHIFT_CATEGORIES['Hotelaria'][0] ?? '');
@@ -297,7 +303,7 @@ export default function NewShiftPage() {
     setGeoError('');
     setGeo(null);
     const result = await geocodeAddress(address);
-    if (!result) setGeoError('Morada não encontrada. Tente ser mais específico (ex: "Rua Augusta 1, Lisboa").');
+    if (!result) setGeoError(t('admin.newShift.addressNotFound'));
     else setGeo(result);
     setIsGeocoding(false);
   };
@@ -312,7 +318,7 @@ export default function NewShiftPage() {
     if (!newExtraDate) return;
     if (newExtraDate === date || extraDates.includes(newExtraDate)) { setNewExtraDate(''); return; }
     if (allDates.length >= MAX_SERIES_DAYS) {
-      setError(`Um trabalho de vários dias pode ter no máximo ${MAX_SERIES_DAYS} dias.`);
+      setError(t('admin.newShift.maxDays', { max: MAX_SERIES_DAYS }));
       return;
     }
     setExtraDates([...extraDates, newExtraDate].sort());
@@ -333,20 +339,20 @@ export default function NewShiftPage() {
   const lawAlert = (() => {
     if (durationHours >= 8) return {
       level: 'warn' as const,
-      msg: '⚠️ Turno ≥ 8h: o trabalhador tem direito a pausa de 1h e subsídio de refeição (~€6,00/dia). Certifica-te de que o valor/hora reflecte este custo.',
+      msg: t('admin.newShift.law8h'),
     };
     if (durationHours >= 4) return {
       level: 'info' as const,
-      msg: 'ℹ️ Turno ≥ 4h: o trabalhador tem direito a pausa obrigatória de 15–30 min (não computada no horário de trabalho).',
+      msg: t('admin.newShift.law4h'),
     };
     return null;
   })();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!geo) { setError('Por favor verifique a localização antes de publicar.'); return; }
-    if (durationHours < 2) { setError('A duração mínima de um turno é 2 horas.'); return; }
-    if (!startTime) { setError('Por favor selecione a hora de início.'); return; }
+    if (!geo) { setError(t('admin.newShift.errGeo')); return; }
+    if (durationHours < 2) { setError(t('admin.newShift.errDuration')); return; }
+    if (!startTime) { setError(t('admin.newShift.errStart')); return; }
     setError('');
     setIsSubmitting(true);
     try {
@@ -370,7 +376,7 @@ export default function NewShiftPage() {
       });
       router.push('/dashboard/shifts');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erro ao publicar turno.');
+      setError(err instanceof ApiError ? err.message : t('admin.newShift.errSubmit'));
     } finally {
       setIsSubmitting(false);
     }
@@ -380,10 +386,13 @@ export default function NewShiftPage() {
     <div style={s.page}>
       <div style={s.header}>
         <div>
-          <h1 style={s.title}>Publicar Turno</h1>
-          <p style={s.sub}>Preencha os detalhes do turno. O valor bruto e o custo TSU são calculados automaticamente.</p>
+          <h1 style={s.title}>{t('admin.newShift.title')}</h1>
+          <p style={s.sub}>{t('admin.newShift.sub')}</p>
         </div>
-        <button style={s.backBtn} onClick={() => router.push('/dashboard/shifts')}>← Voltar</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <LanguageSwitcher />
+          <button style={s.backBtn} onClick={() => router.push('/dashboard/shifts')}>{t('admin.newShift.back')}</button>
+        </div>
       </div>
 
       {error && <div style={s.errorBanner}>⚠️ {error}</div>}
@@ -392,40 +401,41 @@ export default function NewShiftPage() {
 
         {/* ── Role & Category ── */}
         <div style={s.section}>
-          <h2 style={s.sectionTitle}>Função & Categoria</h2>
+          <h2 style={s.sectionTitle}>{t('admin.newShift.roleSection')}</h2>
           <div style={s.grid2}>
             <div style={s.field}>
-              <label style={s.label}>Categoria</label>
+              <label style={s.label}>{t('admin.newShift.labelCategory')}</label>
+              {/* value stays the stored PT category */}
               <select style={s.select} value={category} onChange={handleCategoryChange}>
                 {Object.keys(SHIFT_CATEGORIES).map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
+                  <option key={cat} value={cat}>{tCategory(cat)}</option>
                 ))}
               </select>
             </div>
             <div style={s.field}>
-              <label style={s.label}>Função</label>
+              <label style={s.label}>{t('admin.newShift.labelRole')}</label>
               <select style={s.select} value={subcategory} onChange={e => setSubcategory(e.target.value)}>
                 {SHIFT_CATEGORIES[category].map(sub => (
-                  <option key={sub} value={sub}>{sub}</option>
+                  <option key={sub} value={sub}>{tSkill(sub)}</option>
                 ))}
               </select>
             </div>
             <div style={{ ...s.field, gridColumn: '1 / -1' }}>
-              <label style={s.label}>Título personalizado <span style={s.optional}>(opcional)</span></label>
+              <label style={s.label}>{t('admin.newShift.labelTitle')} <span style={s.optional}>{t('common.optional')}</span></label>
               <input
                 style={s.input}
                 type="text"
-                placeholder="Ex: Bartender Sénior, Chef de Linha..."
+                placeholder={t('admin.newShift.titlePlaceholder')}
                 value={title}
                 onChange={e => setTitle(e.target.value)}
               />
             </div>
             <div style={{ ...s.field, gridColumn: '1 / -1' }}>
-              <label style={s.label}>Descrição</label>
+              <label style={s.label}>{t('admin.newShift.labelDescription')}</label>
               <textarea
                 style={{ ...s.input, height: 90, resize: 'vertical' }}
                 required
-                placeholder="Descreva o turno, ambiente de trabalho, requisitos específicos..."
+                placeholder={t('admin.newShift.descPlaceholder')}
                 value={description}
                 onChange={e => setDescription(e.target.value)}
               />
@@ -436,13 +446,10 @@ export default function NewShiftPage() {
         {/* ── Skills ── */}
         <div style={s.section}>
           <h2 style={s.sectionTitle}>
-            Competências necessárias
-            <span style={s.sectionBadge}>opcional</span>
+            {t('admin.newShift.skillsSection')}
+            <span style={s.sectionBadge}>{t('admin.newShift.optional')}</span>
           </h2>
-          <p style={s.sectionHint}>
-            Selecione as competências mais relevantes para este turno.
-            Pode também adicionar competências personalizadas.
-          </p>
+          <p style={s.sectionHint}>{t('admin.newShift.skillsHint')}</p>
           <SkillsSelector
             selected={selectedSkills}
             onChange={setSelectedSkills}
@@ -452,12 +459,10 @@ export default function NewShiftPage() {
         {/* ── Languages ── */}
         <div style={s.section}>
           <h2 style={s.sectionTitle}>
-            Idiomas necessários
-            <span style={s.sectionBadge}>opcional</span>
+            {t('admin.newShift.languagesSection')}
+            <span style={s.sectionBadge}>{t('admin.newShift.optional')}</span>
           </h2>
-          <p style={s.sectionHint}>
-            Selecione os idiomas necessários para este turno. Apenas trabalhadores com esses idiomas serão notificados.
-          </p>
+          <p style={s.sectionHint}>{t('admin.newShift.languagesHint')}</p>
           <div style={sk.suggestions}>
             {(LANGUAGES as readonly string[]).map(lang => {
               const active = selectedLanguages.includes(lang);
@@ -475,27 +480,28 @@ export default function NewShiftPage() {
                     )
                   }
                 >
-                  {active ? '✓ ' : '+ '}{lang}
+                  {/* Display only — the stored PT language name is submitted */}
+                  {active ? '✓ ' : '+ '}{tWorkerLanguage(lang)}
                 </button>
               );
             })}
           </div>
           {selectedLanguages.length > 0 && (
             <p style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, marginTop: 4 }}>
-              {selectedLanguages.length} idioma{selectedLanguages.length !== 1 ? 's' : ''} selecionado{selectedLanguages.length !== 1 ? 's' : ''}: {selectedLanguages.join(', ')}
+              {selectedLanguages.length === 1
+                ? t('admin.newShift.languagesPickedOne', { list: selectedLanguages.map(tWorkerLanguage).join(', ') })
+                : t('admin.newShift.languagesPickedOther', { count: selectedLanguages.length, list: selectedLanguages.map(tWorkerLanguage).join(', ') })}
             </p>
           )}
         </div>
 
         {/* ── Payment method ── */}
         <div style={s.section}>
-          <h2 style={s.sectionTitle}>Como vais pagar ao trabalhador?</h2>
-          <p style={s.sectionHint}>
-            O pagamento é feito diretamente por ti ao trabalhador após o turno — não passa pela Turnos.
-            O método escolhido é mostrado ao trabalhador antes de se candidatar.
-          </p>
+          <h2 style={s.sectionTitle}>{t('admin.newShift.paymentSection')}</h2>
+          <p style={s.sectionHint}>{t('admin.newShift.paymentHint')}</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {(Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]).map(([method, label]) => {
+            {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map(method => {
+              const label = t(`domain.paymentMethods.${method}`);
               const active = paymentMethod === method;
               const recommended = method === RECOMMENDED_PAYMENT_METHOD;
               return (
@@ -519,7 +525,7 @@ export default function NewShiftPage() {
                       background: active ? 'var(--color-primary)' : 'var(--color-primary-light)',
                       color: active ? '#fff' : 'var(--color-primary)',
                     }}>
-                      Recomendado
+                      {t('admin.newShift.recommended')}
                     </span>
                   )}
                 </button>
@@ -528,14 +534,12 @@ export default function NewShiftPage() {
           </div>
           {paymentMethod === 'TURNOS_PAY_LINK' && (
             <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 8 }}>
-              💳 Recebes um link após o turno e pagas por cartão ou MB WAY. O dinheiro vai direto
-              para a conta do trabalhador e o pagamento fica confirmado automaticamente.
+              {t('admin.newShift.payLinkNote')}
             </p>
           )}
           {(paymentMethod === 'TRANSFERENCIA' || paymentMethod === 'MBWAY') && (
             <p style={{ fontSize: 12, color: '#b45309', marginTop: 8 }}>
-              💡 Depois de pagares, anexa o comprovativo no dashboard. É o que resolve a disputa
-              se o trabalhador reportar que não recebeu.
+              {t('admin.newShift.manualPayNote')}
             </p>
           )}
         </div>
@@ -543,14 +547,14 @@ export default function NewShiftPage() {
         {/* ── Date & Time ── */}
         <div style={s.section}>
           <h2 style={s.sectionTitle}>
-            Data & Horário
-            <span style={s.minShiftBadge}>⏱ Mínimo 2 horas</span>
+            {t('admin.newShift.dateSection')}
+            <span style={s.minShiftBadge}>{t('admin.newShift.minBadge')}</span>
           </h2>
 
           <div style={s.grid3}>
             {/* Date */}
             <div style={s.field}>
-              <label style={s.label}>{isMultiDay ? 'Primeiro dia' : 'Data do turno'}</label>
+              <label style={s.label}>{isMultiDay ? t('admin.newShift.labelFirstDay') : t('admin.newShift.labelDate')}</label>
               <input
                 style={s.input}
                 type="date"
@@ -563,14 +567,14 @@ export default function NewShiftPage() {
 
             {/* Start time — dropdown */}
             <div style={s.field}>
-              <label style={s.label}>Hora de início</label>
+              <label style={s.label}>{t('admin.newShift.labelStart')}</label>
               <select
                 style={s.select}
                 required
                 value={startTime}
                 onChange={e => setStartTime(e.target.value)}
               >
-                <option value="">Selecionar hora...</option>
+                <option value="">{t('admin.newShift.pickTime')}</option>
                 {Array.from({ length: 48 }, (_, i) => {
                   const h = Math.floor(i / 2);
                   const m = i % 2 === 0 ? '00' : '30';
@@ -582,14 +586,14 @@ export default function NewShiftPage() {
 
             {/* Duration — dropdown */}
             <div style={s.field}>
-              <label style={s.label}>Duração</label>
+              <label style={s.label}>{t('admin.newShift.labelDuration')}</label>
               <select
                 style={s.select}
                 value={durationHours}
                 onChange={e => setDuration(Number(e.target.value))}
               >
                 {[2, 3, 4, 5, 6, 7, 8, 9, 10, 12].map(h => (
-                  <option key={h} value={h}>{h}h {h === 2 ? '(mínimo)' : ''}</option>
+                  <option key={h} value={h}>{h}h {h === 2 ? t('admin.newShift.durationMin') : ''}</option>
                 ))}
               </select>
             </div>
@@ -607,11 +611,8 @@ export default function NewShiftPage() {
                 }}
               />
               <span>
-                <strong>Trabalho de vários dias</strong>
-                <span style={s.multiDayHint}>
-                  {' '}— o mesmo horário em várias datas. O trabalhador candidata-se uma vez e
-                  compromete-se com todos os dias.
-                </span>
+                <strong>{t('admin.newShift.multiDayLabel')}</strong>
+                <span style={s.multiDayHint}>{t('admin.newShift.multiDayHint')}</span>
               </span>
             </label>
 
@@ -626,7 +627,7 @@ export default function NewShiftPage() {
                     onChange={e => setNewExtraDate(e.target.value)}
                   />
                   <button type="button" style={s.multiDayAddBtn} onClick={addExtraDate}>
-                    + Adicionar dia
+                    {t('admin.newShift.addDay')}
                   </button>
                 </div>
 
@@ -635,15 +636,13 @@ export default function NewShiftPage() {
                     <div style={s.multiDayChips}>
                       {allDates.map(d => (
                         <span key={d} style={s.multiDayChip}>
-                          {new Date(d).toLocaleDateString('pt-PT', {
-                            weekday: 'short', day: '2-digit', month: 'short',
-                          })}
+                          {fShortDate(d)}
                           {d !== date && (
                             <button
                               type="button"
                               style={s.multiDayChipX}
                               onClick={() => setExtraDates(extraDates.filter(x => x !== d))}
-                              aria-label={`Remover ${d}`}
+                              aria-label={t('admin.newShift.removeDay', { date: d })}
                             >
                               ×
                             </button>
@@ -652,16 +651,23 @@ export default function NewShiftPage() {
                       ))}
                     </div>
                     <div style={s.multiDaySummary}>
-                      📅 <strong>{allDates.length} dia{allDates.length !== 1 ? 's' : ''}</strong>
-                      {allDates.length > 1 && <> · {formatSeriesRange(allDates)}</>}
+                      📅 <strong>
+                        {allDates.length === 1
+                          ? t('admin.newShift.daysOne')
+                          : t('admin.newShift.daysOther', { count: allDates.length })}
+                      </strong>
+                      {allDates.length > 1 && <> · {fDateRange(allDates)}</>}
                       {' · '}
-                      {(durationHours * allDates.length).toFixed(0)}h no total
-                      {rateNum > 0 && <> · ≈ €{(rateNum * durationHours * allDates.length).toFixed(2)} bruto</>}
+                      {t('admin.newShift.totalHours', { hours: (durationHours * allDates.length).toFixed(0) })}
+                      {rateNum > 0 && <> · {t('admin.newShift.grossEstimate', { amount: (rateNum * durationHours * allDates.length).toFixed(2) })}</>}
                     </div>
                     {allDates.length > 1 && (
                       <div style={s.multiDayNote}>
-                        A taxa Turnos é de <strong>€{TURNOS_FEE_FIXED_EUR} por trabalho</strong>, não por dia.
-                        O pagamento ao trabalhador é feito <strong>uma vez, no fim</strong> de todos os dias.
+                        {t('admin.newShift.feeNote1')}
+                        <strong>{t('admin.newShift.feeNoteBold1', { fee: TURNOS_FEE_FIXED_EUR })}</strong>
+                        {t('admin.newShift.feeNote2')}
+                        <strong>{t('admin.newShift.feeNoteBold2')}</strong>
+                        {t('admin.newShift.feeNote3')}
                       </div>
                     )}
                   </>
@@ -673,11 +679,11 @@ export default function NewShiftPage() {
           {/* Computed end time display */}
           {startTime && computedEndTime && (
             <div style={s.computedTime}>
-              <span style={s.computedLabel}>Fim do turno:</span>
+              <span style={s.computedLabel}>{t('admin.newShift.endLabel')}</span>
               <span style={s.computedValue}>{startTime} → {computedEndTime}</span>
-              <span style={s.computedDuration}>· {durationHours}h de trabalho</span>
+              <span style={s.computedDuration}>{t('admin.newShift.endDuration', { hours: durationHours })}</span>
               {computedEndTime < startTime && (
-                <span style={s.nextDayBadge}>+1 dia</span>
+                <span style={s.nextDayBadge}>{t('admin.newShift.nextDay')}</span>
               )}
             </div>
           )}
@@ -697,20 +703,20 @@ export default function NewShiftPage() {
 
         {/* ── Location ── */}
         <div style={s.section}>
-          <h2 style={s.sectionTitle}>Localização</h2>
+          <h2 style={s.sectionTitle}>{t('admin.newShift.locationSection')}</h2>
           <div style={s.field}>
-            <label style={s.label}>Morada completa</label>
+            <label style={s.label}>{t('admin.newShift.labelAddress')}</label>
             <div style={s.addrRow}>
               <input
                 style={{ ...s.input, flex: 1 }}
                 type="text"
                 required
-                placeholder="Ex: Rua Augusta 1, 1100-048 Lisboa"
+                placeholder={t('admin.newShift.addressPlaceholder')}
                 value={address}
                 onChange={e => { setAddress(e.target.value); setGeo(null); setGeoError(''); }}
               />
               <button type="button" style={s.geocodeBtn} onClick={handleGeocode} disabled={!address.trim() || isGeocoding}>
-                {isGeocoding ? '...' : '📍 Verificar'}
+                {isGeocoding ? '...' : t('admin.newShift.verifyAddress')}
               </button>
             </div>
             {geoError && <p style={s.geoError}>{geoError}</p>}
@@ -725,10 +731,10 @@ export default function NewShiftPage() {
 
         {/* ── Pay & TSU ── */}
         <div style={s.section}>
-          <h2 style={s.sectionTitle}>Remuneração & Custos</h2>
+          <h2 style={s.sectionTitle}>{t('admin.newShift.paySection')}</h2>
           <div style={s.grid2}>
             <div style={s.field}>
-              <label style={s.label}>Valor bruto/hora (€) para o trabalhador</label>
+              <label style={s.label}>{t('admin.newShift.labelRate')}</label>
               <input
                 style={{ ...s.input, fontSize: 22, fontWeight: 700 }}
                 type="number"
@@ -738,25 +744,25 @@ export default function NewShiftPage() {
                 value={hourlyRate}
                 onChange={e => setHourlyRate(e.target.value)}
               />
-              <p style={s.hint}>Salário mínimo em Portugal: €5,41/hr (2024)</p>
+              <p style={s.hint}>{t('admin.newShift.minWageHint')}</p>
             </div>
             {tsu && (
               <div style={s.tsuBox}>
                 <div style={s.tsuRow}>
-                  <span>Bruto trabalhador</span>
+                  <span>{t('admin.newShift.tsuGross')}</span>
                   <span style={s.tsuVal}>€{tsu.grossAmount.toFixed(2)}/hr</span>
                 </div>
                 <div style={s.tsuRow}>
-                  <span>TSU entidade (23,75%)</span>
+                  <span>{t('admin.newShift.tsuEmployer')}</span>
                   <span style={s.tsuVal}>€{tsu.employerContribution.toFixed(2)}/hr</span>
                 </div>
                 <div style={{ ...s.tsuRow, ...s.tsuTotal }}>
-                  <span>Custo total empregador</span>
+                  <span>{t('admin.newShift.tsuTotal')}</span>
                   <span>€{tsu.employerTotalCost.toFixed(2)}/hr</span>
                 </div>
                 {startTime && (
                   <div style={{ ...s.tsuRow, marginTop: 8, color: '#6366f1' }}>
-                    <span>Custo total do turno ({durationHours}h)</span>
+                    <span>{t('admin.newShift.tsuShiftCost', { hours: durationHours })}</span>
                     <span style={{ fontWeight: 700 }}>€{(tsu.employerTotalCost * durationHours).toFixed(2)}</span>
                   </div>
                 )}
@@ -768,14 +774,14 @@ export default function NewShiftPage() {
         {/* ── Actions ── */}
         <div style={s.actions}>
           <button type="button" style={s.cancelBtn} onClick={() => router.push('/dashboard/shifts')}>
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
             style={{ ...s.submitBtn, opacity: isSubmitting ? 0.65 : 1, cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'A publicar...' : '✓ Publicar Turno'}
+            {isSubmitting ? t('admin.newShift.submitting') : t('admin.newShift.submit')}
           </button>
         </div>
       </form>

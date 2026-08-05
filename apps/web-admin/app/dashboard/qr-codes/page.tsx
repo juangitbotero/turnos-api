@@ -15,6 +15,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { adminApi, ApiError } from '../../../lib/api';
+import { useT } from '../../../lib/i18n';
+import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 
 interface QrData {
   checkInQrDataUrl:  string;
@@ -22,6 +24,7 @@ interface QrData {
 }
 
 export default function QrCodesPage() {
+  const { t } = useT();
   const [data, setData]       = useState<QrData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
@@ -32,11 +35,11 @@ export default function QrCodesPage() {
     try {
       setData(await adminApi.getEmployerQrCodes());
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erro ao carregar os QR codes.');
+      setError(err instanceof ApiError ? err.message : t('admin.qrCodes.loadError'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { fetch(); }, [fetch]);
 
@@ -66,19 +69,17 @@ export default function QrCodesPage() {
       {/* Screen header */}
       <div style={s.header} className="no-print">
         <div>
-          <Link href="/dashboard/shifts" style={s.backLink}>← Voltar aos Turnos</Link>
-          <h1 style={s.title}>Código QR de Check-in</h1>
-          <p style={s.sub}>
-            Imprima este QR code e afixe-o à entrada do seu local de trabalho.
-            O trabalhador digitaliza-o na chegada — o turno conclui automaticamente à hora de fim.
-          </p>
+          <Link href="/dashboard/shifts" style={s.backLink}>{t('admin.qrCodes.back')}</Link>
+          <h1 style={s.title}>{t('admin.qrCodes.title')}</h1>
+          <p style={s.sub}>{t('admin.qrCodes.sub')}</p>
         </div>
         <div style={s.headerActions} className="no-print">
+          <LanguageSwitcher />
           <button style={s.printBtn} onClick={() => window.print()} disabled={!data}>
-            🖨️ Imprimir
+            {t('admin.qrCodes.print')}
           </button>
           <button style={s.refreshBtn} onClick={fetch} disabled={loading}>
-            ↻ Regenerar
+            {t('admin.qrCodes.regenerate')}
           </button>
         </div>
       </div>
@@ -87,12 +88,10 @@ export default function QrCodesPage() {
       <div style={s.infoBanner} className="no-print">
         <div style={s.infoIcon}>💡</div>
         <div>
-          <strong>Como funciona:</strong> Este QR code é permanente — não expira.
-          Imprima-o uma vez e afixe-o à entrada do seu espaço.
-          O trabalhador abre a aplicação Turnos, toca em <em>Check-in</em> e aponta a câmara.
-          No fim do horário, o turno <strong>conclui automaticamente</strong> — não é preciso
-          digitalizar à saída. Se algo correr mal (saída antecipada, problema no turno),
-          pode ajustar as horas ou reportar o problema em <em>Os Meus Turnos</em> antes de pagar.
+          <strong>{t('admin.qrCodes.infoLead')}</strong>{t('admin.qrCodes.infoBody1')}
+          <em>{t('admin.qrCodes.infoCheckIn')}</em>{t('admin.qrCodes.infoBody2')}
+          <strong>{t('admin.qrCodes.infoAuto')}</strong>{t('admin.qrCodes.infoBody3')}
+          <em>{t('admin.qrCodes.infoMyShifts')}</em>{t('admin.qrCodes.infoBody4')}
         </div>
       </div>
 
@@ -100,7 +99,7 @@ export default function QrCodesPage() {
       {loading && (
         <div style={s.centered}>
           <div style={s.spinner} />
-          <p style={s.loadingText}>A gerar QR codes...</p>
+          <p style={s.loadingText}>{t('admin.qrCodes.loading')}</p>
         </div>
       )}
 
@@ -108,7 +107,7 @@ export default function QrCodesPage() {
       {error && !loading && (
         <div style={s.errorBanner}>
           ⚠️ {error}
-          <button style={s.retryBtn} onClick={fetch}>Tentar novamente</button>
+          <button style={s.retryBtn} onClick={fetch}>{t('common.retry')}</button>
         </div>
       )}
 
@@ -118,7 +117,7 @@ export default function QrCodesPage() {
 
           {/* Print header (only shows when printing) */}
           <div style={s.printHeader}>
-            <p style={s.printTitle}>Turnos — Check-in</p>
+            <p style={s.printTitle}>{t('admin.qrCodes.printTitle')}</p>
             {data.employerName && <p style={s.printEmployer}>{data.employerName}</p>}
           </div>
 
@@ -129,25 +128,27 @@ export default function QrCodesPage() {
               <div style={s.qrCardHeader}>
                 <div style={{ ...s.qrBadge, background: '#7c3aed' }}>↑</div>
                 <div>
-                  <h2 style={s.qrCardTitle}>CHECK-IN</h2>
-                  <p style={s.qrCardSub}>Digitalizar na chegada</p>
+                  <h2 style={s.qrCardTitle}>{t('admin.qrCodes.cardTitle')}</h2>
+                  <p style={s.qrCardSub}>{t('admin.qrCodes.cardSub')}</p>
                 </div>
               </div>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={data.checkInQrDataUrl}
-                alt="QR Code Check-in"
+                alt={t('admin.qrCodes.qrAlt')}
                 style={s.qrImage}
               />
               <p style={s.qrInstruction}>
-                📱 Trabalhador abre a app → toca em <strong>Fazer Check-in</strong> → aponta a câmara aqui
+                {t('admin.qrCodes.instruction1')}
+                <strong>{t('admin.qrCodes.instructionBold')}</strong>
+                {t('admin.qrCodes.instruction2')}
               </p>
               <button
                 style={{ ...s.downloadBtn, ...s.downloadBtnIn }}
                 onClick={() => downloadQr(data.checkInQrDataUrl, `turnos-check-in-${data.employerName.replace(/\s+/g, '-').toLowerCase()}.png`)}
                 className="no-print"
               >
-                ⬇ Descarregar PNG
+                {t('admin.qrCodes.download')}
               </button>
             </div>
 
@@ -155,20 +156,20 @@ export default function QrCodesPage() {
 
           {/* Placement guide */}
           <div style={s.placementCard} className="no-print">
-            <h3 style={s.placementTitle}>📌 Onde colocar o QR code</h3>
+            <h3 style={s.placementTitle}>{t('admin.qrCodes.placementTitle')}</h3>
             <div style={s.placementGrid}>
               <div style={s.placementItem}>
                 <div style={s.placementIcon}>🚪</div>
                 <div>
-                  <strong>CHECK-IN</strong> — Entrada / Receção
-                  <p style={s.placementDesc}>À entrada do espaço de trabalho, onde o trabalhador chega.</p>
+                  <strong>{t('admin.qrCodes.placementInLabel')}</strong>{t('admin.qrCodes.placementInWhere')}
+                  <p style={s.placementDesc}>{t('admin.qrCodes.placementInDesc')}</p>
                 </div>
               </div>
               <div style={s.placementItem}>
                 <div style={s.placementIcon}>⏱️</div>
                 <div>
-                  <strong>FIM DO TURNO</strong> — Automático
-                  <p style={s.placementDesc}>Não há QR de saída: o turno conclui sozinho à hora de fim agendada.</p>
+                  <strong>{t('admin.qrCodes.placementEndLabel')}</strong>{t('admin.qrCodes.placementEndWhere')}
+                  <p style={s.placementDesc}>{t('admin.qrCodes.placementEndDesc')}</p>
                 </div>
               </div>
             </div>
@@ -178,10 +179,11 @@ export default function QrCodesPage() {
           <div style={s.fallbackNote} className="no-print">
             <span>ℹ️</span>
             <span>
-              Se o trabalhador não conseguir digitalizar o QR (câmara com problemas, etc.),
-              pode confirmar manualmente o turno na página{' '}
-              <Link href="/dashboard/shifts" style={{ color: 'var(--color-primary)' }}>Os Meus Turnos</Link>{' '}
-              com o botão <strong>✓ Confirmar</strong>.
+              {t('admin.qrCodes.fallback1')}
+              <Link href="/dashboard/shifts" style={{ color: 'var(--color-primary)' }}>{t('admin.qrCodes.fallbackLink')}</Link>
+              {t('admin.qrCodes.fallback2')}
+              <strong>{t('admin.qrCodes.fallbackButton')}</strong>
+              {t('admin.qrCodes.fallback3')}
             </span>
           </div>
         </div>

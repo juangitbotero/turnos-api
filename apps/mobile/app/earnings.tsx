@@ -23,21 +23,13 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
 import { paymentsApi, wagesApi, ConnectStatus, EarningsReport, EarningRecord } from '../lib/api';
+import { useT } from '../lib/i18n';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 type Period = 'day' | 'month' | 'year';
 
-const PERIOD_LABELS: Record<Period, string> = {
-  day:   'Hoje',
-  month: 'Este mês',
-  year:  'Este ano',
-};
-
-const MONTHS_PT = [
-  'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
-];
+const PERIODS: Period[] = ['day', 'month', 'year'];
 
 // Months that trigger SS quarterly reminder (end of quarter)
 const SS_REMINDER_MONTHS = [3, 6, 9, 12];
@@ -50,10 +42,6 @@ function fmt(n: number): string {
   return `€${n.toFixed(2)}`;
 }
 
-function fmtDate(d: string): string {
-  return new Date(d).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' });
-}
-
 function isQuarterReminder(): boolean {
   return SS_REMINDER_MONTHS.includes(new Date().getMonth() + 1);
 }
@@ -62,6 +50,7 @@ function isQuarterReminder(): boolean {
 
 export default function EarningsScreen() {
   const router = useRouter();
+  const { t, fMonthName } = useT();
 
   const now = new Date();
   const [period,  setPeriod]  = useState<Period>('month');
@@ -85,11 +74,11 @@ export default function EarningsScreen() {
       await WebBrowser.openBrowserAsync(onboardingUrl);
       loadConnectStatus();
     } catch {
-      Alert.alert('Erro', 'Não foi possível iniciar a ativação. Tenta novamente.');
+      Alert.alert(t('common.error'), t('mobile.earnings.payLinkFailed'));
     } finally {
       setActivating(false);
     }
-  }, [loadConnectStatus]);
+  }, [loadConnectStatus, t]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,21 +92,24 @@ export default function EarningsScreen() {
       );
       setReport(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar ganhos.');
+      setError(err instanceof Error ? err.message : t('mobile.earnings.loadError'));
     } finally {
       setLoading(false);
     }
-  }, [period]);
+  }, [period, t]);
 
   useEffect(() => { load(); }, [load]);
 
+  // "Este mês" / "This month" reads mid-sentence in both languages lowercased.
+  const periodLabelLower = t(`mobile.earnings.periods.${period}`).toLowerCase();
+
   const handleSsLink = () => {
     Alert.alert(
-      'Segurança Social Direta',
-      'Será redireccionado para o portal da Segurança Social para submeter a tua declaração trimestral.',
+      t('mobile.earnings.ssCtaTitle'),
+      t('mobile.earnings.ssAlertBody'),
       [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Abrir', onPress: () => Linking.openURL(SS_DIRETA_URL) },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('mobile.earnings.ssAlertOpen'), onPress: () => Linking.openURL(SS_DIRETA_URL) },
       ],
     );
   };
@@ -138,13 +130,13 @@ export default function EarningsScreen() {
           <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
             <Text style={s.backText}>←</Text>
           </TouchableOpacity>
-          <Text style={s.headerTitle}>Os Meus Ganhos</Text>
+          <Text style={s.headerTitle}>{t('mobile.earnings.title')}</Text>
           <View style={{ width: 36 }} />
         </View>
 
         {/* Period toggle */}
         <View style={s.periodRow}>
-          {(Object.keys(PERIOD_LABELS) as Period[]).map(p => (
+          {PERIODS.map(p => (
             <TouchableOpacity
               key={p}
               style={[s.periodBtn, period === p && s.periodBtnActive]}
@@ -152,7 +144,7 @@ export default function EarningsScreen() {
               activeOpacity={0.8}
             >
               <Text style={[s.periodLabel, period === p && s.periodLabelActive]}>
-                {PERIOD_LABELS[p]}
+                {t(`mobile.earnings.periods.${p}`)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -168,15 +160,15 @@ export default function EarningsScreen() {
             <View style={{ flex: 1 }}>
               <Text style={s.payLinkTitle}>
                 {connect.onboardingComplete
-                  ? 'Pay Link quase ativo — verificação em curso'
+                  ? t('mobile.earnings.payLinkTitleVerifying')
                   : connect.hasAccount
-                    ? 'Continua a ativação do Pay Link'
-                    : 'Recebe por Turnos Pay Link'}
+                    ? t('mobile.earnings.payLinkTitleContinue')
+                    : t('mobile.earnings.payLinkTitleStart')}
               </Text>
               <Text style={s.payLinkText}>
                 {connect.onboardingComplete
-                  ? 'A Stripe está a verificar os teus dados. Normalmente demora minutos — volta em breve.'
-                  : 'Ativa em ~3 minutos: verificas a identidade e o IBAN com a Stripe, uma única vez. Depois, quando a empresa paga o link, o dinheiro cai na tua conta em 1–2 dias úteis.'}
+                  ? t('mobile.earnings.payLinkBodyVerifying')
+                  : t('mobile.earnings.payLinkBodyStart')}
               </Text>
               {!connect.onboardingComplete && (
                 <TouchableOpacity
@@ -186,7 +178,11 @@ export default function EarningsScreen() {
                   activeOpacity={0.85}
                 >
                   <Text style={s.payLinkBtnText}>
-                    {activating ? 'A abrir…' : connect.hasAccount ? 'Continuar ativação →' : 'Ativar Pay Link →'}
+                    {activating
+                      ? t('mobile.earnings.payLinkOpening')
+                      : connect.hasAccount
+                        ? t('mobile.earnings.payLinkContinue')
+                        : t('mobile.earnings.payLinkActivate')}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -195,13 +191,11 @@ export default function EarningsScreen() {
         )}
         {connect?.payoutsEnabled && (
           <View style={s.payLinkActiveCard}>
-            <Text style={s.payLinkActiveText}>
-              ✅ Pay Link ativo — os pagamentos das empresas caem diretamente na tua conta bancária.
-            </Text>
+            <Text style={s.payLinkActiveText}>{t('mobile.earnings.payLinkActive')}</Text>
             <Text style={s.payLinkActiveSub}>
               {connect.mbWayEnabled
-                ? 'A empresa pode pagar-te por cartão ou MB WAY. Recebes sempre o valor bruto completo — a taxa de processamento é suportada pela empresa.'
-                : 'A empresa paga por cartão. Recebes sempre o valor bruto completo — a taxa de processamento é suportada pela empresa.'}
+                ? t('mobile.earnings.payLinkActiveMbWay')
+                : t('mobile.earnings.payLinkActiveCard')}
             </Text>
           </View>
         )}
@@ -211,12 +205,13 @@ export default function EarningsScreen() {
           <TouchableOpacity style={s.ssReminder} onPress={handleSsLink} activeOpacity={0.85}>
             <Text style={s.ssReminderIcon}>🏛️</Text>
             <View style={s.ssReminderBody}>
-              <Text style={s.ssReminderTitle}>Lembrete SS trimestral</Text>
+              <Text style={s.ssReminderTitle}>{t('mobile.earnings.ssReminderTitle')}</Text>
               <Text style={s.ssReminderText}>
-                {MONTHS_PT[now.getMonth()]} é mês de declaração. Não te esqueças de submeter
-                os teus rendimentos na Segurança Social antes do fim do mês.
+                {t('mobile.earnings.ssReminderBody', {
+                  month: fMonthName(now.getMonth(), now.getFullYear()),
+                })}
               </Text>
-              <Text style={s.ssReminderLink}>Abrir SS Direta →</Text>
+              <Text style={s.ssReminderLink}>{t('mobile.earnings.ssReminderLink')}</Text>
             </View>
           </TouchableOpacity>
         )}
@@ -225,7 +220,7 @@ export default function EarningsScreen() {
         {loading && (
           <View style={s.center}>
             <ActivityIndicator color={colors.primary} size="large" />
-            <Text style={s.loadingText}>A carregar ganhos…</Text>
+            <Text style={s.loadingText}>{t('mobile.earnings.loading')}</Text>
           </View>
         )}
 
@@ -234,7 +229,7 @@ export default function EarningsScreen() {
           <View style={s.errorCard}>
             <Text style={s.errorText}>{error}</Text>
             <TouchableOpacity style={s.retryBtn} onPress={load}>
-              <Text style={s.retryText}>Tentar novamente</Text>
+              <Text style={s.retryText}>{t('common.retry')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -246,21 +241,21 @@ export default function EarningsScreen() {
             <View style={s.kpiStrip}>
               <KpiCard
                 icon="💶"
-                label="Bruto"
+                label={t('mobile.earnings.kpiGross')}
                 value={fmt(report.totalGross)}
                 accent="#6a79ff"
               />
               <View style={s.kpiDivider} />
               <KpiCard
                 icon="✅"
-                label="Recebido"
+                label={t('mobile.earnings.kpiReceived')}
                 value={fmt(report.workerNet)}
                 accent="#16a34a"
               />
               <View style={s.kpiDivider} />
               <KpiCard
                 icon="📋"
-                label="Turnos"
+                label={t('mobile.earnings.kpiShifts')}
                 value={String(report.shiftCount)}
                 accent="#f59e0b"
               />
@@ -268,22 +263,21 @@ export default function EarningsScreen() {
 
             {/* Fee & TSU breakdown */}
             <View style={s.card}>
-              <Text style={s.cardTitle}>Detalhe de ganhos</Text>
+              <Text style={s.cardTitle}>{t('mobile.earnings.breakdownTitle')}</Text>
 
-              <Row label="Valor bruto (pago pela empresa)" value={fmt(report.totalGross)} bold />
+              <Row label={t('mobile.earnings.rowGross')} value={fmt(report.totalGross)} bold />
               <Divider />
               <Row
-                label="TSU a entregar ao Estado (11%)"
+                label={t('mobile.earnings.rowTsu')}
                 value={fmt(report.workerTsuOwed)}
                 accent="#d97706"
               />
-              <Row label="Estimativa após TSU" value={fmt(report.workerNet)} />
+              <Row label={t('mobile.earnings.rowAfterTsu')} value={fmt(report.workerNet)} />
               <View style={s.tsuNote}>
                 <Text style={s.tsuNoteText}>
-                  ⚠️ Recebes o valor bruto por inteiro, diretamente da empresa — a Turnos
-                  não cobra qualquer taxa aos trabalhadores. Como trabalhador és responsável
-                  por declarar e pagar <Text style={s.tsuNoteStrong}>11% do teu valor bruto</Text> à
-                  Segurança Social (valor informativo acima).
+                  {t('mobile.earnings.tsuNote')}
+                  <Text style={s.tsuNoteStrong}>{t('mobile.earnings.tsuNoteBold')}</Text>
+                  {t('mobile.earnings.tsuNoteEnd')}
                 </Text>
               </View>
             </View>
@@ -292,7 +286,7 @@ export default function EarningsScreen() {
             {report.records.length > 0 && (
               <View style={s.card}>
                 <Text style={s.cardTitle}>
-                  Turnos concluídos — {PERIOD_LABELS[period].toLowerCase()}
+                  {t('mobile.earnings.listTitle', { period: periodLabelLower })}
                 </Text>
                 {report.records.map(r => (
                   <EarningRow key={r.id} record={r} />
@@ -303,10 +297,8 @@ export default function EarningsScreen() {
             {report.records.length === 0 && (
               <View style={s.emptyCard}>
                 <Text style={s.emptyIcon}>💶</Text>
-                <Text style={s.emptyTitle}>Sem turnos pagos {PERIOD_LABELS[period].toLowerCase()}</Text>
-                <Text style={s.emptySub}>
-                  Os teus ganhos aparecem aqui após o check-out e processamento do pagamento.
-                </Text>
+                <Text style={s.emptyTitle}>{t('mobile.earnings.emptyTitle', { period: periodLabelLower })}</Text>
+                <Text style={s.emptySub}>{t('mobile.earnings.emptySub')}</Text>
               </View>
             )}
 
@@ -314,10 +306,8 @@ export default function EarningsScreen() {
             <TouchableOpacity style={s.ssCta} onPress={handleSsLink} activeOpacity={0.85}>
               <Text style={s.ssCtaIcon}>🏛️</Text>
               <View style={s.ssCtaBody}>
-                <Text style={s.ssCtaTitle}>Segurança Social Direta</Text>
-                <Text style={s.ssCtaText}>
-                  Declara os teus rendimentos trimestralmente no portal SS.
-                </Text>
+                <Text style={s.ssCtaTitle}>{t('mobile.earnings.ssCtaTitle')}</Text>
+                <Text style={s.ssCtaText}>{t('mobile.earnings.ssCtaText')}</Text>
               </View>
               <Text style={s.ssCtaArrow}>→</Text>
             </TouchableOpacity>
@@ -367,15 +357,16 @@ function Divider() {
 }
 
 function EarningRow({ record }: { record: EarningRecord }) {
+  const { t, fShortDate } = useT();
   return (
     <View style={se.row}>
       <View style={se.left}>
-        <Text style={se.date}>{record.shiftDate ? fmtDate(record.shiftDate) : '—'}</Text>
+        <Text style={se.date}>{record.shiftDate ? fShortDate(record.shiftDate) : '—'}</Text>
         <Text style={se.hours}>{Number(record.scheduledHours ?? 0).toFixed(1)}h</Text>
       </View>
       <View style={se.right}>
         <Text style={se.gross}>{fmt(Number(record.grossAmount))}</Text>
-        <Text style={se.net}>Líq. {fmt(Number(record.workerNet ?? 0))}</Text>
+        <Text style={se.net}>{t('mobile.earnings.rowNet')} {fmt(Number(record.workerNet ?? 0))}</Text>
       </View>
     </View>
   );

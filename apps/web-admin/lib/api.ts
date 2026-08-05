@@ -1,3 +1,5 @@
+import { catalogue, resolveInitialLanguage } from '@turnos/shared';
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 
 export class ApiError extends Error {
@@ -5,6 +7,23 @@ export class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+/**
+ * Copy for errors thrown by this module.
+ *
+ * This is not a React component, so it can't use `useT()` — it reads the same
+ * `turnos_lang` cookie the provider writes and pulls the string straight from
+ * the shared catalogue.
+ */
+function currentCatalogue() {
+  const raw = typeof document !== 'undefined'
+    ? document.cookie.match(/(?:^|; )turnos_lang=([^;]*)/)?.[1]
+    : null;
+  const browser = typeof navigator !== 'undefined'
+    ? [...(navigator.languages ?? []), navigator.language].filter(Boolean) as string[]
+    : [];
+  return catalogue(resolveInitialLanguage(raw ? decodeURIComponent(raw) : null, browser));
 }
 
 function getToken(): string | null {
@@ -89,7 +108,7 @@ async function request<T>(
     if (!token) {
       // Refresh failed — redirect to login
       if (typeof window !== 'undefined') window.location.href = '/login';
-      throw new ApiError(401, 'Sessão expirada. Por favor inicia sessão novamente.');
+      throw new ApiError(401, currentCatalogue().common.sessionExpiredBody);
     }
   }
 
@@ -107,7 +126,7 @@ async function request<T>(
   // If still 401, session is truly dead → redirect to login
   if (res.status === 401) {
     if (typeof window !== 'undefined') window.location.href = '/login';
-    throw new ApiError(401, 'Sessão expirada. Por favor inicia sessão novamente.');
+    throw new ApiError(401, currentCatalogue().common.sessionExpiredBody);
   }
 
   if (!res.ok) {

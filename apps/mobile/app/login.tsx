@@ -50,7 +50,7 @@ export default function LoginScreen() {
       router.push({ pathname: '/verify', params: { phone: fullPhone } });
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : t('mobile.login.sendFailed');
-      Alert.alert('Erro', msg);
+      Alert.alert(t('common.error'), msg);
     } finally {
       setIsLoading(false);
     }
@@ -69,7 +69,7 @@ export default function LoginScreen() {
       router.replace(isNewUser ? '/onboarding' : '/');
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : t('mobile.login.googleFailed');
-      Alert.alert('Erro', msg);
+      Alert.alert(t('common.error'), msg);
     } finally {
       setIsLoading(false);
     }

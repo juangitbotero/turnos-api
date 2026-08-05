@@ -19,6 +19,13 @@ export function formatLongDate(date: string | Date, lang: AppLanguage): string {
   return new Date(date).toLocaleDateString(tag(lang), { day: '2-digit', month: 'long' });
 }
 
+/** "25 jul 2026" / "25 Jul 2026" — the web-admin table/row date. */
+export function formatMediumDate(date: string | Date, lang: AppLanguage): string {
+  return new Date(date).toLocaleDateString(tag(lang), {
+    day: '2-digit', month: 'short', year: 'numeric',
+  });
+}
+
 /** "sábado, 25 de julho" / "Saturday, 25 July" */
 export function formatWeekdayDate(date: string | Date, lang: AppLanguage): string {
   return new Date(date).toLocaleDateString(tag(lang), {
@@ -29,6 +36,14 @@ export function formatWeekdayDate(date: string | Date, lang: AppLanguage): strin
 /** "25/07/2026" */
 export function formatNumericDate(date: string | Date, lang: AppLanguage): string {
   return new Date(date).toLocaleDateString(tag(lang));
+}
+
+/** "25 jul 2026, 14:30" — full audit-trail timestamp. */
+export function formatTimestamp(date: string | Date, lang: AppLanguage): string {
+  return new Date(date).toLocaleString(tag(lang), {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
 }
 
 /** "25 jul, 14:30" — used for "applied at" style timestamps. */

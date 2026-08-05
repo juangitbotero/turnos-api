@@ -3,13 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { adminApi, ApiError, HiredWorker } from '../../../lib/api';
-
-const WEEK_DAYS_PT: Record<string, string> = {
-  Seg: 'Seg', Ter: 'Ter', Qua: 'Qua', Qui: 'Qui', Sex: 'Sex', Sáb: 'Sáb', Dom: 'Dom',
-};
+import { useT } from '../../../lib/i18n';
+import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 
 export default function WorkersPage() {
   const router = useRouter();
+  const { t, tSkill, tWeekday, fShortDate } = useT();
   const [workers, setWorkers]   = useState<HiredWorker[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError]       = useState('');
@@ -22,7 +21,7 @@ export default function WorkersPage() {
     try {
       setWorkers(await adminApi.getMyWorkers());
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erro ao carregar trabalhadores.');
+      setError(err instanceof ApiError ? err.message : t('admin.workers.loadError'));
     } finally {
       setIsLoading(false);
     }
@@ -33,17 +32,22 @@ export default function WorkersPage() {
       {/* Header */}
       <div style={s.header}>
         <div>
-          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>← Dashboard</button>
-          <h1 style={s.title}>Os Meus Trabalhadores</h1>
+          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>{t('admin.chrome.backDashboard')}</button>
+          <h1 style={s.title}>{t('admin.workers.title')}</h1>
           <p style={s.sub}>
             {isLoading
-              ? 'A carregar...'
+              ? t('common.loading')
               : workers.length === 0
-                ? 'Nenhum trabalhador contratado ainda'
-                : `${workers.length} trabalhador${workers.length !== 1 ? 'es' : ''} contratado${workers.length !== 1 ? 's' : ''}`}
+                ? t('admin.workers.subNone')
+                : workers.length === 1
+                  ? t('admin.workers.subOne')
+                  : t('admin.workers.subOther', { count: workers.length })}
           </p>
         </div>
-        <button style={s.refreshBtn} onClick={load} disabled={isLoading}>↻ Atualizar</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <LanguageSwitcher />
+          <button style={s.refreshBtn} onClick={load} disabled={isLoading}>{t('admin.workers.refresh')}</button>
+        </div>
       </div>
 
       {error && <div style={s.errorBanner}>⚠️ {error}</div>}
@@ -52,12 +56,10 @@ export default function WorkersPage() {
       {!isLoading && workers.length === 0 && !error && (
         <div style={s.empty}>
           <div style={s.emptyIcon}>👷</div>
-          <p style={s.emptyTitle}>Ainda não contratou nenhum trabalhador</p>
-          <p style={s.emptySub}>
-            Os trabalhadores aprovados nos seus turnos aparecerão aqui.
-          </p>
+          <p style={s.emptyTitle}>{t('admin.workers.emptyTitle')}</p>
+          <p style={s.emptySub}>{t('admin.workers.emptySub')}</p>
           <button style={s.emptyBtn} onClick={() => router.push('/dashboard/shifts')}>
-            Ver os meus turnos →
+            {t('admin.workers.emptyCta')}
           </button>
         </div>
       )}
@@ -79,7 +81,7 @@ export default function WorkersPage() {
                   </div>
                 )}
                 <div style={s.cardInfo}>
-                  <p style={s.workerName}>{worker.fullName ?? 'Nome não definido'}</p>
+                  <p style={s.workerName}>{worker.fullName ?? t('admin.workers.noName')}</p>
                   <div style={s.ratingRow}>
                     <span style={s.ratingStars}>
                       {(() => { const r = Math.round(Number(worker.avgRating ?? 0)); return '★'.repeat(r) + '☆'.repeat(5 - r); })()}
@@ -87,26 +89,32 @@ export default function WorkersPage() {
                     <span style={s.ratingVal}>
                       {worker.avgRating != null ? Number(worker.avgRating).toFixed(1) : '—'}
                     </span>
-                    <span style={s.ratingCount}>· {worker.totalRatings} aval.</span>
+                    <span style={s.ratingCount}>{t('admin.workers.ratings', { count: worker.totalRatings })}</span>
                   </div>
                   {worker.badges && worker.badges.length > 0 && (
                     <div style={s.badgeRow}>
-                      {worker.badges.includes('TOP_RATED') && <span style={s.badge}>🏆 Top</span>}
-                      {worker.badges.includes('RELIABLE')  && <span style={s.badge}>✅ Fiável</span>}
-                      {worker.badges.includes('VERIFIED')  && <span style={s.badge}>✔️ Verif.</span>}
+                      {worker.badges.includes('TOP_RATED') && <span style={s.badge}>{t('admin.workersSearch.badgeTopShort')}</span>}
+                      {worker.badges.includes('RELIABLE')  && <span style={s.badge}>{t('admin.workersSearch.badgeReliableShort')}</span>}
+                      {worker.badges.includes('VERIFIED')  && <span style={s.badge}>{t('admin.workersSearch.badgeVerifiedShort')}</span>}
                     </div>
                   )}
                   <div style={s.scoreBadge}>
                     <span style={{ ...s.scoreValue, color: scoreColor }}>{score}/100</span>
-                    <span style={s.scoreLabel}>perfil completo</span>
+                    <span style={s.scoreLabel}>{t('admin.workers.scoreLabel')}</span>
                   </div>
                   <p style={s.shiftCount}>
-                    {worker.shiftsWorked} turno{worker.shiftsWorked !== 1 ? 's' : ''} realizados
-                    {worker.lastShiftDate ? ` · último ${new Date(worker.lastShiftDate).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' })}` : ''}
+                    {worker.shiftsWorked === 1
+                      ? t('admin.workers.shiftsOne')
+                      : t('admin.workers.shiftsOther', { count: worker.shiftsWorked })}
+                    {worker.lastShiftDate
+                      ? t('admin.workers.lastShift', { date: fShortDate(worker.lastShiftDate) })
+                      : ''}
                   </p>
                   {worker.noShowCount > 0 && (
                     <p style={{ ...s.noShow, color: worker.noShowCount >= 3 ? '#dc2626' : '#d97706' }}>
-                      ⚠ {worker.noShowCount} falta{worker.noShowCount !== 1 ? 's' : ''}
+                      {worker.noShowCount === 1
+                        ? t('admin.workers.noShowOne')
+                        : t('admin.workers.noShowOther', { count: worker.noShowCount })}
                     </p>
                   )}
                 </div>
@@ -120,10 +128,10 @@ export default function WorkersPage() {
               {/* Skills */}
               {worker.skills && worker.skills.length > 0 && (
                 <div style={s.detailSection}>
-                  <p style={s.detailLabel}>Competências</p>
+                  <p style={s.detailLabel}>{t('admin.workers.skillsLabel')}</p>
                   <div style={s.tagRow}>
                     {worker.skills.map(sk => (
-                      <span key={sk} style={s.tag}>{sk}</span>
+                      <span key={sk} style={s.tag}>{tSkill(sk)}</span>
                     ))}
                   </div>
                 </div>
@@ -132,11 +140,11 @@ export default function WorkersPage() {
               {/* Available days */}
               {worker.availableDays && worker.availableDays.length > 0 && (
                 <div style={s.detailSection}>
-                  <p style={s.detailLabel}>Disponibilidade</p>
+                  <p style={s.detailLabel}>{t('admin.workers.availabilityLabel')}</p>
                   <div style={s.tagRow}>
                     {worker.availableDays.map(d => (
                       <span key={d} style={{ ...s.tag, background: '#dbeafe', color: '#1d4ed8' }}>
-                        {WEEK_DAYS_PT[d] ?? d}
+                        {tWeekday(d)}
                       </span>
                     ))}
                   </div>

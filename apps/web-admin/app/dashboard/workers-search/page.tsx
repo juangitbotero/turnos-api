@@ -3,12 +3,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import {
-  ShiftCategory, LANGUAGES, ALL_SKILLS,
-  EXPERIENCE_LEVEL_SHORT, ExperienceLevel, experienceLevelLabel,
-} from '@turnos/shared';
+import { LANGUAGES, ALL_SKILLS, STORED_WEEKDAYS } from '@turnos/shared';
 import { adminApi, WorkerSearchResult, Shift, ApiError } from '../../../lib/api';
 import { SIDEBAR_NAV } from '../../../lib/nav';
+import { useT } from '../../../lib/i18n';
+import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 
 // ── Worker detail panel ────────────────────────────────────────────────────────
 
@@ -21,6 +20,7 @@ function WorkerDetailPanel({
   onClose: () => void;
   myShifts: Shift[];
 }) {
+  const { t, tSkill, tWorkerLanguage, tWeekday, fShortDate } = useT();
   const [inviting, setInviting]       = useState(false);
   const [selectedShift, setSelectedShift] = useState('');
   const [invited, setInvited]         = useState(false);
@@ -36,7 +36,7 @@ function WorkerDetailPanel({
       await adminApi.inviteWorker(selectedShift, worker.id);
       setInvited(true);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Erro ao convidar.');
+      alert(err instanceof ApiError ? err.message : t('admin.workersSearch.inviteFailed'));
     } finally {
       setInviting(false);
     }
@@ -53,18 +53,18 @@ function WorkerDetailPanel({
               : <div style={p.avatar}>{(worker.fullName?.[0] ?? '?').toUpperCase()}</div>
             }
             <div>
-              <h2 style={p.name}>{worker.fullName ?? 'Nome não definido'}</h2>
+              <h2 style={p.name}>{worker.fullName ?? t('admin.workersSearch.noName')}</h2>
               {avgR != null && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
                   <span style={{ color: '#fbbf24', fontSize: 14 }}>{'★'.repeat(filledStars)}{'☆'.repeat(5 - filledStars)}</span>
                   <span style={p.ratingVal}>{avgR.toFixed(1)}</span>
-                  <span style={p.ratingCount}>({worker.totalRatings} aval.)</span>
+                  <span style={p.ratingCount}>{t('admin.workersSearch.ratings', { count: worker.totalRatings })}</span>
                 </div>
               )}
               <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {worker.badges?.includes('TOP_RATED') && <span style={p.badge}>🏆 Top Rated</span>}
-                {worker.badges?.includes('RELIABLE')  && <span style={p.badge}>✅ Fiável</span>}
-                {worker.badges?.includes('VERIFIED')  && <span style={p.badge}>✔️ Verificado</span>}
+                {worker.badges?.includes('TOP_RATED') && <span style={p.badge}>{t('admin.workersSearch.badgeTop')}</span>}
+                {worker.badges?.includes('RELIABLE')  && <span style={p.badge}>{t('admin.workersSearch.badgeReliable')}</span>}
+                {worker.badges?.includes('VERIFIED')  && <span style={p.badge}>{t('admin.workersSearch.badgeVerified')}</span>}
               </div>
             </div>
           </div>
@@ -75,7 +75,7 @@ function WorkerDetailPanel({
           {/* Profile completeness */}
           <div style={p.section}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={p.sectionTitle}>Perfil Completo</span>
+              <span style={p.sectionTitle}>{t('admin.workersSearch.panelCompleteness')}</span>
               <span style={{ fontSize: 13, fontWeight: 700, color: worker.profileQualityScore >= 80 ? '#16a34a' : '#d97706' }}>
                 {worker.profileQualityScore}%
               </span>
@@ -86,7 +86,7 @@ function WorkerDetailPanel({
           {/* Bio */}
           {worker.bio && (
             <div style={p.section}>
-              <div style={p.sectionTitle}>Apresentação</div>
+              <div style={p.sectionTitle}>{t('admin.workersSearch.panelBio')}</div>
               <p style={p.bio}>{worker.bio}</p>
             </div>
           )}
@@ -94,9 +94,9 @@ function WorkerDetailPanel({
           {/* CV */}
           {worker.cvUrl && (
             <div style={p.section}>
-              <div style={p.sectionTitle}>Currículo</div>
+              <div style={p.sectionTitle}>{t('admin.workersSearch.panelCv')}</div>
               <a href={worker.cvUrl} target="_blank" rel="noopener noreferrer" style={p.cvLink}>
-                📄 {worker.cvFileName ?? 'Ver CV'}
+                📄 {worker.cvFileName ?? t('admin.workersSearch.panelCvFallback')}
               </a>
             </div>
           )}
@@ -104,12 +104,12 @@ function WorkerDetailPanel({
           {/* Experience per job title */}
           {worker.experiences && worker.experiences.length > 0 && (
             <div style={p.section}>
-              <div style={p.sectionTitle}>Experiência</div>
+              <div style={p.sectionTitle}>{t('admin.workersSearch.panelExperience')}</div>
               <div style={p.expList}>
                 {worker.experiences.map(exp => (
                   <div key={exp.jobTitle} style={p.expRow}>
-                    <span style={p.expTitle}>{exp.jobTitle}</span>
-                    <span style={p.expLevel}>{experienceLevelLabel(exp.level)}</span>
+                    <span style={p.expTitle}>{tSkill(exp.jobTitle)}</span>
+                    <span style={p.expLevel}>{t(`domain.experienceLevels.${exp.level}`)}</span>
                   </div>
                 ))}
               </div>
@@ -119,9 +119,9 @@ function WorkerDetailPanel({
           {/* Skills */}
           {worker.skills && worker.skills.length > 0 && (
             <div style={p.section}>
-              <div style={p.sectionTitle}>Competências</div>
+              <div style={p.sectionTitle}>{t('admin.workersSearch.panelSkills')}</div>
               <div style={p.tags}>
-                {worker.skills.map(sk => <span key={sk} style={p.tag}>{sk}</span>)}
+                {worker.skills.map(sk => <span key={sk} style={p.tag}>{tSkill(sk)}</span>)}
               </div>
             </div>
           )}
@@ -129,24 +129,24 @@ function WorkerDetailPanel({
           {/* Languages */}
           {worker.languages && worker.languages.length > 0 && (
             <div style={p.section}>
-              <div style={p.sectionTitle}>Idiomas</div>
+              <div style={p.sectionTitle}>{t('admin.workersSearch.panelLanguages')}</div>
               <div style={p.tags}>
-                {worker.languages.map(l => <span key={l} style={{ ...p.tag, background: '#f0fdf4', color: '#15803d' }}>{l}</span>)}
+                {worker.languages.map(l => <span key={l} style={{ ...p.tag, background: '#f0fdf4', color: '#15803d' }}>{tWorkerLanguage(l)}</span>)}
               </div>
             </div>
           )}
 
           {/* Availability — master switch first, then the days it covers */}
           <div style={p.section}>
-            <div style={p.sectionTitle}>Disponibilidade</div>
+            <div style={p.sectionTitle}>{t('admin.workersSearch.panelAvailability')}</div>
             <div style={worker.isAvailableForWork ? p.availOn : p.availOff}>
               {worker.isAvailableForWork
-                ? '🟢 Disponível para trabalhar'
-                : '⚪ Não disponível de momento'}
+                ? t('admin.workersSearch.availableOn')
+                : t('admin.workersSearch.availableOff')}
             </div>
             {worker.availableDays && worker.availableDays.length > 0 && (
               <div style={{ ...p.tags, marginTop: 8 }}>
-                {worker.availableDays.map(d => <span key={d} style={{ ...p.tag, background: '#dbeafe', color: '#1d4ed8' }}>{d}</span>)}
+                {worker.availableDays.map(d => <span key={d} style={{ ...p.tag, background: '#dbeafe', color: '#1d4ed8' }}>{tWeekday(d)}</span>)}
               </div>
             )}
           </div>
@@ -155,28 +155,26 @@ function WorkerDetailPanel({
           <div style={p.statsRow}>
             <div style={p.stat}>
               <div style={p.statVal}>{worker.noShowCount}</div>
-              <div style={p.statLabel}>faltas</div>
+              <div style={p.statLabel}>{t('admin.workersSearch.statNoShows')}</div>
             </div>
             <div style={p.stat}>
               <div style={p.statVal}>{worker.totalRatings}</div>
-              <div style={p.statLabel}>avaliações</div>
+              <div style={p.statLabel}>{t('admin.workersSearch.statRatings')}</div>
             </div>
             <div style={p.stat}>
               <div style={p.statVal}>{worker.profileQualityScore}%</div>
-              <div style={p.statLabel}>perfil</div>
+              <div style={p.statLabel}>{t('admin.workersSearch.statProfile')}</div>
             </div>
           </div>
 
           {/* Invite to shift */}
           <div style={p.inviteBox}>
-            <div style={p.sectionTitle}>Convidar para um turno</div>
+            <div style={p.sectionTitle}>{t('admin.workersSearch.inviteTitle')}</div>
             {invited ? (
-              <div style={p.inviteSuccess}>
-                ✅ Convite enviado! O worker tem 2h para aceitar.
-              </div>
+              <div style={p.inviteSuccess}>{t('admin.workersSearch.inviteSuccess')}</div>
             ) : openShifts.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
-                Não tens turnos abertos. <Link href="/dashboard/new-shift" style={{ color: 'var(--color-primary)' }}>Publicar turno →</Link>
+                {t('admin.workersSearch.inviteNoShifts')} <Link href="/dashboard/new-shift" style={{ color: 'var(--color-primary)' }}>{t('admin.workersSearch.inviteNoShiftsCta')}</Link>
               </p>
             ) : (
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
@@ -185,10 +183,10 @@ function WorkerDetailPanel({
                   value={selectedShift}
                   onChange={e => setSelectedShift(e.target.value)}
                 >
-                  <option value="">Seleciona um turno...</option>
+                  <option value="">{t('admin.workersSearch.invitePick')}</option>
                   {openShifts.map(sh => (
                     <option key={sh.id} value={sh.id}>
-                      {sh.title || sh.subcategory} · {new Date(sh.date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' })} · {sh.startTime.slice(0,5)}
+                      {sh.title || tSkill(sh.subcategory)} · {fShortDate(sh.date)} · {sh.startTime.slice(0,5)}
                     </option>
                   ))}
                 </select>
@@ -197,7 +195,7 @@ function WorkerDetailPanel({
                   disabled={!selectedShift || inviting}
                   onClick={handleInvite}
                 >
-                  {inviting ? '...' : '⚡ Convidar'}
+                  {inviting ? '...' : t('admin.workersSearch.inviteBtn')}
                 </button>
               </div>
             )}
@@ -212,6 +210,7 @@ function WorkerDetailPanel({
 
 export default function WorkersSearchPage() {
   const router = useRouter();
+  const { t, tSkill, tWorkerLanguage, tWeekday } = useT();
 
   const [workers, setWorkers]         = useState<WorkerSearchResult[]>([]);
   const [myShifts, setMyShifts]       = useState<Shift[]>([]);
@@ -274,8 +273,6 @@ export default function WorkersSearchPage() {
     setArr(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
   };
 
-  const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-
   return (
     <div style={s.shell}>
 
@@ -288,13 +285,14 @@ export default function WorkersSearchPage() {
           </div>
           <div style={s.divider} />
           <nav style={s.nav}>
-            {SIDEBAR_NAV.map(({ icon, label, href, soon }) => {
+            {SIDEBAR_NAV.map(({ icon, key, href, soon }) => {
+              const label = t(`admin.nav.${key}`);
               if (soon || !href) {
                 return (
-                  <div key={label} style={{ ...s.navItem, opacity: 0.45, cursor: 'default' }}>
+                  <div key={key} style={{ ...s.navItem, opacity: 0.45, cursor: 'default' }}>
                     <span style={s.navIcon}>{icon}</span>
                     <span>{label}</span>
-                    <span style={s.soonPill}>breve</span>
+                    <span style={s.soonPill}>{t('admin.chrome.soon')}</span>
                   </div>
                 );
               }
@@ -311,20 +309,23 @@ export default function WorkersSearchPage() {
             })}
           </nav>
         </div>
-        <Link href="/login" style={s.logoutBtn}>Sair →</Link>
+        <Link href="/login" style={s.logoutBtn}>{t('admin.chrome.logout')}</Link>
       </aside>
 
       {/* Main */}
       <main style={s.main}>
         <header style={s.topBar}>
           <div>
-            <button style={s.backBtn} onClick={() => router.push('/dashboard')}>← Dashboard</button>
-            <h1 style={s.title}>Procurar Trabalhadores</h1>
-            <p style={s.sub}>Workers com perfil ≥80% activos na plataforma</p>
+            <button style={s.backBtn} onClick={() => router.push('/dashboard')}>{t('admin.chrome.backDashboard')}</button>
+            <h1 style={s.title}>{t('admin.workersSearch.title')}</h1>
+            <p style={s.sub}>{t('admin.workersSearch.sub')}</p>
           </div>
-          <button style={s.searchBtn} onClick={doSearch} disabled={loading}>
-            {loading ? 'A pesquisar...' : '🔍 Pesquisar'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <LanguageSwitcher />
+            <button style={s.searchBtn} onClick={doSearch} disabled={loading}>
+              {loading ? t('admin.workersSearch.searching') : t('admin.workersSearch.search')}
+            </button>
+          </div>
         </header>
 
         {/* Filter bar */}
@@ -332,7 +333,7 @@ export default function WorkersSearchPage() {
           {/* Text search */}
           <input
             style={s.searchInput}
-            placeholder="Nome, competência ou bio..."
+            placeholder={t('admin.workersSearch.searchPlaceholder')}
             value={searchText}
             onChange={e => setSearchText(e.target.value)}
           />
@@ -340,7 +341,9 @@ export default function WorkersSearchPage() {
           {/* Skills dropdown */}
           <div style={{ position: 'relative' }}>
             <button style={s.filterBtn} onClick={() => setShowSkillFilter(v => !v)}>
-              🎯 Competências {filterSkills.length > 0 ? `(${filterSkills.length})` : ''}
+              {filterSkills.length > 0
+                ? t('admin.workersSearch.filterSkillsCount', { count: filterSkills.length })
+                : t('admin.workersSearch.filterSkills')}
             </button>
             {showSkillFilter && (
               <div style={s.skillDropdown}>
@@ -352,12 +355,12 @@ export default function WorkersSearchPage() {
                         checked={filterSkills.includes(sk)}
                         onChange={() => toggleFilter(filterSkills, setFilterSkills, sk)}
                       />
-                      <span style={{ fontSize: 13 }}>{sk}</span>
+                      <span style={{ fontSize: 13 }}>{tSkill(sk)}</span>
                     </label>
                   ))}
                 </div>
                 <button style={s.applySkills} onClick={() => { setShowSkillFilter(false); doSearch(); }}>
-                  Aplicar filtros
+                  {t('admin.workersSearch.applyFilters')}
                 </button>
               </div>
             )}
@@ -367,15 +370,22 @@ export default function WorkersSearchPage() {
           <button
             style={onlyAvailable ? s.availFilterOn : s.filterBtn}
             onClick={() => setOnlyAvailable(v => !v)}
-            title="Mostrar apenas trabalhadores que se declararam disponíveis"
+            title={t('admin.workersSearch.filterAvailableTitle')}
           >
-            🟢 Disponíveis {onlyAvailable ? '✓' : ''}
+            {onlyAvailable
+              ? t('admin.workersSearch.filterAvailableOn')
+              : t('admin.workersSearch.filterAvailable')}
           </button>
 
           {/* Languages */}
           <select style={s.filterBtn} value="" onChange={e => { if (e.target.value) toggleFilter(filterLangs, setFilterLangs, e.target.value); }}>
-            <option value="">🌐 Idioma{filterLangs.length > 0 ? ` (${filterLangs.length})` : ''}...</option>
-            {(LANGUAGES as readonly string[]).map(l => <option key={l} value={l}>{l}</option>)}
+            <option value="">
+              {filterLangs.length > 0
+                ? t('admin.workersSearch.filterLanguageCount', { count: filterLangs.length })
+                : t('admin.workersSearch.filterLanguage')}
+            </option>
+            {/* value stays the stored PT language name */}
+            {(LANGUAGES as readonly string[]).map(l => <option key={l} value={l}>{tWorkerLanguage(l)}</option>)}
           </select>
 
           {/* Rating */}
@@ -384,21 +394,22 @@ export default function WorkersSearchPage() {
             value={minRating}
             onChange={e => setMinRating(Number(e.target.value))}
           >
-            <option value={0}>⭐ Qualquer avaliação</option>
-            <option value={3}>⭐⭐⭐ 3+ estrelas</option>
-            <option value={4}>⭐⭐⭐⭐ 4+ estrelas</option>
-            <option value={4.5}>⭐⭐⭐⭐½ 4.5+ estrelas</option>
+            <option value={0}>{t('admin.workersSearch.ratingAny')}</option>
+            <option value={3}>{t('admin.workersSearch.rating3')}</option>
+            <option value={4}>{t('admin.workersSearch.rating4')}</option>
+            <option value={4.5}>{t('admin.workersSearch.rating45')}</option>
           </select>
 
           {/* Available days */}
           <div style={s.dayChips}>
-            {DAYS.map(d => (
+            {/* Stored PT values are the filter payload; only the label changes */}
+            {STORED_WEEKDAYS.map(d => (
               <button
                 key={d}
                 style={{ ...s.dayChip, ...(filterDays.includes(d) ? s.dayChipActive : {}) }}
                 onClick={() => toggleFilter(filterDays, setFilterDays, d)}
               >
-                {d}
+                {tWeekday(d)}
               </button>
             ))}
           </div>
@@ -406,7 +417,7 @@ export default function WorkersSearchPage() {
           {/* Active filter chips */}
           {[...filterSkills, ...filterLangs].map(f => (
             <span key={f} style={s.activeChip}>
-              {f}
+              {filterSkills.includes(f) ? tSkill(f) : tWorkerLanguage(f)}
               <button style={s.chipRemove} onClick={() => {
                 setFilterSkills(filterSkills.filter(x => x !== f));
                 setFilterLangs(filterLangs.filter(x => x !== f));
@@ -417,7 +428,11 @@ export default function WorkersSearchPage() {
 
         {/* Results */}
         <div style={s.resultsMeta}>
-          {loading ? 'A pesquisar...' : `${filtered.length} worker${filtered.length !== 1 ? 's' : ''} encontrado${filtered.length !== 1 ? 's' : ''}`}
+          {loading
+            ? t('admin.workersSearch.searching')
+            : filtered.length === 1
+              ? t('admin.workersSearch.resultsOne')
+              : t('admin.workersSearch.resultsOther', { count: filtered.length })}
         </div>
 
         <div style={s.grid}>
@@ -433,7 +448,7 @@ export default function WorkersSearchPage() {
                     : <div style={s.cardAvatar}>{(w.fullName?.[0] ?? '?').toUpperCase()}</div>
                   }
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={s.cardName}>{w.fullName ?? 'Nome não definido'}</p>
+                    <p style={s.cardName}>{w.fullName ?? t('admin.workersSearch.noName')}</p>
                     {avgR != null && (
                       <div style={s.starsRow}>
                         <span style={{ color: '#fbbf24', fontSize: 12 }}>{'★'.repeat(stars)}{'☆'.repeat(5 - stars)}</span>
@@ -450,9 +465,9 @@ export default function WorkersSearchPage() {
                 {/* Badges */}
                 {w.badges && w.badges.length > 0 && (
                   <div style={s.badgeRow}>
-                    {w.badges.includes('TOP_RATED') && <span style={s.badge}>🏆 Top</span>}
-                    {w.badges.includes('RELIABLE')  && <span style={s.badge}>✅ Fiável</span>}
-                    {w.badges.includes('VERIFIED')  && <span style={s.badge}>✔️ Verif.</span>}
+                    {w.badges.includes('TOP_RATED') && <span style={s.badge}>{t('admin.workersSearch.badgeTopShort')}</span>}
+                    {w.badges.includes('RELIABLE')  && <span style={s.badge}>{t('admin.workersSearch.badgeReliableShort')}</span>}
+                    {w.badges.includes('VERIFIED')  && <span style={s.badge}>{t('admin.workersSearch.badgeVerifiedShort')}</span>}
                   </div>
                 )}
 
@@ -462,7 +477,7 @@ export default function WorkersSearchPage() {
                 {/* Top skills */}
                 {w.skills && w.skills.length > 0 && (
                   <div style={s.skillRow}>
-                    {w.skills.slice(0, 3).map(sk => <span key={sk} style={s.skill}>{sk}</span>)}
+                    {w.skills.slice(0, 3).map(sk => <span key={sk} style={s.skill}>{tSkill(sk)}</span>)}
                     {w.skills.length > 3 && <span style={s.more}>+{w.skills.length - 3}</span>}
                   </div>
                 )}
@@ -472,7 +487,7 @@ export default function WorkersSearchPage() {
                   <div style={s.skillRow}>
                     {w.experiences.slice(0, 2).map(exp => (
                       <span key={exp.jobTitle} style={s.expPill}>
-                        💼 {exp.jobTitle} · {EXPERIENCE_LEVEL_SHORT[exp.level as ExperienceLevel] ?? exp.level}
+                        💼 {tSkill(exp.jobTitle)} · {t(`domain.experienceLevelsShort.${exp.level}`)}
                       </span>
                     ))}
                     {w.experiences.length > 2 && <span style={s.more}>+{w.experiences.length - 2}</span>}
@@ -481,17 +496,17 @@ export default function WorkersSearchPage() {
 
                 {/* Languages + availability */}
                 <div style={s.cardMeta}>
-                  {w.isAvailableForWork && <span style={s.availPill}>🟢 Disponível</span>}
+                  {w.isAvailableForWork && <span style={s.availPill}>{t('admin.workersSearch.availablePill')}</span>}
                   {w.cvUrl && <span style={s.metaItem}>📄 CV</span>}
                   {w.languages && w.languages.length > 0 && (
-                    <span style={s.metaItem}>🌐 {w.languages.slice(0,2).join(', ')}{w.languages.length > 2 ? ` +${w.languages.length - 2}` : ''}</span>
+                    <span style={s.metaItem}>🌐 {w.languages.slice(0,2).map(tWorkerLanguage).join(', ')}{w.languages.length > 2 ? ` +${w.languages.length - 2}` : ''}</span>
                   )}
                   {w.availableDays && w.availableDays.length > 0 && (
-                    <span style={s.metaItem}>📅 {w.availableDays.join(', ')}</span>
+                    <span style={s.metaItem}>📅 {w.availableDays.map(tWeekday).join(', ')}</span>
                   )}
                 </div>
 
-                <button style={s.viewBtn}>Ver perfil & convidar →</button>
+                <button style={s.viewBtn}>{t('admin.workersSearch.viewProfile')}</button>
               </div>
             );
           })}
@@ -499,8 +514,8 @@ export default function WorkersSearchPage() {
           {!loading && filtered.length === 0 && (
             <div style={s.empty}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
-              <p style={s.emptyTitle}>Nenhum worker encontrado</p>
-              <p style={s.emptySub}>Tenta ajustar os filtros ou pesquisa por nome.</p>
+              <p style={s.emptyTitle}>{t('admin.workersSearch.emptyTitle')}</p>
+              <p style={s.emptySub}>{t('admin.workersSearch.emptySub')}</p>
             </div>
           )}
         </div>

@@ -5,9 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { adminApi, Shift, EmployerProfile } from '../../lib/api';
 import { SIDEBAR_NAV } from '../../lib/nav';
+import { useT } from '../../lib/i18n';
+import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { t, fWeekdayDate } = useT();
   const [shifts, setShifts]   = useState<Shift[]>([]);
   const [profile, setProfile] = useState<EmployerProfile | null>(null);
 
@@ -33,27 +36,40 @@ export default function DashboardPage() {
 
   const kpiCards = [
     {
-      icon: '📋', label: 'Turnos ativos', color: 'var(--color-primary)',
+      icon: '📋', label: t('admin.home.kpiActive'), color: 'var(--color-primary)',
       value: String(activeShifts.length),
-      sub: `${openShifts.length} aberto${openShifts.length !== 1 ? 's' : ''} · ${filledShifts.length} preenchido${filledShifts.length !== 1 ? 's' : ''}`,
+      sub: t('admin.home.kpiActiveSub', {
+        open: openShifts.length === 1
+          ? t('admin.home.kpiActiveOpenOne')
+          : t('admin.home.kpiActiveOpenOther', { count: openShifts.length }),
+        filled: filledShifts.length === 1
+          ? t('admin.home.kpiActiveFilledOne')
+          : t('admin.home.kpiActiveFilledOther', { count: filledShifts.length }),
+      }),
       href: '/dashboard/shifts',
     },
     {
-      icon: '⚡', label: 'A aguardar confirmação', color: '#d97706',
+      icon: '⚡', label: t('admin.home.kpiAwaiting'), color: '#d97706',
       value: String(pendingApproval.length),
-      sub: pendingApproval.length === 0 ? 'Nenhum trabalhador a confirmar' : 'Worker tem 2h para aceitar',
+      sub: pendingApproval.length === 0
+        ? t('admin.home.kpiAwaitingNone')
+        : t('admin.home.kpiAwaitingSome'),
       href: '/dashboard/shifts',
     },
     {
-      icon: '⏳', label: 'Candidatos pendentes', color: 'var(--color-success)',
+      icon: '⏳', label: t('admin.home.kpiApplicants'), color: 'var(--color-success)',
       value: String(openShifts.length),
-      sub: openShifts.length === 0 ? 'Sem turnos à espera' : 'Ver e selecionar candidatos',
+      sub: openShifts.length === 0
+        ? t('admin.home.kpiApplicantsNone')
+        : t('admin.home.kpiApplicantsSome'),
       href: '/dashboard/shifts',
     },
     {
-      icon: '⚠️', label: 'Turnos caducados', color: '#ef4444',
+      icon: '⚠️', label: t('admin.home.kpiExpired'), color: '#ef4444',
       value: String(expiredShifts.length),
-      sub: expiredShifts.length === 0 ? 'Tudo em dia' : 'Re-publicar ou eliminar',
+      sub: expiredShifts.length === 0
+        ? t('admin.home.kpiExpiredNone')
+        : t('admin.home.kpiExpiredSome'),
       href: '/dashboard/shifts',
     },
   ];
@@ -71,14 +87,15 @@ export default function DashboardPage() {
           </div>
           <div style={s.sidebarDivider} />
           <nav style={s.sidebarNav}>
-            {SIDEBAR_NAV.map(({ icon, label, href, soon }) => {
+            {SIDEBAR_NAV.map(({ icon, key, href, soon }) => {
               const isActive = href === '/dashboard';
+              const label = t(`admin.nav.${key}`);
               if (soon || !href) {
                 return (
-                  <div key={label} style={{ ...s.sidebarItem, ...s.sidebarItemDisabled }}>
+                  <div key={key} style={{ ...s.sidebarItem, ...s.sidebarItemDisabled }}>
                     <span style={s.sidebarIcon}>{icon}</span>
                     <span>{label}</span>
-                    <span style={s.soonPill}>breve</span>
+                    <span style={s.soonPill}>{t('admin.chrome.soon')}</span>
                   </div>
                 );
               }
@@ -98,11 +115,11 @@ export default function DashboardPage() {
           <div style={s.companyBadge}>
             <div style={s.companyAvatar}>🏢</div>
             <div>
-              <div style={s.companyName}>{profile?.companyName ?? 'A minha empresa'}</div>
+              <div style={s.companyName}>{profile?.companyName ?? t('admin.chrome.myCompany')}</div>
               <div style={s.companyPlan}>{profile?.sector ?? '—'}</div>
             </div>
           </div>
-          <Link href="/login" style={s.logoutBtn}>Sair →</Link>
+          <Link href="/login" style={s.logoutBtn}>{t('admin.chrome.logout')}</Link>
         </div>
       </aside>
 
@@ -112,12 +129,19 @@ export default function DashboardPage() {
         {/* Top bar */}
         <header style={s.topBar}>
           <div>
-            <h1 style={s.pageTitle}>Bem-vindo{profile?.companyName ? `, ${profile.companyName}` : ''} 👋</h1>
-            <p style={s.pageDate}>{new Date().toLocaleDateString('pt-PT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            <h1 style={s.pageTitle}>
+              {profile?.companyName
+                ? t('admin.home.greetingNamed', { company: profile.companyName })
+                : t('admin.home.greeting')}
+            </h1>
+            <p style={s.pageDate}>{fWeekdayDate(new Date())}</p>
           </div>
-          <button style={s.postShiftBtn} onClick={() => router.push('/dashboard/new-shift')}>
-            + Publicar Turno
-          </button>
+          <div style={s.topBarActions}>
+            <LanguageSwitcher />
+            <button style={s.postShiftBtn} onClick={() => router.push('/dashboard/new-shift')}>
+              {t('admin.chrome.postShift')}
+            </button>
+          </div>
         </header>
 
         {/* KPI cards */}
@@ -139,24 +163,24 @@ export default function DashboardPage() {
         {/* Quick actions */}
         <section style={s.quickActions}>
           <QuickAction
-            icon="📋" title="Publicar Turno"
-            desc="Define função, horário e morada. TSU calculado automaticamente."
-            cta="Publicar →" href="/dashboard/new-shift" primary
+            icon="📋" title={t('admin.home.actionPostTitle')}
+            desc={t('admin.home.actionPostDesc')}
+            cta={t('admin.home.actionPostCta')} href="/dashboard/new-shift" primary
           />
           <QuickAction
-            icon="🔍" title="Procurar Trabalhadores"
-            desc="Filtra por competência, idioma ou disponibilidade e convida diretamente."
-            cta="Procurar →" href="/dashboard/workers-search"
+            icon="🔍" title={t('admin.home.actionSearchTitle')}
+            desc={t('admin.home.actionSearchDesc')}
+            cta={t('admin.home.actionSearchCta')} href="/dashboard/workers-search"
           />
           <QuickAction
-            icon="👷" title="Os Meus Trabalhadores"
-            desc="Workers que já trabalharam contigo com ratings e histórico de turnos."
-            cta="Ver →" href="/dashboard/workers"
+            icon="👷" title={t('admin.home.actionWorkersTitle')}
+            desc={t('admin.home.actionWorkersDesc')}
+            cta={t('admin.home.actionWorkersCta')} href="/dashboard/workers"
           />
           <QuickAction
-            icon="📲" title="QR Check-in"
-            desc="Os teus códigos QR fixos para entrada e saída. Imprime uma vez, usa sempre."
-            cta="Ver QR →" href="/dashboard/qr-codes"
+            icon="📲" title={t('admin.home.actionQrTitle')}
+            desc={t('admin.home.actionQrDesc')}
+            cta={t('admin.home.actionQrCta')} href="/dashboard/qr-codes"
           />
         </section>
 
@@ -286,6 +310,7 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex', flexDirection: 'column', gap: 28,
   },
   topBar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+  topBarActions: { display: 'flex', alignItems: 'center', gap: 14 },
   pageTitle: {
     fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.5px',
   },

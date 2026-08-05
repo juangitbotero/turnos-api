@@ -13,10 +13,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
 import { shiftApi, ratingsApi, ShiftSummary } from '../../lib/api';
+import { useT } from '../../lib/i18n';
 
 export default function RateShiftScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t } = useT();
 
   const [shift, setShift]           = useState<ShiftSummary | null>(null);
   const [alreadyRated, setAlreadyRated] = useState(false);
@@ -35,19 +37,19 @@ export default function RateShiftScreen() {
       setShift(shiftData);
       setAlreadyRated(ratedData.hasRated);
     } catch {
-      Alert.alert('Erro', 'Não foi possível carregar os dados do turno.', [
+      Alert.alert(t('common.error'), t('mobile.rate.loadError'), [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, router, t]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleSubmit = async () => {
     if (score === 0) {
-      Alert.alert('Avaliação incompleta', 'Por favor seleciona pelo menos 1 estrela.');
+      Alert.alert(t('mobile.rate.incompleteTitle'), t('mobile.rate.incompleteBody'));
       return;
     }
     if (!id) return;
@@ -55,11 +57,11 @@ export default function RateShiftScreen() {
     setSubmitting(true);
     try {
       await ratingsApi.rateEmployer({ shiftId: id, score });
-      Alert.alert('Obrigado!', 'A tua avaliação foi registada com sucesso.', [
+      Alert.alert(t('mobile.rate.thanksTitle'), t('mobile.rate.thanksBody'), [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch {
-      Alert.alert('Erro', 'Não foi possível enviar a avaliação. Tenta novamente.');
+      Alert.alert(t('common.error'), t('mobile.rate.submitError'));
     } finally {
       setSubmitting(false);
     }
@@ -82,10 +84,10 @@ export default function RateShiftScreen() {
           <Text style={s.backIcon}>←</Text>
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={s.headerTitle}>Avaliar turno</Text>
+          <Text style={s.headerTitle}>{t('mobile.rate.title')}</Text>
           {shift && (
             <Text style={s.headerSub} numberOfLines={1}>
-              {shift.title} · {shift.employer?.companyName ?? 'Empresa'}
+              {shift.title} · {shift.employer?.companyName ?? t('common.company')}
             </Text>
           )}
         </View>
@@ -97,14 +99,14 @@ export default function RateShiftScreen() {
           /* Already rated */
           <View style={s.alreadyRated}>
             <Text style={s.alreadyRatedIcon}>✓</Text>
-            <Text style={s.alreadyRatedTitle}>Já avaliaste este turno</Text>
-            <Text style={s.alreadyRatedSub}>A tua avaliação foi registada. Obrigado pelo feedback!</Text>
+            <Text style={s.alreadyRatedTitle}>{t('mobile.rate.alreadyTitle')}</Text>
+            <Text style={s.alreadyRatedSub}>{t('mobile.rate.alreadySub')}</Text>
           </View>
         ) : (
           <>
             {/* Stars */}
             <View style={s.section}>
-              <Text style={s.sectionLabel}>Como correu o turno?</Text>
+              <Text style={s.sectionLabel}>{t('mobile.rate.question')}</Text>
               <View style={s.starsRow}>
                 {[1, 2, 3, 4, 5].map(n => (
                   <TouchableOpacity key={n} onPress={() => setScore(n)} activeOpacity={0.7}>
@@ -113,9 +115,7 @@ export default function RateShiftScreen() {
                 ))}
               </View>
               {score > 0 && (
-                <Text style={s.scoreLabel}>
-                  {['', 'Mau 😞', 'Razoável 😐', 'Bom 😊', 'Muito bom 😄', 'Excelente 🤩'][score]}
-                </Text>
+                <Text style={s.scoreLabel}>{t(`mobile.rate.scores.${score}`)}</Text>
               )}
             </View>
 
@@ -137,7 +137,7 @@ export default function RateShiftScreen() {
             {submitting ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={s.submitBtnText}>Enviar avaliação</Text>
+              <Text style={s.submitBtnText}>{t('mobile.rate.submit')}</Text>
             )}
           </TouchableOpacity>
         </View>

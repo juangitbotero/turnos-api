@@ -6,12 +6,7 @@ import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
-
-const WEEKDAY_INITIALS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D']; // Mon-first, pt-PT
-const MONTH_NAMES = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-];
+import { useT } from '../lib/i18n';
 
 type Mode = 'list' | 'calendar';
 
@@ -22,6 +17,7 @@ export function ShiftSchedule({
   startTime: string;
   endTime: string;
 }) {
+  const { t } = useT();
   const [mode, setMode] = useState<Mode>('list');
   const sorted = [...dates].sort();
 
@@ -35,7 +31,7 @@ export function ShiftSchedule({
           activeOpacity={0.85}
         >
           <Ionicons name="list" size={16} color={mode === 'list' ? '#fff' : colors.textSecondary} />
-          <Text style={[s.toggleText, mode === 'list' && s.toggleTextActive]}>Lista</Text>
+          <Text style={[s.toggleText, mode === 'list' && s.toggleTextActive]}>{t('mobile.schedule.list')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[s.toggleBtn, mode === 'calendar' && s.toggleBtnActive]}
@@ -43,7 +39,7 @@ export function ShiftSchedule({
           activeOpacity={0.85}
         >
           <Ionicons name="calendar" size={16} color={mode === 'calendar' ? '#fff' : colors.textSecondary} />
-          <Text style={[s.toggleText, mode === 'calendar' && s.toggleTextActive]}>Calendário</Text>
+          <Text style={[s.toggleText, mode === 'calendar' && s.toggleTextActive]}>{t('mobile.schedule.calendar')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -55,6 +51,7 @@ export function ShiftSchedule({
 }
 
 function DayList({ dates, startTime, endTime }: { dates: string[]; startTime: string; endTime: string }) {
+  const { fWeekdayDate } = useT();
   return (
     <View style={s.list}>
       {dates.map((day, i) => {
@@ -66,9 +63,7 @@ function DayList({ dates, startTime, endTime }: { dates: string[]; startTime: st
               <Text style={s.dayIndexText}>{i + 1}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.dayLabel}>
-                {d.toLocaleDateString('pt-PT', { weekday: 'long', day: '2-digit', month: 'long' })}
-              </Text>
+              <Text style={s.dayLabel}>{fWeekdayDate(d)}</Text>
               <Text style={s.dayTime}>{startTime.slice(0, 5)} – {endTime.slice(0, 5)}</Text>
             </View>
             {isPast && <Text style={s.dayDone}>✓</Text>}
@@ -80,10 +75,13 @@ function DayList({ dates, startTime, endTime }: { dates: string[]; startTime: st
 }
 
 /**
- * Month grid for every month the job touches. Weeks start on Monday, matching
- * the pt-PT convention.
+ * Month grid for every month the job touches. Weeks start on Monday — the
+ * pt-PT convention, kept in English too so the grid does not reflow on switch.
+ * Month names and weekday initials come from Intl via the active language.
  */
 function MonthGrid({ dates }: { dates: string[] }) {
+  const { fMonthName, fWeekdayInitials } = useT();
+  const weekdays = fWeekdayInitials();
   const marked = new Set(dates);
 
   // One grid per distinct month in the range
@@ -105,10 +103,10 @@ function MonthGrid({ dates }: { dates: string[] }) {
 
         return (
           <View key={month} style={s.month}>
-            <Text style={s.monthName}>{MONTH_NAMES[mon! - 1]} {year}</Text>
+            <Text style={s.monthName}>{fMonthName(mon! - 1, year)} {year}</Text>
 
             <View style={s.weekHead}>
-              {WEEKDAY_INITIALS.map((w, i) => (
+              {weekdays.map((w, i) => (
                 <Text key={i} style={s.weekHeadText}>{w}</Text>
               ))}
             </View>
@@ -178,6 +176,9 @@ const s = StyleSheet.create({
   monthName: {
     fontSize: fontSize.h3, fontWeight: fontWeight.bold as any,
     color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.sm,
+    // Intl gives lowercase month names in PT ("janeiro") — the design wants
+    // them capitalised, as the hardcoded array used to be.
+    textTransform: 'capitalize',
   },
   weekHead: { flexDirection: 'row', marginBottom: 6 },
   weekHeadText: {

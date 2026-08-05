@@ -19,8 +19,10 @@ import { initReactI18next, useTranslation as useI18nTranslation } from 'react-i1
 import {
   CATALOGUES, AppLanguage, DEFAULT_LANGUAGE, resolveInitialLanguage,
   translateSkill, translateSkills, translateCategory, translateWorkerLanguage,
-  formatShortDate, formatLongDate, formatWeekdayDate, formatDateTime,
+  weekdayKey,
+  formatShortDate, formatMediumDate, formatTimestamp, formatLongDate, formatWeekdayDate, formatDateTime,
   formatSmartDate, formatDateRange, formatNumericDate, formatMoney,
+  monthName, weekdayInitials,
 } from '@turnos/shared';
 
 const COOKIE = 'turnos_lang';
@@ -118,15 +120,25 @@ export function useT() {
     tSkills:         (skills: readonly string[]) => translateSkills(skills, language),
     tCategory:       (category: string) => translateCategory(category, language),
     tWorkerLanguage: (l: string) => translateWorkerLanguage(l, language),
+    /** Stored weekday abbreviation ('Seg') → display label ('Seg' / 'Mon'). */
+    tWeekday: (storedDay: string) => {
+      const key = weekdayKey(storedDay);
+      return key ? t(`domain.weekdaysShort.${key}`) : storedDay;
+    },
 
     // Locale-aware formatting
     fShortDate:   (d: string | Date) => formatShortDate(d, language),
+    fMediumDate:  (d: string | Date) => formatMediumDate(d, language),
     fLongDate:    (d: string | Date) => formatLongDate(d, language),
     fWeekdayDate: (d: string | Date) => formatWeekdayDate(d, language),
     fNumericDate: (d: string | Date) => formatNumericDate(d, language),
     fDateTime:    (d: string | Date) => formatDateTime(d, language),
+    fTimestamp:   (d: string | Date) => formatTimestamp(d, language),
     fDateRange:   (dates: readonly string[]) => formatDateRange(dates, language),
     fMoney:       (amount: number) => formatMoney(amount, language),
+    // Calendar-grid building blocks — replace hardcoded month/weekday arrays
+    fMonthName:       (monthIndex: number, year?: number) => monthName(monthIndex, language, year),
+    fWeekdayInitials: () => weekdayInitials(language),
     fSmartDate:   (d: string | Date, monthFormat: 'short' | 'long' = 'short') =>
       formatSmartDate(d, language, {
         today:    t('common.today'),
