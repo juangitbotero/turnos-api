@@ -2,6 +2,11 @@
 // Colors, spacing, radius, typography — single source of truth for all UI
 export * from './design-tokens';
 
+// ─── Internationalisation ────────────────────────────────────────────────────
+// PT/EN catalogues, locale-aware formatters, and display translation for the
+// domain data whose Portuguese value is the stored database key.
+export * from './i18n';
+
 // ─── User Types ──────────────────────────────────────────────────────────────
 
 

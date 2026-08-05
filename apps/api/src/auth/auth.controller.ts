@@ -154,6 +154,7 @@ export class AuthController {
       ibanShareConsent?: boolean;
       isAvailableForWork?: boolean;
       experiences?: WorkerExperience[];
+      preferredLanguage?: string;
     },
   ) {
     const result = await this.authService.updateWorkerPartialProfile(req.user.userId, body);

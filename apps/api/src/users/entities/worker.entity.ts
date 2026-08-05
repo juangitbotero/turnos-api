@@ -137,6 +137,14 @@ export class Worker {
   @Column({ type: 'varchar', length: 512, nullable: true })
   expoPushToken?: string;           // Expo push token for shift notifications
 
+  /**
+   * UI language the worker chose in the app ('pt' | 'en'). Stored server-side
+   * so push notifications and emails — which are composed without a browser —
+   * can be sent in the language the worker actually reads.
+   */
+  @Column({ type: 'varchar', length: 5, default: 'pt' })
+  preferredLanguage: string;
+
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   completionRate: number;           // 0.00–1.00
 

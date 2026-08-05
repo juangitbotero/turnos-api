@@ -68,7 +68,8 @@
         }
       ],
       "expo-document-picker",
-      "expo-font"
+      "expo-font",
+      "expo-localization"
     ],
     "scheme": "turnos",
     "experiments": {

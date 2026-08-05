@@ -13,6 +13,8 @@ import {
   WorkerExperience,
   JOB_TITLES,
   EXPERIENCE_LEVELS,
+  APP_LANGUAGES,
+  AppLanguage,
 } from '@turnos/shared';
 
 @Injectable()
@@ -199,6 +201,7 @@ export class UsersService {
       ibanShareConsent?: boolean;
       isAvailableForWork?: boolean;
       experiences?: WorkerExperience[];
+      preferredLanguage?: string;
     },
   ): Promise<{ profileQualityScore: number }> {
     const worker = await this.workerRepo.findOne({
@@ -213,6 +216,11 @@ export class UsersService {
     if (dto.languages     !== undefined) worker.languages     = dto.languages;
     if (dto.availableDays !== undefined) worker.availableDays = dto.availableDays;
     if (dto.isAvailableForWork !== undefined) worker.isAvailableForWork = dto.isAvailableForWork;
+    // Only accept languages the app actually ships, so a bad value can't make
+    // push notifications fall back to a catalogue that doesn't exist.
+    if (dto.preferredLanguage !== undefined && APP_LANGUAGES.includes(dto.preferredLanguage as AppLanguage)) {
+      worker.preferredLanguage = dto.preferredLanguage;
+    }
 
     // Experiences — keep only known job titles with a valid level, one per title
     if (dto.experiences !== undefined) {

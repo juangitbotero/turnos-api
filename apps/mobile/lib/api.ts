@@ -148,6 +148,8 @@ export const authApi = {
     /** Master availability switch — `availableDays` says which days it covers */
     isAvailableForWork?: boolean;
     experiences?: WorkerExperience[];
+    /** UI language, mirrored server-side so push/email use it too */
+    preferredLanguage?: string;
     nif?: string;
     iban?: string;
     contactEmail?: string;

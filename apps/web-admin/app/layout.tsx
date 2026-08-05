@@ -1,5 +1,7 @@
 import './globals.css';
 import MobileOverlay from './MobileOverlay';
+import { LanguageProvider } from '../lib/i18n';
+import { HtmlLangSync } from './HtmlLangSync';
 
 export default function RootLayout({
   children,
@@ -41,8 +43,13 @@ export default function RootLayout({
         `}</style>
       </head>
       <body>
-        <MobileOverlay />
-        {children}
+        <LanguageProvider>
+          {/* Keeps <html lang> in step with the chosen language for screen
+              readers and browser translation prompts. */}
+          <HtmlLangSync />
+          <MobileOverlay />
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   );

@@ -263,6 +263,7 @@ export class AuthService {
     ibanShareConsent?: boolean;
     isAvailableForWork?: boolean;
     experiences?: WorkerExperience[];
+    preferredLanguage?: string;
   }): Promise<{ profileQualityScore: number }> {
     return this.usersService.updateWorkerPartialFields(userId, dto);
   }
@@ -316,6 +317,7 @@ export class AuthService {
         skills:              normalizeSkills(worker?.skills),
         languages:           worker?.languages           ?? [],
         isAvailableForWork:  worker?.isAvailableForWork  ?? true,
+        preferredLanguage:   worker?.preferredLanguage   ?? 'pt',
         availableDays:       worker?.availableDays       ?? [],
         experiences:         worker?.experiences         ?? [],
         profileQualityScore: worker?.profileQualityScore ?? 0,

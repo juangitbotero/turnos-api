@@ -4,7 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { tokenStorage } from '../lib/storage';
-import { colors } from '@turnos/shared';
+import { initI18n, LanguageProvider } from '../lib/i18n';
+import { colors, AppLanguage, DEFAULT_LANGUAGE } from '@turnos/shared';
 
 // Show notification banners while the app is in the foreground
 Notifications.setNotificationHandler({
@@ -17,8 +18,15 @@ Notifications.setNotificationHandler({
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
+  // Resolved before the tree renders, so no screen ever flashes the wrong
+  // language while the stored choice is read from SecureStore.
+  const [language, setLanguage] = useState<AppLanguage | null>(null);
   const router = useRouter();
   const segments = useSegments();
+
+  useEffect(() => {
+    initI18n().then(setLanguage).catch(() => setLanguage(DEFAULT_LANGUAGE));
+  }, []);
 
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
@@ -94,7 +102,7 @@ export default function RootLayout() {
     }
   };
 
-  if (!isReady) {
+  if (!isReady || !language) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.secondary }}>
         <ActivityIndicator color={colors.primary} size="large" />
@@ -103,7 +111,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <LanguageProvider initialLanguage={language}>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -112,6 +120,6 @@ export default function RootLayout() {
           animation: 'slide_from_right',
         }}
       />
-    </>
+    </LanguageProvider>
   );
 }

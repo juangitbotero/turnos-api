@@ -8,11 +8,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   colors, spacing, radius, fontSize, fontWeight,
-  WorkerExperience, experienceLevelLabel,
+  WorkerExperience, APP_LANGUAGES, APP_LANGUAGE_LABELS, AppLanguage,
 } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
 import { disconnectSocket } from '../lib/socket';
+import { useT, useLanguage } from '../lib/i18n';
 
 type WorkerProfile = {
   userId: string; role: string;
@@ -28,18 +29,19 @@ type WorkerProfile = {
   noShowCount: number; badges: string[];
 };
 
-const STATUS_LABEL: Record<string, { label: string; bg: string; text: string }> = {
-  INCOMPLETE:     { label: 'Perfil incompleto',    bg: '#fef9c3', text: '#854d0e' },
-  PENDING_REVIEW: { label: 'A aguardar aprovação', bg: '#dbeafe', text: '#1d4ed8' },
-  ACTIVE:         { label: 'Ativo',                bg: '#dcfce7', text: '#166534' },
-  SUSPENDED:      { label: 'Suspenso',             bg: '#fee2e2', text: '#991b1b' },
-  REJECTED:       { label: 'Rejeitado',            bg: '#fee2e2', text: '#991b1b' },
+/** Colours only — the labels come from the catalogue via t('domain.workerStatus.*') */
+const STATUS_COLOURS: Record<string, { bg: string; text: string }> = {
+  INCOMPLETE:     { bg: '#fef9c3', text: '#854d0e' },
+  PENDING_REVIEW: { bg: '#dbeafe', text: '#1d4ed8' },
+  ACTIVE:         { bg: '#dcfce7', text: '#166534' },
+  SUSPENDED:      { bg: '#fee2e2', text: '#991b1b' },
+  REJECTED:       { bg: '#fee2e2', text: '#991b1b' },
 };
 
-const BADGE_META: Record<string, { label: string; emoji: string }> = {
-  TOP_RATED: { label: 'Top Rated', emoji: '🏆' },
-  RELIABLE:  { label: 'Fiável',    emoji: '✅' },
-  VERIFIED:  { label: 'Verificado', emoji: '✔️' },
+const BADGE_EMOJI: Record<string, string> = {
+  TOP_RATED: '🏆',
+  RELIABLE:  '✅',
+  VERIFIED:  '✔️',
 };
 
 function maskIban(iban: string) {
@@ -49,7 +51,9 @@ function maskNif(nif: string) {
   return nif.length < 4 ? nif : '•••••' + nif.slice(-4);
 }
 
-function StarRow({ rating, total }: { rating: number | null; total: number }) {
+function StarRow({ rating, total, countLabel }: {
+  rating: number | null; total: number; countLabel: string;
+}) {
   const filled = Math.round(rating ?? 0);
   return (
     <View style={sr.row}>
@@ -59,7 +63,7 @@ function StarRow({ rating, total }: { rating: number | null; total: number }) {
       <Text style={sr.value}>
         {rating != null ? Number(rating).toFixed(1) : '—'}
       </Text>
-      <Text style={sr.count}>({total} aval.)</Text>
+      <Text style={sr.count}>{countLabel}</Text>
     </View>
   );
 }
@@ -74,6 +78,8 @@ const sr = StyleSheet.create({
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { t, tSkill, tWorkerLanguage } = useT();
+  const { language, setLanguage } = useLanguage();
   const [profile, setProfile]     = useState<WorkerProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError]         = useState('');
@@ -88,17 +94,17 @@ export default function ProfileScreen() {
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
         await tokenStorage.clear();
         Alert.alert(
-          'Sessão expirada',
-          'A tua sessão expirou. Por favor inicia sessão novamente.',
-          [{ text: 'Iniciar sessão', onPress: () => router.replace('/login') }],
+          t('common.sessionExpired'),
+          t('common.sessionExpiredBody'),
+          [{ text: t('common.signIn'), onPress: () => router.replace('/login') }],
         );
         return;
       }
-      setError('Não foi possível carregar o perfil.');
+      setError(t('mobile.profile.loadError'));
     } finally {
       setIsLoading(false);
     }
-  }, [router]);
+  }, [router, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -113,18 +119,28 @@ export default function ProfileScreen() {
       await authApi.updateWorkerPartial({ isAvailableForWork: next });
     } catch {
       setProfile(prev => prev && { ...prev, isAvailableForWork: !next });
-      Alert.alert('Erro', 'Não foi possível atualizar a disponibilidade. Tenta novamente.');
+      Alert.alert(t('common.error'), t('mobile.profile.availabilityError'));
     }
-  }, []);
+  }, [t]);
+
+  /**
+   * Switch the UI language and mirror it to the server, so push notifications
+   * and emails — composed without a browser — use the same language.
+   * The server call is best-effort: the UI must switch even if it fails.
+   */
+  const handleLanguageChange = useCallback(async (lang: AppLanguage) => {
+    await setLanguage(lang);
+    authApi.updateWorkerPartial({ preferredLanguage: lang }).catch(() => {});
+  }, [setLanguage]);
 
   const handleLogout = () => {
     Alert.alert(
-      'Terminar sessão',
-      'Tem a certeza que quer sair?',
+      t('mobile.profile.logoutConfirmTitle'),
+      t('mobile.profile.logoutConfirmBody'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Sair', style: 'destructive',
+          text: t('mobile.profile.logoutConfirmYes'), style: 'destructive',
           onPress: async () => {
             disconnectSocket();
             await tokenStorage.clear();
@@ -135,10 +151,14 @@ export default function ProfileScreen() {
     );
   };
 
-  const score      = profile?.profileQualityScore ?? 0;
-  const statusInfo = STATUS_LABEL[profile?.status ?? ''] ?? { label: profile?.status ?? '—', bg: '#f3f4f6', text: '#6b7280' };
-  const scoreColor = score >= 80 ? '#16a34a' : score >= 50 ? '#d97706' : '#dc2626';
-  const activeBadges = (profile?.badges ?? []).filter(b => BADGE_META[b]);
+  const score       = profile?.profileQualityScore ?? 0;
+  const statusKey   = profile?.status ?? '';
+  const statusColour = STATUS_COLOURS[statusKey] ?? { bg: '#f3f4f6', text: '#6b7280' };
+  const statusLabel  = STATUS_COLOURS[statusKey]
+    ? t(`domain.workerStatus.${statusKey}`)
+    : (statusKey || '—');
+  const scoreColor  = score >= 80 ? '#16a34a' : score >= 50 ? '#d97706' : '#dc2626';
+  const activeBadges = (profile?.badges ?? []).filter(b => BADGE_EMOJI[b]);
 
   return (
     <View style={s.root}>
@@ -148,7 +168,7 @@ export default function ProfileScreen() {
           <TouchableOpacity onPress={() => router.back()} style={s.iconBtn} activeOpacity={0.7}>
             <Ionicons name="chevron-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={s.headerTitle}>O Meu Perfil</Text>
+          <Text style={s.headerTitle}>{t('mobile.profile.title')}</Text>
           <TouchableOpacity onPress={() => router.push('/edit-profile' as any)} style={s.iconBtn} activeOpacity={0.7}>
             <Ionicons name="pencil-outline" size={20} color="#fff" />
           </TouchableOpacity>
@@ -163,7 +183,7 @@ export default function ProfileScreen() {
         <View style={s.center}>
           <Text style={s.errorText}>{error}</Text>
           <TouchableOpacity style={s.retryBtn} onPress={load}>
-            <Text style={s.retryText}>Tentar novamente</Text>
+            <Text style={s.retryText}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -181,25 +201,29 @@ export default function ProfileScreen() {
               </View>
             )}
 
-            <Text style={s.fullName}>{profile?.fullName ?? 'Nome não definido'}</Text>
+            <Text style={s.fullName}>{profile?.fullName ?? t('mobile.profile.noName')}</Text>
 
             {/* Star rating */}
-            <StarRow rating={profile?.avgRating ?? null} total={profile?.totalRatings ?? 0} />
+            <StarRow
+              rating={profile?.avgRating ?? null}
+              total={profile?.totalRatings ?? 0}
+              countLabel={t('mobile.profile.ratingsCount', { count: profile?.totalRatings ?? 0 })}
+            />
 
             {/* Badges */}
             {activeBadges.length > 0 && (
               <View style={s.badgesRow}>
                 {activeBadges.map(b => (
                   <View key={b} style={s.badge}>
-                    <Text style={s.badgeText}>{BADGE_META[b].emoji} {BADGE_META[b].label}</Text>
+                    <Text style={s.badgeText}>{BADGE_EMOJI[b]} {t(`domain.badges.${b}`)}</Text>
                   </View>
                 ))}
               </View>
             )}
 
             {/* Status */}
-            <View style={[s.statusBadge, { backgroundColor: statusInfo.bg }]}>
-              <Text style={[s.statusText, { color: statusInfo.text }]}>{statusInfo.label}</Text>
+            <View style={[s.statusBadge, { backgroundColor: statusColour.bg }]}>
+              <Text style={[s.statusText, { color: statusColour.text }]}>{statusLabel}</Text>
             </View>
           </View>
 
@@ -215,7 +239,9 @@ export default function ProfileScreen() {
             <View style={s.availRow}>
               <View style={{ flex: 1 }}>
                 <Text style={s.availTitle}>
-                  {profile?.isAvailableForWork ? '🟢 Disponível para trabalhar' : '⚪ Não disponível'}
+                  {profile?.isAvailableForWork
+                    ? t('mobile.profile.availabilityOn')
+                    : t('mobile.profile.availabilityOff')}
                 </Text>
                 <Text style={s.availSub}>
                   {profile?.isAvailableForWork
@@ -232,7 +258,7 @@ export default function ProfileScreen() {
             </View>
             {(profile?.availableDays?.length ?? 0) > 0 && (
               <View style={[s.availDaysRow, !profile?.isAvailableForWork && { opacity: 0.45 }]}>
-                <Text style={s.availDaysLabel}>Nos dias:</Text>
+                <Text style={s.availDaysLabel}>{t('mobile.profile.onDays')}</Text>
                 {['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].map(d => (
                   <View key={d} style={[s.dayDot, profile!.availableDays.includes(d) && s.dayDotActive]}>
                     <Text style={[s.dayDotText, profile!.availableDays.includes(d) && s.dayDotTextActive]}>
@@ -249,12 +275,12 @@ export default function ProfileScreen() {
             <View style={s.card}>
               <View style={s.cardHeaderRow}>
                 <Ionicons name="briefcase-outline" size={15} color={colors.primary} />
-                <Text style={s.cardTitle}>AS MINHAS EXPERIÊNCIAS</Text>
+                <Text style={s.cardTitle}>{t('mobile.profile.experiencesTitle')}</Text>
               </View>
               {profile!.experiences.map(exp => (
                 <View key={exp.jobTitle} style={s.expRow}>
-                  <Text style={s.expTitle}>{exp.jobTitle}</Text>
-                  <Text style={s.expLevel}>{experienceLevelLabel(exp.level)}</Text>
+                  <Text style={s.expTitle}>{tSkill(exp.jobTitle)}</Text>
+                  <Text style={s.expLevel}>{t(`domain.experienceLevels.${exp.level}`)}</Text>
                 </View>
               ))}
             </View>
@@ -264,7 +290,7 @@ export default function ProfileScreen() {
           <View style={s.card}>
             <View style={s.cardHeaderRow}>
               <Ionicons name="document-text-outline" size={15} color={colors.primary} />
-              <Text style={s.cardTitle}>CURRÍCULO</Text>
+              <Text style={s.cardTitle}>{t('mobile.profile.cvTitle')}</Text>
             </View>
             {profile?.cvUrl ? (
               <TouchableOpacity
@@ -273,7 +299,7 @@ export default function ProfileScreen() {
                 activeOpacity={0.8}
               >
                 <Ionicons name="document-attach" size={18} color="#16a34a" />
-                <Text style={s.cvName} numberOfLines={1}>{profile.cvFileName ?? 'Ver CV'}</Text>
+                <Text style={s.cvName} numberOfLines={1}>{profile.cvFileName ?? t('mobile.profile.cvView')}</Text>
                 <Ionicons name="open-outline" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
             ) : (
@@ -283,7 +309,7 @@ export default function ProfileScreen() {
                 activeOpacity={0.8}
               >
                 <Ionicons name="cloud-upload-outline" size={18} color={colors.primary} />
-                <Text style={s.cvEmptyText}>Carregar o meu CV · +10pts</Text>
+                <Text style={s.cvEmptyText}>{t('mobile.profile.cvUpload')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -297,11 +323,11 @@ export default function ProfileScreen() {
                   <Ionicons name="construct-outline" size={15} color={colors.primary} />
                   {/* "Competências", not "Experiência" — declared years of
                       experience are now their own section above. */}
-                  <Text style={s.highlightLabel}>Competências</Text>
+                  <Text style={s.highlightLabel}>{t('mobile.profile.skills')}</Text>
                   <View style={s.highlightChips}>
                     {profile.skills.slice(0, 3).map(sk => (
                       <View key={sk} style={s.hlChip}>
-                        <Text style={s.hlChipText}>{sk}</Text>
+                        <Text style={s.hlChipText}>{tSkill(sk)}</Text>
                       </View>
                     ))}
                     {profile.skills.length > 3 && (
@@ -315,11 +341,11 @@ export default function ProfileScreen() {
               {profile?.languages && profile.languages.length > 0 && (
                 <View style={[s.highlightRow, { marginTop: 10 }]}>
                   <Ionicons name="language-outline" size={15} color={colors.primary} />
-                  <Text style={s.highlightLabel}>Idiomas</Text>
+                  <Text style={s.highlightLabel}>{t('mobile.profile.languages')}</Text>
                   <View style={s.highlightChips}>
                     {profile.languages.map(lang => (
                       <View key={lang} style={[s.hlChip, { backgroundColor: '#f0fdf4' }]}>
-                        <Text style={[s.hlChipText, { color: '#15803d' }]}>{lang}</Text>
+                        <Text style={[s.hlChipText, { color: '#15803d' }]}>{tWorkerLanguage(lang)}</Text>
                       </View>
                     ))}
                   </View>
@@ -334,7 +360,7 @@ export default function ProfileScreen() {
             <View style={s.scoreRow}>
               <View style={s.cardHeaderRow}>
                 <Ionicons name="checkmark-circle-outline" size={15} color={colors.primary} />
-                <Text style={s.cardTitle}>PERFIL COMPLETO</Text>
+                <Text style={s.cardTitle}>{t('mobile.profile.completenessTitle')}</Text>
               </View>
               <Text style={[s.scoreNum, { color: scoreColor }]}>{score}%</Text>
             </View>
@@ -344,8 +370,8 @@ export default function ProfileScreen() {
             {score < 100 && (
               <Text style={s.scoreHint}>
                 {score < 80
-                  ? 'Completa o perfil para chegares a 80% e seres aprovado.'
-                  : 'Adiciona pelo menos 3 competências para atingires 100%.'}
+                  ? t('mobile.profile.completenessHintLow')
+                  : t('mobile.profile.completenessHintHigh')}
               </Text>
             )}
           </View>
@@ -355,12 +381,12 @@ export default function ProfileScreen() {
             <View style={s.card}>
               <View style={s.cardHeaderRow}>
                 <Ionicons name="construct-outline" size={15} color={colors.primary} />
-                <Text style={s.cardTitle}>COMPETÊNCIAS</Text>
+                <Text style={s.cardTitle}>{t('mobile.profile.skillsTitle')}</Text>
               </View>
               <View style={s.tagWrap}>
                 {profile.skills.map(sk => (
                   <View key={sk} style={s.tag}>
-                    <Text style={s.tagText}>{sk}</Text>
+                    <Text style={s.tagText}>{tSkill(sk)}</Text>
                   </View>
                 ))}
               </View>
@@ -371,7 +397,7 @@ export default function ProfileScreen() {
           <View style={s.card}>
             <View style={s.cardHeaderRow}>
               <Ionicons name="card-outline" size={15} color={colors.primary} />
-              <Text style={s.cardTitle}>DADOS PESSOAIS</Text>
+              <Text style={s.cardTitle}>{t('mobile.profile.personalDataTitle')}</Text>
             </View>
             <View style={s.row}>
               <Text style={s.rowLabel}>NIF</Text>
@@ -383,14 +409,41 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          {/* ── App language ── */}
+          <View style={s.card}>
+            <View style={s.cardHeaderRow}>
+              <Ionicons name="language-outline" size={15} color={colors.primary} />
+              <Text style={s.cardTitle}>{t('mobile.profile.languageTitle')}</Text>
+            </View>
+            <Text style={s.langSub}>{t('mobile.profile.languageSub')}</Text>
+            <View style={s.langRow}>
+              {APP_LANGUAGES.map(lang => {
+                const active = language === lang;
+                return (
+                  <TouchableOpacity
+                    key={lang}
+                    style={[s.langBtn, active && s.langBtnActive]}
+                    onPress={() => handleLanguageChange(lang as AppLanguage)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[s.langBtnText, active && s.langBtnTextActive]}>
+                      {APP_LANGUAGE_LABELS[lang]}
+                    </Text>
+                    {active && <Ionicons name="checkmark-circle" size={16} color="#fff" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
           {/* ── Earnings CTA ── */}
           <TouchableOpacity style={s.ctaBtn} onPress={() => router.push('/earnings' as any)} activeOpacity={0.85}>
             <View style={[s.ctaIcon, { backgroundColor: '#eef0ff' }]}>
               <Ionicons name="bar-chart-outline" size={20} color={colors.primary} />
             </View>
             <View style={s.ctaBody}>
-              <Text style={s.ctaTitle}>Os Meus Ganhos</Text>
-              <Text style={s.ctaSub}>Bruto, líquido e TSU por período</Text>
+              <Text style={s.ctaTitle}>{t('mobile.profile.earningsCta')}</Text>
+              <Text style={s.ctaSub}>{t('mobile.profile.earningsCtaSub')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.primary} />
           </TouchableOpacity>
@@ -401,8 +454,8 @@ export default function ProfileScreen() {
               <Ionicons name="pencil-outline" size={20} color={colors.primary} />
             </View>
             <View style={s.ctaBody}>
-              <Text style={s.ctaTitle}>Editar Perfil</Text>
-              <Text style={s.ctaSub}>Nome, competências, disponibilidade, foto</Text>
+              <Text style={s.ctaTitle}>{t('mobile.profile.editCta')}</Text>
+              <Text style={s.ctaSub}>{t('mobile.profile.editCtaSub')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.primary} />
           </TouchableOpacity>
@@ -410,7 +463,7 @@ export default function ProfileScreen() {
           {/* ── Logout ── */}
           <TouchableOpacity style={s.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
             <Ionicons name="log-out-outline" size={18} color="#dc2626" />
-            <Text style={s.logoutText}>Terminar sessão</Text>
+            <Text style={s.logoutText}>{t('mobile.profile.logout')}</Text>
           </TouchableOpacity>
 
           <View style={{ height: 40 }} />
@@ -421,15 +474,15 @@ export default function ProfileScreen() {
       <View style={s.bottomNav}>
         <TouchableOpacity style={s.navItem} onPress={() => router.push('/')} activeOpacity={0.7}>
           <Ionicons name="compass-outline" size={24} color={colors.textSecondary} />
-          <Text style={s.navLabel}>Turnos</Text>
+          <Text style={s.navLabel}>{t('mobile.nav.shifts')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.navItem} onPress={() => router.push('/my-shifts')} activeOpacity={0.7}>
           <Ionicons name="briefcase-outline" size={24} color={colors.textSecondary} />
-          <Text style={s.navLabel}>Os Meus</Text>
+          <Text style={s.navLabel}>{t('mobile.nav.myShifts')}</Text>
         </TouchableOpacity>
         <View style={s.navItemActive}>
           <Ionicons name="person-circle" size={24} color={colors.primary} />
-          <Text style={s.navLabelActive}>Perfil</Text>
+          <Text style={s.navLabelActive}>{t('mobile.nav.profile')}</Text>
         </View>
       </View>
     </View>
@@ -492,6 +545,18 @@ const s = StyleSheet.create({
     fontSize: fontSize.caption, color: colors.textSecondary,
     fontWeight: fontWeight.semibold as any, marginRight: 4,
   },
+
+  /* App language */
+  langSub: { fontSize: fontSize.caption, color: colors.textSecondary, marginTop: 2, marginBottom: 10, lineHeight: 16 },
+  langRow: { flexDirection: 'row', gap: 8 },
+  langBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    height: 44, borderRadius: radius.md,
+    borderWidth: 1.5, borderColor: colors.neutral, backgroundColor: '#fff',
+  },
+  langBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  langBtnText: { fontSize: fontSize.body, fontWeight: fontWeight.bold as any, color: colors.textSecondary },
+  langBtnTextActive: { color: '#fff' },
 
   /* Experiences */
   expRow: {
