@@ -159,7 +159,11 @@
       "Bash(curl -s https://turnos-api-production-6c70.up.railway.app/api/shifts/search)",
       "Read(//c/Users/j3_19/AppData/Roaming/MetaQuotes/Terminal/0727F3F88B5F0FE006962B330B91FF37/**)",
       "Bash(cd \"C:/Users/j3_19/AppData/Roaming/MetaQuotes/Terminal/0727F3F88B5F0FE006962B330B91FF37/Turnos App/packages/shared\" && npm run build 2>&1 | tail -2; cd ../../apps/api && npx tsc --noEmit -p tsconfig.json 2>&1 | head -8 && echo \"API OK\"; cd ../web-admin && npx tsc --noEmit -p tsconfig.json 2>&1 | head -8 && echo \"WEB-ADMIN OK\")",
-      "Bash(python -)"
+      "Bash(python -)",
+      "Bash(grep -vE \"style|=>|require|'\\\\./|'\\\\.\\\\./|@turnos|expo-|react|#[0-9a-f]{3,6}|^[0-9]+:'\\(row|column|center|flex|none|bold|semibold|large|small|default|padding|absolute|relative|solid|hidden|cover|contain\\)'\")",
+      "Bash(grep -nE \">[^<>{}]*[A-Za-zÀ-ú]{3,}[^<>{}]*<|Alert\\\\.alert\\\\\\(|'[A-ZÀ-Ú][^']{4,}'\" verify.tsx)",
+      "Bash(grep -nE \">[^<>{}]*[A-Za-zÀ-ú]{3,}[^<>{}]*<|placeholder=|Alert\\\\.alert\\\\\\(|= '[A-ZÀ-Ú][^']{4,}'|\\\\? '[^']{4,}'|: '[^']{4,}'\" index.tsx)",
+      "Bash(grep -vE \"style=|colors\\\\.|#[0-9a-f]{3,6}|'row'|'center'|'flex\")"
     ]
   }
 }

@@ -10,6 +10,7 @@ import * as AuthSession from 'expo-auth-session/providers/google';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
+import { useT } from '../lib/i18n';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -23,6 +24,7 @@ const COUNTRY_CODES = [
 type CountryCode = { code: string; flag: string; label: string };
 
 export default function LoginScreen() {
+  const { t } = useT();
   const [selectedCountry, setSelectedCountry] = useState<CountryCode>(COUNTRY_CODES[0]);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [phone, setPhone] = useState('');
@@ -38,7 +40,7 @@ export default function LoginScreen() {
   const handleSendOtp = async () => {
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 7) {
-      Alert.alert('Número inválido', 'Por favor introduza um número de telemóvel válido.');
+      Alert.alert(t('mobile.login.invalidPhoneTitle'), t('mobile.login.invalidPhoneBody'));
       return;
     }
     setIsLoading(true);
@@ -47,7 +49,7 @@ export default function LoginScreen() {
       await authApi.sendOtp(fullPhone);
       router.push({ pathname: '/verify', params: { phone: fullPhone } });
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Não foi possível enviar o código.';
+      const msg = err instanceof ApiError ? err.message : t('mobile.login.sendFailed');
       Alert.alert('Erro', msg);
     } finally {
       setIsLoading(false);
@@ -66,7 +68,7 @@ export default function LoginScreen() {
       await tokenStorage.saveSession(accessToken, refreshToken);
       router.replace(isNewUser ? '/onboarding' : '/');
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Login com Google falhou.';
+      const msg = err instanceof ApiError ? err.message : t('mobile.login.googleFailed');
       Alert.alert('Erro', msg);
     } finally {
       setIsLoading(false);
@@ -96,17 +98,15 @@ export default function LoginScreen() {
           <Text style={s.logoText}>turnos</Text>
           <View style={s.logoDot} />
         </View>
-        <Text style={s.tagline}>Work Today. Staff Today.</Text>
+        <Text style={s.tagline}>{t('mobile.login.tagline')}</Text>
       </View>
 
       {/* Bottom sheet */}
       <View style={s.sheet}>
         <View style={s.sheetHandle} />
 
-        <Text style={s.sheetTitle}>Entrar ou criar conta</Text>
-        <Text style={s.sheetSub}>
-          Introduza o seu número de telemóvel. Vamos enviar-lhe um código.
-        </Text>
+        <Text style={s.sheetTitle}>{t('mobile.login.sheetTitle')}</Text>
+        <Text style={s.sheetSub}>{t('mobile.login.sheetSub')}</Text>
 
         {/* Phone input */}
         <View style={s.phoneRow}>
@@ -123,7 +123,7 @@ export default function LoginScreen() {
 
           <TextInput
             style={s.phoneInput}
-            placeholder="912 345 678"
+            placeholder={t('mobile.login.phonePlaceholder')}
             placeholderTextColor={colors.textSecondary}
             keyboardType="phone-pad"
             value={phone}
@@ -165,7 +165,7 @@ export default function LoginScreen() {
             style={s.continueBtnGradient}
           >
             <Text style={[s.continueBtnText, !isValid && s.continueBtnTextDisabled]}>
-              {isLoading ? 'A enviar...' : 'Continuar →'}
+              {isLoading ? t('mobile.login.sending') : t('mobile.login.continue')}
             </Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -173,7 +173,7 @@ export default function LoginScreen() {
         {/* Divider */}
         <View style={s.divider}>
           <View style={s.dividerLine} />
-          <Text style={s.dividerText}>ou</Text>
+          <Text style={s.dividerText}>{t('mobile.login.or')}</Text>
           <View style={s.dividerLine} />
         </View>
 
@@ -184,10 +184,10 @@ export default function LoginScreen() {
           disabled={!googleEnabled || isLoading}
         >
           <Text style={s.googleIcon}>G</Text>
-          <Text style={s.googleText}>Continuar com Google</Text>
+          <Text style={s.googleText}>{t('mobile.login.google')}</Text>
           {!googleEnabled && (
             <View style={s.soonBadge}>
-              <Text style={s.soonText}>Em breve</Text>
+              <Text style={s.soonText}>{t('mobile.login.comingSoon')}</Text>
             </View>
           )}
         </Pressable>
@@ -209,17 +209,17 @@ export default function LoginScreen() {
             }}
             activeOpacity={0.7}
           >
-            <Text style={s.devBtnText}>🛠 Dev: entrar sem API</Text>
+            <Text style={s.devBtnText}>{t('mobile.login.devBypass')}</Text>
           </TouchableOpacity>
         )}
 
         {/* Legal */}
         <Text style={s.legal}>
-          Ao continuar, aceita os{' '}
-          <Text style={s.legalLink}>Termos de Serviço</Text>
-          {' '}e a{' '}
-          <Text style={s.legalLink}>Política de Privacidade</Text>
-          {' '}da Turnos.
+          {t('mobile.login.legalPrefix')}{' '}
+          <Text style={s.legalLink}>{t('mobile.login.legalTerms')}</Text>
+          {' '}{t('mobile.login.legalAnd')}{' '}
+          <Text style={s.legalLink}>{t('mobile.login.legalPrivacy')}</Text>
+          {' '}{t('mobile.login.legalSuffix')}
         </Text>
       </View>
     </KeyboardAvoidingView>

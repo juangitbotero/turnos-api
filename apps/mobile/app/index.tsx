@@ -9,20 +9,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory,
-  PAYMENT_METHOD_LABELS, PaymentMethod, formatSeriesRange,
+  PAYMENT_METHOD_LABELS, PaymentMethod,
 } from '@turnos/shared';
 import { shiftApi, authApi, ShiftSummary, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
-import { formatDate } from '../lib/format';
+import { useT } from '../lib/i18n';
 
-function toFeedItem(s: ShiftSummary) {
+function toFeedItem(s: ShiftSummary, fmt: {
+  range: (d: readonly string[]) => string;
+  smart: (d: string) => string;
+}) {
   // lat/lng are decimal columns from PostgreSQL — node-pg returns them as strings
   const lat = Number(s.lat) || 38.722;  // fallback: Lisboa centre
   const lng = Number(s.lng) || -9.139;
   return {
     id: s.id,
     title: s.title || s.subcategory,
-    employerName: s.employer?.companyName ?? 'Empresa',
+    employerName: s.employer?.companyName ?? '—',
     category: s.category as ShiftCategory,
     subcategory: s.subcategory,
     grossHourlyRate: Number(s.grossHourlyRate),
@@ -33,8 +36,8 @@ function toFeedItem(s: ShiftSummary) {
     // one entry per job, not per day.
     seriesDays: s.seriesDates?.length && s.seriesDates.length > 1 ? s.seriesDates.length : 0,
     date: s.seriesDates?.length && s.seriesDates.length > 1
-      ? formatSeriesRange(s.seriesDates)
-      : formatDate(s.date),
+      ? fmt.range(s.seriesDates)
+      : fmt.smart(s.date),
     coordinate: { latitude: lat, longitude: lng },
     urgent: false,
   };
@@ -50,6 +53,7 @@ export default function FeedScreen() {
   const [workerName, setWorkerName]       = useState<string | null>(null);
   const [profileScore, setProfileScore]   = useState<number | null>(null); // null until loaded
   const router = useRouter();
+  const { t, tCategory, fDateRange, fSmartDate } = useT();
 
   // Fetch worker profile — name for greeting + score for completeness banner
   useEffect(() => {
@@ -68,7 +72,7 @@ export default function FeedScreen() {
       const data = await shiftApi.search(
         activeCategory !== 'All' ? { category: activeCategory } : undefined,
       );
-      setShifts(data.map(toFeedItem));
+      setShifts(data.map(sh => toFeedItem(sh, { range: fDateRange, smart: fSmartDate })));
     } catch {
       // API not available (dev mode) — show empty state
       setShifts([]);
@@ -76,7 +80,7 @@ export default function FeedScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [activeCategory]);
+  }, [activeCategory, fDateRange, fSmartDate]);
 
   useEffect(() => { loadShifts(); }, [loadShifts]);
 
@@ -113,10 +117,10 @@ export default function FeedScreen() {
           </TouchableOpacity>
         </View>
         <Text style={s.headerGreeting}>
-          {workerName ? `Olá, ${workerName} 👋` : 'Olá 👋'}
+          {workerName ? t('mobile.feed.greeting', { name: workerName }) : t('mobile.feed.greetingNoName')}
         </Text>
         <Text style={s.headerSub}>
-          {isLoading ? 'A carregar...' : `Lisboa · ${filteredShifts.length} turnos disponíveis`}
+          {isLoading ? t('common.loading') : t('mobile.feed.subtitle', { count: filteredShifts.length })}
         </Text>
 
         {/* Profile completeness banner — shown until worker can apply */}
@@ -131,7 +135,7 @@ export default function FeedScreen() {
             </View>
             <View style={s.profileBannerRow}>
               <Text style={s.profileBannerText}>
-                Perfil {profileScore}% completo · Completa para te candidatares →
+                {t('mobile.feed.profileBanner', { score: profileScore })}
               </Text>
             </View>
           </TouchableOpacity>
@@ -142,7 +146,7 @@ export default function FeedScreen() {
           <Ionicons name="search-outline" size={16} color={colors.textSecondary} />
           <TextInput
             style={s.searchInput}
-            placeholder="Pesquisar turnos ou empresa..."
+            placeholder={t('mobile.feed.searchPlaceholder')}
             placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -168,7 +172,7 @@ export default function FeedScreen() {
                 onPress={() => setActiveCategory(cat)}
                 activeOpacity={0.7}
               >
-                <Text style={[s.chipText, activeCategory === cat && s.chipTextActive]}>{cat}</Text>
+                <Text style={[s.chipText, activeCategory === cat && s.chipTextActive]}>{cat === 'All' ? t('mobile.feed.allCategories') : tCategory(cat)}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -216,7 +220,7 @@ export default function FeedScreen() {
       ) : isLoading ? (
         <View style={s.loadingWrap}>
           <ActivityIndicator color={colors.primary} size="large" />
-          <Text style={s.loadingText}>A carregar turnos...</Text>
+          <Text style={s.loadingText}>{t('mobile.feed.loading')}</Text>
         </View>
       ) : (
         <FlatList
@@ -228,8 +232,8 @@ export default function FeedScreen() {
           ListEmptyComponent={
             <View style={s.empty}>
               <Text style={s.emptyIcon}>🔍</Text>
-              <Text style={s.emptyText}>Nenhum turno disponível</Text>
-              <Text style={s.emptySub}>Tente outra categoria ou verifique mais tarde</Text>
+              <Text style={s.emptyText}>{t('mobile.feed.emptyTitle')}</Text>
+              <Text style={s.emptySub}>{t('mobile.feed.emptySub')}</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -240,7 +244,7 @@ export default function FeedScreen() {
             >
               {item.urgent && (
                 <View style={s.urgentBadge}>
-                  <Text style={s.urgentText}>⚡ Urgente</Text>
+                  <Text style={s.urgentText}>{t('mobile.feed.urgent')}</Text>
                 </View>
               )}
 
@@ -259,7 +263,7 @@ export default function FeedScreen() {
               </View>
 
               <Text style={s.netPay}>
-                Recebes o bruto por inteiro
+                {t('mobile.feed.fullGross')}
                 {item.paymentMethodLabel ? (
                   <>
                     {'  ·  '}
@@ -283,7 +287,7 @@ export default function FeedScreen() {
                   <View style={[s.footerChip, s.multiDayChip]}>
                     <Ionicons name="repeat" size={11} color="#1d4ed8" />
                     <Text style={[s.footerChipText, s.multiDayChipText]}>
-                      {item.seriesDays} dias
+                      {t(`mobile.feed.multiDayChip`, { count: item.seriesDays })}
                     </Text>
                   </View>
                 )}
@@ -297,15 +301,15 @@ export default function FeedScreen() {
       <View style={s.bottomNav}>
         <View style={s.navItemActive}>
           <Ionicons name="compass" size={24} color={colors.primary} />
-          <Text style={s.navLabelActive}>Turnos</Text>
+          <Text style={s.navLabelActive}>{t('mobile.nav.shifts')}</Text>
         </View>
         <TouchableOpacity style={s.navItem} onPress={() => router.push('/my-shifts')} activeOpacity={0.7}>
           <Ionicons name="briefcase-outline" size={24} color={colors.textSecondary} />
-          <Text style={s.navLabel}>Os Meus</Text>
+          <Text style={s.navLabel}>{t('mobile.nav.myShifts')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.navItem} onPress={() => router.push('/profile')} activeOpacity={0.7}>
           <Ionicons name="person-circle-outline" size={24} color={colors.textSecondary} />
-          <Text style={s.navLabel}>Perfil</Text>
+          <Text style={s.navLabel}>{t('mobile.nav.profile')}</Text>
         </TouchableOpacity>
       </View>
     </View>

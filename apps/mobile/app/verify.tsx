@@ -9,6 +9,7 @@ import * as Notifications from 'expo-notifications';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
+import { useT } from '../lib/i18n';
 import { connectSocket } from '../lib/socket';
 
 /**
@@ -36,6 +37,7 @@ const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
 
 export default function VerifyScreen() {
+  const { t } = useT();
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const router = useRouter();
 
@@ -113,9 +115,9 @@ export default function VerifyScreen() {
       inputRefs.current[0]?.focus();
       shake();
       const msg = err instanceof ApiError && err.status === 401
-        ? 'Código inválido. Tente novamente.'
-        : 'Erro ao verificar o código. Tente novamente.';
-      Alert.alert('Erro', msg);
+        ? t('mobile.verify.invalidTryAgain')
+        : t('mobile.verify.verifyError');
+      Alert.alert(t('common.error'), msg);
     } finally {
       setIsLoading(false);
     }
@@ -130,7 +132,7 @@ export default function VerifyScreen() {
     try {
       await authApi.sendOtp(phone!);
     } catch {
-      Alert.alert('Erro', 'Não foi possível reenviar o código.');
+      Alert.alert(t('common.error'), t('mobile.verify.resendFailed'));
     }
   };
 
@@ -160,9 +162,9 @@ export default function VerifyScreen() {
       <View style={s.sheet}>
         <View style={s.sheetHandle} />
 
-        <Text style={s.title}>Verifique o seu número</Text>
+        <Text style={s.title}>{t('mobile.verify.titleAlt')}</Text>
         <Text style={s.sub}>
-          Enviámos um código de 6 dígitos para{'\n'}
+          {t('mobile.verify.subtitle')}{'\n'}
           <Text style={s.phoneMask}>{maskedPhone}</Text>
         </Text>
 
@@ -191,13 +193,13 @@ export default function VerifyScreen() {
 
         {/* Error hint */}
         {hasError && (
-          <Text style={s.errorText}>Código inválido. Tente novamente.</Text>
+          <Text style={s.errorText}>{t('mobile.verify.invalidTryAgain')}</Text>
         )}
 
         {/* Loading / verify manually */}
         {isLoading ? (
           <View style={s.loadingRow}>
-            <Text style={s.loadingText}>A verificar...</Text>
+            <Text style={s.loadingText}>{t('mobile.verify.verifying')}</Text>
           </View>
         ) : (
           <TouchableOpacity
@@ -213,7 +215,7 @@ export default function VerifyScreen() {
               style={s.verifyBtnGradient}
             >
               <Text style={[s.verifyBtnText, !digits.every(d => d) && s.verifyBtnTextDisabled]}>
-                Verificar Código
+                {t('mobile.verify.verifyCode')}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -221,10 +223,10 @@ export default function VerifyScreen() {
 
         {/* Resend */}
         <View style={s.resendRow}>
-          <Text style={s.resendLabel}>Não recebeu o código?</Text>
+          <Text style={s.resendLabel}>{t('mobile.verify.noCode')}</Text>
           <TouchableOpacity onPress={handleResend} disabled={countdown > 0}>
             <Text style={[s.resendBtn, countdown > 0 && s.resendBtnDisabled]}>
-              {countdown > 0 ? `Reenviar em ${countdown}s` : 'Reenviar código'}
+              {countdown > 0 ? t('mobile.verify.resendIn', { seconds: countdown }) : t('mobile.verify.resend')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -232,7 +234,7 @@ export default function VerifyScreen() {
         {/* Dev hint — only shown in development */}
         {__DEV__ && (
           <View style={s.devHint}>
-            <Text style={s.devHintText}>🧪 Dev: use o código 123456</Text>
+            <Text style={s.devHintText}>{t('mobile.verify.devHint')}</Text>
           </View>
         )}
       </View>

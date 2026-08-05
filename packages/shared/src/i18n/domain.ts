@@ -78,7 +78,7 @@ const CATEGORIES_EN: Record<ShiftCategory, string> = {
   'Apoio ao Cliente':    'Customer Support',
   'Eventos':             'Events',
   'Hotelaria':           'Hospitality',
-  'Restauração':         'Food & Beverage',
+  'Restauração':         'Restaurants & Cafes',
   'Limpeza e Segurança': 'Cleaning & Security',
   'Logística':           'Logistics',
   'Administração':       'Administration',
