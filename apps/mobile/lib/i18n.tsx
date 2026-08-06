@@ -8,7 +8,7 @@
  * The catalogues themselves live in @turnos/shared so the web admin uses the
  * exact same strings.
  */
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
 import * as Localization from 'expo-localization';
 import * as SecureStore from 'expo-secure-store';
 import i18n from 'i18next';
@@ -110,12 +110,20 @@ export const useLanguage = () => useContext(LanguageContext);
  *   - tSkill / tCategory / tWorkerLanguage translate DOMAIN DATA for display
  *     (the Portuguese value stays the stored key — see shared/i18n/domain.ts)
  *   - the date/money helpers replace the old hardcoded pt-PT calls
+ *
+ * ⚠️ The returned object MUST stay referentially stable between renders.
+ * Screens put these helpers in `useCallback`/`useEffect` dependency arrays
+ * (e.g. the feed's `loadShifts`), so returning a fresh object literal every
+ * render makes those callbacks change identity every render, which re-fires
+ * the effect, which sets state, which renders again — an infinite fetch loop.
+ * Hence useMemo, keyed on the only things the helpers actually close over:
+ * react-i18next's `t` (stable per language) and the active language.
  */
 export function useT() {
   const { t } = useI18nTranslation();
   const { language } = useLanguage();
 
-  return {
+  return useMemo(() => ({
     t,
     language,
 
@@ -147,5 +155,5 @@ export function useT() {
         today:    t('common.today'),
         tomorrow: t('common.tomorrow'),
       }, monthFormat),
-  };
+  }), [t, language]);
 }

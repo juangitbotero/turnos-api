@@ -12,7 +12,7 @@
  * i18n runtime covers everything without Next.js server-component machinery.
  */
 import {
-  createContext, useContext, useEffect, useState, useCallback, ReactNode,
+  createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode,
 } from 'react';
 import i18n from 'i18next';
 import { initReactI18next, useTranslation as useI18nTranslation } from 'react-i18next';
@@ -106,12 +106,19 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
 export const useLanguage = () => useContext(LanguageContext);
 
-/** Same shape as the mobile hook, so screens read identically in both apps. */
+/**
+ * Same shape as the mobile hook, so screens read identically in both apps.
+ *
+ * ⚠️ The returned object MUST stay referentially stable between renders —
+ * pages put these helpers in `useCallback`/`useEffect` dependency arrays, and a
+ * fresh object literal each render turns that into an infinite fetch loop.
+ * See the longer note in apps/mobile/lib/i18n.tsx.
+ */
 export function useT() {
   const { t } = useI18nTranslation();
   const { language } = useLanguage();
 
-  return {
+  return useMemo(() => ({
     t,
     language,
 
@@ -144,5 +151,5 @@ export function useT() {
         today:    t('common.today'),
         tomorrow: t('common.tomorrow'),
       }, monthFormat),
-  };
+  }), [t, language]);
 }
