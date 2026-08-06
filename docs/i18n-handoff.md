@@ -149,7 +149,20 @@ header action group**. One mount per page, no layout redesign.
   from `catalogue()` — see `currentCatalogue()` there. **Mobile's `lib/api.ts`
   has no hardcoded copy**, so it needed no equivalent.
 
-**Phase 3 — public pages:** ⬜ not started. See the full brief below.
+**Phase 3 — public pages: ✅ complete.** Landing, login and register, plus the
+PT/EN toggle in all three. Catalogues at **1216 keys** each side, no drift.
+
+- ✅ `app/page.tsx` — the five content arrays now hold ids only; copy is in
+  `home.*` and resolves at render
+- ✅ `app/login/page.tsx` · `app/register/page.tsx`
+- ✅ `LanguageSwitcher` mounted in the landing nav and both form headers
+
+**Employer sectors were a fourth class of database key.** `SECTORS` lived in
+`register/page.tsx` and is stored verbatim in `employer.sector`. It moved to
+shared as `EMPLOYER_SECTORS` with `translateSector()` / `tSector()`, and the
+`<select>` still submits `value="Restauração"` while displaying
+"Restaurants & Cafes". **Any new stored enum needs the same treatment** — that
+is now five (job titles, categories, worker languages, weekdays, sectors).
 
 **Phase 4 — API messages:** ⬜ not started. See the full brief below.
 
@@ -428,6 +441,11 @@ notification typing, `my-shifts.tsx:34`) plus app-wide `TS2786` and `TS2339`
 noise from LinearGradient/design-token typings. Ignore those; compare per-file
 error counts against `git stash` if unsure whether something is yours.
 
+⚠️ **Never run `next build` while `next dev` is running.** They share `.next`,
+and the dev server then serves stale output — which looks exactly like the
+language cookie being ignored. This wasted time twice during Phase 2 and 3.
+Stop the dev server first, or `rm -rf .next` afterwards.
+
 **Deploying:**
 
 - **Web-admin + API:** on Railway, auto-deploys on push to `main`. The API is
@@ -462,9 +480,9 @@ error counts against `git stash` if unsure whether something is yours.
 
 | | |
 |---|---|
-| Catalogue | **1050 keys** per language, no drift |
-| Static keys verified | 1022, all resolving in PT **and** EN |
-| Phases done | 0, 1, 2 |
-| Phases left | 3 (public pages), 4 (API messages) |
-| HEAD when written | `ae45d0e` |
+| Catalogue | **1216 keys** per language, no drift |
+| Static keys verified | 1133, all resolving in PT **and** EN |
+| Phases done | 0, 1, 2, 3 |
+| Phases left | **4 only** (API messages) |
+| HEAD when written | `4cd241c` |
 | Production data | `GET /shifts/search` returns `[]` — **zero shifts**, so the feed shows its empty state |

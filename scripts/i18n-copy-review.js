@@ -18,7 +18,8 @@ const APPROVED = {
     // Phase 1, approved 2026-08-05
     'calendar', 'schedule', 'myShifts', 'shiftDetail', 'editProfile',
     'onboarding', 'earnings', 'scan', 'rate', 'reciboVerde'],
-  admin: [],
+  admin: ['nav','chrome','mobileOverlay','home','workersSearch','workers','qrCodes','compliance','spending','billing','ratings','newShift','shifts'],
+  home: [],
 };
 
 /**
@@ -27,8 +28,10 @@ const APPROVED = {
  */
 const APPROVED_SHARED = ['common', 'domain'];
 
+// Keyed by app, because namespace names collide across apps: `nav`, `home` and
+// `footer` all exist under more than one.
 const SECTION_TITLES = {
-  // mobile
+  mobile: {
   calendar:    'mobile — phone calendar sync',
   schedule:    'mobile — ShiftSchedule component',
   myShifts:    'mobile — my-shifts.tsx',
@@ -39,7 +42,9 @@ const SECTION_TITLES = {
   scan:        'mobile — scan.tsx',
   rate:        'mobile — rate/[id].tsx',
   reciboVerde: 'mobile — recibo-verde.tsx',
-  // web-admin
+  },
+
+  admin: {
   nav:           'admin — sidebar navigation',
   chrome:        'admin — shared page chrome',
   mobileOverlay: 'admin — small-screen interstitial',
@@ -53,6 +58,22 @@ const SECTION_TITLES = {
   ratings:       'admin — ratings/page.tsx',
   newShift:      'admin — new-shift/page.tsx',
   shifts:        'admin — shifts/page.tsx',
+  },
+
+  home: {
+  nav:        'public — landing nav',
+  hero:       'public — landing hero',
+  heroCard:   'public — landing demo card',
+  stats:      'public — landing stats bar',
+  howItWorks: 'public — landing "how it works"',
+  features:   'public — landing features',
+  trust:      'public — landing trust bar',
+  roadmap:    'public — landing roadmap',
+  cta:        'public — landing CTA banner',
+  footer:     'public — landing footer',
+  login:      'public — login/page.tsx',
+  register:   'public — register/page.tsx',
+  },
 };
 
 const esc = (v) => String(v).replace(/\|/g, '\\|').replace(/\n/g, '<br>');
@@ -96,10 +117,10 @@ for (const ns of ['common', 'domain']) {
   table(lines, `${ns} (shared across both apps)`, rows(s.pt[ns], s.en[ns]));
 }
 
-for (const app of ['mobile', 'admin']) {
+for (const app of ['mobile', 'admin', 'home']) {
   for (const [ns, ptObj] of Object.entries(s.pt[app] ?? {})) {
     if ((APPROVED[app] ?? []).includes(ns)) continue;
-    table(lines, SECTION_TITLES[ns] ?? `${app}.${ns}`, rows(ptObj, s.en[app][ns]));
+    table(lines, SECTION_TITLES[app]?.[ns] ?? `${app}.${ns}`, rows(ptObj, s.en[app][ns]));
   }
 }
 
