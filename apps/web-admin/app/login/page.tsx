@@ -4,8 +4,11 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { adminApi, ApiError } from '../../lib/api';
+import { useT } from '../../lib/i18n';
+import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 
 export default function AdminLogin() {
+  const { t } = useT();
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -25,7 +28,7 @@ export default function AdminLogin() {
     } catch (err) {
       const msg = err instanceof ApiError
         ? err.message
-        : 'Não foi possível ligar ao servidor. Tente novamente.';
+        : t('home.login.connectionError');
       setError(msg);
     } finally {
       setIsLoading(false);
@@ -41,28 +44,23 @@ export default function AdminLogin() {
           <Link href="/" style={s.logo}>turnos</Link>
           <div style={s.panelContent}>
             <h2 style={s.panelTitle}>
-              Gerencie os seus turnos.<br />Sem complicações.
+              {t('home.login.panelTitle1')}<br />{t('home.login.panelTitle2')}
             </h2>
-            <p style={s.panelSub}>
-              Publique um turno em 10 segundos. Conformidade MCD automática.
-              Pagamento por turno concluído.
-            </p>
+            <p style={s.panelSub}>{t('home.login.panelSub')}</p>
             <div style={s.panelCards}>
               {[
-                { icon: '⚡', text: 'Preencha turnos em minutos' },
-                { icon: '📋', text: 'Contratos MCD automáticos' },
-                { icon: '💳', text: 'Pagas direto ao worker, sem comissões' },
-              ].map(({ icon, text }) => (
-                <div key={text} style={s.panelCard}>
+                { icon: '⚡', id: 'panelSpeed'      },
+                { icon: '📋', id: 'panelCompliance' },
+                { icon: '💳', id: 'panelDirectPay'  },
+              ].map(({ icon, id }) => (
+                <div key={id} style={s.panelCard}>
                   <span style={s.panelCardIcon}>{icon}</span>
-                  <span style={s.panelCardText}>{text}</span>
+                  <span style={s.panelCardText}>{t(`home.login.${id}`)}</span>
                 </div>
               ))}
             </div>
           </div>
-          <div style={s.panelFooter}>
-            Beta fechada · Lisboa · 2026
-          </div>
+          <div style={s.panelFooter}>{t('home.login.panelFooter')}</div>
         </div>
         {/* Decorative blobs */}
         <div style={s.blob1} aria-hidden />
@@ -74,13 +72,16 @@ export default function AdminLogin() {
         <div style={s.formBox}>
 
           {/* Mobile logo (hidden on desktop) */}
-          <Link href="/" style={{ ...s.logo, marginBottom: 32, display: 'block' }}>turnos</Link>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
+            <Link href="/" style={{ ...s.logo, display: 'block' }}>turnos</Link>
+            <LanguageSwitcher />
+          </div>
 
           <div style={s.formHeader}>
-            <h1 style={s.formTitle}>Entrar na conta</h1>
+            <h1 style={s.formTitle}>{t('home.login.title')}</h1>
             <p style={s.formSub}>
-              Não tem conta?{' '}
-              <Link href="/register" style={s.formSubLink}>Registar empresa →</Link>
+              {t('home.login.noAccount')}{' '}
+              <Link href="/register" style={s.formSubLink}>{t('home.login.registerLink')}</Link>
             </p>
           </div>
 
@@ -88,7 +89,7 @@ export default function AdminLogin() {
 
             {/* Email */}
             <div style={s.field}>
-              <label htmlFor="email" style={s.label}>Email</label>
+              <label htmlFor="email" style={s.label}>{t('home.login.email')}</label>
               <div style={s.inputWrap}>
                 <span style={s.inputIcon} aria-hidden>✉</span>
                 <input
@@ -98,7 +99,7 @@ export default function AdminLogin() {
                   required
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="empresa@exemplo.pt"
+                  placeholder={t('home.login.emailPlaceholder')}
                   style={s.input}
                 />
               </div>
@@ -106,7 +107,7 @@ export default function AdminLogin() {
 
             {/* Password */}
             <div style={s.field}>
-              <label htmlFor="password" style={s.label}>Password</label>
+              <label htmlFor="password" style={s.label}>{t('home.login.password')}</label>
               <div style={s.inputWrap}>
                 <span style={s.inputIcon} aria-hidden>🔒</span>
                 <input
@@ -123,7 +124,7 @@ export default function AdminLogin() {
                   type="button"
                   onClick={() => setShowPass(p => !p)}
                   style={s.showPassBtn}
-                  aria-label={showPass ? 'Ocultar password' : 'Mostrar password'}
+                  aria-label={showPass ? t('home.login.hidePassword') : t('home.login.showPassword')}
                 >
                   {showPass ? '🙈' : '👁'}
                 </button>
@@ -139,7 +140,7 @@ export default function AdminLogin() {
 
             {/* Forgot */}
             <div style={s.forgotRow}>
-              <a href="#" style={s.forgotLink}>Esqueceu a password?</a>
+              <a href="#" style={s.forgotLink}>{t('home.login.forgot')}</a>
             </div>
 
             {/* Submit */}
@@ -156,7 +157,7 @@ export default function AdminLogin() {
               {isLoading ? (
                 <span style={s.spinner} className="animate-spin">⏳</span>
               ) : (
-                'Entrar →'
+                t('home.login.submit')
               )}
             </button>
           </form>
@@ -164,15 +165,15 @@ export default function AdminLogin() {
           {/* Divider */}
           <div style={s.divider}>
             <div style={s.dividerLine} />
-            <span style={s.dividerText}>ou</span>
+            <span style={s.dividerText}>{t('home.login.or')}</span>
             <div style={s.dividerLine} />
           </div>
 
           {/* Google SSO placeholder */}
           <button id="google-login-btn" style={s.googleBtn} disabled>
             <span style={{ fontSize: 18 }}>G</span>
-            Continuar com Google
-            <span style={s.comingSoon}>Em breve</span>
+            {t('home.login.google')}
+            <span style={s.comingSoon}>{t('home.login.comingSoon')}</span>
           </button>
 
           {process.env.NODE_ENV === 'development' && (
@@ -188,15 +189,15 @@ export default function AdminLogin() {
                 router.push('/dashboard');
               }}
             >
-              🛠 Dev: entrar sem API
+              {t('home.login.devBypass')}
             </button>
           )}
 
           <p style={s.legal}>
-            Ao entrar, aceita os{' '}
-            <a href="#" style={s.legalLink}>Termos de Serviço</a>
-            {' '}e a{' '}
-            <a href="#" style={s.legalLink}>Política de Privacidade</a>.
+            {t('home.login.legalPrefix')}{' '}
+            <a href="#" style={s.legalLink}>{t('home.login.legalTerms')}</a>
+            {' '}{t('home.login.legalAnd')}{' '}
+            <a href="#" style={s.legalLink}>{t('home.login.legalPrivacy')}</a>.
           </p>
 
         </div>

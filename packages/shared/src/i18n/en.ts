@@ -1456,5 +1456,100 @@ export const en: Translated<TranslationCatalogue> = {
       login:    'Sign in',
       register: 'Sign up',
     },
+
+    login: {
+      panelTitle1: 'Manage your shifts.',
+      panelTitle2: 'Without the hassle.',
+      panelSub:    'Post a shift in 10 seconds. Automatic MCD compliance. Pay per completed shift.',
+      panelFooter: 'Closed beta · Lisbon · 2026',
+      panelSpeed:      'Fill shifts in minutes',
+      panelCompliance: 'Automatic MCD contracts',
+      panelDirectPay:  'Pay the worker directly, no commission',
+
+      title:        'Sign in',
+      noAccount:    "Don't have an account?",
+      registerLink: 'Register your company →',
+
+      email:            'Email',
+      emailPlaceholder: 'company@example.pt',
+      password:         'Password',
+      showPassword:     'Show password',
+      hidePassword:     'Hide password',
+      forgot:           'Forgot your password?',
+      submit:           'Sign in →',
+
+      or:         'or',
+      google:     'Continue with Google',
+      comingSoon: 'Coming soon',
+      devBypass:  '🛠 Dev: sign in without API',
+
+      connectionError: "Couldn't reach the server. Please try again.",
+
+      legalPrefix:  'By signing in you accept the',
+      legalTerms:   'Terms of Service',
+      legalAnd:     'and the',
+      legalPrivacy: 'Privacy Policy',
+    },
+
+    register: {
+      panelTitle:  'Register your company for free',
+      panelSub:    'Closed beta · Lisbon · First 50 employers join at no cost.',
+      panelFooter: 'By registering you accept the Terms of Service and Privacy Policy of Turnos.',
+      stepCompany: 'Company',
+      stepAccount: 'Account',
+      stepReview:  'Confirm',
+
+      // Step 1 — company
+      companyTitle:   'Company details',
+      haveAccount:    'Already have an account?',
+      loginLink:      'Sign in →',
+      labelName:      'Company name *',
+      placeholderName:'E.g. Restaurante A Taberna, Lda',
+      // NIPC and NIF are Portuguese company/tax numbers — kept, not translated
+      labelNipc:      'NIPC *',
+      hintNipc:       '9 digits',
+      labelNif:       'NIF (optional)',
+      hintNif:        'Person responsible',
+      labelSector:    'Business sector *',
+      pickSector:     'Select a sector',
+      labelAddress:   'Address *',
+      placeholderAddress: 'Rua do Ouro, 123',
+      labelPostal:    'Postcode *',
+      labelCity:      'City *',
+      placeholderCity:'Lisbon',
+      continue:       'Continue →',
+
+      // Step 2 — admin account
+      adminTitle:  'Administrator account',
+      adminSub:    'The email and password you will use to sign in to the dashboard.',
+      labelEmail:  'Email *',
+      placeholderEmail: 'admin@company.pt',
+      labelPassword: 'Password *',
+      hintPassword:  'Minimum 8 characters',
+      labelConfirm:  'Confirm password *',
+      back:          '← Back',
+
+      // Step 3 — review
+      reviewTitle: 'Check your details',
+      reviewSub:   'Review everything before submitting your registration.',
+      rowCompany:  'Company',
+      rowNipc:     'NIPC',
+      rowSector:   'Sector',
+      rowAddress:  'Address',
+      rowEmail:    'Admin email',
+      submit:      'Create account →',
+      submitting:  'Registering...',
+
+      // Validation
+      errName:     'Company name is required',
+      errSector:   'Please select a sector',
+      errAddress:  'Address is required',
+      errPostal:   'Format: XXXX-XXX',
+      errCity:     'City is required',
+      errEmail:    'Invalid email',
+      errPassword: 'Minimum 8 characters',
+      errConfirm:  'The passwords do not match',
+      errUnknown:  'Something went wrong. Please try again.',
+    },
   },
 };

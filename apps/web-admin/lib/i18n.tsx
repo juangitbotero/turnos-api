@@ -18,7 +18,7 @@ import i18n from 'i18next';
 import { initReactI18next, useTranslation as useI18nTranslation } from 'react-i18next';
 import {
   CATALOGUES, AppLanguage, DEFAULT_LANGUAGE, resolveInitialLanguage,
-  translateSkill, translateSkills, translateCategory, translateWorkerLanguage,
+  translateSkill, translateSkills, translateCategory, translateWorkerLanguage, translateSector,
   weekdayKey,
   formatShortDate, formatMediumDate, formatTimestamp, formatLongDate, formatWeekdayDate, formatDateTime,
   formatSmartDate, formatDateRange, formatNumericDate, formatMoney,
@@ -127,6 +127,7 @@ export function useT() {
     tSkills:         (skills: readonly string[]) => translateSkills(skills, language),
     tCategory:       (category: string) => translateCategory(category, language),
     tWorkerLanguage: (l: string) => translateWorkerLanguage(l, language),
+    tSector:         (sector: string) => translateSector(sector, language),
     /** Stored weekday abbreviation ('Seg') → display label ('Seg' / 'Mon'). */
     tWeekday: (storedDay: string) => {
       const key = weekdayKey(storedDay);

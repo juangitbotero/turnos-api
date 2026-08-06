@@ -84,6 +84,36 @@ const CATEGORIES_EN: Record<ShiftCategory, string> = {
   'Administração':       'Administration',
 };
 
+/**
+ * Employer business sectors, offered at registration and stored verbatim in
+ * `employer.sector`. Another Portuguese DATABASE VALUE — the register form must
+ * keep submitting 'Restauração' in every language.
+ */
+export const EMPLOYER_SECTORS = [
+  'Restauração', 'Hotelaria', 'Eventos', 'Retalho / Comércio',
+  'Logística', 'Saúde', 'Limpeza', 'Segurança', 'Outro',
+] as const;
+
+export type EmployerSector = typeof EMPLOYER_SECTORS[number];
+
+const SECTORS_EN: Record<EmployerSector, string> = {
+  'Restauração':        'Restaurants & Cafes',
+  'Hotelaria':          'Hospitality',
+  'Eventos':            'Events',
+  'Retalho / Comércio': 'Retail & Commerce',
+  'Logística':          'Logistics',
+  'Saúde':              'Healthcare',
+  'Limpeza':            'Cleaning',
+  'Segurança':          'Security',
+  'Outro':              'Other',
+};
+
+/** Display name for a stored employer sector. */
+export function translateSector(sector: string, lang: AppLanguage): string {
+  if (lang === 'pt') return sector;
+  return SECTORS_EN[sector as EmployerSector] ?? sector;
+}
+
 /** The languages a worker can declare speaking — profile data, stored in PT. */
 const WORKER_LANGUAGES_EN: Record<Language, string> = {
   'Português': 'Portuguese',

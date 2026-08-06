@@ -1468,6 +1468,100 @@ export const pt = {
       login:    'Entrar',
       register: 'Registar',
     },
+
+    login: {
+      panelTitle1: 'Gerencie os seus turnos.',
+      panelTitle2: 'Sem complicações.',
+      panelSub:    'Publique um turno em 10 segundos. Conformidade MCD automática. Pagamento por turno concluído.',
+      panelFooter: 'Beta fechada · Lisboa · 2026',
+      panelSpeed:      'Preencha turnos em minutos',
+      panelCompliance: 'Contratos MCD automáticos',
+      panelDirectPay:  'Pagas direto ao worker, sem comissões',
+
+      title:        'Entrar na conta',
+      noAccount:    'Não tem conta?',
+      registerLink: 'Registar empresa →',
+
+      email:            'Email',
+      emailPlaceholder: 'empresa@exemplo.pt',
+      password:         'Password',
+      showPassword:     'Mostrar password',
+      hidePassword:     'Ocultar password',
+      forgot:           'Esqueceu a password?',
+      submit:           'Entrar →',
+
+      or:         'ou',
+      google:     'Continuar com Google',
+      comingSoon: 'Em breve',
+      devBypass:  '🛠 Dev: entrar sem API',
+
+      connectionError: 'Não foi possível ligar ao servidor. Tente novamente.',
+
+      legalPrefix:  'Ao entrar, aceita os',
+      legalTerms:   'Termos de Serviço',
+      legalAnd:     'e a',
+      legalPrivacy: 'Política de Privacidade',
+    },
+
+    register: {
+      panelTitle:  'Registe a sua empresa gratuitamente',
+      panelSub:    'Beta fechada · Lisboa · Primeiros 50 empregadores sem custo de adesão.',
+      panelFooter: 'Ao registar-se, aceita os Termos de Serviço e a Política de Privacidade da Turnos.',
+      stepCompany: 'Empresa',
+      stepAccount: 'Conta',
+      stepReview:  'Confirmação',
+
+      // Step 1 — company
+      companyTitle:   'Dados da empresa',
+      haveAccount:    'Já tem conta?',
+      loginLink:      'Entrar →',
+      labelName:      'Nome da empresa *',
+      placeholderName:'Ex: Restaurante A Taberna, Lda',
+      labelNipc:      'NIPC *',
+      hintNipc:       '9 dígitos',
+      labelNif:       'NIF (opcional)',
+      hintNif:        'Responsável',
+      labelSector:    'Sector de actividade *',
+      pickSector:     'Selecione o sector',
+      labelAddress:   'Morada *',
+      placeholderAddress: 'Rua do Ouro, 123',
+      labelPostal:    'Código Postal *',
+      labelCity:      'Cidade *',
+      placeholderCity:'Lisboa',
+      continue:       'Continuar →',
+
+      // Step 2 — admin account
+      adminTitle:  'Conta de administrador',
+      adminSub:    'O email e password para aceder ao dashboard.',
+      labelEmail:  'Email *',
+      placeholderEmail: 'admin@empresa.pt',
+      labelPassword: 'Password *',
+      hintPassword:  'Mínimo 8 caracteres',
+      labelConfirm:  'Confirmar Password *',
+      back:          '← Voltar',
+
+      // Step 3 — review
+      reviewTitle: 'Confirme os dados',
+      reviewSub:   'Verifique antes de submeter o registo.',
+      rowCompany:  'Empresa',
+      rowNipc:     'NIPC',
+      rowSector:   'Sector',
+      rowAddress:  'Morada',
+      rowEmail:    'Email admin',
+      submit:      'Criar conta →',
+      submitting:  'A registar...',
+
+      // Validation
+      errName:     'Nome da empresa obrigatório',
+      errSector:   'Selecione o sector',
+      errAddress:  'Morada obrigatória',
+      errPostal:   'Formato: XXXX-XXX',
+      errCity:     'Cidade obrigatória',
+      errEmail:    'Email inválido',
+      errPassword: 'Mínimo 8 caracteres',
+      errConfirm:  'As passwords não coincidem',
+      errUnknown:  'Erro desconhecido. Tente novamente.',
+    },
   },
 } as const;
 

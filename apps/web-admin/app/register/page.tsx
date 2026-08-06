@@ -3,13 +3,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { EMPLOYER_SECTORS } from '@turnos/shared';
+import { useT } from '../../lib/i18n';
+import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
-
-const SECTORS = [
-  'Restauração', 'Hotelaria', 'Eventos', 'Retalho / Comércio',
-  'Logística', 'Saúde', 'Limpeza', 'Segurança', 'Outro',
-];
 
 type Step = 'company' | 'admin' | 'review';
 
@@ -25,6 +23,7 @@ const EMPTY: FormState = {
 };
 
 export default function RegisterPage() {
+  const { t, tSector } = useT();
   const [step, setStep] = useState<Step>('company');
   const [form, setForm] = useState<FormState>(EMPTY);
   const [errors, setErrors] = useState<Partial<FormState>>({});
@@ -39,22 +38,22 @@ export default function RegisterPage() {
 
   const validateCompany = (): boolean => {
     const e: Partial<FormState> = {};
-    if (!form.companyName.trim()) e.companyName = 'Nome da empresa obrigatório';
+    if (!form.companyName.trim()) e.companyName = t('home.register.errName');
     if (!/^\d{9}$/.test(form.nipc))   e.nipc = 'NIPC deve ter 9 dígitos';
-    if (!form.sector)                  e.sector = 'Selecione o sector';
-    if (!form.address.trim())          e.address = 'Morada obrigatória';
-    if (!/^\d{4}-\d{3}$/.test(form.postalCode)) e.postalCode = 'Formato: XXXX-XXX';
-    if (!form.city.trim())             e.city = 'Cidade obrigatória';
+    if (!form.sector)                  e.sector = t('home.register.errSector');
+    if (!form.address.trim())          e.address = t('home.register.errAddress');
+    if (!/^\d{4}-\d{3}$/.test(form.postalCode)) e.postalCode = t('home.register.errPostal');
+    if (!form.city.trim())             e.city = t('home.register.errCity');
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
   const validateAdmin = (): boolean => {
     const e: Partial<FormState> = {};
-    if (!form.adminEmail.includes('@'))        e.adminEmail = 'Email inválido';
-    if (form.adminPassword.length < 8)         e.adminPassword = 'Mínimo 8 caracteres';
+    if (!form.adminEmail.includes('@'))        e.adminEmail = t('home.register.errEmail');
+    if (form.adminPassword.length < 8)         e.adminPassword = t('home.register.errPassword');
     if (form.adminPassword !== form.adminPasswordConfirm)
-      e.adminPasswordConfirm = 'As passwords não coincidem';
+      e.adminPasswordConfirm = t('home.register.errConfirm');
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -90,7 +89,7 @@ export default function RegisterPage() {
       localStorage.setItem('refreshToken', data.refreshToken);
       router.push('/dashboard');
     } catch (err: any) {
-      setApiError(err.message ?? 'Erro desconhecido. Tente novamente.');
+      setApiError(err.message ?? t('home.register.errUnknown'));
     } finally {
       setIsLoading(false);
     }
@@ -104,12 +103,16 @@ export default function RegisterPage() {
         <div style={s.panelInner}>
           <Link href="/" style={s.logo}>turnos</Link>
           <div style={s.panelContent}>
-            <h2 style={s.panelTitle}>Registe a sua empresa gratuitamente</h2>
-            <p style={s.panelSub}>Beta fechada · Lisboa · Primeiros 50 empregadores sem custo de adesão.</p>
+            <h2 style={s.panelTitle}>{t('home.register.panelTitle')}</h2>
+            <p style={s.panelSub}>{t('home.register.panelSub')}</p>
             {/* Steps indicator */}
             <div style={s.steps}>
               {(['company', 'admin', 'review'] as Step[]).map((s2, i) => {
-                const labels = ['Empresa', 'Conta', 'Confirmação'];
+                const labels = [
+                  t('home.register.stepCompany'),
+                  t('home.register.stepAccount'),
+                  t('home.register.stepReview'),
+                ];
                 const done  = step === 'admin' ? i < 1 : step === 'review' ? i < 2 : false;
                 const active = step === s2;
                 return (
@@ -128,7 +131,7 @@ export default function RegisterPage() {
               })}
             </div>
           </div>
-          <p style={s.panelFooter}>Ao registar-se, aceita os Termos de Serviço e a Política de Privacidade da Turnos.</p>
+          <p style={s.panelFooter}>{t('home.register.panelFooter')}</p>
         </div>
         <div style={s.blob1} /><div style={s.blob2} />
       </aside>
@@ -136,59 +139,63 @@ export default function RegisterPage() {
       {/* Right form */}
       <main style={s.formSide}>
         <div style={s.formBox}>
-          <Link href="/" style={{ ...s.logo, color: 'var(--color-primary)', marginBottom: 24, display: 'block' }}>turnos</Link>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+            <Link href="/" style={{ ...s.logo, color: 'var(--color-primary)', display: 'block' }}>turnos</Link>
+            <LanguageSwitcher />
+          </div>
 
           {/* ── Step 1: Company ── */}
           {step === 'company' && (
             <>
               <div style={s.formHeader}>
-                <h1 style={s.formTitle}>Dados da empresa</h1>
-                <p style={s.formSub}>Já tem conta? <Link href="/login" style={s.link}>Entrar →</Link></p>
+                <h1 style={s.formTitle}>{t('home.register.companyTitle')}</h1>
+                <p style={s.formSub}>{t('home.register.haveAccount')} <Link href="/login" style={s.link}>{t('home.register.loginLink')}</Link></p>
               </div>
               <div style={s.form}>
-                <Field id="reg-company-name" label="Nome da empresa *" error={errors.companyName}>
+                <Field id="reg-company-name" label={t('home.register.labelName')} error={errors.companyName}>
                   <input id="reg-company-name" style={{...s.input, ...(errors.companyName ? s.inputError : {})}}
                     value={form.companyName} onChange={e => set('companyName', e.target.value)}
-                    placeholder="Ex: Restaurante A Taberna, Lda" />
+                    placeholder={t('home.register.placeholderName')} />
                 </Field>
                 <div style={s.twoCol}>
-                  <Field id="reg-nipc" label="NIPC *" hint="9 dígitos" error={errors.nipc}>
+                  <Field id="reg-nipc" label={t('home.register.labelNipc')} hint={t('home.register.hintNipc')} error={errors.nipc}>
                     <input id="reg-nipc" style={{...s.input, ...(errors.nipc ? s.inputError : {})}}
                       value={form.nipc} onChange={e => set('nipc', e.target.value.replace(/\D/g, '').slice(0, 9))}
                       placeholder="508 123 456" maxLength={9} />
                   </Field>
-                  <Field id="reg-nif" label="NIF (opcional)" hint="Responsável">
+                  <Field id="reg-nif" label={t('home.register.labelNif')} hint={t('home.register.hintNif')}>
                     <input id="reg-nif" style={s.input}
                       value={form.nif} onChange={e => set('nif', e.target.value.replace(/\D/g, '').slice(0, 9))}
                       placeholder="123 456 789" maxLength={9} />
                   </Field>
                 </div>
-                <Field id="reg-sector" label="Sector de actividade *" error={errors.sector}>
+                <Field id="reg-sector" label={t('home.register.labelSector')} error={errors.sector}>
                   <select id="reg-sector" style={{...s.input, ...(errors.sector ? s.inputError : {})}}
                     value={form.sector} onChange={e => set('sector', e.target.value)}>
-                    <option value="">Selecione o sector</option>
-                    {SECTORS.map(s2 => <option key={s2} value={s2}>{s2}</option>)}
+                    {/* value stays the stored PT sector name */}
+                    <option value="">{t('home.register.pickSector')}</option>
+                    {EMPLOYER_SECTORS.map(s2 => <option key={s2} value={s2}>{tSector(s2)}</option>)}
                   </select>
                 </Field>
-                <Field id="reg-address" label="Morada *" error={errors.address}>
+                <Field id="reg-address" label={t('home.register.labelAddress')} error={errors.address}>
                   <input id="reg-address" style={{...s.input, ...(errors.address ? s.inputError : {})}}
                     value={form.address} onChange={e => set('address', e.target.value)}
-                    placeholder="Rua do Ouro, 123" />
+                    placeholder={t('home.register.placeholderAddress')} />
                 </Field>
                 <div style={s.twoCol}>
-                  <Field id="reg-postal" label="Código Postal *" error={errors.postalCode}>
+                  <Field id="reg-postal" label={t('home.register.labelPostal')} error={errors.postalCode}>
                     <input id="reg-postal" style={{...s.input, ...(errors.postalCode ? s.inputError : {})}}
                       value={form.postalCode} onChange={e => set('postalCode', e.target.value)}
                       placeholder="1000-001" maxLength={8} />
                   </Field>
-                  <Field id="reg-city" label="Cidade *" error={errors.city}>
+                  <Field id="reg-city" label={t('home.register.labelCity')} error={errors.city}>
                     <input id="reg-city" style={{...s.input, ...(errors.city ? s.inputError : {})}}
                       value={form.city} onChange={e => set('city', e.target.value)}
-                      placeholder="Lisboa" />
+                      placeholder={t('home.register.placeholderCity')} />
                   </Field>
                 </div>
                 <button id="reg-next-company" onClick={handleNext} style={s.submitBtn}>
-                  Continuar →
+                  {t('home.register.continue')}
                 </button>
               </div>
             </>
@@ -198,28 +205,28 @@ export default function RegisterPage() {
           {step === 'admin' && (
             <>
               <div style={s.formHeader}>
-                <h1 style={s.formTitle}>Conta de administrador</h1>
-                <p style={s.formSub}>O email e password para aceder ao dashboard.</p>
+                <h1 style={s.formTitle}>{t('home.register.adminTitle')}</h1>
+                <p style={s.formSub}>{t('home.register.adminSub')}</p>
               </div>
               <div style={s.form}>
-                <Field id="reg-email" label="Email *" error={errors.adminEmail}>
+                <Field id="reg-email" label={t('home.register.labelEmail')} error={errors.adminEmail}>
                   <input id="reg-email" type="email" style={{...s.input, ...(errors.adminEmail ? s.inputError : {})}}
                     value={form.adminEmail} onChange={e => set('adminEmail', e.target.value)}
-                    placeholder="admin@empresa.pt" />
+                    placeholder={t('home.register.placeholderEmail')} />
                 </Field>
-                <Field id="reg-pass" label="Password *" hint="Mínimo 8 caracteres" error={errors.adminPassword}>
+                <Field id="reg-pass" label={t('home.register.labelPassword')} hint={t('home.register.hintPassword')} error={errors.adminPassword}>
                   <input id="reg-pass" type="password" style={{...s.input, ...(errors.adminPassword ? s.inputError : {})}}
                     value={form.adminPassword} onChange={e => set('adminPassword', e.target.value)}
                     placeholder="••••••••" />
                 </Field>
-                <Field id="reg-pass-confirm" label="Confirmar Password *" error={errors.adminPasswordConfirm}>
+                <Field id="reg-pass-confirm" label={t('home.register.labelConfirm')} error={errors.adminPasswordConfirm}>
                   <input id="reg-pass-confirm" type="password" style={{...s.input, ...(errors.adminPasswordConfirm ? s.inputError : {})}}
                     value={form.adminPasswordConfirm} onChange={e => set('adminPasswordConfirm', e.target.value)}
                     placeholder="••••••••" />
                 </Field>
                 <div style={s.btnRow}>
-                  <button id="reg-back-company" onClick={() => setStep('company')} style={s.backBtn}>← Voltar</button>
-                  <button id="reg-next-admin" onClick={handleNext} style={{...s.submitBtn, flex: 1}}>Continuar →</button>
+                  <button id="reg-back-company" onClick={() => setStep('company')} style={s.backBtn}>{t('home.register.back')}</button>
+                  <button id="reg-next-admin" onClick={handleNext} style={{...s.submitBtn, flex: 1}}>{t('home.register.continue')}</button>
                 </div>
               </div>
             </>
@@ -229,16 +236,16 @@ export default function RegisterPage() {
           {step === 'review' && (
             <>
               <div style={s.formHeader}>
-                <h1 style={s.formTitle}>Confirme os dados</h1>
-                <p style={s.formSub}>Verifique antes de submeter o registo.</p>
+                <h1 style={s.formTitle}>{t('home.register.reviewTitle')}</h1>
+                <p style={s.formSub}>{t('home.register.reviewSub')}</p>
               </div>
               <div style={s.reviewBox}>
                 {[
-                  ['Empresa', form.companyName],
-                  ['NIPC', form.nipc],
-                  ['Sector', form.sector],
-                  ['Morada', `${form.address}, ${form.postalCode} ${form.city}`],
-                  ['Email admin', form.adminEmail],
+                  [t('home.register.rowCompany'), form.companyName],
+                  [t('home.register.rowNipc'), form.nipc],
+                  [t('home.register.rowSector'), tSector(form.sector)],
+                  [t('home.register.rowAddress'), `${form.address}, ${form.postalCode} ${form.city}`],
+                  [t('home.register.rowEmail'), form.adminEmail],
                 ].map(([k, v]) => (
                   <div key={k} style={s.reviewRow}>
                     <span style={s.reviewKey}>{k}</span>
@@ -250,14 +257,14 @@ export default function RegisterPage() {
                 <div style={s.errorBanner} role="alert">⚠️ {apiError}</div>
               )}
               <div style={s.btnRow}>
-                <button id="reg-back-admin" onClick={() => setStep('admin')} style={s.backBtn}>← Voltar</button>
+                <button id="reg-back-admin" onClick={() => setStep('admin')} style={s.backBtn}>{t('home.register.back')}</button>
                 <button
                   id="reg-submit"
                   onClick={handleSubmit}
                   disabled={isLoading}
                   style={{...s.submitBtn, flex: 1, opacity: isLoading ? 0.7 : 1}}
                 >
-                  {isLoading ? 'A registar...' : 'Criar conta →'}
+                  {isLoading ? t('home.register.submitting') : t('home.register.submit')}
                 </button>
               </div>
             </>
