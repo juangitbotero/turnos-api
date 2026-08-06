@@ -149,13 +149,183 @@ header action group**. One mount per page, no layout redesign.
   from `catalogue()` — see `currentCatalogue()` there. **Mobile's `lib/api.ts`
   has no hardcoded copy**, so it needed no equivalent.
 
-**Phase 3 — public pages:** ⬜ not started. `app/page.tsx` (home, ~128 strings,
-content sits in `STATS` / `HOW_IT_WORKS` / `FEATURES` / `PLATFORM_TRUST` /
-`ROADMAP` const arrays), `login/page.tsx` (~27), `register/page.tsx` (~58).
-The public nav needs a visible PT/EN toggle.
+**Phase 3 — public pages:** ⬜ not started. See the full brief below.
 
-**Phase 4 — API messages:** ⬜ not started (~30 user-facing exceptions via
-`Accept-Language`).
+**Phase 4 — API messages:** ⬜ not started. See the full brief below.
+
+---
+
+# 📋 Handoff: Phases 3 & 4
+
+Everything a fresh conversation needs. Phases 0–2 are done, committed and
+deployed (`ae45d0e` on `main`). Start by reading the sections above, then this.
+
+## Ground rules that carry over (do not re-derive)
+
+1. **`pt.ts` is canonical; every key added there must be added to `en.ts`.** The
+   build enforces it — `en.ts` is typed `Translated<TranslationCatalogue>`.
+2. **Stored Portuguese values are database keys.** Job titles, categories,
+   worker languages and weekday abbreviations are translated for DISPLAY ONLY
+   via `tSkill` / `tCategory` / `tWorkerLanguage` / `tWeekday`. A `<select>`
+   must keep `value="Vendas"` while rendering "Retail & Sales".
+3. **Portuguese legal terms stay verbatim in English** and get glossed on first
+   use: MCD, Recibo Verde, TSU, Segurança Social, SS Direta, ACT, NIF, IBAN,
+   Portal das Finanças, Agenda do Trabalho Digno.
+4. **Juanes reviews the English copy.** Draft it, regenerate the review sheet,
+   show him. Everything through Phase 2 is already approved.
+5. **`useT()` must stay memoized.** See the warning below — this one bit us.
+
+## 🔥 The bug that will bite you if you undo it
+
+`useT()` returns a `useMemo`'d object keyed on `[t, language]`. **Do not turn it
+back into a plain object literal.** Screens put its helpers in `useCallback`
+dependency arrays and then run the callback from `useEffect`:
+
+```ts
+const loadShifts = useCallback(..., [activeCategory, fDateRange, fSmartDate])
+useEffect(() => { loadShifts(); }, [loadShifts])
+```
+
+A fresh object each render ⇒ new helper identities ⇒ new callback identity ⇒
+effect refires ⇒ `setState` ⇒ render ⇒ **infinite fetch loop**. This shipped
+briefly and showed up as the feed's shift counter flickering once a second with
+an API call behind each tick. Fixed in `ae45d0e` for both apps.
+
+Same hazard exists in any new screen. If you add `t` to a dependency array,
+it is fine *only* because of that memo.
+
+## Phase 3 — public pages
+
+**Files** (all `'use client'`, all in `apps/web-admin/app/`):
+
+| File | Lines | Notes |
+|---|---|---|
+| `page.tsx` | 480 | Landing page. Most copy sits in **module-level const arrays**: `STATS`, `HOW_IT_WORKS`, `FEATURES`, `PLATFORM_TRUST`, `ROADMAP` |
+| `login/page.tsx` | 489 | |
+| `register/page.tsx` | 360 | |
+
+**Namespace:** create `home` (a sibling of `common` / `domain` / `mobile` /
+`admin`). The catalogue header comment already anticipates it.
+
+**The const-array pattern.** Those five arrays are declared at module scope, so
+they cannot call `useT()`. Use the same fix already applied to
+`admin.billing.features` and `mobile.reciboVerde.steps`: keep an array of
+**stable ids** at module scope and translate at render.
+
+```ts
+const HOW_IT_WORKS = ['post', 'match', 'checkIn'] as const;   // ids only
+// …in the component:
+{HOW_IT_WORKS.map(id => (
+  <Step key={id}
+        title={t(`home.howItWorks.${id}.title`)}
+        body={t(`home.howItWorks.${id}.body`)} />
+))}
+```
+
+Keep the ids semantic (`post`, not `s1`) where the list is meaningful — the
+numbered `f1…f7` style used in billing was a concession to a flat feature list.
+
+**The PT/EN toggle.** `components/LanguageSwitcher.tsx` exists and is **not
+mounted on any public page**. Mount it in the public nav on `page.tsx`, and on
+`login` / `register` too — a worker who lands on the login screen directly must
+be able to switch. It takes `variant="light" | "dark"`; the landing hero is dark,
+so `variant="dark"` is likely right there.
+
+The cookie (`turnos_lang`) is shared with the dashboard, so a choice made on the
+public home page already carries through login — that was the whole reason for
+using a cookie over `localStorage`. Verify that end-to-end once.
+
+**`HtmlLangSync.tsx`** already keeps `<html lang>` in step. Nothing to do.
+
+**Watch for:** the root `layout.tsx` hardcodes `<html lang="pt">` as the SSR
+default. That is deliberate (avoids a hydration mismatch) and `HtmlLangSync`
+corrects it on the client. Don't "fix" it.
+
+## Phase 4 — API messages
+
+**There is no i18n infrastructure in the API at all.** No `Accept-Language`
+handling, no interceptor, no catalogue import. This phase builds it.
+
+**Scope — smaller than the raw count suggests.** `apps/api/src` throws **156**
+exceptions, but they are a mix:
+
+- **English messages are internal/defensive** — `"Shift not found"`,
+  `"Worker profile not found"`, `"Only DRAFT or OPEN shifts can be edited"`.
+  Mostly states a correct client cannot reach.
+- **Portuguese messages are the genuinely user-facing ones** — `"A duração
+  mínima de um turno é 2 horas."`, `"Este email já está registado."`,
+  `"IBAN inválido. Formato: PT50... (25 caracteres)."`
+
+There are **27 Portuguese ones**, matching the original ~30 estimate:
+
+| Count | File |
+|---|---|
+| 9 | `payments/wage-payments.service.ts` |
+| 8 | `auth/auth.service.ts` |
+| 6 | `attendance/attendance.service.ts` |
+| 4 | `shifts/shifts.service.ts` |
+| 3 | `auth/auth.controller.ts` |
+| 2 | `payments/payments.service.ts` |
+
+Find them with:
+
+```bash
+grep -rhoE "Exception\(\s*[\`'][^\`']{10,}" apps/api/src --include=*.ts | sed -E "s/Exception\(\s*[\`']//" | grep -E "[áàâãéêíóôõúçÁÉÍÓÚÇ]|\b(não|turno|trabalhador|dias|horas)\b" | sort -u
+```
+
+Translate those 27 first. Then **make a judgement call** on the English ones: a
+few do surface to users (a worker tapping a stale link gets `"Shift not found"`),
+so those deserve a key too. The rest can stay as-is.
+
+**Suggested approach.** The API already depends on `@turnos/shared`, which
+exports `catalogue(lang)` and `resolveInitialLanguage()`. So:
+
+1. Add an `api` namespace to `pt.ts` / `en.ts`.
+2. Resolve the language once per request from the `Accept-Language` header —
+   a small NestJS interceptor or a request-scoped helper. `matchAppLanguage()`
+   from shared already narrows any locale tag to `'pt' | 'en'`.
+3. Throw with the resolved string. Keep the *shape* of the exception unchanged
+   so nothing downstream breaks.
+
+**Both API clients must start sending the header** — neither does today:
+- `apps/mobile/lib/api.ts` — read the stored language (SecureStore key
+  `turnos_language`, see `getStoredLanguage()` in `lib/i18n.tsx`).
+- `apps/web-admin/lib/api.ts` — the `turnos_lang` cookie; `currentCatalogue()`
+  in that file already reads it and can be generalised.
+
+**Do NOT translate ops/accountant emails.** Locked decision — they stay PT.
+
+**`Worker.preferredLanguage`** already exists and is written when a worker
+switches language, so push notifications and worker emails can follow it later.
+That is a separate piece of work, not Phase 4.
+
+### Two Phase-4 landmines
+
+1. **`apps/mobile/app/shift/[id].tsx` sniffs the API message.** It decides
+   whether to show the friendly "Precisas de descansar 😴" title by matching
+   `descanso` / `rest` / `11h` in the server's text. I added `rest` defensively
+   so it survives translation — **keep the 11-hour message containing one of
+   those tokens in both languages**, or change the API to return a machine-
+   readable code and update the client with it.
+2. **`apps/web-admin/app/dashboard/new-shift/page.tsx` sends
+   `'Accept-Language': 'pt'`** on its geocoder call. That is **Nominatim
+   (OpenStreetMap), a third party — not our API**. Leave it, or make it follow
+   the UI language if you want English place names. Do not mistake it for a
+   client→API header.
+
+## Repo scripts you should use
+
+| Script | What it does |
+|---|---|
+| `scripts/i18n-copy-review.js` | Regenerates `docs/i18n-en-copy-review.md`. Add approved namespaces to `APPROVED` / `APPROVED_SHARED` so the sheet only shows outstanding copy. |
+| `scripts/i18n-check-keys.js` | Verifies every `t('…')` key in both apps resolves in **both** catalogues. A typo renders the raw key on screen. Currently: 1022 static keys, 0 missing. |
+| `scripts/i18n-apply.js` | Applies a JSON list of `[from, to]` exact replacements to a file. Line-ending aware and idempotent. |
+
+```bash
+cd packages/shared && npm run build && cd ../..
+node scripts/i18n-check-keys.js "$PWD"
+node scripts/i18n-copy-review.js "$PWD" docs/i18n-en-copy-review.md
+```
 
 ## ⚠️ Stale copy found while translating (fixed in PT and EN — please confirm)
 
@@ -237,8 +407,64 @@ console.log('PT/EN:',ptK.length,'/',enK.length,'missing in EN:',ptK.filter(k=>!e
 "
 ```
 
-## Testing
+## Testing & shipping
 
-- **Mobile:** `cd apps/mobile && npx expo start --clear` — Expo Go loads JS from
-  Metro, so **no deploy is needed** to see mobile changes.
-- **Web-admin + API:** deployed on Railway, auto-deploys on push to `main`.
+**Before every commit:**
+
+```bash
+cd packages/shared && npm run build && cd ../..     # 1. catalogues must rebuild
+node scripts/i18n-check-keys.js "$PWD"              # 2. every key resolves
+cd apps/web-admin && npx tsc --noEmit && npx next build   # 3. web-admin
+cd ../api && npx tsc --noEmit                        # 4. API — shared is a dep!
+cd ../mobile && npx expo export --platform android --output-dir .tmp-check \
+  && rm -rf .tmp-check                               # 5. mobile actually bundles
+```
+
+Step 4 matters: `packages/shared/src/index.ts` is imported by the **API**, so a
+shared-package change can break the deploy even when both front-ends are fine.
+
+`npx tsc --noEmit` on mobile has **two pre-existing errors** (`_layout.tsx`
+notification typing, `my-shifts.tsx:34`) plus app-wide `TS2786` and `TS2339`
+noise from LinearGradient/design-token typings. Ignore those; compare per-file
+error counts against `git stash` if unsure whether something is yours.
+
+**Deploying:**
+
+- **Web-admin + API:** on Railway, auto-deploys on push to `main`. The API is
+  `https://turnos-api-production-6c70.up.railway.app/api` (health-check it with
+  `GET /shifts/search`). The web-admin's Railway URL is **not recorded in this
+  repo** — get it from the Railway dashboard.
+- **Mobile:** `npx expo start --clear` for instant local iteration (Expo Go
+  loads JS from Metro). For a shareable APK:
+
+  ```bash
+  cd apps/mobile && eas build --platform android --profile preview
+  ```
+
+  **Always pass `--profile preview`** — omitting it defaults to `production` and
+  produces an `.aab` that cannot be sideloaded.
+
+  ⚠️ **EAS Update is not configured** (`expo-updates` is not installed and
+  `app.json` has no `updates`/`runtimeVersion` block). A git push does **nothing**
+  for an installed APK — JS is bundled at build time. Any change a tester needs
+  to see requires a new EAS build.
+
+  ⚠️ `packages/shared/dist` is **gitignored but not `.easignore`d**, so EAS
+  uploads it from your working copy. **Run `npm run build` in `packages/shared`
+  before `eas build`** or you will ship a stale catalogue.
+
+**Last build:** 2026-08-06, preview profile, app version 0.0.1 —
+`https://expo.dev/artifacts/eas/7mmF_BtR5H4cSaHZ7nJTJkc0Bae_MGL8xsrtFYAqHEE.apk`
+(first build since 2026-06-09, so it also picks up `expo-localization`,
+`expo-document-picker` and `expo-calendar`).
+
+## Current state at a glance
+
+| | |
+|---|---|
+| Catalogue | **1050 keys** per language, no drift |
+| Static keys verified | 1022, all resolving in PT **and** EN |
+| Phases done | 0, 1, 2 |
+| Phases left | 3 (public pages), 4 (API messages) |
+| HEAD when written | `ae45d0e` |
+| Production data | `GET /shifts/search` returns `[]` — **zero shifts**, so the feed shows its empty state |
