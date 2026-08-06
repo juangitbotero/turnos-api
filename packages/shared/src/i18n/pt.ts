@@ -1353,6 +1353,122 @@ export const pt = {
       cancelling:   'A cancelar…',
     },
   },
+
+  /** Public marketing pages — landing, login, register. */
+  home: {
+    nav: {
+      login:    'Entrar',
+      register: 'Criar conta →',
+    },
+
+    hero: {
+      badge:       'Lisboa Beta · Plataforma operacional',
+      titleLine1:  'Work Today.',        // brand line — same in both languages
+      titleAccent: 'Staff Today.',
+      sub:         'O mercado de turnos para Portugal. Encontra trabalhadores verificados em minutos — com conformidade MCD automática, QR check-in e todos os dados prontos para pagares diretamente ao worker.',
+      ctaPrimary:  'Publicar Turno →',
+      ctaGhost:    'Já tenho conta',
+    },
+
+    /**
+     * The decorative "match" card floating in the hero.
+     *
+     * `role` is plain copy, NOT tSkill(). This card is a mock, not stored data:
+     * the real job title is 'Cozinheiro/a' and rendering that slash in a
+     * marketing hero reads badly, so the masculine form is used to agree with
+     * "Carlos M.". Keep it in step with SKILLS_EN['Cozinheiro/a'] by hand.
+     */
+    heroCard: {
+      role:        'Cozinheiro',
+      workerName:  'Carlos M.',
+      workerMeta:  '{{role}} · ⭐ 4.9 · Verificado',
+      available:   'Disponível',
+      companyName: 'Restaurante A Taberna',
+      companyMeta: '{{role}} · Hoje 18h–02h · €10/hr',
+      match:       '✓ Match confirmado · ',
+      matchBold:   'Recebe o bruto por inteiro',
+      step1:       'Turno publicado',
+      step2:       'Candidatura recebida',
+      step3:       'Worker confirmado ✓',
+    },
+
+    stats: {
+      feeValue:        '3€',
+      fee:             'Taxa fixa por turno concluído',
+      speedValue:      '<10s',
+      speed:           'Para publicar um turno',
+      commissionValue: '0%',
+      commission:      'Comissões sobre salários',
+      dataValue:       '100%',
+      data:            'Dados prontos para a contabilidade',
+    },
+
+    howItWorks: {
+      title: 'Como funciona',
+      sub:   'De turno publicado a pagamento processado — tudo automático.',
+      publish:  { title: 'Publicas o turno',            desc: 'Define função, horário, morada e valor/hora. O custo TSU é calculado automaticamente.' },
+      apply:    { title: 'Workers candidatam-se',       desc: 'Notificação push automática aos 20 workers mais compatíveis por competência. Candidaturas chegam em minutos.' },
+      select:   { title: 'Selecionas o worker',         desc: 'Revês perfis, ratings e competências. Selecionar um worker envia-lhe um convite direto com 2h para aceitar.' },
+      confirm:  { title: 'Worker confirma',             desc: 'O worker aceita ou recusa. Se não responder em 2h, o turno reabre automaticamente — sem no-shows silenciosos.' },
+      checkIn:  { title: 'QR Check-in',                 desc: 'O worker escaneia o teu QR fixo à chegada (geofence de 200m). O turno conclui automaticamente à hora de fim — sem passos extra.' },
+      pay:      { title: 'Pagas diretamente ao worker', desc: 'No fim do turno pagas ao worker pelo método que escolheste — Pay Link (cartão ou MB WAY), transferência bancária ou MB WAY direto. A Turnos dá-te todos os valores prontos, incluindo TSU informativo.' },
+    },
+
+    features: {
+      title: 'O que a plataforma faz por ti',
+      sub:   'Construído para a realidade do mercado de trabalho português. Tudo o que precisas, nada do que não precisas.',
+      notifications:  { title: 'Notificações inteligentes',       body: 'Push notification automático aos 20 workers mais compatíveis em segundos após publicação. Segunda vaga ao fim de 5h se sem candidatos.' },
+      ratings:        { title: 'Ratings & Reputação',             body: 'Avalia workers após cada turno. Badges TOP_RATED e FIÁVEL para os melhores. Motor de matching prioriza os mais bem avaliados.' },
+      confirmation:   { title: 'Confirmação obrigatória',         body: 'Worker selecionado tem 2h para aceitar. Sem confirmação, o turno volta ao estado aberto automaticamente — fim dos no-shows.' },
+      qrCheckIn:      { title: 'QR Check-in verificado',          body: 'QR fixo por empresa + geofence de 200m. Worker escaneia à chegada; o turno conclui sozinho à hora de fim. Podes ajustar horas antes de pagar.' },
+      compliance:     { title: 'Conformidade MCD automática',     body: 'Contratos MCD gerados e enviados à SS. Cálculo de TSU 23,75% + 11%. Alertas de limite de 70 dias/ano e descanso de 11h.' },
+      directPay:      { title: 'Pagamento direto, sem comissões', body: 'Pagas o salário diretamente ao worker — a Turnos nunca toca no dinheiro. Só uma taxa fixa de 3€ por turno concluído, faturada uma vez por mês.' },
+      search:         { title: 'Pesquisa de talento',             body: 'Procura workers por competência, idioma e disponibilidade. Convida diretamente para um turno — ele tem 2h para aceitar.' },
+      applicants:     { title: 'Candidatos comparáveis',          body: 'Filtra candidatos por rating, perfil completo ou data de candidatura. Vê match de competências em destaque. Nota de apresentação do worker.' },
+      dashboard:      { title: 'Dashboard de conformidade',       body: 'TSU calculado por turno. Log de auditoria ACT imutável. Relatórios exportáveis em CSV. Dependência económica monitorizada.' },
+      spending:       { title: 'Controlo de gastos',              body: 'Dashboard de gastos por período. Custo total por turno incluindo TSU. Subscrição mensal com faturação automática.' },
+    },
+
+    trust: {
+      market:   'Construído para o mercado português — MCD, TSU, SS Direta',
+      security: 'Dados seguros · RGPD · Contratos legais automáticos',
+      reports:  'Relatórios TSU e contabilidade prontos a exportar',
+      app:      'App nativa iOS & Android para os trabalhadores',
+    },
+
+    roadmap: {
+      title: 'Roadmap de desenvolvimento',
+      sub:   'Transparência total — stints 0–7 completos. Stint 8 em progresso.',
+      s0: 'Foundation & Setup',
+      s1: 'Auth & Identidade',
+      s2: 'Marketplace de Turnos',
+      s3: 'Notificações & Real-Time',
+      s4: 'Conformidade Portugal',
+      s5: 'QR Check-In automático',
+      s6: 'Pagamentos & Payroll',
+      s7: 'Ratings & Reputação',
+      s8: 'Produto & Operações',
+      s9: 'Crescimento & Flywheel',
+      statusDone:    '✅ Completo',
+      statusActive:  '🔄 Em progresso',
+      statusPlanned: 'Planeado',
+    },
+
+    cta: {
+      title:   'Pronto para preencher o teu próximo turno?',
+      sub:     'Junte-se à beta de Lisboa. Sem custos de setup. Primeiro turno grátis.',
+      primary: 'Criar conta →',
+      ghost:   'Já tenho conta',
+    },
+
+    footer: {
+      tagline:  'Work Today. Staff Today. · Lisboa Beta 2026',
+      privacy:  'Privacidade',
+      terms:    'Termos',
+      login:    'Entrar',
+      register: 'Registar',
+    },
+  },
 } as const;
 
 export type TranslationCatalogue = typeof pt;

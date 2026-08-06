@@ -1347,4 +1347,114 @@ export const en: Translated<TranslationCatalogue> = {
       cancelling:   'Cancelling…',
     },
   },
+
+  home: {
+    nav: {
+      login:    'Sign in',
+      register: 'Create account →',
+    },
+
+    hero: {
+      badge:       'Lisbon Beta · Platform live',
+      titleLine1:  'Work Today.',        // brand line — kept in English
+      titleAccent: 'Staff Today.',
+      // MCD is Portugal's very-short-duration contract — kept, not translated
+      sub:         'The shift marketplace for Portugal. Find verified workers in minutes — with automatic MCD compliance, QR check-in and every figure ready for you to pay the worker directly.',
+      ctaPrimary:  'Post a shift →',
+      ctaGhost:    'I already have an account',
+    },
+
+    heroCard: {
+      // Mock card copy — mirrors SKILLS_EN['Cozinheiro/a']
+      role:        'Cook',
+      workerName:  'Carlos M.',
+      workerMeta:  '{{role}} · ⭐ 4.9 · Verified',
+      available:   'Available',
+      companyName: 'Restaurante A Taberna',
+      companyMeta: '{{role}} · Today 18:00–02:00 · €10/hr',
+      match:       '✓ Match confirmed · ',
+      matchBold:   'They receive the full gross',
+      step1:       'Shift posted',
+      step2:       'Application received',
+      step3:       'Worker confirmed ✓',
+    },
+
+    stats: {
+      feeValue:        '€3',
+      fee:             'Flat fee per completed shift',
+      speedValue:      '<10s',
+      speed:           'To post a shift',
+      commissionValue: '0%',
+      commission:      'Commission on wages',
+      dataValue:       '100%',
+      data:            'Accounting-ready data',
+    },
+
+    howItWorks: {
+      title: 'How it works',
+      sub:   'From shift posted to payment made — all automatic.',
+      publish:  { title: 'You post the shift',        desc: 'Set the role, hours, address and hourly rate. The TSU cost is calculated automatically.' },
+      apply:    { title: 'Workers apply',             desc: 'An automatic push notification reaches the 20 best-matched workers by skill. Applications arrive within minutes.' },
+      select:   { title: 'You pick the worker',       desc: 'Review profiles, ratings and skills. Selecting a worker sends them a direct invitation with 2h to accept.' },
+      confirm:  { title: 'The worker confirms',       desc: 'They accept or decline. If they do not respond within 2h the shift reopens automatically — no silent no-shows.' },
+      checkIn:  { title: 'QR check-in',               desc: 'The worker scans your fixed QR code on arrival (200m geofence). The shift completes automatically at its end time — no extra steps.' },
+      pay:      { title: 'You pay the worker directly', desc: 'At the end of the shift you pay the worker by the method you chose — Pay Link (card or MB WAY), bank transfer or MB WAY direct. Turnos hands you every figure ready, including the informative TSU.' },
+    },
+
+    features: {
+      title: 'What the platform does for you',
+      sub:   'Built for how the Portuguese labour market actually works. Everything you need, nothing you don’t.',
+      notifications:  { title: 'Smart notifications',        body: 'An automatic push notification reaches the 20 best-matched workers within seconds of posting. A second wave goes out after 5h if there are no applicants.' },
+      ratings:        { title: 'Ratings & reputation',       body: 'Rate workers after every shift. TOP RATED and RELIABLE badges for the best. The matching engine prioritises the highest rated.' },
+      confirmation:   { title: 'Mandatory confirmation',     body: 'The selected worker has 2h to accept. Without confirmation the shift returns to open automatically — the end of no-shows.' },
+      qrCheckIn:      { title: 'Verified QR check-in',       body: 'A fixed QR code per company plus a 200m geofence. The worker scans on arrival; the shift completes on its own at its end time. You can adjust the hours before paying.' },
+      // Segurança Social ("SS") is the Portuguese social-security authority
+      compliance:     { title: 'Automatic MCD compliance',   body: 'MCD contracts generated and filed with Segurança Social. TSU calculated at 23.75% + 11%. Alerts for the 70-day annual cap and the 11-hour rest rule.' },
+      directPay:      { title: 'Direct payment, no commission', body: 'You pay the wage straight to the worker — Turnos never touches the money. Just a flat €3 per completed shift, invoiced once a month.' },
+      search:         { title: 'Talent search',              body: 'Search workers by skill, language and availability. Invite them directly to a shift — they have 2h to accept.' },
+      applicants:     { title: 'Applicants side by side',    body: 'Filter applicants by rating, profile completeness or application date. Skill matches are highlighted, along with the worker’s cover note.' },
+      dashboard:      { title: 'Compliance dashboard',       body: 'TSU calculated per shift. Immutable ACT audit log. Reports exportable to CSV. Economic dependency monitored.' },
+      spending:       { title: 'Spending control',           body: 'Spending dashboard by period. Total cost per shift including TSU. Monthly subscription with automatic invoicing.' },
+    },
+
+    trust: {
+      market:   'Built for the Portuguese market — MCD, TSU, SS Direta',
+      security: 'Secure data · GDPR · Automatic legal contracts',
+      reports:  'TSU and accounting reports ready to export',
+      app:      'Native iOS & Android app for workers',
+    },
+
+    roadmap: {
+      title: 'Development roadmap',
+      sub:   'Full transparency — stints 0–7 complete. Stint 8 in progress.',
+      s0: 'Foundation & setup',
+      s1: 'Auth & identity',
+      s2: 'Shift marketplace',
+      s3: 'Notifications & real-time',
+      s4: 'Portugal compliance',
+      s5: 'Automatic QR check-in',
+      s6: 'Payments & payroll',
+      s7: 'Ratings & reputation',
+      s8: 'Product & operations',
+      s9: 'Growth & flywheel',
+      statusDone:    '✅ Complete',
+      statusActive:  '🔄 In progress',
+      statusPlanned: 'Planned',
+    },
+
+    cta: {
+      title:   'Ready to fill your next shift?',
+      sub:     'Join the Lisbon beta. No setup costs. Your first shift is free.',
+      primary: 'Create account →',
+      ghost:   'I already have an account',
+    },
+
+    footer: {
+      tagline:  'Work Today. Staff Today. · Lisbon Beta 2026',
+      privacy:  'Privacy',
+      terms:    'Terms',
+      login:    'Sign in',
+      register: 'Sign up',
+    },
+  },
 };

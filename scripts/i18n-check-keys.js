@@ -71,9 +71,14 @@ for (const file of targets.flatMap(d => walkFiles(d))) {
       }
       continue;
     }
-    const prefix = tpl.slice(0, tpl.indexOf('${')).replace(/\.$/, '');
+    // The interpolation can start mid-segment — t(`home.roadmap.s${n}`) means
+    // the real keys are home.roadmap.s0…s9. So resolve the prefix back to the
+    // last '.' boundary and match on the literal head, otherwise we'd report a
+    // false "no children" on a perfectly good key.
+    const head = tpl.slice(0, tpl.indexOf('${'));       // e.g. "home.roadmap.s"
+    const prefix = head.replace(/\.$/, '');
     const line = src.slice(0, m.index).split('\n').length;
-    const children = Object.keys(PT).filter(k => k.startsWith(prefix + '.'));
+    const children = Object.keys(PT).filter(k => k.startsWith(head.includes('.') ? head : prefix + '.'));
     dynamic.push({ where: `${rel}:${line}`, tpl, prefix, children: children.length });
   }
 }

@@ -1,61 +1,68 @@
 'use client';
 
 import Link from 'next/link';
+import { useT } from '../lib/i18n';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
 // ── Content ────────────────────────────────────────────────────────────────────
+//
+// These arrays hold only ids and presentation (icons, numbering, state) — the
+// copy lives in `home.*` in the shared catalogue. They sit at module scope, so
+// they cannot call useT(); the ids are resolved at render instead.
 
-const STATS = [
-  { value: '3€',   label: 'Taxa fixa por turno concluído' },
-  { value: '<10s', label: 'Para publicar um turno' },
-  { value: '0%',   label: 'Comissões sobre salários' },
-  { value: '100%', label: 'Dados prontos para a contabilidade' },
-];
+const STATS = ['fee', 'speed', 'commission', 'data'] as const;
 
 const HOW_IT_WORKS = [
-  { n: '01', icon: '📋', title: 'Publicas o turno',       desc: 'Define função, horário, morada e valor/hora. O custo TSU é calculado automaticamente.' },
-  { n: '02', icon: '🔔', title: 'Workers candidatam-se',  desc: 'Notificação push automática aos 20 workers mais compatíveis por competência. Candidaturas chegam em minutos.' },
-  { n: '03', icon: '👤', title: 'Selecionas o worker',    desc: 'Revês perfis, ratings e competências. Selecionar um worker envia-lhe um convite direto com 2h para aceitar.' },
-  { n: '04', icon: '✅', title: 'Worker confirma',        desc: 'O worker aceita ou recusa. Se não responder em 2h, o turno reabre automaticamente — sem no-shows silenciosos.' },
-  { n: '05', icon: '📲', title: 'QR Check-in',            desc: 'O worker escaneia o teu QR fixo à chegada (geofence de 200m). O turno conclui automaticamente à hora de fim — sem passos extra.' },
-  { n: '06', icon: '💳', title: 'Pagas diretamente ao worker', desc: 'No fim do turno pagas ao worker pelo método que escolheste — Pay Link (cartão ou MB WAY), transferência bancária ou MB WAY direto. A Turnos dá-te todos os valores prontos, incluindo TSU informativo.' },
-];
+  { n: '01', icon: '📋', id: 'publish' },
+  { n: '02', icon: '🔔', id: 'apply'   },
+  { n: '03', icon: '👤', id: 'select'  },
+  { n: '04', icon: '✅', id: 'confirm' },
+  { n: '05', icon: '📲', id: 'checkIn' },
+  { n: '06', icon: '💳', id: 'pay'     },
+] as const;
 
 const FEATURES = [
-  { icon: '🔔', title: 'Notificações inteligentes',   body: 'Push notification automático aos 20 workers mais compatíveis em segundos após publicação. Segunda vaga ao fim de 5h se sem candidatos.' },
-  { icon: '⭐', title: 'Ratings & Reputação',          body: 'Avalia workers após cada turno. Badges TOP_RATED e FIÁVEL para os melhores. Motor de matching prioriza os mais bem avaliados.' },
-  { icon: '⚡', title: 'Confirmação obrigatória',      body: 'Worker selecionado tem 2h para aceitar. Sem confirmação, o turno volta ao estado aberto automaticamente — fim dos no-shows.' },
-  { icon: '📲', title: 'QR Check-in verificado',       body: 'QR fixo por empresa + geofence de 200m. Worker escaneia à chegada; o turno conclui sozinho à hora de fim. Podes ajustar horas antes de pagar.' },
-  { icon: '📋', title: 'Conformidade MCD automática',  body: 'Contratos MCD gerados e enviados à SS. Cálculo de TSU 23,75% + 11%. Alertas de limite de 70 dias/ano e descanso de 11h.' },
-  { icon: '💳', title: 'Pagamento direto, sem comissões', body: 'Pagas o salário diretamente ao worker — a Turnos nunca toca no dinheiro. Só uma taxa fixa de 3€ por turno concluído, faturada uma vez por mês.' },
-  { icon: '🔍', title: 'Pesquisa de talent',           body: 'Procura workers por competência, idioma e disponibilidade. Convida diretamente para um turno — ele tem 2h para aceitar.' },
-  { icon: '👥', title: 'Candidatos comparáveis',       body: 'Filtra candidatos por rating, perfil completo ou data de candidatura. Vê match de competências em destaque. Nota de apresentação do worker.' },
-  { icon: '📊', title: 'Dashboard de conformidade',    body: 'TSU calculado por turno. Log de auditoria ACT imutável. Relatórios exportáveis em CSV. Dependência económica monitorizada.' },
-  { icon: '💶', title: 'Controlo de gastos',           body: 'Dashboard de gastos por período. Custo total por turno incluindo TSU. Subscrição mensal com faturação automática.' },
-];
+  { icon: '🔔', id: 'notifications' },
+  { icon: '⭐', id: 'ratings'       },
+  { icon: '⚡', id: 'confirmation'  },
+  { icon: '📲', id: 'qrCheckIn'     },
+  { icon: '📋', id: 'compliance'    },
+  { icon: '💳', id: 'directPay'     },
+  { icon: '🔍', id: 'search'        },
+  { icon: '👥', id: 'applicants'    },
+  { icon: '📊', id: 'dashboard'     },
+  { icon: '💶', id: 'spending'      },
+] as const;
 
 const PLATFORM_TRUST = [
-  { icon: '🇵🇹', text: 'Construído para o mercado português — MCD, TSU, SS Direta' },
-  { icon: '🔒', text: 'Dados seguros · RGPD · Contratos legais automáticos' },
-  { icon: '⚡', text: 'Relatórios TSU e contabilidade prontos a exportar' },
-  { icon: '📱', text: 'App nativa iOS & Android para os trabalhadores' },
-];
+  { icon: '🇵🇹', id: 'market'   },
+  { icon: '🔒', id: 'security' },
+  { icon: '⚡', id: 'reports'  },
+  { icon: '📱', id: 'app'      },
+] as const;
 
-const ROADMAP = [
-  { n: 0, label: 'Foundation & Setup',          done: true },
-  { n: 1, label: 'Auth & Identidade',           done: true },
-  { n: 2, label: 'Marketplace de Turnos',       done: true },
-  { n: 3, label: 'Notificações & Real-Time',    done: true },
-  { n: 4, label: 'Conformidade Portugal',       done: true },
-  { n: 5, label: 'QR Check-In automático',      done: true },
-  { n: 6, label: 'Pagamentos & Payroll',        done: true },
-  { n: 7, label: 'Ratings & Reputação',         done: true },
-  { n: 8, label: 'Produto & Operações',         active: true },
-  { n: 9, label: 'Crescimento & Flywheel',      done: false },
+// Explicitly typed rather than `as const`: the entries have different shapes
+// (done vs active), and a const-assertion would narrow each one so that neither
+// property exists on the union.
+const ROADMAP: { n: number; done?: boolean; active?: boolean }[] = [
+  { n: 0, done: true },
+  { n: 1, done: true },
+  { n: 2, done: true },
+  { n: 3, done: true },
+  { n: 4, done: true },
+  { n: 5, done: true },
+  { n: 6, done: true },
+  { n: 7, done: true },
+  { n: 8, active: true },
+  { n: 9, done: false },
 ];
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
+  const { t } = useT();
+  const demoRole = t('home.heroCard.role');
+
   return (
     <main style={s.page}>
 
@@ -68,8 +75,9 @@ export default function LandingPage() {
             <span style={s.logoDot} />
           </div>
           <div style={s.navActions}>
-            <Link href="/login"    style={s.navLink}>Entrar</Link>
-            <Link href="/register" style={s.navCta}>Criar conta →</Link>
+            <LanguageSwitcher />
+            <Link href="/login"    style={s.navLink}>{t('home.nav.login')}</Link>
+            <Link href="/register" style={s.navCta}>{t('home.nav.register')}</Link>
           </div>
         </div>
       </nav>
@@ -80,19 +88,16 @@ export default function LandingPage() {
         <div style={s.heroContent}>
           <div style={s.liveBadge}>
             <span style={s.liveDot} />
-            Lisboa Beta · Plataforma operacional
+            {t('home.hero.badge')}
           </div>
           <h1 style={s.heroTitle}>
-            Work Today.<br />
-            <span style={s.heroAccent}>Staff Today.</span>
+            {t('home.hero.titleLine1')}<br />
+            <span style={s.heroAccent}>{t('home.hero.titleAccent')}</span>
           </h1>
-          <p style={s.heroSub}>
-            O mercado de turnos para Portugal. Encontra trabalhadores verificados em minutos
-            — com conformidade MCD automática, QR check-in e todos os dados prontos para pagares diretamente ao worker.
-          </p>
+          <p style={s.heroSub}>{t('home.hero.sub')}</p>
           <div style={s.heroCtas}>
-            <Link href="/register" style={s.primaryBtn}>Publicar Turno →</Link>
-            <Link href="/login"    style={s.ghostBtn}>Já tenho conta</Link>
+            <Link href="/register" style={s.primaryBtn}>{t('home.hero.ctaPrimary')}</Link>
+            <Link href="/login"    style={s.ghostBtn}>{t('home.hero.ctaGhost')}</Link>
           </div>
         </div>
 
@@ -101,35 +106,37 @@ export default function LandingPage() {
           <div style={s.cardRow}>
             <div style={s.cardAvatar}>🧑‍🍳</div>
             <div style={{ flex: 1 }}>
-              <div style={s.cardName}>Carlos M.</div>
-              <div style={s.cardSub}>Cozinheiro · ⭐ 4.9 · Verificado</div>
+              <div style={s.cardName}>{t('home.heroCard.workerName')}</div>
+              <div style={s.cardSub}>{t('home.heroCard.workerMeta', { role: demoRole })}</div>
             </div>
-            <div style={s.cardBadge}>Disponível</div>
+            <div style={s.cardBadge}>{t('home.heroCard.available')}</div>
           </div>
           <div style={s.cardDivider} />
           <div style={s.cardRow}>
             <div style={{ ...s.cardAvatar, fontSize: 22 }}>🏢</div>
             <div>
-              <div style={s.cardName}>Restaurante A Taberna</div>
-              <div style={s.cardSub}>Cozinheiro · Hoje 18h–02h · €10/hr</div>
+              <div style={s.cardName}>{t('home.heroCard.companyName')}</div>
+              <div style={s.cardSub}>{t('home.heroCard.companyMeta', { role: demoRole })}</div>
             </div>
           </div>
-          <div style={s.cardMatch}>✓ Match confirmado · <strong>Recebe o bruto por inteiro</strong></div>
+          <div style={s.cardMatch}>
+            {t('home.heroCard.match')}<strong>{t('home.heroCard.matchBold')}</strong>
+          </div>
 
           <div style={s.cardSteps}>
-            <div style={s.cardStep}><span style={s.stepDot} />Turno publicado</div>
-            <div style={s.cardStep}><span style={s.stepDot} />Candidatura recebida</div>
-            <div style={s.cardStep}><span style={{ ...s.stepDot, background: '#16a34a' }} />Worker confirmado ✓</div>
+            <div style={s.cardStep}><span style={s.stepDot} />{t('home.heroCard.step1')}</div>
+            <div style={s.cardStep}><span style={s.stepDot} />{t('home.heroCard.step2')}</div>
+            <div style={s.cardStep}><span style={{ ...s.stepDot, background: '#16a34a' }} />{t('home.heroCard.step3')}</div>
           </div>
         </div>
       </section>
 
       {/* ── Stats bar ── */}
       <section style={s.statsBar}>
-        {STATS.map(({ value, label }) => (
-          <div key={label} style={s.statItem}>
-            <div style={s.statValue}>{value}</div>
-            <div style={s.statLabel}>{label}</div>
+        {STATS.map(id => (
+          <div key={id} style={s.statItem}>
+            <div style={s.statValue}>{t(`home.stats.${id}Value`)}</div>
+            <div style={s.statLabel}>{t(`home.stats.${id}`)}</div>
           </div>
         ))}
       </section>
@@ -137,18 +144,18 @@ export default function LandingPage() {
       {/* ── How it works ── */}
       <section style={s.section}>
         <div style={s.sectionHeader}>
-          <h2 style={s.sectionTitle}>Como funciona</h2>
-          <p style={s.sectionSub}>De turno publicado a pagamento processado — tudo automático.</p>
+          <h2 style={s.sectionTitle}>{t('home.howItWorks.title')}</h2>
+          <p style={s.sectionSub}>{t('home.howItWorks.sub')}</p>
         </div>
         <div style={s.stepsGrid}>
-          {HOW_IT_WORKS.map(({ n, icon, title, desc }) => (
-            <div key={n} style={s.stepCard}>
+          {HOW_IT_WORKS.map(({ n, icon, id }) => (
+            <div key={id} style={s.stepCard}>
               <div style={s.stepTop}>
                 <span style={s.stepNum}>{n}</span>
                 <span style={s.stepIcon}>{icon}</span>
               </div>
-              <h3 style={s.stepTitle}>{title}</h3>
-              <p style={s.stepDesc}>{desc}</p>
+              <h3 style={s.stepTitle}>{t(`home.howItWorks.${id}.title`)}</h3>
+              <p style={s.stepDesc}>{t(`home.howItWorks.${id}.desc`)}</p>
             </div>
           ))}
         </div>
@@ -158,18 +165,15 @@ export default function LandingPage() {
       <section style={{ ...s.section, background: 'var(--color-surface)', padding: '80px 32px' }}>
         <div style={{ maxWidth: 1120, margin: '0 auto' }}>
           <div style={s.sectionHeader}>
-            <h2 style={s.sectionTitle}>O que a plataforma faz por ti</h2>
-            <p style={s.sectionSub}>
-              Construído para a realidade do mercado de trabalho português.
-              Tudo o que precisas, nada do que não precisas.
-            </p>
+            <h2 style={s.sectionTitle}>{t('home.features.title')}</h2>
+            <p style={s.sectionSub}>{t('home.features.sub')}</p>
           </div>
           <div style={s.featureGrid}>
-            {FEATURES.map(({ icon, title, body }) => (
-              <div key={title} style={s.featureCard}>
+            {FEATURES.map(({ icon, id }) => (
+              <div key={id} style={s.featureCard}>
                 <span style={s.featureIcon}>{icon}</span>
-                <h3 style={s.featureTitle}>{title}</h3>
-                <p style={s.featureBody}>{body}</p>
+                <h3 style={s.featureTitle}>{t(`home.features.${id}.title`)}</h3>
+                <p style={s.featureBody}>{t(`home.features.${id}.body`)}</p>
               </div>
             ))}
           </div>
@@ -178,10 +182,10 @@ export default function LandingPage() {
 
       {/* ── Trust bar ── */}
       <section style={s.trustBar}>
-        {PLATFORM_TRUST.map(({ icon, text }) => (
-          <div key={text} style={s.trustItem}>
+        {PLATFORM_TRUST.map(({ icon, id }) => (
+          <div key={id} style={s.trustItem}>
             <span style={s.trustIcon}>{icon}</span>
-            <span style={s.trustText}>{text}</span>
+            <span style={s.trustText}>{t(`home.trust.${id}`)}</span>
           </div>
         ))}
       </section>
@@ -189,11 +193,11 @@ export default function LandingPage() {
       {/* ── Roadmap ── */}
       <section style={s.roadmapSection}>
         <div style={s.sectionHeader}>
-          <h2 style={s.sectionTitle}>Roadmap de desenvolvimento</h2>
-          <p style={s.sectionSub}>Transparência total — stints 0–7 completos. Stint 8 em progresso.</p>
+          <h2 style={s.sectionTitle}>{t('home.roadmap.title')}</h2>
+          <p style={s.sectionSub}>{t('home.roadmap.sub')}</p>
         </div>
         <div style={s.roadmapGrid}>
-          {ROADMAP.map(({ n, label, done, active }) => (
+          {ROADMAP.map(({ n, done, active }) => (
             <div key={n} style={{
               ...s.roadmapItem,
               borderWidth: '1.5px', borderStyle: 'solid',
@@ -212,12 +216,16 @@ export default function LandingPage() {
                 {done ? '✓' : n}
               </div>
               <div>
-                <div style={s.roadmapLabel}>{label}</div>
+                <div style={s.roadmapLabel}>{t(`home.roadmap.s${n}`)}</div>
                 <div style={{
                   ...s.roadmapStatus,
                   color: done ? 'var(--color-success)' : active ? '#d97706' : 'var(--color-text-muted)',
                 }}>
-                  {done ? '✅ Completo' : active ? '🔄 Em progresso' : 'Planeado'}
+                  {done
+                    ? t('home.roadmap.statusDone')
+                    : active
+                      ? t('home.roadmap.statusActive')
+                      : t('home.roadmap.statusPlanned')}
                 </div>
               </div>
             </div>
@@ -228,11 +236,11 @@ export default function LandingPage() {
       {/* ── CTA Banner ── */}
       <section style={s.ctaBanner}>
         <div style={s.ctaInner}>
-          <h2 style={s.ctaTitle}>Pronto para preencher o teu próximo turno?</h2>
-          <p style={s.ctaSub}>Junte-se à beta de Lisboa. Sem custos de setup. Primeiro turno grátis.</p>
+          <h2 style={s.ctaTitle}>{t('home.cta.title')}</h2>
+          <p style={s.ctaSub}>{t('home.cta.sub')}</p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/register" style={s.ctaBtn}>Criar conta →</Link>
-            <Link href="/login"    style={s.ctaBtnGhost}>Já tenho conta</Link>
+            <Link href="/register" style={s.ctaBtn}>{t('home.cta.primary')}</Link>
+            <Link href="/login"    style={s.ctaBtnGhost}>{t('home.cta.ghost')}</Link>
           </div>
         </div>
       </section>
@@ -243,12 +251,12 @@ export default function LandingPage() {
           <span style={s.footerLogoText}>turnos</span>
           <span style={s.footerLogoDot} />
         </div>
-        <span style={s.footerTagline}>Work Today. Staff Today. · Lisboa Beta 2026</span>
+        <span style={s.footerTagline}>{t('home.footer.tagline')}</span>
         <div style={s.footerLinks}>
-          <a href="#" style={s.footerLink}>Privacidade</a>
-          <a href="#" style={s.footerLink}>Termos</a>
-          <Link href="/login"    style={s.footerLink}>Entrar</Link>
-          <Link href="/register" style={s.footerLink}>Registar</Link>
+          <a href="#" style={s.footerLink}>{t('home.footer.privacy')}</a>
+          <a href="#" style={s.footerLink}>{t('home.footer.terms')}</a>
+          <Link href="/login"    style={s.footerLink}>{t('home.footer.login')}</Link>
+          <Link href="/register" style={s.footerLink}>{t('home.footer.register')}</Link>
         </div>
       </footer>
 
