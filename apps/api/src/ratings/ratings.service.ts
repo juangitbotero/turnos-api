@@ -18,6 +18,7 @@ import { Employer } from '../users/entities/employer.entity';
 import { Shift, ShiftStatus } from '../shifts/entities/shift.entity';
 import { User } from '../users/entities/user.entity';
 import { MailService } from '../mail/mail.service';
+import { t } from '../i18n/request-language';
 import { BADGE_THRESHOLDS } from '@turnos/shared';
 
 export interface CreateRatingDto {
@@ -89,7 +90,7 @@ export class RatingsService {
       where: { id: dto.shiftId },
       relations: ['employer', 'assignedWorker'],
     });
-    if (!shift) throw new NotFoundException('Shift not found');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.status !== ShiftStatus.COMPLETED) {
       throw new BadRequestException('Can only rate a COMPLETED shift');
     }
@@ -144,7 +145,7 @@ export class RatingsService {
       where: { id: dto.shiftId },
       relations: ['employer', 'employer.user', 'assignedWorker'],
     });
-    if (!shift) throw new NotFoundException('Shift not found');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.status !== ShiftStatus.COMPLETED) {
       throw new BadRequestException('Can only rate a COMPLETED shift');
     }
@@ -318,7 +319,7 @@ export class RatingsService {
       where: { id: shiftId },
       relations: ['employer', 'assignedWorker'],
     });
-    if (!shift) throw new NotFoundException('Shift not found');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.employer.id !== employer.id) {
       throw new UnauthorizedException('You can only report no-shows on your own shifts');
     }

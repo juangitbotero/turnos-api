@@ -46,6 +46,11 @@ export function formatTimestamp(date: string | Date, lang: AppLanguage): string 
   });
 }
 
+/** "14:30" — clock time only (the API's check-in window messages). */
+export function formatTime(date: string | Date, lang: AppLanguage): string {
+  return new Date(date).toLocaleTimeString(tag(lang), { hour: '2-digit', minute: '2-digit' });
+}
+
 /** "25 jul, 14:30" — used for "applied at" style timestamps. */
 export function formatDateTime(date: string | Date, lang: AppLanguage): string {
   return new Date(date).toLocaleDateString(tag(lang), {

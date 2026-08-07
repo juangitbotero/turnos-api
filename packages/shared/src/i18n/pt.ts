@@ -3,8 +3,8 @@
  * so any key added here must be translated there or the build fails.
  *
  * Namespaces: common (shared widgets/actions) · domain (label maps for stored
- * enums) · mobile · admin · home. Keep keys grouped by screen so a translator
- * can work through one screen at a time.
+ * enums) · mobile · admin · home · api (messages the NestJS API throws). Keep
+ * keys grouped by screen so a translator can work through one screen at a time.
  *
  * Portuguese legal terms — MCD, Recibo Verde, TSU, Segurança Social — are kept
  * verbatim in BOTH languages and glossed in English on first use. They name
@@ -1561,6 +1561,101 @@ export const pt = {
       errPassword: 'Mínimo 8 caracteres',
       errConfirm:  'As passwords não coincidem',
       errUnknown:  'Erro desconhecido. Tente novamente.',
+    },
+  },
+
+  /**
+   * Server-thrown messages. The API resolves these per request from the
+   * `Accept-Language` header — see apps/api/src/i18n/request-language.ts.
+   *
+   * Only messages a real user can actually hit live here. Internal/defensive
+   * throws ("Not your shift", "Employer not found") stay in English on purpose:
+   * a correct client never reaches them, and an English string is more useful
+   * in a log than a translated one. Ops and accountant emails are NOT
+   * translated either — locked decision.
+   */
+  api: {
+    common: {
+      shiftNotFound: 'Turno não encontrado.',
+    },
+
+    auth: {
+      nipcInvalid:        'NIPC inválido.',
+      nifInvalid:         'NIF inválido.',
+      postalCodeInvalid:  'Código postal inválido. Formato: XXXX-XXX',
+      emailTaken:         'Este email já está registado.',
+      invalidCredentials: 'Credenciais inválidas.',
+      ibanInvalid:        'IBAN inválido. Formato: PT50... (25 caracteres).',
+      verifyLinkInvalid:  'Token de verificação inválido ou expirado.',
+      imagesOnly:         'Apenas imagens são permitidas.',
+      noImage:            'Nenhuma imagem fornecida.',
+      cvFormat:           'O CV tem de ser um ficheiro PDF ou Word (.doc/.docx).',
+      noFile:             'Nenhum ficheiro fornecido.',
+      pushTokenMissing:   'Token inválido.',
+    },
+
+    shifts: {
+      minDuration:           'A duração mínima de um turno é 2 horas.',
+      noDates:               'Indica pelo menos uma data para o turno.',
+      maxSeriesDays:         'Um turno de vários dias pode ter no máximo {{max}} dias (limite do contrato MCD).',
+      paymentMethodRequired: 'Indica como vais pagar ao trabalhador (Turnos Pay Link, transferência bancária ou MB WAY).',
+      cancelReasonRequired:  'Cancelamentos a menos de 3 horas do início exigem um motivo (erro da empresa ou uma das exceções justificadas).',
+      cancelConsequence:     'Cancelamento a menos de 3h do início: deves pagar o mínimo de 2 horas (€{{amount}}) ao trabalhador + taxa de 3€.',
+
+      // Apply gate
+      notOpen:            'Este turno já não está aberto a candidaturas.',
+      alreadyApplied:     'Já te candidataste a este turno.',
+      accountBlocked:     'A tua conta foi bloqueada por faltas repetidas a turnos confirmados. Contacta o suporte Turnos.',
+      accountSuspended:   'A tua conta está suspensa até {{date}} devido a cancelamentos tardios ou faltas.',
+      profileIncomplete:  'O teu perfil está {{score}}% completo. Precisas de pelo menos 80% para te candidatares.',
+
+      // Worker cancellation
+      cancelOnlyConfirmed: 'Só podes cancelar turnos confirmados que ainda não começaram.',
+      seriesStarted:       'Este é um trabalho de vários dias que já começou. Ao aceitares, comprometeste-te com todos os dias — contacta o suporte (suporte@turnos.pt) se tiveres um imprevisto.',
+      alreadyStarted:      'O turno já começou — cancela junto do empregador.',
+      cancelledSuspended:  'Turno cancelado. Por teres 2 cancelamentos tardios em 30 dias, não podes candidatar-te a turnos durante 7 dias.',
+      cancelledLate:       'Turno cancelado. Atenção: cancelar a menos de 24h do início afeta a tua fiabilidade na plataforma.',
+      cancelledFree:       'Turno cancelado sem penalização. O turno voltou ao estado aberto.',
+      declined:            'Turno recusado. O turno voltou ao estado aberto.',
+      deleted:             'Turno eliminado.',
+    },
+
+    attendance: {
+      checkOutQrRetired: 'Este QR já não é utilizado. Digitaliza o QR de check-in à entrada.',
+      alreadyCheckedIn:  'Já fez check-in neste turno.',
+      notOpenForCheckIn: 'O turno não está disponível para check-in.',
+      shiftClosed:       'Turno já concluído ou cancelado.',
+      disputeExists:     'Já existe uma disputa registada neste turno.',
+      noShiftHere:       'Não tem nenhum turno confirmado neste local para hoje. Verifique se está no local correto ou contacte o empregador.',
+      qrInvalid:         'QR code inválido.',
+      qrTampered:        'QR code inválido ou adulterado.',
+      checkInTooEarly:   'Check-in disponível a partir das {{from}}. O turno começa às {{start}}.',
+      checkInWindowOver: 'A janela de check-in expirou (mais de 1h após o início do turno). Contacte o empregador para confirmação manual.',
+      tooFarAway:        'Está a {{distance}}m do local do turno. Deve estar a menos de {{radius}}m para fazer check-in.',
+    },
+
+    compliance: {
+      restPeriod:        'Mínimo {{hours}}h de descanso obrigatório entre turnos (Diretiva Europeia do Tempo de Trabalho). Disponível a partir de {{availableAt}}.',
+      mcdLimitSeries:    'Limite MCD: já tens {{used}}/{{limit}} dias com este empregador em {{year}} e este trabalho tem {{days}} dias — excede o limite legal. A Lei 93/2019 não permite mais de {{limit}} dias/ano com o mesmo empregador.',
+      mcdLimitReached:   'Limite MCD atingido: {{used}}/{{limit}} dias com este empregador em {{year}}. Legislação portuguesa (Lei 93/2019) não permite mais de {{limit}} dias/ano com o mesmo empregador.',
+      dependencyBlock:   'Limite de dependência económica atingido: {{percent}}% dos seus rendimentos anuais declarados provêm deste empregador. A Agenda do Trabalho Digno (Lei 13/2023) impede mais de {{limit}}% de dependência de um único empregador.',
+      dependencyWarning: 'Atenção: {{percent}}% dos seus rendimentos anuais declarados provêm deste empregador. O limite legal é {{limit}}%. Considere diversificar.',
+    },
+
+    payments: {
+      cardRequired:         'Adiciona um cartão antes de subscrever o plano.',
+      subscriptionRequired: 'Precisas de uma subscrição ativa para publicar turnos. Ativa o teu plano em Faturação.',
+      overdueWages:         'Tens pagamentos a trabalhadores em falta há mais de 72 horas. Regulariza-os em Turnos → Pagamentos pendentes para voltares a publicar.',
+      maxActiveShifts:      'O plano atual permite até {{max}} turnos ativos em simultâneo. Cancela ou conclui turnos existentes primeiro.',
+      connectRequired:      'Completa o registo bancário primeiro.',
+    },
+
+    wages: {
+      notFound:                  'Pagamento não encontrado.',
+      cancellationNotAdjustable: 'O mínimo de cancelamento não pode ser ajustado.',
+      onlyPendingAdjustable:     'Só podes ajustar pagamentos ainda pendentes.',
+      cannotReport:              'Este pagamento já não pode ser reportado.',
+      stripeConfirmed:           'Este pagamento foi confirmado pelo Stripe — contacta o suporte se não o recebeste.',
     },
   },
 } as const;

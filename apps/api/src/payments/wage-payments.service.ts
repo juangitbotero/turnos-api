@@ -35,6 +35,7 @@ import { Shift } from '../shifts/entities/shift.entity';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../storage/storage.service';
+import { t } from '../i18n/request-language';
 
 /**
  * Gross-up basis (Stripe EEA pricing).
@@ -405,17 +406,17 @@ export class WagePaymentsService {
     if (!employer) throw new UnauthorizedException('Employer not found');
 
     const wage = await this.wageRepo.findOne({ where: { id: wagePaymentId } });
-    if (!wage) throw new NotFoundException('Pagamento não encontrado');
+    if (!wage) throw new NotFoundException(t('api.wages.notFound'));
     if (wage.employerId !== employer.id) throw new UnauthorizedException('Not your payment');
     if (wage.type !== WagePaymentType.SHIFT_COMPLETION) {
-      throw new BadRequestException('O mínimo de cancelamento não pode ser ajustado.');
+      throw new BadRequestException(t('api.wages.cancellationNotAdjustable'));
     }
     if (wage.status !== WagePaymentStatus.PENDING) {
-      throw new BadRequestException('Só podes ajustar pagamentos ainda pendentes.');
+      throw new BadRequestException(t('api.wages.onlyPendingAdjustable'));
     }
 
     const shift = await this.shiftRepo.findOne({ where: { id: wage.shiftId } });
-    if (!shift) throw new NotFoundException('Turno não encontrado');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
 
     const rate           = Number(shift.grossHourlyRate);
     const originalHours  = Number(wage.amount) / rate;
@@ -507,10 +508,10 @@ export class WagePaymentsService {
     if (!employer) throw new UnauthorizedException('Employer not found');
 
     const wage = await this.wageRepo.findOne({ where: { id: wagePaymentId } });
-    if (!wage) throw new NotFoundException('Pagamento não encontrado');
+    if (!wage) throw new NotFoundException(t('api.wages.notFound'));
     if (wage.employerId !== employer.id) throw new UnauthorizedException('Not your payment');
     if (![WagePaymentStatus.PENDING, WagePaymentStatus.DISPUTED].includes(wage.status)) {
-      throw new BadRequestException('Este pagamento já não pode ser reportado.');
+      throw new BadRequestException(t('api.wages.cannotReport'));
     }
 
     wage.status           = WagePaymentStatus.UNDER_REVIEW;
@@ -552,7 +553,7 @@ export class WagePaymentsService {
     if (!employer) throw new UnauthorizedException('Employer not found');
 
     const wage = await this.wageRepo.findOne({ where: { id: wagePaymentId } });
-    if (!wage) throw new NotFoundException('Pagamento não encontrado');
+    if (!wage) throw new NotFoundException(t('api.wages.notFound'));
     if (wage.employerId !== employer.id) throw new UnauthorizedException('Not your payment');
     if (wage.status === WagePaymentStatus.PAID || wage.status === WagePaymentStatus.CONFIRMED) {
       return wage; // already settled
@@ -603,7 +604,7 @@ export class WagePaymentsService {
   async flagNotReceived(workerUserId: string, wagePaymentId: string): Promise<WagePayment> {
     const wage = await this.assertWorkerOwns(workerUserId, wagePaymentId);
     if (wage.status === WagePaymentStatus.PAID) {
-      throw new BadRequestException('Este pagamento foi confirmado pelo Stripe — contacta o suporte se não o recebeste.');
+      throw new BadRequestException(t('api.wages.stripeConfirmed'));
     }
     wage.status = WagePaymentStatus.DISPUTED;
     await this.wageRepo.save(wage);
@@ -625,7 +626,7 @@ export class WagePaymentsService {
     const worker = await this.workerRepo.findOne({ where: { user: { id: workerUserId } } });
     if (!worker) throw new UnauthorizedException('Worker not found');
     const wage = await this.wageRepo.findOne({ where: { id: wagePaymentId } });
-    if (!wage) throw new NotFoundException('Pagamento não encontrado');
+    if (!wage) throw new NotFoundException(t('api.wages.notFound'));
     if (wage.workerId !== worker.id) throw new UnauthorizedException('Not your payment');
     return wage;
   }

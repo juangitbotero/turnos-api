@@ -20,6 +20,7 @@ const APPROVED = {
     'onboarding', 'earnings', 'scan', 'rate', 'reciboVerde'],
   admin: ['nav','chrome','mobileOverlay','home','workersSearch','workers','qrCodes','compliance','spending','billing','ratings','newShift','shifts'],
   home: [],
+  api: [],
 };
 
 /**
@@ -74,6 +75,16 @@ const SECTION_TITLES = {
   login:      'public — login/page.tsx',
   register:   'public — register/page.tsx',
   },
+
+  api: {
+  common:     'API — messages shared across endpoints',
+  auth:       'API — auth.service.ts / auth.controller.ts',
+  shifts:     'API — shifts.service.ts',
+  attendance: 'API — attendance.service.ts',
+  compliance: 'API — compliance.service.ts',
+  payments:   'API — payments.service.ts',
+  wages:      'API — wage-payments.service.ts',
+  },
 };
 
 const esc = (v) => String(v).replace(/\|/g, '\\|').replace(/\n/g, '<br>');
@@ -117,7 +128,7 @@ for (const ns of ['common', 'domain']) {
   table(lines, `${ns} (shared across both apps)`, rows(s.pt[ns], s.en[ns]));
 }
 
-for (const app of ['mobile', 'admin', 'home']) {
+for (const app of ['mobile', 'admin', 'home', 'api']) {
   for (const [ns, ptObj] of Object.entries(s.pt[app] ?? {})) {
     if ((APPROVED[app] ?? []).includes(ns)) continue;
     table(lines, SECTION_TITLES[app]?.[ns] ?? `${app}.${ns}`, rows(ptObj, s.en[app][ns]));

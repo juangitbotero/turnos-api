@@ -1,5 +1,6 @@
 import { WorkerExperience } from '@turnos/shared';
 import { tokenStorage } from './storage';
+import { currentLanguage } from './i18n';
 
 // In dev, replace with your machine's local IP if testing on a physical device
 // e.g. http://192.168.1.x:3001/api  (include /api suffix)
@@ -35,6 +36,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   const headers: Record<string, string> = {
+    // The API throws its user-facing messages in this language — see the
+    // `api.*` namespace in @turnos/shared and apps/api/src/i18n.
+    'Accept-Language': currentLanguage(),
     ...(options.headers as Record<string, string> ?? {}),
   };
 

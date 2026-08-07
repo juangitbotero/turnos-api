@@ -24,6 +24,20 @@ import {
 
 const LANGUAGE_KEY = 'turnos_language';
 
+/**
+ * The active language, readable synchronously outside the React tree.
+ *
+ * `lib/api.ts` needs it on every request to set `Accept-Language`, and the
+ * stored value only lives in SecureStore, which is async. Mirroring it here
+ * keeps the request path free of an await (and of a SecureStore read per call).
+ */
+let activeLanguage: AppLanguage = DEFAULT_LANGUAGE;
+
+/** Active app language — for non-React callers. Use `useT()` inside components. */
+export function currentLanguage(): AppLanguage {
+  return activeLanguage;
+}
+
 /** Read the stored choice — null when the worker has never picked one. */
 export async function getStoredLanguage(): Promise<string | null> {
   try {
@@ -62,6 +76,7 @@ export async function initI18n(): Promise<AppLanguage> {
     await i18n.changeLanguage(lang);
   }
 
+  activeLanguage = lang;
   return lang;
 }
 
@@ -89,6 +104,7 @@ export function LanguageProvider({
 
   const setLanguage = useCallback(async (lang: AppLanguage) => {
     setLanguageState(lang);           // optimistic — the UI switches instantly
+    activeLanguage = lang;            // so the next API call sends the new header
     await i18n.changeLanguage(lang);
     await storeLanguage(lang);
   }, []);

@@ -15,6 +15,7 @@ import {
   isValidNIF, isValidIBAN, isValidNIPC, isValidPostalCode,
   WorkerExperience, normalizeSkills,
 } from '@turnos/shared';
+import { t } from '../i18n/request-language';
 
 const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
@@ -112,17 +113,17 @@ export class AuthService {
     adminEmail: string; adminPassword: string;
   }): Promise<{ accessToken: string; refreshToken: string }> {
     if (!isValidNIPC(dto.nipc)) {
-      throw new BadRequestException('NIPC inválido.');
+      throw new BadRequestException(t('api.auth.nipcInvalid'));
     }
     if (dto.nif && !isValidNIF(dto.nif)) {
-      throw new BadRequestException('NIF inválido.');
+      throw new BadRequestException(t('api.auth.nifInvalid'));
     }
     if (!isValidPostalCode(dto.postalCode)) {
-      throw new BadRequestException('Código postal inválido. Formato: XXXX-XXX');
+      throw new BadRequestException(t('api.auth.postalCodeInvalid'));
     }
 
     const existing = await this.usersService.findByEmail(dto.adminEmail);
-    if (existing) throw new ConflictException('Este email já está registado.');
+    if (existing) throw new ConflictException(t('api.auth.emailTaken'));
 
     const hashedPassword = await bcrypt.hash(dto.adminPassword, 12);
     const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -156,11 +157,11 @@ export class AuthService {
   }> {
     const user = await this.usersService.findByEmail(email);
     if (!user || user.role === 'WORKER' || !user.password) {
-      throw new UnauthorizedException('Credenciais inválidas.');
+      throw new UnauthorizedException(t('api.auth.invalidCredentials'));
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) throw new UnauthorizedException('Credenciais inválidas.');
+    if (!isMatch) throw new UnauthorizedException(t('api.auth.invalidCredentials'));
 
     return this.generateTokens(user.id, user.role);
   }
@@ -242,10 +243,10 @@ export class AuthService {
     ibanShareConsent?: boolean;
   }): Promise<{ profileQualityScore: number; status: string; missingItems: string[] }> {
     if (!isValidNIF(dto.nif)) {
-      throw new BadRequestException('NIF inválido.');
+      throw new BadRequestException(t('api.auth.nifInvalid'));
     }
     if (!isValidIBAN(dto.iban)) {
-      throw new BadRequestException('IBAN inválido. Formato: PT50... (25 caracteres).');
+      throw new BadRequestException(t('api.auth.ibanInvalid'));
     }
     return this.usersService.updateWorkerProfile(userId, dto);
   }

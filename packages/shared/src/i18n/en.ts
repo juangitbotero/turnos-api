@@ -1552,4 +1552,94 @@ export const en: Translated<TranslationCatalogue> = {
       errUnknown:  'Something went wrong. Please try again.',
     },
   },
+
+  /**
+   * Server-thrown messages. Legal instruments keep their Portuguese names and
+   * are glossed inline here rather than "on first use" — an API error arrives
+   * on its own, with no earlier sentence to have introduced the term.
+   */
+  api: {
+    common: {
+      shiftNotFound: 'Shift not found.',
+    },
+
+    auth: {
+      nipcInvalid:        'Invalid NIPC (Portuguese company tax number).',
+      nifInvalid:         'Invalid NIF (Portuguese tax number).',
+      postalCodeInvalid:  'Invalid postal code. Format: XXXX-XXX',
+      emailTaken:         'This email is already registered.',
+      invalidCredentials: 'Invalid credentials.',
+      ibanInvalid:        'Invalid IBAN. Format: PT50... (25 characters).',
+      verifyLinkInvalid:  'That verification link is invalid or has expired.',
+      imagesOnly:         'Only image files are allowed.',
+      noImage:            'No image provided.',
+      cvFormat:           'Your CV must be a PDF or Word file (.doc/.docx).',
+      noFile:             'No file provided.',
+      pushTokenMissing:   'Invalid token.',
+    },
+
+    shifts: {
+      minDuration:           'A shift must be at least 2 hours long.',
+      noDates:               'Pick at least one date for the shift.',
+      maxSeriesDays:         'A multi-day job can run for at most {{max}} days (MCD — Muito Curta Duração — contract limit).',
+      paymentMethodRequired: 'Choose how you will pay the worker (Turnos Pay Link, bank transfer or MB WAY).',
+      cancelReasonRequired:  'Cancelling less than 3 hours before the start requires a reason (company error, or one of the justified exceptions).',
+      cancelConsequence:     'Cancelled less than 3h before the start: you must pay the worker a 2-hour minimum (€{{amount}}) plus the €3 fee.',
+
+      // Apply gate
+      notOpen:            'This shift is no longer open for applications.',
+      alreadyApplied:     'You have already applied to this shift.',
+      accountBlocked:     'Your account has been blocked for repeatedly missing confirmed shifts. Contact Turnos support.',
+      accountSuspended:   'Your account is suspended until {{date}} because of late cancellations or no-shows.',
+      profileIncomplete:  'Your profile is {{score}}% complete. You need at least 80% to apply.',
+
+      // Worker cancellation
+      cancelOnlyConfirmed: 'You can only cancel confirmed shifts that have not started yet.',
+      seriesStarted:       'This is a multi-day job that has already started. By accepting it you committed to every day — contact support (suporte@turnos.pt) if something has come up.',
+      alreadyStarted:      'The shift has already started — cancel it directly with the employer.',
+      cancelledSuspended:  'Shift cancelled. With 2 late cancellations in 30 days, you cannot apply for shifts for 7 days.',
+      cancelledLate:       'Shift cancelled. Note: cancelling less than 24h before the start affects your reliability on the platform.',
+      cancelledFree:       'Shift cancelled with no penalty. It is open for applications again.',
+      declined:            'Shift declined. It is open for applications again.',
+      deleted:             'Shift deleted.',
+    },
+
+    attendance: {
+      checkOutQrRetired: 'This QR code is no longer used. Scan the check-in QR code when you arrive.',
+      alreadyCheckedIn:  'You have already checked in to this shift.',
+      notOpenForCheckIn: 'This shift is not available for check-in.',
+      shiftClosed:       'This shift is already completed or cancelled.',
+      disputeExists:     'A dispute has already been raised on this shift.',
+      noShiftHere:       'You have no confirmed shift at this location today. Check that you are in the right place, or contact the employer.',
+      qrInvalid:         'Invalid QR code.',
+      qrTampered:        'This QR code is invalid or has been tampered with.',
+      checkInTooEarly:   'Check-in opens at {{from}}. The shift starts at {{start}}.',
+      checkInWindowOver: 'The check-in window has closed (more than 1h after the shift started). Ask the employer to confirm manually.',
+      tooFarAway:        'You are {{distance}}m from the shift location. You must be within {{radius}}m to check in.',
+    },
+
+    compliance: {
+      restPeriod:        'A minimum {{hours}}h rest between shifts is mandatory (EU Working Time Directive). You are available again from {{availableAt}}.',
+      mcdLimitSeries:    'MCD (Muito Curta Duração) limit: you already have {{used}}/{{limit}} days with this employer in {{year}} and this job is {{days}} days — that goes over the legal cap. Lei 93/2019 allows no more than {{limit}} days a year with the same employer.',
+      mcdLimitReached:   'MCD (Muito Curta Duração) limit reached: {{used}}/{{limit}} days with this employer in {{year}}. Portuguese law (Lei 93/2019) allows no more than {{limit}} days a year with the same employer.',
+      dependencyBlock:   'Economic dependency limit reached: {{percent}}% of your declared annual income comes from this employer. The Agenda do Trabalho Digno (Lei 13/2023) caps dependency on a single employer at {{limit}}%.',
+      dependencyWarning: 'Heads-up: {{percent}}% of your declared annual income comes from this employer. The legal limit is {{limit}}%. Consider spreading your work more widely.',
+    },
+
+    payments: {
+      cardRequired:         'Add a card before subscribing to a plan.',
+      subscriptionRequired: 'You need an active subscription to post shifts. Activate your plan under Billing.',
+      overdueWages:         'You have worker payments outstanding for more than 72 hours. Settle them under Turnos → Pending payments to post again.',
+      maxActiveShifts:      'Your current plan allows up to {{max}} shifts open at the same time. Cancel or complete existing shifts first.',
+      connectRequired:      'Finish setting up your bank details first.',
+    },
+
+    wages: {
+      notFound:                  'Payment not found.',
+      cancellationNotAdjustable: 'A cancellation minimum cannot be adjusted.',
+      onlyPendingAdjustable:     'You can only adjust payments that are still pending.',
+      cannotReport:              'This payment can no longer be reported.',
+      stripeConfirmed:           'Stripe confirmed this payment — contact support if you have not received it.',
+    },
+  },
 };

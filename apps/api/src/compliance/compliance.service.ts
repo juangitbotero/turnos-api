@@ -11,6 +11,7 @@ import { ComplianceAuditLog, ComplianceEvent } from './entities/compliance-audit
 import { Shift, ShiftStatus } from '../shifts/entities/shift.entity';
 import { Worker } from '../users/entities/worker.entity';
 import { Employer } from '../users/entities/employer.entity';
+import { t, tDateTime } from '../i18n/request-language';
 import { SsDiretaJobData } from './processors/ss-direta.processor';
 import { ReciboVerdeJobData } from './processors/recibo-verde.processor';
 
@@ -349,10 +350,7 @@ export class ComplianceService {
     const gapHours = (newStart.getTime() - lastEnd.getTime()) / 3_600_000;
 
     if (gapHours < REST_PERIOD_HOURS) {
-      const availableAt  = new Date(lastEnd.getTime() + REST_PERIOD_HOURS * 3_600_000);
-      const availableStr = availableAt.toLocaleString('pt-PT', {
-        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-      });
+      const availableAt = new Date(lastEnd.getTime() + REST_PERIOD_HOURS * 3_600_000);
 
       await this.log({
         event:    ComplianceEvent.REST_PERIOD_VIOLATION_ATTEMPT,
@@ -362,7 +360,10 @@ export class ComplianceService {
       });
 
       throw new BadRequestException(
-        `Mínimo ${REST_PERIOD_HOURS}h de descanso obrigatório entre turnos (Diretiva Europeia do Tempo de Trabalho). Disponível a partir de ${availableStr}.`,
+        t('api.compliance.restPeriod', {
+          hours:       REST_PERIOD_HOURS,
+          availableAt: tDateTime(availableAt),
+        }),
       );
     }
   }
@@ -395,12 +396,15 @@ export class ComplianceService {
       });
 
       throw new BadRequestException(
-        daysBeingAdded > 1
-          ? `Limite MCD: já tens ${count}/${MCD_MAX_DAYS_PER_YEAR} dias com este empregador em ${new Date().getFullYear()} ` +
-            `e este trabalho tem ${daysBeingAdded} dias — excede o limite legal. ` +
-            `A Lei 93/2019 não permite mais de ${MCD_MAX_DAYS_PER_YEAR} dias/ano com o mesmo empregador.`
-          : `Limite MCD atingido: ${count}/${MCD_MAX_DAYS_PER_YEAR} dias com este empregador em ${new Date().getFullYear()}. ` +
-            `Legislação portuguesa (Lei 93/2019) não permite mais de ${MCD_MAX_DAYS_PER_YEAR} dias/ano com o mesmo empregador.`,
+        t(
+          daysBeingAdded > 1 ? 'api.compliance.mcdLimitSeries' : 'api.compliance.mcdLimitReached',
+          {
+            used:  count,
+            limit: MCD_MAX_DAYS_PER_YEAR,
+            year:  new Date().getFullYear(),
+            days:  daysBeingAdded,
+          },
+        ),
       );
     }
   }
@@ -428,8 +432,10 @@ export class ComplianceService {
         details:    { dependencyPct: Math.round(dependencyPct * 10) / 10, totalEarnings, employerEarnings },
       });
       throw new BadRequestException(
-        `Limite de dependência económica atingido: ${dependencyPct.toFixed(0)}% dos seus rendimentos anuais declarados provêm deste empregador. ` +
-        `A Agenda do Trabalho Digno (Lei 13/2023) impede mais de ${DEPENDENCY_BLOCK_PCT}% de dependência de um único empregador.`,
+        t('api.compliance.dependencyBlock', {
+          percent: dependencyPct.toFixed(0),
+          limit:   DEPENDENCY_BLOCK_PCT,
+        }),
       );
     }
 
@@ -440,10 +446,10 @@ export class ComplianceService {
         employerId: employer.id,
         details:    { dependencyPct: Math.round(dependencyPct * 10) / 10 },
       });
-      return (
-        `Atenção: ${dependencyPct.toFixed(0)}% dos seus rendimentos anuais declarados provêm deste empregador. ` +
-        `O limite legal é ${DEPENDENCY_BLOCK_PCT}%. Considere diversificar.`
-      );
+      return t('api.compliance.dependencyWarning', {
+        percent: dependencyPct.toFixed(0),
+        limit:   DEPENDENCY_BLOCK_PCT,
+      });
     }
 
     return null;

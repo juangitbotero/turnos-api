@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -34,6 +34,7 @@ import { McdContract } from './compliance/entities/mcd-contract.entity';
 import { ComplianceAuditLog } from './compliance/entities/compliance-audit-log.entity';
 import { ShiftAttendance } from './attendance/entities/shift-attendance.entity';
 import { PaymentRecord } from './payments/entities/payment-record.entity';
+import { LanguageMiddleware } from './i18n/language.middleware';
 
 @Module({
   imports: [
@@ -113,4 +114,10 @@ import { PaymentRecord } from './payments/entities/payment-record.entity';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  // Resolves the request's language from Accept-Language and makes it readable
+  // from any service via `t()` — see i18n/request-language.ts.
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(LanguageMiddleware).forRoutes('*');
+  }
+}

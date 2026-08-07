@@ -1,4 +1,4 @@
-import { catalogue, resolveInitialLanguage } from '@turnos/shared';
+import { AppLanguage, catalogue, resolveInitialLanguage } from '@turnos/shared';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 
@@ -10,20 +10,26 @@ export class ApiError extends Error {
 }
 
 /**
- * Copy for errors thrown by this module.
+ * The active UI language, resolved the same way the provider resolves it.
  *
- * This is not a React component, so it can't use `useT()` — it reads the same
- * `turnos_lang` cookie the provider writes and pulls the string straight from
- * the shared catalogue.
+ * This module is not a React component, so it can't use `useT()` — it reads the
+ * same `turnos_lang` cookie the provider writes. Used for two things: the copy
+ * of errors thrown here, and the `Accept-Language` header that tells the API
+ * which language to throw ITS messages in.
  */
-function currentCatalogue() {
+function currentLanguage(): AppLanguage {
   const raw = typeof document !== 'undefined'
     ? document.cookie.match(/(?:^|; )turnos_lang=([^;]*)/)?.[1]
     : null;
   const browser = typeof navigator !== 'undefined'
     ? [...(navigator.languages ?? []), navigator.language].filter(Boolean) as string[]
     : [];
-  return catalogue(resolveInitialLanguage(raw ? decodeURIComponent(raw) : null, browser));
+  return resolveInitialLanguage(raw ? decodeURIComponent(raw) : null, browser);
+}
+
+/** Copy for errors thrown by this module. */
+function currentCatalogue() {
+  return catalogue(currentLanguage());
 }
 
 function getToken(): string | null {
@@ -91,7 +97,11 @@ async function request<T>(
   if (skipAuth) {
     const res = await fetch(`${BASE_URL}${path}`, {
       ...options,
-      headers: { 'Content-Type': 'application/json', ...(options.headers as Record<string, string> ?? {}) },
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept-Language': currentLanguage(),
+        ...(options.headers as Record<string, string> ?? {}),
+      },
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({})) as { message?: string };
@@ -117,6 +127,9 @@ async function request<T>(
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: Record<string, string> = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    // The API throws its user-facing messages in this language — see the
+    // `api.*` namespace in @turnos/shared and apps/api/src/i18n.
+    'Accept-Language': currentLanguage(),
     ...(options.headers as Record<string, string> ?? {}),
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;

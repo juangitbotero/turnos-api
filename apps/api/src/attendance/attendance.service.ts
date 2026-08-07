@@ -41,6 +41,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { WagePaymentsService } from '../payments/wage-payments.service';
 import { RatingsService } from '../ratings/ratings.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { t, tTime } from '../i18n/request-language';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 
@@ -140,7 +141,7 @@ export class AttendanceService {
     if (payload.action !== 'in') {
       // Legacy check-out QR (pre-v2.1 print) — no longer valid
       throw new BadRequestException(
-        'Este QR já não é utilizado. Digitaliza o QR de check-in à entrada.',
+        t('api.attendance.checkOutQrRetired'),
       );
     }
 
@@ -148,8 +149,8 @@ export class AttendanceService {
     if (shift.status !== ShiftStatus.FILLED) {
       throw new BadRequestException(
         shift.status === ShiftStatus.ACTIVE
-          ? 'Já fez check-in neste turno.'
-          : 'O turno não está disponível para check-in.',
+          ? t('api.attendance.alreadyCheckedIn')
+          : t('api.attendance.notOpenForCheckIn'),
       );
     }
 
@@ -158,7 +159,7 @@ export class AttendanceService {
 
     // Idempotency guard
     const existing = await this.attendanceRepo.findOne({ where: { shift: { id: shift.id } } });
-    if (existing?.checkInAt) throw new BadRequestException('Já fez check-in neste turno.');
+    if (existing?.checkInAt) throw new BadRequestException(t('api.attendance.alreadyCheckedIn'));
 
     const scheduledHours = this.calcScheduledHours(shift.startTime, shift.endTime);
 
@@ -480,10 +481,10 @@ export class AttendanceService {
       where: { id: shiftId },
       relations: ['employer', 'assignedWorker'],
     });
-    if (!shift)                          throw new NotFoundException('Shift not found');
+    if (!shift)                          throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
     if (![ShiftStatus.FILLED, ShiftStatus.ACTIVE].includes(shift.status)) {
-      throw new BadRequestException('Turno já concluído ou cancelado');
+      throw new BadRequestException(t('api.attendance.shiftClosed'));
     }
 
     let attendance = await this.attendanceRepo.findOne({ where: { shift: { id: shiftId } } });
@@ -526,12 +527,12 @@ export class AttendanceService {
     note: string,
   ): Promise<ShiftAttendance> {
     const shift = await this.shiftRepo.findOne({ where: { id: shiftId } });
-    if (!shift) throw new NotFoundException('Shift not found');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
 
     const attendance = await this.attendanceRepo.findOne({ where: { shift: { id: shiftId } } });
     if (!attendance) throw new NotFoundException('No attendance record for this shift');
     if (attendance.status === AttendanceStatus.DISPUTED) {
-      throw new BadRequestException('Já existe uma disputa registada neste turno');
+      throw new BadRequestException(t('api.attendance.disputeExists'));
     }
 
     attendance.status          = AttendanceStatus.DISPUTED;
@@ -578,8 +579,7 @@ export class AttendanceService {
 
     if (!shift) {
       throw new NotFoundException(
-        'Não tem nenhum turno confirmado neste local para hoje. ' +
-        'Verifique se está no local correto ou contacte o empregador.',
+        t('api.attendance.noShiftHere'),
       );
     }
 
@@ -599,7 +599,7 @@ export class AttendanceService {
 
   private verifyStaticToken(token: string): StaticQrPayload {
     const parts = token.split('.');
-    if (parts.length !== 2) throw new BadRequestException('QR code inválido');
+    if (parts.length !== 2) throw new BadRequestException(t('api.attendance.qrInvalid'));
 
     const [data, signature] = parts as [string, string];
     const expectedSig = crypto
@@ -609,13 +609,13 @@ export class AttendanceService {
 
     if (Buffer.from(signature).length !== Buffer.from(expectedSig).length ||
         !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
-      throw new BadRequestException('QR code inválido ou adulterado');
+      throw new BadRequestException(t('api.attendance.qrTampered'));
     }
 
     try {
       return JSON.parse(Buffer.from(data, 'base64url').toString('utf8')) as StaticQrPayload;
     } catch {
-      throw new BadRequestException('QR code inválido');
+      throw new BadRequestException(t('api.attendance.qrInvalid'));
     }
   }
 
@@ -630,14 +630,15 @@ export class AttendanceService {
 
     if (now < windowStart) {
       throw new BadRequestException(
-        `Check-in disponível a partir das ${windowStart.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}. ` +
-        `O turno começa às ${String(sh!).padStart(2,'0')}:${String(sm!).padStart(2,'0')}.`,
+        t('api.attendance.checkInTooEarly', {
+          from:  tTime(windowStart),
+          start: `${String(sh!).padStart(2,'0')}:${String(sm!).padStart(2,'0')}`,
+        }),
       );
     }
     if (now > windowEnd) {
       throw new BadRequestException(
-        'A janela de check-in expirou (mais de 1h após o início do turno). ' +
-        'Contacte o empregador para confirmação manual.',
+        t('api.attendance.checkInWindowOver'),
       );
     }
   }
@@ -653,8 +654,10 @@ export class AttendanceService {
     const distM = this.haversineMetres(lat, lng, Number(shift.lat), Number(shift.lng));
     if (distM > GEOFENCE_RADIUS_M) {
       throw new BadRequestException(
-        `Está a ${Math.round(distM)}m do local do turno. ` +
-        `Deve estar a menos de ${GEOFENCE_RADIUS_M}m para fazer check-in/out.`,
+        t('api.attendance.tooFarAway', {
+          distance: Math.round(distM),
+          radius:   GEOFENCE_RADIUS_M,
+        }),
       );
     }
   }

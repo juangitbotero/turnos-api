@@ -23,7 +23,7 @@ const EMPTY: FormState = {
 };
 
 export default function RegisterPage() {
-  const { t, tSector } = useT();
+  const { t, tSector, language } = useT();
   const [step, setStep] = useState<Step>('company');
   const [form, setForm] = useState<FormState>(EMPTY);
   const [errors, setErrors] = useState<Partial<FormState>>({});
@@ -69,7 +69,10 @@ export default function RegisterPage() {
     try {
       const res = await fetch(`${API_BASE}/auth/register/employer`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // This one call bypasses lib/api.ts, so it sets the header itself —
+        // NIF/NIPC/email-taken validation errors come back from the API and are
+        // shown verbatim below.
+        headers: { 'Content-Type': 'application/json', 'Accept-Language': language },
         body: JSON.stringify({
           companyName: form.companyName,
           nipc: form.nipc,
@@ -83,7 +86,7 @@ export default function RegisterPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Erro ao registar empresa');
+      if (!res.ok) throw new Error(data.message || t('home.register.errUnknown'));
       // Store tokens
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);

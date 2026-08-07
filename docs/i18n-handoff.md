@@ -1,7 +1,9 @@
-# PT/EN internationalisation — work in progress
+# PT/EN internationalisation
 
-Status as of commit `7efa171`. Full sweep agreed: quality over speed, every
-surface bilingual.
+**All five phases are implemented.** Full sweep as agreed: quality over speed,
+every surface bilingual — mobile, web-admin dashboard, public pages and the API.
+What remains is Juanes' read of the outstanding English copy
+(`docs/i18n-en-copy-review.md`).
 
 ## Decisions already locked (do not re-litigate)
 
@@ -21,9 +23,8 @@ surface bilingual.
   `'use client'`, so no server-component machinery is needed.
 - **Catalogues:** `packages/shared/src/i18n/` — `pt.ts` is canonical, `en.ts` is
   typed `Translated<TranslationCatalogue>` so **a missing key is a compile
-  error**. Currently 175 keys each side, verified no drift.
-- **Namespaces:** `common` · `domain` · `mobile` · (`admin`, `home` still to be
-  created).
+  error**. Currently 1274 keys each side, verified no drift.
+- **Namespaces:** `common` · `domain` · `mobile` · `admin` · `home` · `api`.
 - **`useT()` hook** — identical shape in `apps/mobile/lib/i18n.tsx` and
   `apps/web-admin/lib/i18n.tsx`. Returns `t`, `language`, the domain
   translators (`tSkill`, `tSkills`, `tCategory`, `tWorkerLanguage`, `tWeekday`)
@@ -73,14 +74,12 @@ apps** — `fDateRange()` replaced it everywhere. It is still exported and still
 `pt-PT`-hardcoded; safe to delete once you've confirmed nothing external calls
 it.
 
-**Still to fix:**
+**API: ✅ all fixed.** `grep -rn "pt-PT" apps/api/src` returns nothing.
+`attendance` uses `tTime()`, `compliance` uses `tDateTime()`, `shifts` uses
+`tNumericDate()` — all three read the request language (see Phase 4).
 
-| File | What's wrong |
-|---|---|
-| `apps/api` (attendance, compliance, shifts services) | `pt-PT` in server-composed strings — Phase 4 |
-
-Shared replacements already exist for all of these in
-`packages/shared/src/i18n/format.ts`.
+Shared replacements exist for all of these in
+`packages/shared/src/i18n/format.ts`, which gained `formatTime()` in Phase 4.
 
 ## Progress
 
@@ -164,7 +163,68 @@ shared as `EMPLOYER_SECTORS` with `translateSector()` / `tSector()`, and the
 "Restaurants & Cafes". **Any new stored enum needs the same treatment** — that
 is now five (job titles, categories, worker languages, weekdays, sectors).
 
-**Phase 4 — API messages:** ⬜ not started. See the full brief below.
+**Phase 4 — API messages: ✅ complete.** The NestJS API now throws in the
+caller's language. Catalogues at **1274 keys** each side, no drift; `api.*` is
+58 of them.
+
+- ✅ `packages/shared` — `translate(lang, key, params)` (framework-free, same
+  dotted-key + `{{param}}` contract as `useT()`, PT fallback) and
+  `formatTime()`. Both exported from `@turnos/shared`.
+- ✅ `apps/api/src/i18n/request-language.ts` — `resolveRequestLanguage()`,
+  `runWithLanguage()`, `t()`, `tDateTime()` / `tNumericDate()` / `tTime()`
+- ✅ `apps/api/src/i18n/language.middleware.ts`, wired in `AppModule.configure()`
+  for `'*'`
+- ✅ 79 `t()` call sites across `auth` (service + controller), `shifts`,
+  `attendance`, `compliance`, `payments`, `wage-payments`, `ratings`
+- ✅ Both clients send `Accept-Language`, plus the one raw `fetch` in
+  `register/page.tsx` that bypasses `lib/api.ts`
+
+### Why AsyncLocalStorage and not a request-scoped provider
+
+The messages are thrown deep inside singleton services — a compliance check runs
+three calls below the controller. Marking those `Scope.REQUEST` cascades: every
+singleton injecting one becomes request-scoped too, re-instantiating much of the
+graph per call. ALS keeps them singletons and needs **no constructor changes** —
+the middleware opens the context, `t()` reads it wherever it is called.
+
+Verified against a live express server: the language survives three `await`
+boundaries, two concurrent PT/EN requests don't leak into each other, and
+outside a request (BullMQ processors, the 15-min sweep, cron) `t()` falls back
+to Portuguese — which is correct there, since those paths produce ops emails and
+push notifications that are deliberately not translated.
+
+### `Accept-Language` resolution
+
+Mirrors `resolveInitialLanguage()`: q-values are honoured, an explicitly PT or
+EN tag wins, and a header that is **detectable but unsupported** (`uk-UA,uk;q=0.9`)
+gets **English**, not Portuguese. Only a missing/empty header — or a bare `*`,
+which expresses no preference — falls back to PT.
+
+### What was deliberately left in English
+
+Internal/defensive throws a correct client cannot reach: `Not your shift`,
+`Employer not found`, `Worker not found`, `Not your payment`,
+`Only DRAFT or OPEN shifts can be edited`, the Stripe webhook signature errors.
+An English string is more useful in a log, and no user sees them. The three
+English messages that **are** user-reachable were translated: `Shift not found`
+(stale deep link → `api.common.shiftNotFound`), `Shift is not open for
+applications`, `Already applied to this shift`.
+
+Success `message` fields (`'Código enviado com sucesso'`, `'CV carregado com
+sucesso'`, …) were left in PT **except** the four the clients actually render:
+worker cancel (3 variants), employer decline, and shift delete.
+
+### Both Phase-4 landmines handled
+
+1. **`shift/[id].tsx` message sniffing** — the EN rest-period string is *"A
+   minimum 11h rest between shifts is mandatory…"*, so it contains both `rest`
+   and `11h`. The smoke test asserts this token survives, so a future reword
+   that breaks the sniff fails loudly rather than silently dropping the friendly
+   "Precisas de descansar 😴" title.
+2. **Nominatim in `new-shift/page.tsx`** — left at `'Accept-Language': 'pt'` and
+   now carries a comment saying why: it is OpenStreetMap, not our API, and the
+   address is shown to workers who will physically go there, where Portuguese
+   street names match the signage and their map app.
 
 ---
 
@@ -256,75 +316,14 @@ corrects it on the client. Don't "fix" it.
 
 ## Phase 4 — API messages
 
-**There is no i18n infrastructure in the API at all.** No `Accept-Language`
-handling, no interceptor, no catalogue import. This phase builds it.
+**Done** — see the Phase 4 entry under Progress above for the design, the
+`Accept-Language` resolution rules, what was left in English, and how both
+landmines were handled. The brief that used to live here is superseded by the
+code: `apps/api/src/i18n/`, and the `api.*` namespace in the catalogues.
 
-**Scope — smaller than the raw count suggests.** `apps/api/src` throws **156**
-exceptions, but they are a mix:
-
-- **English messages are internal/defensive** — `"Shift not found"`,
-  `"Worker profile not found"`, `"Only DRAFT or OPEN shifts can be edited"`.
-  Mostly states a correct client cannot reach.
-- **Portuguese messages are the genuinely user-facing ones** — `"A duração
-  mínima de um turno é 2 horas."`, `"Este email já está registado."`,
-  `"IBAN inválido. Formato: PT50... (25 caracteres)."`
-
-There are **27 Portuguese ones**, matching the original ~30 estimate:
-
-| Count | File |
-|---|---|
-| 9 | `payments/wage-payments.service.ts` |
-| 8 | `auth/auth.service.ts` |
-| 6 | `attendance/attendance.service.ts` |
-| 4 | `shifts/shifts.service.ts` |
-| 3 | `auth/auth.controller.ts` |
-| 2 | `payments/payments.service.ts` |
-
-Find them with:
-
-```bash
-grep -rhoE "Exception\(\s*[\`'][^\`']{10,}" apps/api/src --include=*.ts | sed -E "s/Exception\(\s*[\`']//" | grep -E "[áàâãéêíóôõúçÁÉÍÓÚÇ]|\b(não|turno|trabalhador|dias|horas)\b" | sort -u
-```
-
-Translate those 27 first. Then **make a judgement call** on the English ones: a
-few do surface to users (a worker tapping a stale link gets `"Shift not found"`),
-so those deserve a key too. The rest can stay as-is.
-
-**Suggested approach.** The API already depends on `@turnos/shared`, which
-exports `catalogue(lang)` and `resolveInitialLanguage()`. So:
-
-1. Add an `api` namespace to `pt.ts` / `en.ts`.
-2. Resolve the language once per request from the `Accept-Language` header —
-   a small NestJS interceptor or a request-scoped helper. `matchAppLanguage()`
-   from shared already narrows any locale tag to `'pt' | 'en'`.
-3. Throw with the resolved string. Keep the *shape* of the exception unchanged
-   so nothing downstream breaks.
-
-**Both API clients must start sending the header** — neither does today:
-- `apps/mobile/lib/api.ts` — read the stored language (SecureStore key
-  `turnos_language`, see `getStoredLanguage()` in `lib/i18n.tsx`).
-- `apps/web-admin/lib/api.ts` — the `turnos_lang` cookie; `currentCatalogue()`
-  in that file already reads it and can be generalised.
-
-**Do NOT translate ops/accountant emails.** Locked decision — they stay PT.
-
-**`Worker.preferredLanguage`** already exists and is written when a worker
-switches language, so push notifications and worker emails can follow it later.
-That is a separate piece of work, not Phase 4.
-
-### Two Phase-4 landmines
-
-1. **`apps/mobile/app/shift/[id].tsx` sniffs the API message.** It decides
-   whether to show the friendly "Precisas de descansar 😴" title by matching
-   `descanso` / `rest` / `11h` in the server's text. I added `rest` defensively
-   so it survives translation — **keep the 11-hour message containing one of
-   those tokens in both languages**, or change the API to return a machine-
-   readable code and update the client with it.
-2. **`apps/web-admin/app/dashboard/new-shift/page.tsx` sends
-   `'Accept-Language': 'pt'`** on its geocoder call. That is **Nominatim
-   (OpenStreetMap), a third party — not our API**. Leave it, or make it follow
-   the UI language if you want English place names. Do not mistake it for a
-   client→API header.
+The original scope estimate (~30 Portuguese messages) landed at **58 keys** —
+the extra come from messages that were single strings in Portuguese but needed
+splitting for interpolation, plus the handful of user-reachable English ones.
 
 ## Repo scripts you should use
 
@@ -352,6 +351,7 @@ contradict the current model. Both were corrected in **both** languages:
 | `compliance` TSU KPI | "Taxas Turnos **(10%)**" | "Taxas Turnos" (no rate) |
 | `dashboard` quick action | "Os teus códigos QR fixos para **entrada e saída**." | "O teu código QR fixo de **check-in**." |
 | `billing` plan row | "QR Check-**in/out**" | "QR Check-in" |
+| `attendance` geofence error (Phase 4) | "Deve estar a menos de 200m para fazer check-**in/out**." | "…para fazer check-**in**." |
 
 The first is a leftover pre-pivot **T+1 payout claim** (ADR 007 — Turnos never
 holds wages); the survivor of the 2026-07-29 copy sweep. The 10% fee is the
@@ -395,9 +395,10 @@ Add newly-approved namespaces to `APPROVED` (per app) or `APPROVED_SHARED` in
 `scripts/i18n-copy-review.js` so the sheet only ever shows what still needs a
 read, and extend `SECTION_TITLES` when you add a namespace.
 
-**Signed off so far:** all of `common`, `domain`, and every `mobile.*`
-namespace (Phase 1, approved 2026-08-05). The current sheet is Phase 2's
-`admin.*` only.
+**Signed off so far:** all of `common`, `domain`, every `mobile.*` namespace
+(Phase 1, approved 2026-08-05) and every `admin.*` namespace (Phase 2). The
+current sheet is **`home.*` (Phase 3) + `api.*` (Phase 4)** — 224 rows awaiting
+a read.
 
 ## Rich text with inline `<strong>` / `<em>`
 
@@ -480,9 +481,10 @@ Stop the dev server first, or `rm -rf .next` afterwards.
 
 | | |
 |---|---|
-| Catalogue | **1216 keys** per language, no drift |
-| Static keys verified | 1133, all resolving in PT **and** EN |
-| Phases done | 0, 1, 2, 3 |
-| Phases left | **4 only** (API messages) |
-| HEAD when written | `4cd241c` |
+| Catalogue | **1274 keys** per language, no drift |
+| Static keys verified | 1134 in the two apps + 79 `t()` sites in the API, all resolving in PT **and** EN |
+| Phases done | **0, 1, 2, 3, 4 — the sweep is complete** |
+| Outstanding | Juanes to review `home.*` + `api.*` English copy in `docs/i18n-en-copy-review.md`; then mark them APPROVED in `scripts/i18n-copy-review.js` |
+| Not in scope (next piece of work) | Push notifications and worker emails following `Worker.preferredLanguage` — the column is already written on every language switch |
+| HEAD when written | `6a4205a` |
 | Production data | `GET /shifts/search` returns `[]` — **zero shifts**, so the feed shows its empty state |

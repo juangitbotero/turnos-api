@@ -28,6 +28,7 @@ import { WagePaymentsService } from './wage-payments.service';
 import { Employer } from '../users/entities/employer.entity';
 import { Worker } from '../users/entities/worker.entity';
 import { Shift } from '../shifts/entities/shift.entity';
+import { t } from '../i18n/request-language';
 
 const CANCELLATION_FEE_RATE     = 0.10; // 10% of shift gross on late cancellation (fully to Turnos)
 const CANCELLATION_WINDOW_HOURS = 24;   // J-1 — hours before shift start that triggers the fee
@@ -153,7 +154,7 @@ export class PaymentsService {
     const employer = await this.ensureStripeCustomer(employerUserId);
 
     if (!employer.stripePaymentMethodId) {
-      throw new BadRequestException('Adiciona um cartão antes de subscrever o plano.');
+      throw new BadRequestException(t('api.payments.cardRequired'));
     }
 
     if (employer.stripeSubscriptionId && employer.subscriptionStatus === 'ACTIVE') {
@@ -208,14 +209,14 @@ export class PaymentsService {
 
     if (employer.subscriptionStatus !== 'ACTIVE') {
       throw new BadRequestException(
-        'Precisas de uma subscrição ativa para publicar turnos. Ativa o teu plano em Faturação.',
+        t('api.payments.subscriptionRequired'),
       );
     }
 
     // Block posting while a wage payment is unpaid past the 72h window
     if (await this.wagePayments.hasOverdueUnpaid(employer.id)) {
       throw new BadRequestException(
-        'Tens pagamentos a trabalhadores em falta há mais de 72 horas. Regulariza-os em Turnos → Pagamentos pendentes para voltares a publicar.',
+        t('api.payments.overdueWages'),
       );
     }
 
@@ -232,7 +233,7 @@ export class PaymentsService {
       const activeCount = Number(count);
       if (activeCount >= MAX_ACTIVE_SHIFTS) {
         throw new BadRequestException(
-          `O plano atual permite até ${MAX_ACTIVE_SHIFTS} turnos ativos em simultâneo. Cancela ou conclui turnos existentes primeiro.`,
+          t('api.payments.maxActiveShifts', { max: MAX_ACTIVE_SHIFTS }),
         );
       }
     }
@@ -331,7 +332,7 @@ export class PaymentsService {
   async getWorkerDashboardLink(workerUserId: string): Promise<{ url: string }> {
     const worker = await this.workerRepo.findOne({ where: { user: { id: workerUserId } } });
     if (!worker?.stripeAccountId) {
-      throw new BadRequestException('Completa o registo bancário primeiro.');
+      throw new BadRequestException(t('api.payments.connectRequired'));
     }
 
     const loginLink = await this.stripe.accounts.createLoginLink(worker.stripeAccountId);

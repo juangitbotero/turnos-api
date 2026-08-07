@@ -235,6 +235,99 @@ locked decision.
 | `errConfirm` | As passwords não coincidem | The passwords do not match |
 | `errUnknown` | Erro desconhecido. Tente novamente. | Something went wrong. Please try again. |
 
+## API — messages shared across endpoints
+
+| key | 🇵🇹 Portuguese | 🇬🇧 English |
+|---|---|---|
+| `shiftNotFound` | Turno não encontrado. | Shift not found. |
+
+## API — auth.service.ts / auth.controller.ts
+
+| key | 🇵🇹 Portuguese | 🇬🇧 English |
+|---|---|---|
+| `nipcInvalid` | NIPC inválido. | Invalid NIPC (Portuguese company tax number). |
+| `nifInvalid` | NIF inválido. | Invalid NIF (Portuguese tax number). |
+| `postalCodeInvalid` | Código postal inválido. Formato: XXXX-XXX | Invalid postal code. Format: XXXX-XXX |
+| `emailTaken` | Este email já está registado. | This email is already registered. |
+| `invalidCredentials` | Credenciais inválidas. | Invalid credentials. |
+| `ibanInvalid` | IBAN inválido. Formato: PT50... (25 caracteres). | Invalid IBAN. Format: PT50... (25 characters). |
+| `verifyLinkInvalid` | Token de verificação inválido ou expirado. | That verification link is invalid or has expired. |
+| `imagesOnly` | Apenas imagens são permitidas. | Only image files are allowed. |
+| `noImage` | Nenhuma imagem fornecida. | No image provided. |
+| `cvFormat` | O CV tem de ser um ficheiro PDF ou Word (.doc/.docx). | Your CV must be a PDF or Word file (.doc/.docx). |
+| `noFile` | Nenhum ficheiro fornecido. | No file provided. |
+| `pushTokenMissing` | Token inválido. | Invalid token. |
+
+## API — shifts.service.ts
+
+| key | 🇵🇹 Portuguese | 🇬🇧 English |
+|---|---|---|
+| `minDuration` | A duração mínima de um turno é 2 horas. | A shift must be at least 2 hours long. |
+| `noDates` | Indica pelo menos uma data para o turno. | Pick at least one date for the shift. |
+| `maxSeriesDays` | Um turno de vários dias pode ter no máximo {{max}} dias (limite do contrato MCD). | A multi-day job can run for at most {{max}} days (MCD — Muito Curta Duração — contract limit). |
+| `paymentMethodRequired` | Indica como vais pagar ao trabalhador (Turnos Pay Link, transferência bancária ou MB WAY). | Choose how you will pay the worker (Turnos Pay Link, bank transfer or MB WAY). |
+| `cancelReasonRequired` | Cancelamentos a menos de 3 horas do início exigem um motivo (erro da empresa ou uma das exceções justificadas). | Cancelling less than 3 hours before the start requires a reason (company error, or one of the justified exceptions). |
+| `cancelConsequence` | Cancelamento a menos de 3h do início: deves pagar o mínimo de 2 horas (€{{amount}}) ao trabalhador + taxa de 3€. | Cancelled less than 3h before the start: you must pay the worker a 2-hour minimum (€{{amount}}) plus the €3 fee. |
+| `notOpen` | Este turno já não está aberto a candidaturas. | This shift is no longer open for applications. |
+| `alreadyApplied` | Já te candidataste a este turno. | You have already applied to this shift. |
+| `accountBlocked` | A tua conta foi bloqueada por faltas repetidas a turnos confirmados. Contacta o suporte Turnos. | Your account has been blocked for repeatedly missing confirmed shifts. Contact Turnos support. |
+| `accountSuspended` | A tua conta está suspensa até {{date}} devido a cancelamentos tardios ou faltas. | Your account is suspended until {{date}} because of late cancellations or no-shows. |
+| `profileIncomplete` | O teu perfil está {{score}}% completo. Precisas de pelo menos 80% para te candidatares. | Your profile is {{score}}% complete. You need at least 80% to apply. |
+| `cancelOnlyConfirmed` | Só podes cancelar turnos confirmados que ainda não começaram. | You can only cancel confirmed shifts that have not started yet. |
+| `seriesStarted` | Este é um trabalho de vários dias que já começou. Ao aceitares, comprometeste-te com todos os dias — contacta o suporte (suporte@turnos.pt) se tiveres um imprevisto. | This is a multi-day job that has already started. By accepting it you committed to every day — contact support (suporte@turnos.pt) if something has come up. |
+| `alreadyStarted` | O turno já começou — cancela junto do empregador. | The shift has already started — cancel it directly with the employer. |
+| `cancelledSuspended` | Turno cancelado. Por teres 2 cancelamentos tardios em 30 dias, não podes candidatar-te a turnos durante 7 dias. | Shift cancelled. With 2 late cancellations in 30 days, you cannot apply for shifts for 7 days. |
+| `cancelledLate` | Turno cancelado. Atenção: cancelar a menos de 24h do início afeta a tua fiabilidade na plataforma. | Shift cancelled. Note: cancelling less than 24h before the start affects your reliability on the platform. |
+| `cancelledFree` | Turno cancelado sem penalização. O turno voltou ao estado aberto. | Shift cancelled with no penalty. It is open for applications again. |
+| `declined` | Turno recusado. O turno voltou ao estado aberto. | Shift declined. It is open for applications again. |
+| `deleted` | Turno eliminado. | Shift deleted. |
+
+## API — attendance.service.ts
+
+| key | 🇵🇹 Portuguese | 🇬🇧 English |
+|---|---|---|
+| `checkOutQrRetired` | Este QR já não é utilizado. Digitaliza o QR de check-in à entrada. | This QR code is no longer used. Scan the check-in QR code when you arrive. |
+| `alreadyCheckedIn` | Já fez check-in neste turno. | You have already checked in to this shift. |
+| `notOpenForCheckIn` | O turno não está disponível para check-in. | This shift is not available for check-in. |
+| `shiftClosed` | Turno já concluído ou cancelado. | This shift is already completed or cancelled. |
+| `disputeExists` | Já existe uma disputa registada neste turno. | A dispute has already been raised on this shift. |
+| `noShiftHere` | Não tem nenhum turno confirmado neste local para hoje. Verifique se está no local correto ou contacte o empregador. | You have no confirmed shift at this location today. Check that you are in the right place, or contact the employer. |
+| `qrInvalid` | QR code inválido. | Invalid QR code. |
+| `qrTampered` | QR code inválido ou adulterado. | This QR code is invalid or has been tampered with. |
+| `checkInTooEarly` | Check-in disponível a partir das {{from}}. O turno começa às {{start}}. | Check-in opens at {{from}}. The shift starts at {{start}}. |
+| `checkInWindowOver` | A janela de check-in expirou (mais de 1h após o início do turno). Contacte o empregador para confirmação manual. | The check-in window has closed (more than 1h after the shift started). Ask the employer to confirm manually. |
+| `tooFarAway` | Está a {{distance}}m do local do turno. Deve estar a menos de {{radius}}m para fazer check-in. | You are {{distance}}m from the shift location. You must be within {{radius}}m to check in. |
+
+## API — compliance.service.ts
+
+| key | 🇵🇹 Portuguese | 🇬🇧 English |
+|---|---|---|
+| `restPeriod` | Mínimo {{hours}}h de descanso obrigatório entre turnos (Diretiva Europeia do Tempo de Trabalho). Disponível a partir de {{availableAt}}. | A minimum {{hours}}h rest between shifts is mandatory (EU Working Time Directive). You are available again from {{availableAt}}. |
+| `mcdLimitSeries` | Limite MCD: já tens {{used}}/{{limit}} dias com este empregador em {{year}} e este trabalho tem {{days}} dias — excede o limite legal. A Lei 93/2019 não permite mais de {{limit}} dias/ano com o mesmo empregador. | MCD (Muito Curta Duração) limit: you already have {{used}}/{{limit}} days with this employer in {{year}} and this job is {{days}} days — that goes over the legal cap. Lei 93/2019 allows no more than {{limit}} days a year with the same employer. |
+| `mcdLimitReached` | Limite MCD atingido: {{used}}/{{limit}} dias com este empregador em {{year}}. Legislação portuguesa (Lei 93/2019) não permite mais de {{limit}} dias/ano com o mesmo empregador. | MCD (Muito Curta Duração) limit reached: {{used}}/{{limit}} days with this employer in {{year}}. Portuguese law (Lei 93/2019) allows no more than {{limit}} days a year with the same employer. |
+| `dependencyBlock` | Limite de dependência económica atingido: {{percent}}% dos seus rendimentos anuais declarados provêm deste empregador. A Agenda do Trabalho Digno (Lei 13/2023) impede mais de {{limit}}% de dependência de um único empregador. | Economic dependency limit reached: {{percent}}% of your declared annual income comes from this employer. The Agenda do Trabalho Digno (Lei 13/2023) caps dependency on a single employer at {{limit}}%. |
+| `dependencyWarning` | Atenção: {{percent}}% dos seus rendimentos anuais declarados provêm deste empregador. O limite legal é {{limit}}%. Considere diversificar. | Heads-up: {{percent}}% of your declared annual income comes from this employer. The legal limit is {{limit}}%. Consider spreading your work more widely. |
+
+## API — payments.service.ts
+
+| key | 🇵🇹 Portuguese | 🇬🇧 English |
+|---|---|---|
+| `cardRequired` | Adiciona um cartão antes de subscrever o plano. | Add a card before subscribing to a plan. |
+| `subscriptionRequired` | Precisas de uma subscrição ativa para publicar turnos. Ativa o teu plano em Faturação. | You need an active subscription to post shifts. Activate your plan under Billing. |
+| `overdueWages` | Tens pagamentos a trabalhadores em falta há mais de 72 horas. Regulariza-os em Turnos → Pagamentos pendentes para voltares a publicar. | You have worker payments outstanding for more than 72 hours. Settle them under Turnos → Pending payments to post again. |
+| `maxActiveShifts` | O plano atual permite até {{max}} turnos ativos em simultâneo. Cancela ou conclui turnos existentes primeiro. | Your current plan allows up to {{max}} shifts open at the same time. Cancel or complete existing shifts first. |
+| `connectRequired` | Completa o registo bancário primeiro. | Finish setting up your bank details first. |
+
+## API — wage-payments.service.ts
+
+| key | 🇵🇹 Portuguese | 🇬🇧 English |
+|---|---|---|
+| `notFound` | Pagamento não encontrado. | Payment not found. |
+| `cancellationNotAdjustable` | O mínimo de cancelamento não pode ser ajustado. | A cancellation minimum cannot be adjusted. |
+| `onlyPendingAdjustable` | Só podes ajustar pagamentos ainda pendentes. | You can only adjust payments that are still pending. |
+| `cannotReport` | Este pagamento já não pode ser reportado. | This payment can no longer be reported. |
+| `stripeConfirmed` | Este pagamento foi confirmado pelo Stripe — contacta o suporte se não o recebeste. | Stripe confirmed this payment — contact support if you have not received it. |
+
 ---
 
-Catalogue totals: **1216 keys** in each language, verified no drift.
+Catalogue totals: **1274 keys** in each language, verified no drift.

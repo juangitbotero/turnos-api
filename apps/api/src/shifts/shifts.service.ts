@@ -24,6 +24,7 @@ import { ComplianceService } from '../compliance/compliance.service';
 import { PaymentsService } from '../payments/payments.service';
 import { WagePaymentsService } from '../payments/wage-payments.service';
 import { MailService } from '../mail/mail.service';
+import { t, tNumericDate } from '../i18n/request-language';
 
 // 5 hours in milliseconds — delay before re-notification job fires
 const RE_NOTIFY_DELAY_MS = 5 * 60 * 60 * 1000;
@@ -93,17 +94,17 @@ export class ShiftsService {
     let shiftMins = ((eh ?? 0) * 60 + (em ?? 0)) - ((sh ?? 0) * 60 + (sm ?? 0));
     if (shiftMins < 0) shiftMins += 24 * 60; // overnight shift
     if (shiftMins < 120) {
-      throw new BadRequestException('A duração mínima de um turno é 2 horas.');
+      throw new BadRequestException(t('api.shifts.minDuration'));
     }
 
     // Resolve the day set — one date is an ordinary shift, several a series
     const allDates = [...new Set([data.date, ...(data.dates ?? [])].filter(Boolean))].sort();
     if (allDates.length === 0) {
-      throw new BadRequestException('Indica pelo menos uma data para o turno.');
+      throw new BadRequestException(t('api.shifts.noDates'));
     }
     if (allDates.length > MAX_SERIES_DAYS) {
       throw new BadRequestException(
-        `Um turno de vários dias pode ter no máximo ${MAX_SERIES_DAYS} dias (limite do contrato MCD).`,
+        t('api.shifts.maxSeriesDays', { max: MAX_SERIES_DAYS }),
       );
     }
 
@@ -113,7 +114,7 @@ export class ShiftsService {
     const validMethods = Object.keys(PAYMENT_METHOD_LABELS);
     if (!data.paymentMethod || !validMethods.includes(data.paymentMethod)) {
       throw new BadRequestException(
-        'Indica como vais pagar ao trabalhador (Turnos Pay Link, transferência bancária ou MB WAY).',
+        t('api.shifts.paymentMethodRequired'),
       );
     }
 
@@ -224,7 +225,7 @@ export class ShiftsService {
   async update(userId: string, shiftId: string, data: Partial<Shift> & { lat?: number; lng?: number }): Promise<Shift> {
     const employer = await this.resolveEmployer(userId);
     const shift = await this.shiftRepo.findOne({ where: { id: shiftId }, relations: ['employer'] });
-    if (!shift) throw new NotFoundException('Shift not found');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
     if (![ShiftStatus.DRAFT, ShiftStatus.OPEN].includes(shift.status)) {
       throw new BadRequestException('Only DRAFT or OPEN shifts can be edited');
@@ -248,7 +249,7 @@ export class ShiftsService {
       where: { id: shiftId },
       relations: ['employer', 'assignedWorker'],
     });
-    if (!shift) throw new NotFoundException('Shift not found');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
     if ([ShiftStatus.ACTIVE, ShiftStatus.COMPLETED].includes(shift.status)) {
       throw new BadRequestException('Cannot cancel an active or completed shift');
@@ -268,7 +269,7 @@ export class ShiftsService {
         const category = reason?.category;
         if (!category || !validReasons.includes(category)) {
           throw new BadRequestException(
-            'Cancelamentos a menos de 3 horas do início exigem um motivo (erro da empresa ou uma das exceções justificadas).',
+            t('api.shifts.cancelReasonRequired'),
           );
         }
 
@@ -295,7 +296,7 @@ export class ShiftsService {
           ).catch(() => {});
 
           cancellationConsequence =
-            `Cancelamento a menos de 3h do início: deves pagar o mínimo de 2 horas (€${minimumEur.toFixed(2)}) ao trabalhador + taxa de 3€.`;
+            t('api.shifts.cancelConsequence', { amount: minimumEur.toFixed(2) });
         } else {
           // Justified exemption — ops reviews within 48h; no payment generated now
           this.mail.sendMail({
@@ -361,7 +362,7 @@ export class ShiftsService {
   async getApplications(userId: string, shiftId: string): Promise<ShiftApplication[]> {
     const employer = await this.resolveEmployer(userId);
     const shift = await this.shiftRepo.findOne({ where: { id: shiftId }, relations: ['employer'] });
-    if (!shift) throw new NotFoundException('Shift not found');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
     return this.applicationRepo.find({
       where: { shift: { id: shiftId } },
@@ -373,7 +374,7 @@ export class ShiftsService {
   async approveApplication(userId: string, shiftId: string, applicationId: string): Promise<Shift> {
     const employer = await this.resolveEmployer(userId);
     const shift = await this.shiftRepo.findOne({ where: { id: shiftId }, relations: ['employer'] });
-    if (!shift) throw new NotFoundException('Shift not found');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
     if (shift.status !== ShiftStatus.OPEN) throw new BadRequestException('Shift is no longer open');
 
@@ -447,7 +448,7 @@ export class ShiftsService {
       where: { id: shiftId },
       relations: ['employer', 'employer.user', 'assignedWorker'],
     });
-    if (!shift) throw new NotFoundException('Shift not found');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.assignedWorker?.id !== worker.id) throw new UnauthorizedException('Not your shift');
     if (shift.status !== ShiftStatus.PENDING_ACCEPTANCE) throw new BadRequestException('Shift is not awaiting your confirmation');
 
@@ -492,7 +493,7 @@ export class ShiftsService {
       where: { id: shiftId },
       relations: ['employer', 'employer.user', 'assignedWorker'],
     });
-    if (!shift) throw new NotFoundException('Shift not found');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.assignedWorker?.id !== worker.id) throw new UnauthorizedException('Not your shift');
     if (shift.status !== ShiftStatus.PENDING_ACCEPTANCE) throw new BadRequestException('Shift is not awaiting your confirmation');
 
@@ -527,7 +528,7 @@ export class ShiftsService {
       status: 'DECLINED_BY_WORKER',
     });
 
-    return { message: 'Turno recusado. O turno voltou ao estado aberto.' };
+    return { message: t('api.shifts.declined') };
   }
 
   /**
@@ -561,10 +562,10 @@ export class ShiftsService {
       where: { id: shiftId },
       relations: ['employer', 'employer.user', 'assignedWorker'],
     });
-    if (!shift) throw new NotFoundException('Shift not found');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.assignedWorker?.id !== worker.id) throw new UnauthorizedException('Not your shift');
     if (shift.status !== ShiftStatus.FILLED) {
-      throw new BadRequestException('Só podes cancelar turnos confirmados que ainda não começaram.');
+      throw new BadRequestException(t('api.shifts.cancelOnlyConfirmed'));
     }
 
     // A started multi-day job cannot be dropped from the app — see the doc
@@ -576,7 +577,7 @@ export class ShiftsService {
     );
     if (seriesStarted) {
       throw new BadRequestException(
-        'Este é um trabalho de vários dias que já começou. Ao aceitares, comprometeste-te com todos os dias — contacta o suporte (suporte@turnos.pt) se tiveres um imprevisto.',
+        t('api.shifts.seriesStarted'),
       );
     }
 
@@ -589,7 +590,7 @@ export class ShiftsService {
     const shiftStart = new Date(`${firstDay.date}T${firstDay.startTime.slice(0, 5)}:00`);
     const hoursUntil = (shiftStart.getTime() - Date.now()) / (1000 * 60 * 60);
     if (hoursUntil <= 0) {
-      throw new BadRequestException('O turno já começou — cancela junto do empregador.');
+      throw new BadRequestException(t('api.shifts.alreadyStarted'));
     }
     const lateStrike = hoursUntil <= 24;
 
@@ -662,9 +663,9 @@ export class ShiftsService {
       lateStrike,
       message: lateStrike
         ? suspended
-          ? 'Turno cancelado. Por teres 2 cancelamentos tardios em 30 dias, não podes candidatar-te a turnos durante 7 dias.'
-          : 'Turno cancelado. Atenção: cancelar a menos de 24h do início afeta a tua fiabilidade na plataforma.'
-        : 'Turno cancelado sem penalização. O turno voltou ao estado aberto.',
+          ? t('api.shifts.cancelledSuspended')
+          : t('api.shifts.cancelledLate')
+        : t('api.shifts.cancelledFree'),
     };
   }
 
@@ -731,33 +732,32 @@ export class ShiftsService {
       where: { id: shiftId },
       relations: ['employer'],
     });
-    if (!shift) throw new NotFoundException('Shift not found');
-    if (shift.status !== ShiftStatus.OPEN) throw new BadRequestException('Shift is not open for applications');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
+    if (shift.status !== ShiftStatus.OPEN) throw new BadRequestException(t('api.shifts.notOpen'));
 
     // Reliability enforcement — permanent block (2 no-shows) or active suspension
     if (worker.isBlocked) {
       throw new BadRequestException(
-        'A tua conta foi bloqueada por faltas repetidas a turnos confirmados. Contacta o suporte Turnos.',
+        t('api.shifts.accountBlocked'),
       );
     }
     if (worker.suspendedUntil && new Date(worker.suspendedUntil) > new Date()) {
-      const until = new Date(worker.suspendedUntil).toLocaleDateString('pt-PT');
       throw new BadRequestException(
-        `A tua conta está suspensa até ${until} devido a cancelamentos tardios ou faltas.`,
+        t('api.shifts.accountSuspended', { date: tNumericDate(worker.suspendedUntil) }),
       );
     }
 
     // Profile gate — worker must have 80%+ profile to apply
     if (worker.profileQualityScore < 80) {
       throw new BadRequestException(
-        `O teu perfil está ${worker.profileQualityScore}% completo. Precisas de pelo menos 80% para te candidatares.`,
+        t('api.shifts.profileIncomplete', { score: worker.profileQualityScore }),
       );
     }
 
     const existing = await this.applicationRepo.findOne({
       where: { shift: { id: shiftId }, worker: { id: worker.id } },
     });
-    if (existing) throw new BadRequestException('Already applied to this shift');
+    if (existing) throw new BadRequestException(t('api.shifts.alreadyApplied'));
 
     // Multi-day: applying commits the worker to EVERY day of the series.
     // Compliance is checked per day and any hard block rejects the whole
@@ -902,7 +902,7 @@ export class ShiftsService {
       where: { id: shiftId },
       relations: ['employer', 'assignedWorker'],
     });
-    if (!shift) throw new NotFoundException('Shift not found');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
     if (shift.status !== ShiftStatus.OPEN) {
       throw new BadRequestException('Can only invite a worker to an OPEN shift');
@@ -1032,12 +1032,12 @@ export class ShiftsService {
   async deleteExpiredShift(employerUserId: string, shiftId: string): Promise<{ message: string }> {
     const employer = await this.resolveEmployer(employerUserId);
     const shift = await this.shiftRepo.findOne({ where: { id: shiftId }, relations: ['employer'] });
-    if (!shift) throw new NotFoundException('Shift not found');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
     if (shift.status !== ShiftStatus.EXPIRED) throw new BadRequestException('Only EXPIRED shifts can be deleted this way');
     shift.status = ShiftStatus.CANCELLED;
     await this.shiftRepo.save(shift);
-    return { message: 'Turno eliminado.' };
+    return { message: t('api.shifts.deleted') };
   }
 
   // ── Shared ────────────────────────────────────────────────────────────────
@@ -1047,7 +1047,7 @@ export class ShiftsService {
       where: { id },
       relations: ['employer', 'assignedWorker'],
     });
-    if (!shift) throw new NotFoundException('Shift not found');
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     return this.withSeriesInfo(shift);
   }
 }

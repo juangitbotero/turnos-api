@@ -12,6 +12,7 @@ import { AuthService } from './auth.service';
 import { Public } from './decorators';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { Throttle } from '@nestjs/throttler';
+import { t } from '../i18n/request-language';
 
 @Controller('auth')
 export class AuthController {
@@ -72,7 +73,7 @@ export class AuthController {
   @Get('verify-email/:token')
   async verifyEmail(@Param('token') token: string, @Res() res: Response) {
     const ok = await this.authService.verifyEmail(token);
-    if (!ok) throw new NotFoundException('Token de verificação inválido ou expirado.');
+    if (!ok) throw new NotFoundException(t('api.auth.verifyLinkInvalid'));
     // Redirect to web admin with success flag
     const webUrl = process.env.WEB_ADMIN_URL ?? 'http://localhost:3000';
     res.redirect(`${webUrl}/login?verified=1`);
@@ -169,7 +170,7 @@ export class AuthController {
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (_req, file, cb) => {
       if (!file.mimetype.startsWith('image/')) {
-        cb(new BadRequestException('Apenas imagens são permitidas'), false);
+        cb(new BadRequestException(t('api.auth.imagesOnly')), false);
       } else {
         cb(null, true);
       }
@@ -179,7 +180,7 @@ export class AuthController {
     @Request() req: { user: { userId: string } },
     @UploadedFile() file: Express.Multer.File,
   ) {
-    if (!file) throw new BadRequestException('Nenhuma imagem fornecida');
+    if (!file) throw new BadRequestException(t('api.auth.noImage'));
     const photoUrl = await this.authService.uploadWorkerPhoto(req.user.userId, file);
     return { message: 'Foto atualizada com sucesso', photoUrl };
   }
@@ -201,7 +202,7 @@ export class AuthController {
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       ];
       if (!allowed.includes(file.mimetype)) {
-        cb(new BadRequestException('O CV tem de ser um ficheiro PDF ou Word (.doc/.docx).'), false);
+        cb(new BadRequestException(t('api.auth.cvFormat')), false);
       } else {
         cb(null, true);
       }
@@ -211,7 +212,7 @@ export class AuthController {
     @Request() req: { user: { userId: string } },
     @UploadedFile() file: Express.Multer.File,
   ) {
-    if (!file) throw new BadRequestException('Nenhum ficheiro fornecido');
+    if (!file) throw new BadRequestException(t('api.auth.noFile'));
     const result = await this.authService.uploadWorkerCv(req.user.userId, file);
     return { message: 'CV carregado com sucesso', ...result };
   }
@@ -239,7 +240,7 @@ export class AuthController {
     @Request() req: { user: { userId: string } },
     @Body('token') token: string,
   ) {
-    if (!token) throw new BadRequestException('Token inválido');
+    if (!token) throw new BadRequestException(t('api.auth.pushTokenMissing'));
     await this.authService.savePushToken(req.user.userId, token);
     return { message: 'Token de notificações registado' };
   }
