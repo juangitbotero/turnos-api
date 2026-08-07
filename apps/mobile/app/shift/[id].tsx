@@ -16,12 +16,21 @@ import { useT } from '../../lib/i18n';
 import { ShiftSchedule } from '../../components/ShiftSchedule';
 import { syncShiftToCalendar, isShiftInCalendar } from '../../lib/calendar';
 
+/**
+ * Hours in one day of a shift.
+ *
+ * Wraps past midnight, like `calcHours` on the API does. Without the wrap an
+ * overnight shift (20:00 → 00:00) produced NEGATIVE minutes, was clamped to 0,
+ * and every estimate on this screen either vanished or read €0.00 — on exactly
+ * the late-night hospitality shifts this marketplace is mostly made of.
+ */
 function hoursWorked(start: string, end: string): number {
   const sp = start.split(':').map(Number);
   const ep = end.split(':').map(Number);
   const sh = sp[0] ?? 0, sm = sp[1] ?? 0;
   const eh = ep[0] ?? 0, em = ep[1] ?? 0;
-  const mins = (eh * 60 + em) - (sh * 60 + sm);
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins < 0) mins += 24 * 60;
   return mins > 0 ? mins / 60 : 0;
 }
 
@@ -248,12 +257,16 @@ export default function ShiftDetailScreen() {
   const hours           = hoursWorked(shift.startTime, shift.endTime);
   // The worker receives the FULL gross, paid directly by the company.
   const recebePerHour   = tsu.grossAmount;
-  const estimatedPayout = recebePerHour * hours;
   const paymentLabel    = shift.paymentMethod
     ? t(`domain.paymentMethods.${shift.paymentMethod as PaymentMethod}`, { defaultValue: '' }) || null
     : null;
   const seriesDates     = shift.seriesDates?.length ? shift.seriesDates : [shift.date];
   const isMultiDay      = seriesDates.length > 1;
+  // × days: a multi-day job is committed to and paid as ONE job, so the figure
+  // next to the Apply button must be what the whole job is worth. It previously
+  // showed a single day's value, understating a 3-day job by two thirds. This
+  // matches the "Total" row in the details card above, which was already right.
+  const estimatedPayout = recebePerHour * hours * seriesDates.length;
 
   return (
     <View style={styles.container}>
@@ -360,7 +373,7 @@ export default function ShiftDetailScreen() {
                 icon="💶"
                 label={t('mobile.shiftDetail.labelTotal')}
                 value={t('mobile.shiftDetail.valueGrossTotal', {
-                  amount: (hours * seriesDates.length * Number(shift.grossHourlyRate)).toFixed(2),
+                  amount: estimatedPayout.toFixed(2),
                 })}
               />
             )}

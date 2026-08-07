@@ -282,7 +282,8 @@ export default function NewShiftPage() {
       if (sh.startTime && sh.endTime) {
         const [sh_, sm_] = sh.startTime.split(':').map(Number);
         const [eh_, em_] = sh.endTime.split(':').map(Number);
-        const mins = ((eh_ ?? 0) * 60 + (em_ ?? 0)) - ((sh_ ?? 0) * 60 + (sm_ ?? 0));
+        let mins = ((eh_ ?? 0) * 60 + (em_ ?? 0)) - ((sh_ ?? 0) * 60 + (sm_ ?? 0));
+        if (mins < 0) mins += 24 * 60; // overnight — 20:00→00:00 is 4h, not −20h
         if (mins >= 120) setDuration(Math.round(mins / 60));
       }
       // Don't copy the date — employer must choose a new one
