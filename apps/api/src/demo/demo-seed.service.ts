@@ -19,7 +19,7 @@
  */
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Like } from 'typeorm';
+import { Repository, DataSource, EntityManager, Like } from 'typeorm';
 import { calculateTSU, TURNOS_FEE_FIXED_EUR, WorkerExperience } from '@turnos/shared';
 
 import { User } from '../users/entities/user.entity';
@@ -103,25 +103,38 @@ export interface SeedSummary {
   historyShifts: number;
 }
 
+type Repos = ReturnType<DemoSeedService['repos']>;
+
 @Injectable()
 export class DemoSeedService {
   private readonly logger = new Logger(DemoSeedService.name);
 
-  constructor(
-    @InjectRepository(User)            private readonly userRepo: Repository<User>,
-    @InjectRepository(Worker)          private readonly workerRepo: Repository<Worker>,
-    @InjectRepository(Employer)        private readonly employerRepo: Repository<Employer>,
-    @InjectRepository(Shift)           private readonly shiftRepo: Repository<Shift>,
-    @InjectRepository(ShiftApplication) private readonly appRepo: Repository<ShiftApplication>,
-    @InjectRepository(ShiftAttendance) private readonly attendanceRepo: Repository<ShiftAttendance>,
-    @InjectRepository(PaymentRecord)   private readonly paymentRepo: Repository<PaymentRecord>,
-    @InjectRepository(WagePayment)     private readonly wageRepo: Repository<WagePayment>,
-    @InjectRepository(Rating)          private readonly ratingRepo: Repository<Rating>,
-    private readonly dataSource: DataSource,
-  ) {}
+  constructor(private readonly dataSource: DataSource) {}
 
-  private async findWorker(phone: string): Promise<Worker> {
-    const worker = await this.workerRepo.findOne({
+  /**
+   * Repositories bound to a specific EntityManager.
+   *
+   * Injected repositories use the default connection, so calling them inside
+   *  runs the writes OUTSIDE the transaction — the
+   * rollback guarantee would have been silently fake. Everything here goes
+   * through the manager the transaction hands us instead.
+   */
+  private repos(m: EntityManager) {
+    return {
+      userRepo:       m.getRepository(User),
+      workerRepo:     m.getRepository(Worker),
+      employerRepo:   m.getRepository(Employer),
+      shiftRepo:      m.getRepository(Shift),
+      appRepo:        m.getRepository(ShiftApplication),
+      attendanceRepo: m.getRepository(ShiftAttendance),
+      paymentRepo:    m.getRepository(PaymentRecord),
+      wageRepo:       m.getRepository(WagePayment),
+      ratingRepo:     m.getRepository(Rating),
+    };
+  }
+
+  private async findWorker(R: Repos, phone: string): Promise<Worker> {
+    const worker = await R.workerRepo.findOne({
       where: { user: { phone } },
       relations: ['user'],
     });
@@ -142,13 +155,14 @@ export class DemoSeedService {
    *                      three badges — TOP_RATED needs 10, RELIABLE needs 20.
    */
   async seed(phone: string, historyCount = 20): Promise<SeedSummary> {
-    const worker = await this.findWorker(phone);
+    const worker = await this.findWorker(this.repos(this.dataSource.manager), phone);
     this.logger.log(`[Demo] Seeding for worker ${worker.id} (${phone})`);
 
     // One transaction: a partial seed would leave shifts with no payment rows
     // and a rating count that disagrees with the ratings table.
-    return this.dataSource.transaction(async () => {
-      await this.seedEmployers();
+    return this.dataSource.transaction(async (m) => {
+      const R = this.repos(m);
+      await this.seedEmployers(R);
 
       let sum = 0;
       let count = 0;
@@ -163,7 +177,7 @@ export class DemoSeedService {
       for (const [i, f] of featured.entries()) {
         const now = new Date();
         const date = iso(new Date(now.getFullYear(), now.getMonth(), f.dayOfMonth));
-        const r = await this.completedShift({
+        const r = await this.completedShift(R, {
           n: f.n, worker, dateStr: date, hours: f.hours, rate: f.rate,
           empN: f.empN, role: f.role, review: REVIEWS[i]!, wageStatus: f.wage,
         });
@@ -177,7 +191,7 @@ export class DemoSeedService {
         const d = new Date();
         d.setMonth(d.getMonth() - (1 + Math.floor(i / 5)));
         d.setDate(3 + (i % 5) * 5);
-        const r = await this.completedShift({
+        const r = await this.completedShift(R, {
           n: 100 + i, worker, dateStr: iso(d),
           hours: 4 + (i % 4), rate: 9 + (i % 4),
           empN: (i % EMPLOYERS.length) + 1, role: ROLES[i % ROLES.length]!,
@@ -186,8 +200,8 @@ export class DemoSeedService {
         sum += r.score; count++;
       }
 
-      const liveShifts = await this.seedLiveShifts(worker);
-      const badges = await this.updateProfile(worker, sum, count);
+      const liveShifts = await this.seedLiveShifts(R, worker);
+      const badges = await this.updateProfile(R, worker, sum, count);
 
       return {
         worker: { id: worker.id, name: worker.fullName ?? null, phone },
@@ -199,15 +213,15 @@ export class DemoSeedService {
     });
   }
 
-  private async seedEmployers(): Promise<void> {
+  private async seedEmployers(R: Repos): Promise<void> {
     for (const e of EMPLOYERS) {
-      await this.userRepo.save(this.userRepo.create({
+      await R.userRepo.save(R.userRepo.create({
         id: EMP_USER(e.n),
         email: `demo${e.n}@turnos-demo.invalid`,
         role: 'EMPLOYER',
         emailVerified: true,
       }));
-      await this.employerRepo.save(this.employerRepo.create({
+      await R.employerRepo.save(R.employerRepo.create({
         id: EMPLOYER(e.n),
         user: { id: EMP_USER(e.n) } as User,
         companyName: e.name,
@@ -223,7 +237,7 @@ export class DemoSeedService {
   }
 
   /** A completed shift plus everything that hangs off it. */
-  private async completedShift(p: {
+  private async completedShift(R: Repos, p: {
     n: number; worker: Worker; dateStr: string; hours: number; rate: number;
     empN: number; role: typeof ROLES[number];
     review: typeof REVIEWS[number]; wageStatus: WagePaymentStatus;
@@ -233,7 +247,7 @@ export class DemoSeedService {
     const spot  = SPOTS[p.n % SPOTS.length]!;
     const start = 18;
 
-    await this.shiftRepo.save(this.shiftRepo.create({
+    await R.shiftRepo.save(R.shiftRepo.create({
       id: SHIFT(p.n),
       title: p.role.title,
       description: `${p.role.title} — demo shift for the walkthrough video.`,
@@ -253,14 +267,14 @@ export class DemoSeedService {
       paymentMethod: 'TURNOS_PAY_LINK',
     }));
 
-    await this.appRepo.save(this.appRepo.create({
+    await R.appRepo.save(R.appRepo.create({
       id: APPLIC(p.n),
       shift: { id: SHIFT(p.n) } as Shift,
       worker: { id: p.worker.id } as Worker,
       status: ApplicationStatus.APPROVED,
     }));
 
-    await this.attendanceRepo.save(this.attendanceRepo.create({
+    await R.attendanceRepo.save(R.attendanceRepo.create({
       id: ATTEND(p.n),
       shift: { id: SHIFT(p.n) } as Shift,
       worker: { id: p.worker.id } as Worker,
@@ -272,7 +286,7 @@ export class DemoSeedService {
     }));
 
     // Drives GET /payments/worker/earnings
-    await this.paymentRepo.save(this.paymentRepo.create({
+    await R.paymentRepo.save(R.paymentRepo.create({
       id: PAYMENT(p.n),
       shiftId: SHIFT(p.n),
       employerId: EMPLOYER(p.empN),
@@ -289,7 +303,7 @@ export class DemoSeedService {
     }));
 
     // Drives the wage chips in my-shifts
-    await this.wageRepo.save(this.wageRepo.create({
+    await R.wageRepo.save(R.wageRepo.create({
       id: WAGE(p.n),
       shiftId: SHIFT(p.n),
       employerId: EMPLOYER(p.empN),
@@ -305,7 +319,7 @@ export class DemoSeedService {
       confirmedAt: p.wageStatus === WagePaymentStatus.CONFIRMED ? at(p.dateStr, '23:45') : null,
     }));
 
-    await this.ratingRepo.save(this.ratingRepo.create({
+    await R.ratingRepo.save(R.ratingRepo.create({
       id: RATING(p.n),
       shift: { id: SHIFT(p.n) } as Shift,
       rater: { id: EMP_USER(p.empN) } as User,
@@ -320,7 +334,7 @@ export class DemoSeedService {
   }
 
   /** Shifts the worker has NOT done — fills the feed and every my-shifts section. */
-  private async seedLiveShifts(worker: Worker): Promise<number> {
+  private async seedLiveShifts(R: Repos, worker: Worker): Promise<number> {
     let n = 900;
     let made = 0;
 
@@ -330,7 +344,7 @@ export class DemoSeedService {
     for (let i = 0; i < 6; i++) {
       const role = ROLES[i % ROLES.length]!;
       const spot = SPOTS[i % SPOTS.length]!;
-      await this.shiftRepo.save(this.shiftRepo.create({
+      await R.shiftRepo.save(R.shiftRepo.create({
         id: SHIFT(n), title: role.title,
         description: `${role.title}. Demo listing for the walkthrough video.`,
         category: role.category, subcategory: role.subcategory,
@@ -348,7 +362,7 @@ export class DemoSeedService {
     // Upcoming confirmed shift → the "Próximo turno" hero card
     {
       const role = ROLES[0]!, spot = SPOTS[1]!;
-      await this.shiftRepo.save(this.shiftRepo.create({
+      await R.shiftRepo.save(R.shiftRepo.create({
         id: SHIFT(n), title: role.title, description: 'Your next confirmed shift.',
         category: role.category, subcategory: role.subcategory,
         date: iso(inDays(3)), startTime: '19:00:00', endTime: '23:00:00',
@@ -358,7 +372,7 @@ export class DemoSeedService {
         assignedWorker: { id: worker.id } as Worker,
         skillsRequired: [role.subcategory], paymentMethod: 'TURNOS_PAY_LINK',
       }));
-      await this.appRepo.save(this.appRepo.create({
+      await R.appRepo.save(R.appRepo.create({
         id: APPLIC(n), shift: { id: SHIFT(n) } as Shift,
         worker: { id: worker.id } as Worker, status: ApplicationStatus.APPROVED,
       }));
@@ -368,7 +382,7 @@ export class DemoSeedService {
     // Awaiting the worker's acceptance → the Aceitar / Recusar buttons
     {
       const role = ROLES[4]!, spot = SPOTS[2]!;
-      await this.shiftRepo.save(this.shiftRepo.create({
+      await R.shiftRepo.save(R.shiftRepo.create({
         id: SHIFT(n), title: role.title,
         description: 'An employer picked you — accept within 2 hours.',
         category: role.category, subcategory: role.subcategory,
@@ -385,7 +399,7 @@ export class DemoSeedService {
     // Pending application → the "awaiting a response" section
     {
       const role = ROLES[3]!, spot = SPOTS[4]!;
-      await this.shiftRepo.save(this.shiftRepo.create({
+      await R.shiftRepo.save(R.shiftRepo.create({
         id: SHIFT(n), title: role.title,
         description: 'You applied — waiting on the employer.',
         category: role.category, subcategory: role.subcategory,
@@ -395,7 +409,7 @@ export class DemoSeedService {
         employer: { id: EMPLOYER(3) } as Employer,
         skillsRequired: [role.subcategory], paymentMethod: 'TRANSFERENCIA',
       }));
-      await this.appRepo.save(this.appRepo.create({
+      await R.appRepo.save(R.appRepo.create({
         id: APPLIC(n), shift: { id: SHIFT(n) } as Shift,
         worker: { id: worker.id } as Worker, status: ApplicationStatus.PENDING,
         coverNote: 'Available all evening and happy to start early.',
@@ -407,7 +421,7 @@ export class DemoSeedService {
     {
       const role = ROLES[6]!, spot = SPOTS[5]!;
       for (let d = 0; d < 3; d++) {
-        await this.shiftRepo.save(this.shiftRepo.create({
+        await R.shiftRepo.save(R.shiftRepo.create({
           id: SHIFT(n), title: role.title,
           description: 'Three-day job — you committed to every day.',
           category: role.category, subcategory: role.subcategory,
@@ -419,7 +433,7 @@ export class DemoSeedService {
           skillsRequired: [role.subcategory], paymentMethod: 'TURNOS_PAY_LINK',
           seriesId: SERIES(1), seriesDayIndex: d + 1, seriesTotalDays: 3,
         }));
-        await this.appRepo.save(this.appRepo.create({
+        await R.appRepo.save(R.appRepo.create({
           id: APPLIC(n), shift: { id: SHIFT(n) } as Shift,
           worker: { id: worker.id } as Worker, status: ApplicationStatus.APPROVED,
         }));
@@ -430,7 +444,7 @@ export class DemoSeedService {
     return made;
   }
 
-  private async updateProfile(worker: Worker, sum: number, count: number): Promise<string[]> {
+  private async updateProfile(R: Repos, worker: Worker, sum: number, count: number): Promise<string[]> {
     const avg = count ? Number((sum / count).toFixed(2)) : null;
     const badges = ['VERIFIED'];
     if (avg !== null && avg >= 4.5 && count >= 10) badges.push('TOP_RATED');
@@ -443,7 +457,7 @@ export class DemoSeedService {
       { jobTitle: 'Assistente de eventos', level: 'ZERO_ONE' },
     ];
 
-    await this.workerRepo.update(worker.id, {
+    await R.workerRepo.update(worker.id, {
       fullName: worker.fullName || 'Juanes Botero',
       bio: 'Hospitality and events worker based in Lisbon. Five years behind the bar ' +
            'and on the floor, comfortable in Portuguese, English and Spanish.',
@@ -472,32 +486,33 @@ export class DemoSeedService {
 
   /** Delete every demo row. Only touches ids starting `dede`. */
   async reset(phone: string): Promise<Record<string, number>> {
-    const worker = await this.findWorker(phone);
+    const worker = await this.findWorker(this.repos(this.dataSource.manager), phone);
     const like = Like(`${DEMO_PREFIX}%`);
     const removed: Record<string, number> = {};
 
-    return this.dataSource.transaction(async () => {
+    return this.dataSource.transaction(async (m) => {
+      const R = this.repos(m);
       // Children before shifts — several of these reference a shift.
       for (const [name, repo] of [
-        ['ratings', this.ratingRepo],
-        ['wagePayments', this.wageRepo],
-        ['paymentRecords', this.paymentRepo],
-        ['attendance', this.attendanceRepo],
-        ['applications', this.appRepo],
-        ['shifts', this.shiftRepo],
-        ['employers', this.employerRepo],
+        ['ratings', R.ratingRepo],
+        ['wagePayments', R.wageRepo],
+        ['paymentRecords', R.paymentRepo],
+        ['attendance', R.attendanceRepo],
+        ['applications', R.appRepo],
+        ['shifts', R.shiftRepo],
+        ['employers', R.employerRepo],
       ] as const) {
         const r = await (repo as Repository<any>).delete({ id: like });
         removed[name] = r.affected ?? 0;
       }
-      const users = await this.userRepo.delete({ id: like, role: 'EMPLOYER' });
+      const users = await R.userRepo.delete({ id: like, role: 'EMPLOYER' });
       removed['employerUsers'] = users.affected ?? 0;
 
       // The account is kept, and its counters are RECOMPUTED from the ratings
       // that survive — not zeroed. Zeroing assumed every rating was demo data,
       // which would erase a real worker's reputation the moment this is called
       // with a phone that has genuine ratings.
-      const agg = await this.ratingRepo
+      const agg = await R.ratingRepo
         .createQueryBuilder('r')
         .select('AVG(r.score)', 'avg')
         .addSelect('COUNT(r.id)', 'count')
@@ -511,7 +526,7 @@ export class DemoSeedService {
       if (avg !== null && avg >= 4.5 && count >= 10) badges.push('TOP_RATED');
       if (count >= 20) badges.push('RELIABLE');
 
-      await this.workerRepo.update(worker.id, {
+      await R.workerRepo.update(worker.id, {
         avgRating: avg,
         totalRatings: count,
         reputationScore: avg === null ? 0 : Math.round(avg * 20),

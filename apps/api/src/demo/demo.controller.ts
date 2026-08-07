@@ -1,6 +1,6 @@
 import {
   Controller, Post, Delete, Query, Headers, HttpCode, HttpStatus,
-  ForbiddenException, NotFoundException,
+  ForbiddenException, NotFoundException, HttpException, Logger,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../auth/decorators';
@@ -25,6 +25,8 @@ import { DemoSeedService } from './demo-seed.service';
  */
 @Controller('demo')
 export class DemoController {
+  private readonly logger = new Logger(DemoController.name);
+
   constructor(private readonly demo: DemoSeedService) {}
 
   private assertEnabled(token: string | undefined): void {
@@ -54,8 +56,26 @@ export class DemoController {
     if (!phone) throw new ForbiddenException('phone query parameter is required');
 
     const historyCount = history ? Math.max(0, Math.min(60, Number(history))) : 20;
-    const summary = await this.demo.seed(phone, historyCount);
-    return { ok: true, ...summary };
+    try {
+      const summary = await this.demo.seed(phone, historyCount);
+      return { ok: true, ...summary };
+    } catch (err) {
+      // Deliberate: the caller of this endpoint is whoever is setting up a
+      // demo, and they have no access to the Railway logs. A bare 500 makes a
+      // schema or constraint failure impossible to diagnose from outside.
+      // Safe to expose because the route is already behind DEMO_SEED_TOKEN.
+      if (err instanceof HttpException) throw err;
+      const e = err as Error & { code?: string; detail?: string; table?: string };
+      this.logger.error(`[Demo] Seed failed: ${e.message}`, e.stack);
+      return {
+        ok: false,
+        error:  e.message,
+        code:   e.code ?? null,
+        detail: e.detail ?? null,
+        table:  e.table ?? null,
+        where:  (e.stack ?? '').split('\n').slice(1, 4).map(s => s.trim()),
+      };
+    }
   }
 
   /** Remove every demo row. The worker account itself is kept. */
