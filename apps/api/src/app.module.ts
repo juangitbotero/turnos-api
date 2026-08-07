@@ -34,6 +34,7 @@ import { McdContract } from './compliance/entities/mcd-contract.entity';
 import { ComplianceAuditLog } from './compliance/entities/compliance-audit-log.entity';
 import { ShiftAttendance } from './attendance/entities/shift-attendance.entity';
 import { PaymentRecord } from './payments/entities/payment-record.entity';
+import { WagePayment } from './payments/entities/wage-payment.entity';
 import { LanguageMiddleware } from './i18n/language.middleware';
 import { DemoModule } from './demo/demo.module';
 
@@ -71,7 +72,17 @@ import { DemoModule } from './demo/demo.module';
         const isProduction = configService.get('NODE_ENV') === 'production';
         const baseConfig = {
           type: 'postgres' as const,
-          entities: [User, Worker, Employer, Shift, ShiftApplication, McdContract, ComplianceAuditLog, ShiftAttendance, PaymentRecord, Rating, NoShowFlag, FavouriteWorker],
+          // Every @Entity in the app must be listed here. TypeOrmModule.forFeature()
+          // in a feature module registers the REPOSITORY but not the entity, and
+          // getRepository() resolves metadata lazily — so a missing entry fails at
+          // the first query, not at boot, and `synchronize` never creates its table.
+          // WagePayment was missing, which meant the whole Pay Link / wage flow
+          // threw EntityMetadataNotFoundError in production.
+          entities: [User, Worker, Employer, Shift, ShiftApplication, McdContract, ComplianceAuditLog, ShiftAttendance, PaymentRecord, WagePayment, Rating, NoShowFlag, FavouriteWorker],
+          // Belt and braces: anything a feature module registers via forFeature()
+          // is added to the connection automatically, so the next entity someone
+          // adds cannot repeat the WagePayment failure by being left off the list.
+          autoLoadEntities: true,
           synchronize: true, // Safe for beta — switch to migrations before real launch
         };
         if (databaseUrl) {
