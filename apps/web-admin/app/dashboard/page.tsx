@@ -7,6 +7,7 @@ import { adminApi, Shift, EmployerProfile } from '../../lib/api';
 import { SIDEBAR_NAV } from '../../lib/nav';
 import { useT } from '../../lib/i18n';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
+import { Logo } from '../../components/Logo';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -80,11 +81,7 @@ export default function DashboardPage() {
       {/* ── Sidebar ── */}
       <aside style={s.sidebar}>
         <div style={s.sidebarTop}>
-          {/* Turnos wordmark */}
-          <div style={s.sidebarLogoWrap}>
-            <span style={s.sidebarLogoText}>turnos</span>
-            <span style={s.sidebarLogoDot} />
-          </div>
+          <div style={{ padding: '8px 12px', marginBottom: 8 }}><Logo height={22} href="/dashboard" /></div>
           <div style={s.sidebarDivider} />
           <nav style={s.sidebarNav}>
             {SIDEBAR_NAV.map(({ icon, key, href, soon }) => {

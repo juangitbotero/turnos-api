@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { adminApi, ApiError } from '../../lib/api';
 import { useT } from '../../lib/i18n';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
+import { Logo } from '../../components/Logo';
 
 export default function AdminLogin() {
   const { t } = useT();
@@ -41,7 +42,7 @@ export default function AdminLogin() {
       {/* ── Left brand panel ── */}
       <aside style={s.panel}>
         <div style={s.panelInner}>
-          <Link href="/" style={s.logo}>turnos</Link>
+          <Logo variant="white" height={26} href="/" />
           <div style={s.panelContent}>
             <h2 style={s.panelTitle}>
               {t('home.login.panelTitle1')}<br />{t('home.login.panelTitle2')}
@@ -73,7 +74,7 @@ export default function AdminLogin() {
 
           {/* Mobile logo (hidden on desktop) */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
-            <Link href="/" style={{ ...s.logo, display: 'block' }}>turnos</Link>
+            <Logo height={24} href="/" />
             <LanguageSwitcher />
           </div>
 

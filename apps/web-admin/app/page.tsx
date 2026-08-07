@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useT } from '../lib/i18n';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { Logo } from '../components/Logo';
 
 // ── Content ────────────────────────────────────────────────────────────────────
 //
@@ -69,11 +70,7 @@ export default function LandingPage() {
       {/* ── Nav ── */}
       <nav style={s.nav}>
         <div style={s.navInner}>
-          {/* Logo wordmark */}
-          <div style={s.logoWrap}>
-            <span style={s.logoText}>turnos</span>
-            <span style={s.logoDot} />
-          </div>
+          <Logo height={26} />
           <div style={s.navActions}>
             <LanguageSwitcher />
             <Link href="/login"    style={s.navLink}>{t('home.nav.login')}</Link>
@@ -247,10 +244,7 @@ export default function LandingPage() {
 
       {/* ── Footer ── */}
       <footer style={s.footer}>
-        <div style={s.footerLogoWrap}>
-          <span style={s.footerLogoText}>turnos</span>
-          <span style={s.footerLogoDot} />
-        </div>
+        <Logo height={20} />
         <span style={s.footerTagline}>{t('home.footer.tagline')}</span>
         <div style={s.footerLinks}>
           <a href="#" style={s.footerLink}>{t('home.footer.privacy')}</a>

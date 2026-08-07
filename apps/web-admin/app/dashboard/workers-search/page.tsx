@@ -9,6 +9,11 @@ import { SIDEBAR_NAV } from '../../../lib/nav';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 import { WorkerReviews } from '../../../components/WorkerReviews';
+import { Logo } from '../../../components/Logo';
+import {
+  IconSearch, IconBriefcase, IconGlobe, IconStar, IconCalendar,
+  IconDownload, IconReset, IconChevron,
+} from '../../../components/icons';
 
 // ── Worker detail panel ────────────────────────────────────────────────────────
 
@@ -96,8 +101,19 @@ function WorkerDetailPanel({
           {worker.cvUrl && (
             <div style={p.section}>
               <div style={p.sectionTitle}>{t('admin.workersSearch.panelCv')}</div>
-              <a href={worker.cvUrl} target="_blank" rel="noopener noreferrer" style={p.cvLink}>
-                📄 {worker.cvFileName ?? t('admin.workersSearch.panelCvFallback')}
+              {/* download forces a save rather than an in-tab preview, which is
+                  what an employer collecting CVs actually wants; the filename
+                  hint keeps the worker's original name. */}
+              <a
+                href={worker.cvUrl}
+                download={worker.cvFileName ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={p.cvLink}
+              >
+                <IconDownload size={15} />
+                <span style={{ flex: 1 }}>{worker.cvFileName ?? t('admin.workersSearch.panelCvFallback')}</span>
+                <span style={p.cvAction}>{t('admin.workersSearch.cvDownload')}</span>
               </a>
             </div>
           )}
@@ -230,21 +246,20 @@ export default function WorkersSearchPage() {
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [minRating, setMinRating]     = useState<number>(0);
   const [showSkillFilter, setShowSkillFilter] = useState(false);
+  const [showDayFilter, setShowDayFilter]     = useState(false);
 
   useEffect(() => {
     adminApi.getMyShifts().then(setMyShifts).catch(() => {});
-    doSearch();
   }, []);
 
-  // The availability toggle re-queries immediately — unlike the other filters
-  // it's a single click with an obvious expected result, so making the employer
-  // also press "Pesquisar" would feel broken. Skips the initial mount, which
-  // the effect above already covers.
-  const didMount = useRef(false);
-  useEffect(() => {
-    if (!didMount.current) { didMount.current = true; return; }
-    doSearch();
-  }, [onlyAvailable]);
+  const hasFilters =
+    filterSkills.length > 0 || filterLangs.length > 0 || filterDays.length > 0 ||
+    onlyAvailable || minRating > 0 || searchText.trim() !== '';
+
+  const resetFilters = () => {
+    setFilterSkills([]); setFilterLangs([]); setFilterDays([]);
+    setOnlyAvailable(false); setMinRating(0); setSearchText('');
+  };
 
   const doSearch = useCallback(async () => {
     setLoading(true);
@@ -263,6 +278,25 @@ export default function WorkersSearchPage() {
       setLoading(false);
     }
   }, [filterSkills, filterLangs, filterDays, onlyAvailable, minRating]);
+
+  /**
+   * Filters apply themselves.
+   *
+   * Previously only the availability toggle re-queried; everything else waited
+   * for a "Pesquisar" click, so a tickbox could be on screen while the results
+   * below it still reflected the previous query. Now every filter re-runs the
+   * search, debounced so ticking four skills is one request rather than four.
+   *
+   * 250ms: long enough to coalesce a burst of clicks, short enough that the
+   * list feels like it is reacting to you.
+   */
+  const didMount = useRef(false);
+  useEffect(() => {
+    const id = setTimeout(() => { doSearch(); }, didMount.current ? 250 : 0);
+    didMount.current = true;
+    return () => clearTimeout(id);
+  }, [doSearch]);
+
 
   const filtered = workers.filter(w => {
     if (!searchText.trim()) return true;
@@ -284,10 +318,7 @@ export default function WorkersSearchPage() {
       {/* Sidebar */}
       <aside style={s.sidebar}>
         <div style={s.sidebarTop}>
-          <div style={s.logoWrap}>
-            <span style={s.logoText}>turnos</span>
-            <span style={s.logoDot} />
-          </div>
+          <div style={s.logoWrap}><Logo height={22} href="/dashboard" /></div>
           <div style={s.divider} />
           <nav style={s.nav}>
             {SIDEBAR_NAV.map(({ icon, key, href, soon }) => {
@@ -327,8 +358,15 @@ export default function WorkersSearchPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <LanguageSwitcher />
-            <button style={s.searchBtn} onClick={doSearch} disabled={loading}>
-              {loading ? t('admin.workersSearch.searching') : t('admin.workersSearch.search')}
+            {/* Search runs itself now, so this slot holds the escape hatch
+                instead: one click back to an unfiltered list. */}
+            <button
+              style={{ ...s.resetBtn, ...(hasFilters ? {} : s.resetBtnIdle) }}
+              onClick={resetFilters}
+              disabled={!hasFilters}
+            >
+              <IconReset size={15} />
+              {t('admin.workersSearch.resetFilters')}
             </button>
           </div>
         </header>
@@ -336,88 +374,129 @@ export default function WorkersSearchPage() {
         {/* Filter bar */}
         <div style={s.filterBar}>
           {/* Text search */}
-          <input
-            style={s.searchInput}
-            placeholder={t('admin.workersSearch.searchPlaceholder')}
-            value={searchText}
-            onChange={e => setSearchText(e.target.value)}
-          />
+          <div style={s.searchWrap}>
+            <IconSearch size={16} style={s.searchIcon} />
+            <input
+              style={s.searchInput}
+              placeholder={t('admin.workersSearch.searchPlaceholder')}
+              value={searchText}
+              onChange={e => setSearchText(e.target.value)}
+            />
+          </div>
 
-          {/* Skills dropdown */}
+          {/* Skills */}
           <div style={{ position: 'relative' }}>
-            <button style={s.filterBtn} onClick={() => setShowSkillFilter(v => !v)}>
+            <button
+              style={{ ...s.filterBtn, ...(filterSkills.length ? s.filterBtnOn : {}) }}
+              onClick={() => { setShowSkillFilter(v => !v); setShowDayFilter(false); }}
+            >
+              <IconBriefcase size={15} />
               {filterSkills.length > 0
                 ? t('admin.workersSearch.filterSkillsCount', { count: filterSkills.length })
                 : t('admin.workersSearch.filterSkills')}
+              <IconChevron size={13} />
             </button>
             {showSkillFilter && (
-              <div style={s.skillDropdown}>
-                <div style={s.skillDropdownInner}>
-                  {ALL_SKILLS.map(sk => (
-                    <label key={sk} style={s.checkRow}>
-                      <input
-                        type="checkbox"
-                        checked={filterSkills.includes(sk)}
-                        onChange={() => toggleFilter(filterSkills, setFilterSkills, sk)}
-                      />
-                      <span style={{ fontSize: 13 }}>{tSkill(sk)}</span>
-                    </label>
-                  ))}
+              <>
+                <div style={s.backdrop} onClick={() => setShowSkillFilter(false)} />
+                <div style={s.dropdown}>
+                  <div style={s.dropdownInner}>
+                    {ALL_SKILLS.map(sk => (
+                      <label key={sk} style={s.checkRow}>
+                        <input
+                          type="checkbox"
+                          checked={filterSkills.includes(sk)}
+                          onChange={() => toggleFilter(filterSkills, setFilterSkills, sk)}
+                        />
+                        <span style={{ fontSize: 13 }}>{tSkill(sk)}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-                <button style={s.applySkills} onClick={() => { setShowSkillFilter(false); doSearch(); }}>
-                  {t('admin.workersSearch.applyFilters')}
-                </button>
-              </div>
+              </>
             )}
           </div>
 
-          {/* Availability — master switch, ANDs with the day chips below */}
+          {/*
+            Days — was a permanently-visible row of seven chips that ate a whole
+            line and read as decoration rather than a control. Folded into the
+            same dropdown shape as Skills so the bar has one grammar, and the
+            count in the label makes its filtering role explicit.
+          */}
+          <div style={{ position: 'relative' }}>
+            <button
+              style={{ ...s.filterBtn, ...(filterDays.length ? s.filterBtnOn : {}) }}
+              onClick={() => { setShowDayFilter(v => !v); setShowSkillFilter(false); }}
+            >
+              <IconCalendar size={15} />
+              {filterDays.length > 0
+                ? t('admin.workersSearch.filterDaysCount', { count: filterDays.length })
+                : t('admin.workersSearch.filterDays')}
+              <IconChevron size={13} />
+            </button>
+            {showDayFilter && (
+              <>
+                <div style={s.backdrop} onClick={() => setShowDayFilter(false)} />
+                <div style={{ ...s.dropdown, padding: 10, minWidth: 'auto' }}>
+                  {/* Stored PT values are the payload; only the label changes */}
+                  <div style={s.dayGrid}>
+                    {STORED_WEEKDAYS.map(d => (
+                      <button
+                        key={d}
+                        style={{ ...s.dayChip, ...(filterDays.includes(d) ? s.dayChipActive : {}) }}
+                        onClick={() => toggleFilter(filterDays, setFilterDays, d)}
+                      >
+                        {tWeekday(d)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Languages */}
+          <div style={s.selectWrap}>
+            <IconGlobe size={15} style={s.selectIcon} />
+            <select
+              style={{ ...s.selectInput, ...(filterLangs.length ? s.filterBtnOn : {}) }}
+              value=""
+              onChange={e => { if (e.target.value) toggleFilter(filterLangs, setFilterLangs, e.target.value); }}
+            >
+              <option value="">
+                {filterLangs.length > 0
+                  ? t('admin.workersSearch.filterLanguageCount', { count: filterLangs.length })
+                  : t('admin.workersSearch.filterLanguage')}
+              </option>
+              {/* value stays the stored PT language name */}
+              {(LANGUAGES as readonly string[]).map(l => <option key={l} value={l}>{tWorkerLanguage(l)}</option>)}
+            </select>
+          </div>
+
+          {/* Rating */}
+          <div style={s.selectWrap}>
+            <IconStar size={15} filled={minRating > 0} style={s.selectIcon} />
+            <select
+              style={{ ...s.selectInput, ...(minRating > 0 ? s.filterBtnOn : {}) }}
+              value={minRating}
+              onChange={e => setMinRating(Number(e.target.value))}
+            >
+              <option value={0}>{t('admin.workersSearch.ratingAny')}</option>
+              <option value={3}>{t('admin.workersSearch.rating3')}</option>
+              <option value={4}>{t('admin.workersSearch.rating4')}</option>
+              <option value={4.5}>{t('admin.workersSearch.rating45')}</option>
+            </select>
+          </div>
+
+          {/* Availability — master switch, ANDs with the day filter */}
           <button
-            style={onlyAvailable ? s.availFilterOn : s.filterBtn}
+            style={{ ...s.filterBtn, ...(onlyAvailable ? s.filterBtnOn : {}) }}
             onClick={() => setOnlyAvailable(v => !v)}
             title={t('admin.workersSearch.filterAvailableTitle')}
           >
-            {onlyAvailable
-              ? t('admin.workersSearch.filterAvailableOn')
-              : t('admin.workersSearch.filterAvailable')}
+            <span style={{ ...s.availDot, background: onlyAvailable ? '#16a34a' : '#c9cedb' }} />
+            {t('admin.workersSearch.filterAvailable')}
           </button>
-
-          {/* Languages */}
-          <select style={s.filterBtn} value="" onChange={e => { if (e.target.value) toggleFilter(filterLangs, setFilterLangs, e.target.value); }}>
-            <option value="">
-              {filterLangs.length > 0
-                ? t('admin.workersSearch.filterLanguageCount', { count: filterLangs.length })
-                : t('admin.workersSearch.filterLanguage')}
-            </option>
-            {/* value stays the stored PT language name */}
-            {(LANGUAGES as readonly string[]).map(l => <option key={l} value={l}>{tWorkerLanguage(l)}</option>)}
-          </select>
-
-          {/* Rating */}
-          <select
-            style={s.filterBtn}
-            value={minRating}
-            onChange={e => setMinRating(Number(e.target.value))}
-          >
-            <option value={0}>{t('admin.workersSearch.ratingAny')}</option>
-            <option value={3}>{t('admin.workersSearch.rating3')}</option>
-            <option value={4}>{t('admin.workersSearch.rating4')}</option>
-            <option value={4.5}>{t('admin.workersSearch.rating45')}</option>
-          </select>
-
-          {/* Available days */}
-          <div style={s.dayChips}>
-            {/* Stored PT values are the filter payload; only the label changes */}
-            {STORED_WEEKDAYS.map(d => (
-              <button
-                key={d}
-                style={{ ...s.dayChip, ...(filterDays.includes(d) ? s.dayChipActive : {}) }}
-                onClick={() => toggleFilter(filterDays, setFilterDays, d)}
-              >
-                {tWeekday(d)}
-              </button>
-            ))}
-          </div>
 
           {/* Active filter chips */}
           {[...filterSkills, ...filterLangs].map(f => (
@@ -685,11 +764,16 @@ const s: Record<string, React.CSSProperties> = {
   },
   title: { fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.5px' },
   sub: { fontSize: 13, color: 'var(--color-text-muted)', marginTop: 4 },
-  searchBtn: {
-    padding: '12px 24px', background: 'linear-gradient(135deg, var(--color-primary), #9b6dff)',
-    color: '#fff', border: 'none', borderRadius: 'var(--radius-full)',
-    fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+  /* Reset replaces the old gradient Search button — a secondary action, so it
+     is outlined rather than filled and never competes with the results. */
+  resetBtn: {
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+    padding: '9px 16px', background: 'var(--color-surface)',
+    color: 'var(--color-text-secondary)',
+    border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-full)',
+    fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
   },
+  resetBtnIdle: { opacity: 0.45, cursor: 'default' },
 
   /* Filter bar */
   filterBar: {
@@ -697,22 +781,44 @@ const s: Record<string, React.CSSProperties> = {
     background: 'var(--color-surface)', border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius-md)', padding: '12px 16px',
   },
-  searchInput: {
-    padding: '8px 14px', fontSize: 13, borderRadius: 8, border: '1.5px solid var(--color-border)',
-    fontFamily: 'inherit', outline: 'none', color: 'var(--color-text-primary)',
-    minWidth: 220,
+  searchWrap: { position: 'relative', display: 'flex', alignItems: 'center' },
+  searchIcon: {
+    position: 'absolute', left: 11, color: 'var(--color-text-secondary)', pointerEvents: 'none',
   },
+  searchInput: {
+    padding: '8px 14px 8px 33px', fontSize: 13, borderRadius: 8,
+    border: '1.5px solid var(--color-border)',
+    fontFamily: 'inherit', outline: 'none', color: 'var(--color-text-primary)',
+    minWidth: 220, background: 'var(--color-surface)',
+  },
+  /* One shape for every filter control, so the bar reads as a single set. */
   filterBtn: {
-    padding: '7px 12px', border: '1.5px solid var(--color-border)', borderRadius: 8,
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+    height: 34, padding: '0 12px',
+    border: '1.5px solid var(--color-border)', borderRadius: 8,
+    background: 'var(--color-surface)', fontSize: 13, fontWeight: 500,
+    cursor: 'pointer', fontFamily: 'inherit', color: 'var(--color-text-primary)',
+    whiteSpace: 'nowrap',
+  },
+  /* Active state is the SAME for every filter — brand tint, no per-filter
+     colour. The green/blue/purple mix was most of what made this look busy. */
+  filterBtnOn: {
+    borderColor: 'rgba(106,121,255,0.55)',
+    background: 'var(--color-primary-light)',
+    color: 'var(--color-primary)', fontWeight: 700,
+  },
+  selectWrap: { position: 'relative', display: 'flex', alignItems: 'center' },
+  selectIcon: {
+    position: 'absolute', left: 11, color: 'var(--color-text-secondary)', pointerEvents: 'none',
+  },
+  selectInput: {
+    height: 34, padding: '0 12px 0 33px', appearance: 'none',
+    border: '1.5px solid var(--color-border)', borderRadius: 8,
     background: 'var(--color-surface)', fontSize: 13, fontWeight: 500,
     cursor: 'pointer', fontFamily: 'inherit', color: 'var(--color-text-primary)',
   },
-  availFilterOn: {
-    padding: '7px 12px', border: '1.5px solid #86efac', borderRadius: 8,
-    background: '#f0fdf4', fontSize: 13, fontWeight: 700,
-    cursor: 'pointer', fontFamily: 'inherit', color: '#166534',
-  },
-  dayChips: { display: 'flex', gap: 4 },
+  availDot: { width: 8, height: 8, borderRadius: '50%', display: 'inline-block' },
+  dayGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 },
   dayChip: {
     padding: '5px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
     borderWidth: '1.5px', borderStyle: 'solid', borderColor: 'var(--color-border)',
@@ -732,24 +838,25 @@ const s: Record<string, React.CSSProperties> = {
   },
 
   // Skills dropdown
-  skillDropdown: {
+  /* Click-away layer — the dropdowns previously only closed via their own
+     Apply button, which no longer exists now that filters self-apply. */
+  backdrop: { position: 'fixed', inset: 0, zIndex: 90 },
+  dropdown: {
     position: 'absolute', top: '110%', left: 0, zIndex: 100,
     background: '#fff', border: '1px solid var(--color-border)', borderRadius: 10,
-    boxShadow: '0 8px 24px rgba(0,0,0,0.1)', width: 300,
+    boxShadow: '0 8px 24px rgba(0,0,0,0.1)', minWidth: 300,
     display: 'flex', flexDirection: 'column',
   },
-  skillDropdownInner: {
+  dropdownInner: {
     maxHeight: 300, overflowY: 'auto', padding: '12px 16px',
     display: 'flex', flexDirection: 'column', gap: 8,
   },
   checkRow: {
     display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
   },
-  applySkills: {
-    margin: '8px 12px 12px', padding: '8px',
-    background: 'var(--color-primary)', color: '#fff',
-    border: 'none', borderRadius: 8, cursor: 'pointer',
-    fontFamily: 'inherit', fontWeight: 700, fontSize: 13,
+  cvAction: {
+    fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.3,
+    opacity: 0.75,
   },
 
   /* Results */

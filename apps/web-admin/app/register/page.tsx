@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { EMPLOYER_SECTORS } from '@turnos/shared';
 import { useT } from '../../lib/i18n';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
+import { Logo } from '../../components/Logo';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 
@@ -39,7 +40,7 @@ export default function RegisterPage() {
   const validateCompany = (): boolean => {
     const e: Partial<FormState> = {};
     if (!form.companyName.trim()) e.companyName = t('home.register.errName');
-    if (!/^\d{9}$/.test(form.nipc))   e.nipc = 'NIPC deve ter 9 dígitos';
+    if (!/^\d{9}$/.test(form.nipc))   e.nipc = t('home.register.errNipc');
     if (!form.sector)                  e.sector = t('home.register.errSector');
     if (!form.address.trim())          e.address = t('home.register.errAddress');
     if (!/^\d{4}-\d{3}$/.test(form.postalCode)) e.postalCode = t('home.register.errPostal');
@@ -104,7 +105,7 @@ export default function RegisterPage() {
       {/* Left panel */}
       <aside style={s.panel}>
         <div style={s.panelInner}>
-          <Link href="/" style={s.logo}>turnos</Link>
+          <Logo variant="white" height={26} href="/" />
           <div style={s.panelContent}>
             <h2 style={s.panelTitle}>{t('home.register.panelTitle')}</h2>
             <p style={s.panelSub}>{t('home.register.panelSub')}</p>
@@ -143,7 +144,7 @@ export default function RegisterPage() {
       <main style={s.formSide}>
         <div style={s.formBox}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-            <Link href="/" style={{ ...s.logo, color: 'var(--color-primary)', display: 'block' }}>turnos</Link>
+            <Logo height={24} href="/" />
             <LanguageSwitcher />
           </div>
 
