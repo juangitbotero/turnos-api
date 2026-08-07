@@ -1,0 +1,24 @@
+{
+  "name": "Turnos",
+  "short_name": "Turnos",
+  "description": "Turnos — trabalho flexível em Portugal",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fafdff",
+  "theme_color": "#6a79ff",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
