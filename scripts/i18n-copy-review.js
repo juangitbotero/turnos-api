@@ -19,8 +19,10 @@ const APPROVED = {
     'calendar', 'schedule', 'myShifts', 'shiftDetail', 'editProfile',
     'onboarding', 'earnings', 'scan', 'rate', 'reciboVerde'],
   admin: ['nav','chrome','mobileOverlay','home','workersSearch','workers','qrCodes','compliance','spending','billing','ratings','newShift','shifts'],
-  home: [],
-  api: [],
+  // Phase 3, approved 2026-08-07
+  home: ['nav','hero','heroCard','stats','howItWorks','features','trust','roadmap','cta','footer','login','register'],
+  // Phase 4, approved 2026-08-07
+  api: ['common','auth','shifts','attendance','compliance','payments','wages'],
 };
 
 /**
@@ -99,8 +101,11 @@ function rows(ptObj, enObj, prefix = '') {
   return out;
 }
 
+let emitted = 0;
+
 function table(lines, title, r) {
   if (r.length === 0) return;
+  emitted++;
   lines.push(`## ${title}`);
   lines.push('');
   lines.push('| key | 🇵🇹 Portuguese | 🇬🇧 English |');
@@ -136,10 +141,24 @@ for (const app of ['mobile', 'admin', 'home', 'api']) {
 }
 
 const total = rows(s.pt, s.en).length;
+
+if (emitted === 0) {
+  lines.push('## ✅ Nothing outstanding');
+  lines.push('');
+  lines.push('Every namespace is signed off — the whole catalogue has been read.');
+  lines.push('');
+  lines.push('This file is generated, so it empties out as namespaces are approved. To bring');
+  lines.push('copy back for a re-read, remove it from `APPROVED` / `APPROVED_SHARED` in');
+  lines.push('`scripts/i18n-copy-review.js` and regenerate. **New keys added to an already-');
+  lines.push('approved namespace will NOT appear here** — clear that namespace\'s entry when');
+  lines.push('you add to it.');
+  lines.push('');
+}
+
 lines.push('---');
 lines.push('');
 lines.push(`Catalogue totals: **${total} keys** in each language, verified no drift.`);
 lines.push('');
 
 require('fs').writeFileSync(process.argv[3], lines.join('\n'), 'utf8');
-console.log('wrote', process.argv[3]);
+console.log(`wrote ${process.argv[3]} — ${emitted} section(s) outstanding, ${total} keys total`);

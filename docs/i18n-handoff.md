@@ -1,9 +1,12 @@
-# PT/EN internationalisation
+# PT/EN internationalisation — ✅ done
 
-**All five phases are implemented.** Full sweep as agreed: quality over speed,
-every surface bilingual — mobile, web-admin dashboard, public pages and the API.
-What remains is Juanes' read of the outstanding English copy
-(`docs/i18n-en-copy-review.md`).
+**All five phases are implemented and the English copy is fully signed off**
+(2026-08-07). Full sweep as agreed: quality over speed, every surface bilingual
+— mobile, web-admin dashboard, public pages and the API.
+
+Live on Railway since `7a9f5c1`. The one piece deliberately left for later:
+push notifications and worker emails following `Worker.preferredLanguage` (the
+column is already written on every language switch).
 
 ## Decisions already locked (do not re-litigate)
 
@@ -395,10 +398,14 @@ Add newly-approved namespaces to `APPROVED` (per app) or `APPROVED_SHARED` in
 `scripts/i18n-copy-review.js` so the sheet only ever shows what still needs a
 read, and extend `SECTION_TITLES` when you add a namespace.
 
-**Signed off so far:** all of `common`, `domain`, every `mobile.*` namespace
-(Phase 1, approved 2026-08-05) and every `admin.*` namespace (Phase 2). The
-current sheet is **`home.*` (Phase 3) + `api.*` (Phase 4)** — 224 rows awaiting
-a read.
+**Signed off: everything.** `common` + `domain`, every `mobile.*` (Phase 1,
+2026-08-05), every `admin.*` (Phase 2), every `home.*` (Phase 3) and every
+`api.*` (Phase 4) — the last two approved 2026-08-07. The sheet is empty and
+says so.
+
+⚠️ **The sheet hides new keys added to an approved namespace.** If you add copy
+to, say, `admin.shifts`, clear that entry from `APPROVED` before regenerating or
+the new strings will never surface for a read.
 
 ## Rich text with inline `<strong>` / `<em>`
 
@@ -484,7 +491,7 @@ Stop the dev server first, or `rm -rf .next` afterwards.
 | Catalogue | **1274 keys** per language, no drift |
 | Static keys verified | 1134 in the two apps + 79 `t()` sites in the API, all resolving in PT **and** EN |
 | Phases done | **0, 1, 2, 3, 4 — the sweep is complete** |
-| Outstanding | Juanes to review `home.*` + `api.*` English copy in `docs/i18n-en-copy-review.md`; then mark them APPROVED in `scripts/i18n-copy-review.js` |
+| English copy | **Fully signed off** (2026-08-07). `docs/i18n-en-copy-review.md` is empty |
 | Not in scope (next piece of work) | Push notifications and worker emails following `Worker.preferredLanguage` — the column is already written on every language switch |
 | HEAD when written | `6a4205a` |
 | Production data | `GET /shifts/search` returns `[]` — **zero shifts**, so the feed shows its empty state |
