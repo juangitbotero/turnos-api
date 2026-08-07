@@ -238,13 +238,22 @@ export class RatingsService {
 
   // ── Worker rating summary ──────────────────────────────────────────────────
 
+  /** Same summary, resolved from the signed-in worker's user id. */
+  async getMyRatingSummary(userId: string) {
+    const worker = await this.workerRepo.findOne({ where: { user: { id: userId } } });
+    if (!worker) throw new NotFoundException('Worker profile not found');
+    return this.getWorkerRatingSummary(worker.id);
+  }
+
   async getWorkerRatingSummary(workerId: string) {
     const worker = await this.workerRepo.findOne({ where: { id: workerId } });
     if (!worker) throw new NotFoundException('Worker not found');
 
+    // `rater` is a User, and companyName lives on Employer — without the
+    // employerProfile relation every review renders as the fallback name.
     const recent = await this.ratingRepo.find({
       where: { rateeWorker: { id: workerId }, direction: 'EMPLOYER_TO_WORKER' },
-      relations: ['rater'],
+      relations: ['rater', 'rater.employerProfile'],
       order: { createdAt: 'DESC' },
       take: 5,
     });
@@ -259,7 +268,7 @@ export class RatingsService {
         score:     r.score,
         tags:      r.tags ?? [],
         review:    r.review,
-        raterName: (r.rater as any)?.companyName ?? 'Empresa',
+        raterName: r.rater?.employerProfile?.companyName ?? 'Empresa',
         createdAt: r.createdAt.toISOString(),
       })),
     };

@@ -40,6 +40,18 @@ export class RatingsController {
     return this.ratings.getWorkerRatingSummary(workerId);
   }
 
+  /**
+   * The signed-in worker's own summary, including the reviews employers wrote.
+   *
+   * `GET /auth/me` returns `userId`, not the worker id, so the mobile profile
+   * screen has no id to pass to the route above — hence this one.
+   */
+  @Get('me')
+  @Roles('WORKER')
+  getMySummary(@Request() req: AuthRequest) {
+    return this.ratings.getMyRatingSummary(req.user.sub);
+  }
+
   // ── Worker rates employer (WORKER only, internal) ─────────────────────────
 
   @Post('employer')

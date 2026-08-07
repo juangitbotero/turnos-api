@@ -200,6 +200,9 @@ export const pt = {
 
       availabilityOn:  '🟢 Disponível para trabalhar',
       availabilityOff: '⚪ Não disponível',
+      // Employer reviews shown on the worker's own profile
+      reviewsTitle: 'Avaliações de empresas',
+      reviewsEmpty: 'Ainda não recebeste avaliações. Aparecem aqui depois dos teus primeiros turnos.',
       availabilityOnSub:  'As empresas podem encontrar-te quando procuram trabalhadores.',
       availabilityOffSub: 'Estás oculto na pesquisa das empresas. Podes voltar a ativar quando quiseres.',
       availabilityError: 'Não foi possível atualizar a disponibilidade. Tenta novamente.',

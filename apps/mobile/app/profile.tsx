@@ -10,7 +10,7 @@ import {
   colors, spacing, radius, fontSize, fontWeight, STORED_WEEKDAYS,
   WorkerExperience, APP_LANGUAGES, APP_LANGUAGE_LABELS, AppLanguage,
 } from '@turnos/shared';
-import { authApi, ApiError } from '../lib/api';
+import { authApi, ratingsApi, ApiError, RatingRecord } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
 import { disconnectSocket } from '../lib/socket';
 import { useT, useLanguage } from '../lib/i18n';
@@ -78,9 +78,10 @@ const sr = StyleSheet.create({
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { t, tSkill, tWorkerLanguage, tWeekday } = useT();
+  const { t, tSkill, tWorkerLanguage, tWeekday, fShortDate } = useT();
   const { language, setLanguage } = useLanguage();
   const [profile, setProfile]     = useState<WorkerProfile | null>(null);
+  const [reviews, setReviews]     = useState<RatingRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError]         = useState('');
 
@@ -90,6 +91,11 @@ export default function ProfileScreen() {
     try {
       const data = await authApi.getMe();
       setProfile(data as WorkerProfile);
+      // Reviews are a separate call and must never block the profile — an
+      // employer's written note is nice to have, the profile is not.
+      ratingsApi.getMySummary()
+        .then(s => setReviews(s.recentRatings ?? []))
+        .catch(() => setReviews([]));
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
         await tokenStorage.clear();
@@ -234,6 +240,23 @@ export default function ProfileScreen() {
             </View>
           )}
 
+          {/* ── Employer reviews ── */}
+          {reviews.length > 0 && (
+            <View style={s.reviewsSection}>
+              <Text style={s.reviewsTitle}>{t('mobile.profile.reviewsTitle')}</Text>
+              {reviews.map((r, i) => (
+                <View key={`${r.createdAt}-${i}`} style={s.reviewCard}>
+                  <View style={s.reviewHead}>
+                    <Text style={s.reviewStars}>{'★'.repeat(r.score)}<Text style={s.reviewStarsDim}>{'★'.repeat(5 - r.score)}</Text></Text>
+                    <Text style={s.reviewDate}>{fShortDate(r.createdAt)}</Text>
+                  </View>
+                  {!!r.review && <Text style={s.reviewText}>“{r.review}”</Text>}
+                  <Text style={s.reviewAuthor}>— {r.raterName}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
           {/* ── Availability master switch ── */}
           <View style={s.availCard}>
             <View style={s.availRow}>
@@ -245,8 +268,8 @@ export default function ProfileScreen() {
                 </Text>
                 <Text style={s.availSub}>
                   {profile?.isAvailableForWork
-                    ? 'As empresas podem encontrar-te quando procuram trabalhadores.'
-                    : 'Estás oculto na pesquisa das empresas. Podes voltar a ativar quando quiseres.'}
+                    ? t('mobile.profile.availabilityOnSub')
+                    : t('mobile.profile.availabilityOffSub')}
                 </Text>
               </View>
               <Switch
@@ -528,6 +551,26 @@ const s = StyleSheet.create({
   },
   bioText: {
     fontSize: fontSize.body, color: colors.textPrimary, lineHeight: 22, fontStyle: 'italic',
+  },
+
+  /* Employer reviews */
+  reviewsSection: { gap: spacing.sm },
+  reviewsTitle: {
+    fontSize: fontSize.body, fontWeight: fontWeight.semibold as any,
+    color: colors.textPrimary, marginBottom: 2,
+  },
+  reviewCard: {
+    backgroundColor: '#fff', borderRadius: radius.md, padding: spacing.md,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 4, elevation: 2, gap: 6,
+  },
+  reviewHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  reviewStars: { fontSize: fontSize.body, color: '#f59e0b', letterSpacing: 1 },
+  reviewStarsDim: { color: '#e5e7eb' },
+  reviewDate: { fontSize: fontSize.caption, color: colors.textSecondary },
+  reviewText: { fontSize: fontSize.body, color: colors.textPrimary, lineHeight: 21 },
+  reviewAuthor: {
+    fontSize: fontSize.caption, color: colors.textSecondary, fontWeight: fontWeight.semibold as any,
   },
 
   /* Availability master switch */

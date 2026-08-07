@@ -288,7 +288,10 @@ export const paymentsApi = {
 export interface RatingRecord {
   score:     number;
   tags:      string[];
-  comment?:  string;
+  /** The employer's written note. `comment` was never a field the API returned. */
+  review?:   string;
+  /** Company name of the employer who wrote it, or a generic fallback. */
+  raterName?: string;
   createdAt: string;
 }
 
@@ -356,6 +359,13 @@ export const ratingsApi = {
   /** Get a worker's public rating summary */
   getWorkerSummary: (workerId: string) =>
     api.get<WorkerRatingSummary>(`/ratings/worker/${workerId}`),
+
+  /**
+   * The signed-in worker's own summary, including the employers' written
+   * reviews. `/auth/me` returns userId, not the worker id, so the profile
+   * screen has nothing to pass to getWorkerSummary above.
+   */
+  getMySummary: () => api.get<WorkerRatingSummary>('/ratings/me'),
 
   /** Worker submits employer rating (internal — not shown publicly) */
   rateEmployer: (dto: { shiftId: string; score: number }) =>

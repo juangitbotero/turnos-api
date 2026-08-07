@@ -200,6 +200,9 @@ export const en: Translated<TranslationCatalogue> = {
 
       availabilityOn:  '🟢 Available for work',
       availabilityOff: '⚪ Not available',
+      // Employer reviews shown on the worker's own profile
+      reviewsTitle: 'Employer reviews',
+      reviewsEmpty: 'No reviews yet. They appear here after your first few shifts.',
       availabilityOnSub:  'Companies can find you when they search for workers.',
       availabilityOffSub: "You're hidden from company searches. You can switch back on any time.",
       availabilityError: "Couldn't update your availability. Please try again.",
