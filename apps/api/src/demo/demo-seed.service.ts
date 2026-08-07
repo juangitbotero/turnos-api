@@ -493,12 +493,31 @@ export class DemoSeedService {
       const users = await this.userRepo.delete({ id: like, role: 'EMPLOYER' });
       removed['employerUsers'] = users.affected ?? 0;
 
-      // The account itself is kept — only its demo-derived counters are cleared.
+      // The account is kept, and its counters are RECOMPUTED from the ratings
+      // that survive — not zeroed. Zeroing assumed every rating was demo data,
+      // which would erase a real worker's reputation the moment this is called
+      // with a phone that has genuine ratings.
+      const agg = await this.ratingRepo
+        .createQueryBuilder('r')
+        .select('AVG(r.score)', 'avg')
+        .addSelect('COUNT(r.id)', 'count')
+        .where('r."rateeWorkerId" = :id', { id: worker.id })
+        .andWhere("r.direction = 'EMPLOYER_TO_WORKER'")
+        .getRawOne<{ avg: string | null; count: string }>();
+
+      const count = Number(agg?.count ?? 0);
+      const avg   = count > 0 && agg?.avg != null ? Number(Number(agg.avg).toFixed(2)) : null;
+      const badges = count > 0 ? ['VERIFIED'] : [];
+      if (avg !== null && avg >= 4.5 && count >= 10) badges.push('TOP_RATED');
+      if (count >= 20) badges.push('RELIABLE');
+
       await this.workerRepo.update(worker.id, {
-        avgRating: null, totalRatings: 0, reputationScore: 0,
-        badges: [], completionRate: 1,
+        avgRating: avg,
+        totalRatings: count,
+        reputationScore: avg === null ? 0 : Math.round(avg * 20),
+        badges,
       });
-      removed['workerCountersReset'] = 1;
+      removed['ratingsRemaining'] = count;
 
       this.logger.log(`[Demo] Reset complete: ${JSON.stringify(removed)}`);
       return removed;
