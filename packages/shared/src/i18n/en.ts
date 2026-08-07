@@ -606,10 +606,9 @@ export const en: Translated<TranslationCatalogue> = {
       ssAlertOpen: 'Open',
 
       kpiGross:    'Gross',
-      kpiReceived: 'Received',
       kpiShifts:   'Shifts',
 
-      breakdownTitle: 'Earnings breakdown',
+      breakdownTitle: 'TSU simulator (if applicable)',
       rowGross:   'Gross amount (paid by the company)',
       // TSU is Portugal's social-security contribution — kept, not translated
       rowTsu:     'TSU to pay the State (11%)',
@@ -981,6 +980,12 @@ export const en: Translated<TranslationCatalogue> = {
       totalLabel:   'Total',
 
       navBilling: 'View billing →',
+    },
+
+    // Employer-facing reviews written about a worker (WorkerReviews component)
+    reviews: {
+      title: 'What other companies say',
+      empty: 'No written reviews yet.',
     },
 
     billing: {

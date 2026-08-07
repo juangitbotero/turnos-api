@@ -609,10 +609,9 @@ export const pt = {
       ssAlertOpen: 'Abrir',
 
       kpiGross:    'Bruto',
-      kpiReceived: 'Recebido',
       kpiShifts:   'Turnos',
 
-      breakdownTitle: 'Detalhe de ganhos',
+      breakdownTitle: 'Simulador de TSU (se aplicável)',
       rowGross:   'Valor bruto (pago pela empresa)',
       rowTsu:     'TSU a entregar ao Estado (11%)',
       rowAfterTsu:'Estimativa após TSU',
@@ -988,6 +987,12 @@ export const pt = {
       totalLabel:   'Total',
 
       navBilling: 'Ver Faturação →',
+    },
+
+    // Employer-facing reviews written about a worker (WorkerReviews component)
+    reviews: {
+      title: 'O que outras empresas dizem',
+      empty: 'Ainda sem avaliações escritas.',
     },
 
     billing: {

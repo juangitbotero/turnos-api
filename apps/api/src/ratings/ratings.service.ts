@@ -255,7 +255,11 @@ export class RatingsService {
       where: { rateeWorker: { id: workerId }, direction: 'EMPLOYER_TO_WORKER' },
       relations: ['rater', 'rater.employerProfile'],
       order: { createdAt: 'DESC' },
-      take: 5,
+      // 10 rather than 5: this now backs a browsable review list on both the
+      // worker's profile and the employer's hiring panels, and the component
+      // drops star-only ratings, so a low take could render an empty section
+      // for a worker who genuinely has written reviews.
+      take: 10,
     });
 
     return {

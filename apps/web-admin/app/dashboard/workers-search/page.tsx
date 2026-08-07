@@ -8,6 +8,7 @@ import { adminApi, WorkerSearchResult, Shift, ApiError } from '../../../lib/api'
 import { SIDEBAR_NAV } from '../../../lib/nav';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
+import { WorkerReviews } from '../../../components/WorkerReviews';
 
 // ── Worker detail panel ────────────────────────────────────────────────────────
 
@@ -166,6 +167,10 @@ function WorkerDetailPanel({
               <div style={p.statLabel}>{t('admin.workersSearch.statProfile')}</div>
             </div>
           </div>
+
+          {/* What other companies wrote — the reason to pick this worker over
+              the next one, so it sits directly above the invite control. */}
+          <WorkerReviews workerId={worker.id} />
 
           {/* Invite to shift */}
           <div style={p.inviteBox}>

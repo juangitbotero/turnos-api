@@ -8,6 +8,7 @@ import { connectSocket, getSocket, NewApplicationPayload } from '../../../lib/so
 import { COMPANY_CANCEL_REASONS, paymentMethodLabel } from '@turnos/shared';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
+import { WorkerReviews } from '../../../components/WorkerReviews';
 
 /** A shift row that stands for a multi-day job rather than a single day. */
 const isMultiDay = (shift: Shift): boolean => (shift.seriesDates?.length ?? 0) > 1;
@@ -83,6 +84,11 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
           <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.5, margin: 0 }}>{w.bio}</p>
         </div>
       )}
+
+      {/* What other companies wrote — the applicant list is the other place an
+          employer chooses between people, so it needs the same evidence as the
+          talent search panel. */}
+      {w?.id && <WorkerReviews workerId={w.id} />}
 
       {/* Score bar */}
       <div style={s.scoreSection}>

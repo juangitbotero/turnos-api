@@ -245,13 +245,14 @@ export default function EarningsScreen() {
                 value={fmt(report.totalGross)}
                 accent="#6a79ff"
               />
-              <View style={s.kpiDivider} />
-              <KpiCard
-                icon="✅"
-                label={t('mobile.earnings.kpiReceived')}
-                value={fmt(report.workerNet)}
-                accent="#16a34a"
-              />
+              {/*
+                There is deliberately no "Received" tile. The worker receives the
+                FULL gross directly from the company (ADR 007) — Turnos never
+                withholds the 11% TSU. A tile showing gross-minus-TSU as
+                "Received" stated a number the worker never sees, and contradicted
+                the note in the simulator below. The TSU figure lives there, as a
+                simulation, which is all it has ever been.
+              */}
               <View style={s.kpiDivider} />
               <KpiCard
                 icon="📋"
