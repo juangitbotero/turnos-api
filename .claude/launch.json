@@ -5,9 +5,7 @@
       "name": "web-admin",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 3000,
-      "autoPort": false,
-      "cwd": "apps/web-admin"
+      "port": 3000
     }
   ]
 }

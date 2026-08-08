@@ -3,6 +3,12 @@
 import Link from 'next/link';
 import { useT } from '../lib/i18n';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { Sectors } from '../components/Sectors';
+import { Faq } from '../components/Faq';
+import {
+  IconClipboard, IconBell, IconUser, IconCheck, IconQr, IconWallet,
+  IconStar, IconBolt, IconSearch, IconUsers, IconChart, IconEuro, IconBuilding,
+} from '../components/icons';
 import { Logo } from '../components/Logo';
 
 // ── Content ────────────────────────────────────────────────────────────────────
@@ -14,49 +20,30 @@ import { Logo } from '../components/Logo';
 const STATS = ['fee', 'speed', 'commission', 'data'] as const;
 
 const HOW_IT_WORKS = [
-  { n: '01', icon: '📋', id: 'publish' },
-  { n: '02', icon: '🔔', id: 'apply'   },
-  { n: '03', icon: '👤', id: 'select'  },
-  { n: '04', icon: '✅', id: 'confirm' },
-  { n: '05', icon: '📲', id: 'checkIn' },
-  { n: '06', icon: '💳', id: 'pay'     },
+  { n: '01', Icon: IconClipboard, id: 'publish' },
+  { n: '02', Icon: IconBell,      id: 'apply'   },
+  { n: '03', Icon: IconUser,      id: 'select'  },
+  { n: '04', Icon: IconCheck,     id: 'confirm' },
+  { n: '05', Icon: IconQr,        id: 'checkIn' },
+  { n: '06', Icon: IconWallet,    id: 'pay'     },
 ] as const;
 
 const FEATURES = [
-  { icon: '🔔', id: 'notifications' },
-  { icon: '⭐', id: 'ratings'       },
-  { icon: '⚡', id: 'confirmation'  },
-  { icon: '📲', id: 'qrCheckIn'     },
-  { icon: '📋', id: 'compliance'    },
-  { icon: '💳', id: 'directPay'     },
-  { icon: '🔍', id: 'search'        },
-  { icon: '👥', id: 'applicants'    },
-  { icon: '📊', id: 'dashboard'     },
-  { icon: '💶', id: 'spending'      },
-] as const;
-
-const PLATFORM_TRUST = [
-  { icon: '🇵🇹', id: 'market'   },
-  { icon: '🔒', id: 'security' },
-  { icon: '⚡', id: 'reports'  },
-  { icon: '📱', id: 'app'      },
+  { Icon: IconBell,   id: 'notifications' },
+  { Icon: IconStar,   id: 'ratings'       },
+  { Icon: IconBolt,   id: 'confirmation'  },
+  { Icon: IconQr,     id: 'qrCheckIn'     },
+  { Icon: IconWallet, id: 'directPay'     },
+  { Icon: IconSearch, id: 'search'        },
+  { Icon: IconUsers,  id: 'applicants'    },
+  { Icon: IconChart,  id: 'dashboard'     },
+  { Icon: IconEuro,   id: 'spending'      },
 ] as const;
 
 // Explicitly typed rather than `as const`: the entries have different shapes
 // (done vs active), and a const-assertion would narrow each one so that neither
 // property exists on the union.
-const ROADMAP: { n: number; done?: boolean; active?: boolean }[] = [
-  { n: 0, done: true },
-  { n: 1, done: true },
-  { n: 2, done: true },
-  { n: 3, done: true },
-  { n: 4, done: true },
-  { n: 5, done: true },
-  { n: 6, done: true },
-  { n: 7, done: true },
-  { n: 8, active: true },
-  { n: 9, done: false },
-];
+const FAQ_IDS = ['1', '2', '3', '4', '5', '6', '7', '8'] as const;
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -73,6 +60,7 @@ export default function LandingPage() {
           <Logo height={26} />
           <div style={s.navActions}>
             <LanguageSwitcher />
+            <Link href="/trabalhadores" style={s.navLink}>{t('home.workers.navLink')}</Link>
             <Link href="/login"    style={s.navLink}>{t('home.nav.login')}</Link>
             <Link href="/register" style={s.navCta}>{t('home.nav.register')}</Link>
           </div>
@@ -101,7 +89,7 @@ export default function LandingPage() {
         {/* Floating match card */}
         <div style={s.heroCard}>
           <div style={s.cardRow}>
-            <div style={s.cardAvatar}>🧑‍🍳</div>
+            <div style={s.cardAvatar}><IconUser size={22} /></div>
             <div style={{ flex: 1 }}>
               <div style={s.cardName}>{t('home.heroCard.workerName')}</div>
               <div style={s.cardSub}>{t('home.heroCard.workerMeta', { role: demoRole })}</div>
@@ -110,14 +98,14 @@ export default function LandingPage() {
           </div>
           <div style={s.cardDivider} />
           <div style={s.cardRow}>
-            <div style={{ ...s.cardAvatar, fontSize: 22 }}>🏢</div>
+            <div style={s.cardAvatar}><IconBuilding size={21} /></div>
             <div>
               <div style={s.cardName}>{t('home.heroCard.companyName')}</div>
               <div style={s.cardSub}>{t('home.heroCard.companyMeta', { role: demoRole })}</div>
             </div>
           </div>
           <div style={s.cardMatch}>
-            {t('home.heroCard.match')}<strong>{t('home.heroCard.matchBold')}</strong>
+            {t('home.heroCard.match')}
           </div>
 
           <div style={s.cardSteps}>
@@ -145,11 +133,11 @@ export default function LandingPage() {
           <p style={s.sectionSub}>{t('home.howItWorks.sub')}</p>
         </div>
         <div style={s.stepsGrid}>
-          {HOW_IT_WORKS.map(({ n, icon, id }) => (
+          {HOW_IT_WORKS.map(({ n, Icon, id }) => (
             <div key={id} style={s.stepCard}>
               <div style={s.stepTop}>
                 <span style={s.stepNum}>{n}</span>
-                <span style={s.stepIcon}>{icon}</span>
+                <span style={s.stepIcon}><Icon size={20} /></span>
               </div>
               <h3 style={s.stepTitle}>{t(`home.howItWorks.${id}.title`)}</h3>
               <p style={s.stepDesc}>{t(`home.howItWorks.${id}.desc`)}</p>
@@ -157,6 +145,18 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
+      {/* ── FAQ ── */}
+      <section style={s.faqSection}>
+        <div style={s.sectionHeader}>
+          <span style={s.eyebrow}>{t('home.faq.eyebrow')}</span>
+          <h2 style={s.sectionTitle}>{t('home.faq.title')}</h2>
+        </div>
+        <Faq ns="home.faq" ids={FAQ_IDS} />
+      </section>
+
+      {/* ── Sectors ── */}
+      <Sectors />
 
       {/* ── O que a plataforma faz por ti ── */}
       <section style={{ ...s.section, background: 'var(--color-surface)', padding: '80px 32px' }}>
@@ -166,67 +166,14 @@ export default function LandingPage() {
             <p style={s.sectionSub}>{t('home.features.sub')}</p>
           </div>
           <div style={s.featureGrid}>
-            {FEATURES.map(({ icon, id }) => (
+            {FEATURES.map(({ Icon, id }) => (
               <div key={id} style={s.featureCard}>
-                <span style={s.featureIcon}>{icon}</span>
+                <span style={s.featureIcon}><Icon size={19} /></span>
                 <h3 style={s.featureTitle}>{t(`home.features.${id}.title`)}</h3>
                 <p style={s.featureBody}>{t(`home.features.${id}.body`)}</p>
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ── Trust bar ── */}
-      <section style={s.trustBar}>
-        {PLATFORM_TRUST.map(({ icon, id }) => (
-          <div key={id} style={s.trustItem}>
-            <span style={s.trustIcon}>{icon}</span>
-            <span style={s.trustText}>{t(`home.trust.${id}`)}</span>
-          </div>
-        ))}
-      </section>
-
-      {/* ── Roadmap ── */}
-      <section style={s.roadmapSection}>
-        <div style={s.sectionHeader}>
-          <h2 style={s.sectionTitle}>{t('home.roadmap.title')}</h2>
-          <p style={s.sectionSub}>{t('home.roadmap.sub')}</p>
-        </div>
-        <div style={s.roadmapGrid}>
-          {ROADMAP.map(({ n, done, active }) => (
-            <div key={n} style={{
-              ...s.roadmapItem,
-              borderWidth: '1.5px', borderStyle: 'solid',
-              borderColor: done ? 'var(--color-primary)' : active ? '#d97706' : 'var(--color-border)',
-              background: done
-                ? 'linear-gradient(135deg, var(--color-primary-light), #fff)'
-                : active
-                  ? 'linear-gradient(135deg, #fffbeb, #fff)'
-                  : 'var(--color-surface)',
-            }}>
-              <div style={{
-                ...s.roadmapNum,
-                background: done ? 'var(--color-primary)' : active ? '#d97706' : 'var(--color-neutral-light)',
-                color: done || active ? '#fff' : 'var(--color-text-secondary)',
-              }}>
-                {done ? '✓' : n}
-              </div>
-              <div>
-                <div style={s.roadmapLabel}>{t(`home.roadmap.s${n}`)}</div>
-                <div style={{
-                  ...s.roadmapStatus,
-                  color: done ? 'var(--color-success)' : active ? '#d97706' : 'var(--color-text-muted)',
-                }}>
-                  {done
-                    ? t('home.roadmap.statusDone')
-                    : active
-                      ? t('home.roadmap.statusActive')
-                      : t('home.roadmap.statusPlanned')}
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
       </section>
 
@@ -343,7 +290,10 @@ const s: Record<string, React.CSSProperties> = {
   },
   cardRow: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 },
   cardAvatar: {
-    fontSize: 28, width: 44, height: 44, display: 'flex',
+    // `color` drives the SVG stroke now that the avatars are icons rather than
+    // emoji; without it they inherit body text and render near-black.
+    color: 'var(--color-primary)',
+    width: 44, height: 44, display: 'flex',
     alignItems: 'center', justifyContent: 'center',
     background: 'var(--color-primary-light)', borderRadius: 'var(--radius-md)', flexShrink: 0,
   },
@@ -395,7 +345,11 @@ const s: Record<string, React.CSSProperties> = {
     background: 'var(--color-primary-light)', padding: '4px 10px', borderRadius: 'var(--radius-full)',
     letterSpacing: '0.5px',
   },
-  stepIcon: { fontSize: 26 },
+  stepIcon: {
+    width: 38, height: 38, borderRadius: 11,
+    background: 'var(--color-primary-light)', color: 'var(--color-primary)',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  },
   stepTitle: { fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)', lineHeight: 1.3 },
   stepDesc:  { fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.6 },
 
@@ -406,46 +360,16 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: 'var(--radius-lg)', padding: 24, boxShadow: 'var(--shadow-sm)',
     display: 'flex', flexDirection: 'column' as const, gap: 8,
   },
-  featureIcon:  { fontSize: 28, display: 'block' },
+  featureIcon:  {
+    width: 36, height: 36, borderRadius: 10,
+    background: 'var(--color-primary-light)', color: 'var(--color-primary)',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  },
   featureTitle: { fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)', lineHeight: 1.3 },
   featureBody:  { fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.65 },
 
   /* Trust bar */
-  trustBar: {
-    display: 'flex', justifyContent: 'center', flexWrap: 'wrap' as const, gap: 0,
-    borderTop: '1px solid var(--color-border)', borderBottom: '1px solid var(--color-border)',
-    background: 'var(--color-primary-light)', padding: '20px 32px',
-  },
-  trustItem: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    padding: '8px 24px', borderRight: '1px solid rgba(106,121,255,0.15)',
-    flex: '1 1 240px',
-  },
-  trustIcon: { fontSize: 18, flexShrink: 0 },
-  trustText: { fontSize: 13, fontWeight: 500, color: 'var(--color-primary)' },
-
-  /* Roadmap */
-  roadmapSection: {
-    background: 'linear-gradient(135deg, var(--color-primary-light) 0%, #fff 100%)',
-    padding: '80px 32px',
-  },
-  roadmapGrid: {
-    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12,
-    maxWidth: 1120, margin: '0 auto',
-  },
-  roadmapItem: {
-    display: 'flex', alignItems: 'center', gap: 14,
-    padding: '16px 18px', borderRadius: 'var(--radius-md)',
-  },
-  roadmapNum: {
-    width: 38, height: 38, borderRadius: 'var(--radius-full)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 14, fontWeight: 800, flexShrink: 0,
-  },
-  roadmapLabel:  { fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 3 },
-  roadmapStatus: { fontSize: 11, fontWeight: 600 },
-
-  /* CTA Banner */
+  faqSection: { padding: '20px 24px 90px', maxWidth: 1080, margin: '0 auto' },
   ctaBanner: {
     background: 'linear-gradient(135deg, var(--color-primary) 0%, #9b6dff 100%)', padding: '80px 32px',
   },
