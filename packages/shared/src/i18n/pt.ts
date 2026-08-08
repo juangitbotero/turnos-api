@@ -200,9 +200,6 @@ export const pt = {
 
       availabilityOn:  '🟢 Disponível para trabalhar',
       availabilityOff: '⚪ Não disponível',
-      // Employer reviews shown on the worker's own profile
-      reviewsTitle: 'Avaliações de empresas',
-      reviewsEmpty: 'Ainda não recebeste avaliações. Aparecem aqui depois dos teus primeiros turnos.',
       availabilityOnSub:  'As empresas podem encontrar-te quando procuram trabalhadores.',
       availabilityOffSub: 'Estás oculto na pesquisa das empresas. Podes voltar a ativar quando quiseres.',
       availabilityError: 'Não foi possível atualizar a disponibilidade. Tenta novamente.',
@@ -225,6 +222,11 @@ export const pt = {
 
       earningsCta:    'Os Meus Ganhos',
       earningsCtaSub: 'Bruto, líquido e TSU por período',
+      // Employer reviews live on their own screen (/reviews), reached from here —
+      // inline they crowded out everything else on the profile.
+      reviewsCta:         'Avaliações de Empresas',
+      reviewsCtaSub:      '{{count}} avaliações · média {{avg}}★',
+      reviewsCtaSubEmpty: 'Ainda sem avaliações',
       editCta:        'Editar Perfil',
       editCtaSub:     'Nome, competências, disponibilidade, foto',
 
@@ -235,6 +237,29 @@ export const pt = {
       logoutConfirmTitle: 'Terminar sessão',
       logoutConfirmBody:  'Tem a certeza que quer sair?',
       logoutConfirmYes:   'Sair',
+    },
+
+    /** Employer reviews screen — reached from the profile, like Ganhos. */
+    reviews: {
+      title:     'Avaliações de Empresas',
+      loadError: 'Não foi possível carregar as avaliações.',
+      loading:   'A carregar avaliações…',
+
+      ratingsCount:   '{{count}} avaliações',
+      noRatingsYet:   'Sem avaliações',
+      statCompletion: 'Turnos concluídos',
+      statNoShows:    'Faltas',
+
+      tagsTitle: 'O QUE AS EMPRESAS DESTACAM',
+      tagCount:  '{{tag}} · {{count}}',
+
+      listTitle: 'AVALIAÇÕES RECENTES',
+      starOnly:  'Avaliação sem comentário escrito.',
+      listNote:  'Mostramos as 10 avaliações mais recentes.',
+
+      emptyTitle: 'Ainda não tens avaliações',
+      emptyBody:  'Depois de concluíres um turno, a empresa pode avaliar-te. As avaliações aparecem aqui e ajudam-te a ser escolhido mais vezes.',
+      emptyCta:   'Ver turnos disponíveis',
     },
 
     /** Phone-calendar sync — shared by the my-shifts hero card and shift detail. */

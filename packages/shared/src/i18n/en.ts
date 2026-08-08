@@ -200,9 +200,6 @@ export const en: Translated<TranslationCatalogue> = {
 
       availabilityOn:  '🟢 Available for work',
       availabilityOff: '⚪ Not available',
-      // Employer reviews shown on the worker's own profile
-      reviewsTitle: 'Employer reviews',
-      reviewsEmpty: 'No reviews yet. They appear here after your first few shifts.',
       availabilityOnSub:  'Companies can find you when they search for workers.',
       availabilityOffSub: "You're hidden from company searches. You can switch back on any time.",
       availabilityError: "Couldn't update your availability. Please try again.",
@@ -226,6 +223,11 @@ export const en: Translated<TranslationCatalogue> = {
       earningsCta:    'My Earnings',
       // TSU is Portugal's social-security contribution — kept, not translated
       earningsCtaSub: 'Gross, net and TSU by period',
+      // Employer reviews live on their own screen (/reviews), reached from here —
+      // inline they crowded out everything else on the profile.
+      reviewsCta:         'Employer Reviews',
+      reviewsCtaSub:      '{{count}} reviews · {{avg}}★ average',
+      reviewsCtaSubEmpty: 'No reviews yet',
       editCta:        'Edit Profile',
       editCtaSub:     'Name, skills, availability, photo',
 
@@ -236,6 +238,29 @@ export const en: Translated<TranslationCatalogue> = {
       logoutConfirmTitle: 'Sign out',
       logoutConfirmBody:  'Are you sure you want to sign out?',
       logoutConfirmYes:   'Sign out',
+    },
+
+    /** Employer reviews screen — reached from the profile, like Earnings. */
+    reviews: {
+      title:     'Employer Reviews',
+      loadError: "Couldn't load your reviews.",
+      loading:   'Loading reviews…',
+
+      ratingsCount:   '{{count}} reviews',
+      noRatingsYet:   'No reviews',
+      statCompletion: 'Shifts completed',
+      statNoShows:    'No-shows',
+
+      tagsTitle: 'WHAT COMPANIES HIGHLIGHT',
+      tagCount:  '{{tag}} · {{count}}',
+
+      listTitle: 'RECENT REVIEWS',
+      starOnly:  'Rated with no written comment.',
+      listNote:  'Showing your 10 most recent reviews.',
+
+      emptyTitle: 'No reviews yet',
+      emptyBody:  'Once you complete a shift, the company can review you. Reviews show up here and help you get picked more often.',
+      emptyCta:   'Browse open shifts',
     },
 
     calendar: {

@@ -10,7 +10,7 @@ import {
   colors, spacing, radius, fontSize, fontWeight, STORED_WEEKDAYS,
   WorkerExperience, APP_LANGUAGES, APP_LANGUAGE_LABELS, AppLanguage,
 } from '@turnos/shared';
-import { authApi, ratingsApi, ApiError, RatingRecord } from '../lib/api';
+import { authApi, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
 import { disconnectSocket } from '../lib/socket';
 import { useT, useLanguage } from '../lib/i18n';
@@ -78,10 +78,9 @@ const sr = StyleSheet.create({
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { t, tSkill, tWorkerLanguage, tWeekday, fShortDate } = useT();
+  const { t, tSkill, tWorkerLanguage, tWeekday } = useT();
   const { language, setLanguage } = useLanguage();
   const [profile, setProfile]     = useState<WorkerProfile | null>(null);
-  const [reviews, setReviews]     = useState<RatingRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError]         = useState('');
 
@@ -91,11 +90,9 @@ export default function ProfileScreen() {
     try {
       const data = await authApi.getMe();
       setProfile(data as WorkerProfile);
-      // Reviews are a separate call and must never block the profile — an
-      // employer's written note is nice to have, the profile is not.
-      ratingsApi.getMySummary()
-        .then(s => setReviews(s.recentRatings ?? []))
-        .catch(() => setReviews([]));
+      // The written reviews themselves live on /reviews and are fetched there.
+      // /auth/me already carries avgRating and totalRatings, which is all the
+      // header star row and the reviews CTA need.
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
         await tokenStorage.clear();
@@ -237,23 +234,6 @@ export default function ProfileScreen() {
           {!!profile?.bio && (
             <View style={s.bioCard}>
               <Text style={s.bioText}>{profile.bio}</Text>
-            </View>
-          )}
-
-          {/* ── Employer reviews ── */}
-          {reviews.length > 0 && (
-            <View style={s.reviewsSection}>
-              <Text style={s.reviewsTitle}>{t('mobile.profile.reviewsTitle')}</Text>
-              {reviews.map((r, i) => (
-                <View key={`${r.createdAt}-${i}`} style={s.reviewCard}>
-                  <View style={s.reviewHead}>
-                    <Text style={s.reviewStars}>{'★'.repeat(r.score)}<Text style={s.reviewStarsDim}>{'★'.repeat(5 - r.score)}</Text></Text>
-                    <Text style={s.reviewDate}>{fShortDate(r.createdAt)}</Text>
-                  </View>
-                  {!!r.review && <Text style={s.reviewText}>“{r.review}”</Text>}
-                  <Text style={s.reviewAuthor}>— {r.raterName}</Text>
-                </View>
-              ))}
             </View>
           )}
 
@@ -472,6 +452,25 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={18} color={colors.primary} />
           </TouchableOpacity>
 
+          {/* ── Employer reviews CTA ── */}
+          <TouchableOpacity style={s.ctaBtn} onPress={() => router.push('/reviews' as any)} activeOpacity={0.85}>
+            <View style={[s.ctaIcon, { backgroundColor: '#fef9c3' }]}>
+              <Ionicons name="star-outline" size={20} color="#b45309" />
+            </View>
+            <View style={s.ctaBody}>
+              <Text style={s.ctaTitle}>{t('mobile.profile.reviewsCta')}</Text>
+              <Text style={s.ctaSub}>
+                {(profile?.totalRatings ?? 0) > 0
+                  ? t('mobile.profile.reviewsCtaSub', {
+                      count: profile!.totalRatings,
+                      avg: Number(profile!.avgRating ?? 0).toFixed(1),
+                    })
+                  : t('mobile.profile.reviewsCtaSubEmpty')}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+          </TouchableOpacity>
+
           {/* ── Edit CTA ── */}
           <TouchableOpacity style={s.ctaBtn} onPress={() => router.push('/edit-profile' as any)} activeOpacity={0.85}>
             <View style={[s.ctaIcon, { backgroundColor: '#eef0ff' }]}>
@@ -551,26 +550,6 @@ const s = StyleSheet.create({
   },
   bioText: {
     fontSize: fontSize.body, color: colors.textPrimary, lineHeight: 22, fontStyle: 'italic',
-  },
-
-  /* Employer reviews */
-  reviewsSection: { gap: spacing.sm },
-  reviewsTitle: {
-    fontSize: fontSize.body, fontWeight: fontWeight.semibold as any,
-    color: colors.textPrimary, marginBottom: 2,
-  },
-  reviewCard: {
-    backgroundColor: '#fff', borderRadius: radius.md, padding: spacing.md,
-    shadowColor: '#000', shadowOpacity: 0.04, shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 4, elevation: 2, gap: 6,
-  },
-  reviewHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  reviewStars: { fontSize: fontSize.body, color: '#f59e0b', letterSpacing: 1 },
-  reviewStarsDim: { color: '#e5e7eb' },
-  reviewDate: { fontSize: fontSize.caption, color: colors.textSecondary },
-  reviewText: { fontSize: fontSize.body, color: colors.textPrimary, lineHeight: 21 },
-  reviewAuthor: {
-    fontSize: fontSize.caption, color: colors.textSecondary, fontWeight: fontWeight.semibold as any,
   },
 
   /* Availability master switch */
