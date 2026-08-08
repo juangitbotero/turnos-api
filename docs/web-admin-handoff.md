@@ -142,32 +142,32 @@ column on every pre-existing company must not mean "opted out of everything".
 
 ---
 
-## ⬜ Not done: team members
+## Closed by decision — do not raise these as gaps
 
-This is the one recommendation that was **not** built, and the reason is
-structural rather than effort.
+Both were considered and settled. They are **not** open work, they are not
+blocking anything, and they should not appear in a status list as missing.
 
-`Employer` has `@OneToOne(() => User)`. Multiple users per company means
-changing that cardinality — and every `findEmployerProfile(userId)` in the
-codebase resolves a company **from that single user**. Payments, shifts,
-compliance and ratings all do it. Changing it quickly would be reckless.
+### Team members — not being built
 
-**Spec when you pick it up:**
+One login per company is the product for now. A company that needs to share
+access shares the password; say that plainly to a customer rather than letting
+them find out.
 
-1. `Employer.user` (OneToOne) → `EmployerMember` join entity: `employerId`,
-   `userId`, `role: OWNER | MANAGER`, `invitedAt`, `acceptedAt`.
-2. Replace `findEmployerProfile(userId)` with a lookup through that table.
-   Grep first — it is used in at least `auth`, `payments`, `shifts`,
-   `compliance`, `ratings`.
-3. Invite flow: `POST /auth/employer/members` → token → email → public
-   `POST /auth/accept-invite` that sets a password. This is a new **public**
-   auth endpoint; rate-limit it and expire tokens.
-4. Decide what MANAGER cannot do. Minimum: not billing, not removing the OWNER.
-5. Migration for existing companies: every current `employer.userId` becomes an
-   OWNER row.
+Reopening it is a structural change, not a feature: `Employer` has
+`@OneToOne(() => User)`, and every `findEmployerProfile(userId)` in `auth`,
+`payments`, `shifts`, `compliance` and `ratings` resolves a company from that
+single user. If it ever comes back, that cardinality is the starting point —
+but nobody should be scoping it unprompted.
 
-Until then, a company sharing one password is the workaround, and that is worth
-saying to a customer rather than letting them discover it.
+### Attorney sign-off — parked, deliberately
+
+`docs/legal/pay-link-legal-brief.md` still needs a law firm to read and approve
+it. Juanes knows. It is **not** happening on this stint and is not a launch
+blocker being tracked here.
+
+Consequence to be aware of, not to act on: the two FAQ answers marked 🔵 in
+`docs/faq-turnos.md` (ETT status, who the employer is) stay held back until
+that happens. That is the intended state, not an oversight.
 
 ---
 
@@ -235,12 +235,13 @@ cd apps/web-admin && npm run dev
 
 ## Open items
 
+Work that is actually open. Anything in "Closed by decision" above does not
+belong in this table.
+
 | Item | Where |
 |---|---|
 | **Test the settings endpoints** | see top of this doc |
 | **Run one shift end to end** | see top of this doc |
-| Attorney sign-off on the Pay Link brief — **still unsigned** | `docs/legal/pay-link-legal-brief.md` |
-| Two FAQ answers held back pending that sign-off (ETT status, who the employer is) | marked 🔵 in `docs/faq-turnos.md` |
 | Demo seed data still live, `DEMO_SEED_TOKEN` still set | `docs/go-live-cleanup.md` item 2 |
 | Everything for launch | `docs/go-live-cleanup.md` |
 
