@@ -82,7 +82,7 @@ export default function DashboardPage() {
       {/* ── Sidebar ── */}
       <aside style={s.sidebar}>
         <div style={s.sidebarTop}>
-          <div style={{ padding: '8px 12px', marginBottom: 8 }}><Logo height={22} href="/dashboard" /></div>
+          <div style={{ padding: '8px 12px', marginBottom: 8 }}><Logo height={30} href="/dashboard" /></div>
           <div style={s.sidebarDivider} />
           <nav style={s.sidebarNav}>
             {SIDEBAR_NAV.map(({ Icon, key, href, soon }) => {
@@ -110,13 +110,13 @@ export default function DashboardPage() {
           </nav>
         </div>
         <div style={s.sidebarBottom}>
-          <div style={s.companyBadge}>
+          <Link href="/dashboard/settings" style={s.companyBadge}>
             <div style={s.companyAvatar}><IconBuilding size={18} /></div>
             <div>
               <div style={s.companyName}>{profile?.companyName ?? t('admin.chrome.myCompany')}</div>
               <div style={s.companyPlan}>{profile?.sector ?? '—'}</div>
             </div>
-          </div>
+          </Link>
           <Link href="/login" style={s.logoutBtn}>{t('admin.chrome.logout')}</Link>
         </div>
       </aside>
@@ -286,7 +286,7 @@ const s: Record<string, React.CSSProperties> = {
     borderTop: '1px solid var(--color-border)', paddingTop: 16,
     display: 'flex', flexDirection: 'column', gap: 12,
   },
-  companyBadge: {
+  companyBadge: { textDecoration: 'none',
     display: 'flex', alignItems: 'center', gap: 10,
     padding: '10px 12px', background: 'var(--color-bg)', borderRadius: 'var(--radius-sm)',
   },

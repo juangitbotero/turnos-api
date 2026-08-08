@@ -25,5 +25,5 @@ export const SIDEBAR_NAV = [
   { Icon: IconQr,        key: 'qrCheckIn',     href: '/dashboard/qr-codes',       soon: false },
   { Icon: IconEuro,      key: 'spending',      href: '/dashboard/spending',       soon: false },
   { Icon: IconCard,      key: 'billing',       href: '/dashboard/billing',        soon: false },
-  { Icon: IconSettings,  key: 'settings',      href: null,                        soon: true  },
+  { Icon: IconSettings,  key: 'settings',      href: '/dashboard/settings',       soon: false },
 ] as const;

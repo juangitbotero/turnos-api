@@ -342,9 +342,65 @@ export class AuthService {
         sector:           employer?.sector           ?? null,
         city:             employer?.city             ?? null,
         subscriptionTier: employer?.subscriptionTier ?? 'NONE',
+        // Everything below is for the settings screen. NIPC is returned but is
+        // NOT editable — it is the company's legal identifier and carries a
+        // unique constraint; changing it is a support operation, not a form.
+        nipc:               employer?.nipc               ?? null,
+        nif:                employer?.nif                ?? null,
+        address:            employer?.address            ?? null,
+        postalCode:         employer?.postalCode         ?? null,
+        accountantEmail:    employer?.accountantEmail    ?? null,
+        adminEmail:         employer?.user?.email        ?? null,
+        subscriptionStatus: employer?.subscriptionStatus ?? 'INACTIVE',
       };
     }
     return { userId, role };
+  }
+
+  /**
+   * Update the parts of a company profile a company may change itself.
+   *
+   * Deliberately excludes `nipc` (legal identity, unique) and anything
+   * subscription-related — those move through Stripe or support.
+   */
+  async updateEmployerProfile(userId: string, dto: {
+    companyName?: string; sector?: string; nif?: string;
+    address?: string; postalCode?: string; city?: string;
+    accountantEmail?: string;
+  }): Promise<Record<string, unknown>> {
+    if (dto.nif && !isValidNIF(dto.nif)) {
+      throw new BadRequestException(t('api.auth.nifInvalid'));
+    }
+    if (dto.postalCode && !isValidPostalCode(dto.postalCode)) {
+      throw new BadRequestException(t('api.auth.postalCodeInvalid'));
+    }
+    if (dto.accountantEmail && !dto.accountantEmail.includes('@')) {
+      throw new BadRequestException(t('api.auth.emailInvalid'));
+    }
+    await this.usersService.updateEmployerProfile(userId, dto);
+    return this.getProfile(userId, 'EMPLOYER');
+  }
+
+  /**
+   * Change the account password.
+   *
+   * Requires the current one: an unattended open session should not be enough
+   * to lock the real owner out. Refresh tokens are revoked afterwards, so other
+   * devices are signed out — the usual expectation after a password change.
+   */
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException(t('api.auth.passwordTooShort'));
+    }
+    const user = await this.usersService.findByIdWithPassword(userId);
+    if (!user?.password) throw new UnauthorizedException(t('api.auth.invalidCredentials'));
+
+    const matches = await bcrypt.compare(currentPassword, user.password);
+    if (!matches) throw new UnauthorizedException(t('api.auth.currentPasswordWrong'));
+
+    await this.usersService.setPassword(userId, await bcrypt.hash(newPassword, 12));
+    await this.redis.del(`refresh:${userId}`);
+    this.logger.log(`Password changed for user ${userId}`);
   }
 
   // ─── Private Helpers ───────────────────────────────────────────────────────

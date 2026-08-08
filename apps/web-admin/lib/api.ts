@@ -281,6 +281,15 @@ export interface EmployerProfile {
   sector: string | null;
   city: string | null;
   subscriptionTier: string;
+  // Settings fields. `nipc` and `adminEmail` are returned for display but are
+  // not editable — both are support operations. See the settings page.
+  nipc?: string | null;
+  nif?: string | null;
+  address?: string | null;
+  postalCode?: string | null;
+  accountantEmail?: string | null;
+  adminEmail?: string | null;
+  subscriptionStatus?: string;
 }
 
 export interface HiredWorker {
@@ -417,6 +426,20 @@ export const adminApi = {
 
   getMyProfile: () =>
     request<EmployerProfile>('/auth/me', { method: 'GET' }),
+
+  /** Update the company's own details (settings). */
+  updateEmployerProfile: (dto: {
+    companyName?: string; sector?: string; nif?: string;
+    address?: string; postalCode?: string; city?: string; accountantEmail?: string;
+  }) => request<EmployerProfile>('/auth/employer/profile', {
+    method: 'PATCH', body: JSON.stringify(dto),
+  }),
+
+  /** Change the account password. Signs other devices out. */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ message: string }>('/auth/change-password', {
+      method: 'POST', body: JSON.stringify({ currentPassword, newPassword }),
+    }),
 
   // Workers (admin approval queue — ADMIN only)
   getPendingWorkers: () =>

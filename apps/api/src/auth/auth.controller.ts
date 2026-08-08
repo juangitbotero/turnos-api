@@ -231,6 +231,42 @@ export class AuthController {
     return this.authService.getProfile(req.user.userId, req.user.role);
   }
 
+  // ─── Employer self-service (settings) ─────────────────────────────────────
+
+  /**
+   * Update the company's own details. Until this existed a company could not
+   * change anything after registering — including `accountantEmail`, which the
+   * SS Direta notification is sent to.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Patch('employer/profile')
+  @HttpCode(HttpStatus.OK)
+  async updateEmployerProfile(
+    @Request() req: { user: { userId: string } },
+    @Body() body: {
+      companyName?: string; sector?: string; nif?: string;
+      address?: string; postalCode?: string; city?: string;
+      accountantEmail?: string;
+    },
+  ) {
+    return this.authService.updateEmployerProfile(req.user.userId, body);
+  }
+
+  /** Change the account password. Signs other sessions out. */
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async changePassword(
+    @Request() req: { user: { userId: string } },
+    @Body() body: { currentPassword: string; newPassword: string },
+  ) {
+    await this.authService.changePassword(
+      req.user.userId, body.currentPassword, body.newPassword,
+    );
+    return { message: 'ok' };
+  }
+
   // ─── Push Notifications ───────────────────────────────────────────────────
 
   @UseGuards(JwtAuthGuard)

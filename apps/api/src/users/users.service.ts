@@ -71,6 +71,45 @@ export class UsersService {
     });
   }
 
+  /**
+   * Update a company's own details.
+   *
+   * Undefined fields are left alone so a partial form submit cannot blank out
+   * something it never showed. `nipc` is absent by design — see the caller.
+   */
+  async updateEmployerProfile(userId: string, dto: {
+    companyName?: string; sector?: string; nif?: string;
+    address?: string; postalCode?: string; city?: string;
+    accountantEmail?: string;
+  }): Promise<void> {
+    const employer = await this.employerRepo.findOne({ where: { user: { id: userId } } });
+    if (!employer) throw new NotFoundException('Employer profile not found');
+
+    const patch: Partial<Employer> = {};
+    for (const key of ['companyName', 'sector', 'nif', 'address', 'postalCode', 'city', 'accountantEmail'] as const) {
+      const value = dto[key];
+      if (value !== undefined) (patch as Record<string, unknown>)[key] = value.trim() || null;
+    }
+    if (Object.keys(patch).length === 0) return;
+
+    await this.employerRepo.update(employer.id, patch);
+  }
+
+  /**
+   * The password column is `select: false`, so a normal find never returns it —
+   * it has to be asked for explicitly.
+   */
+  async findByIdWithPassword(userId: string): Promise<User | null> {
+    return this.userRepo.findOne({
+      where: { id: userId },
+      select: ['id', 'email', 'password', 'role'],
+    });
+  }
+
+  async setPassword(userId: string, passwordHash: string): Promise<void> {
+    await this.userRepo.update(userId, { password: passwordHash });
+  }
+
   // ─── Worker Creation ───────────────────────────────────────────────────────
 
   async createWorker(phone: string): Promise<User> {

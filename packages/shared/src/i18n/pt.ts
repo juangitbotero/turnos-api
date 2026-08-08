@@ -999,6 +999,72 @@ export const pt = {
       empty: 'Ainda sem avaliações escritas.',
     },
 
+    settings: {
+      title: 'Definições',
+      sub:   'A tua conta, os teus dados e o teu plano.',
+
+      // ── Account details ──
+      accountTitle: 'Dados da conta',
+      accountSub:   'Estes dados aparecem nos contratos MCD e nas comunicações à Segurança Social.',
+      labelCompany:    'Nome da empresa',
+      labelSector:     'Sector',
+      labelNipc:       'NIPC',
+      nipcLocked:      'O NIPC identifica legalmente a empresa e não pode ser alterado aqui. Contacta o suporte se estiver errado.',
+      labelNif:        'NIF do representante',
+      labelAddress:    'Morada',
+      labelPostal:     'Código postal',
+      labelCity:       'Cidade',
+      labelAdminEmail: 'Email de acesso',
+      adminEmailLocked:'É com este email que entras na Turnos. Contacta o suporte para o alterar.',
+      labelAccountant: 'Email do contabilista',
+      accountantHint:  'Para onde enviamos a notificação de Segurança Social antes de cada turno. Se ficar vazio, enviamos para o email de acesso.',
+      save:            'Guardar alterações',
+      saving:          'A guardar...',
+      saved:           'Alterações guardadas.',
+      saveError:       'Não foi possível guardar. Tenta novamente.',
+
+      // ── Password ──
+      passwordTitle:   'Palavra-passe',
+      passwordSub:     'Ao alterares a palavra-passe, as sessões noutros dispositivos terminam.',
+      labelCurrent:    'Palavra-passe atual',
+      labelNew:        'Nova palavra-passe',
+      labelConfirm:    'Confirmar nova palavra-passe',
+      passwordHint:    'Mínimo 8 caracteres.',
+      changePassword:  'Alterar palavra-passe',
+      changing:        'A alterar...',
+      passwordChanged: 'Palavra-passe alterada. Vais precisar de entrar de novo nos outros dispositivos.',
+      passwordMismatch:'As palavras-passe não coincidem.',
+
+      // ── Plan ──
+      planTitle:    'O teu plano',
+      planStarter:  'Turnos Starter',
+      planNone:     'Sem plano ativo',
+      planActive:   'Ativo',
+      planInactive: 'Inativo',
+      planPrice:    '45€/mês + 3€ por turno concluído',
+      planManage:   'Gerir subscrição →',
+      benefit1:     'Até 15 turnos abertos em simultâneo',
+      benefit2:     'Pesquisa de trabalhadores e convites diretos',
+      benefit3:     'Contratos MCD e comunicação à Segurança Social automáticas',
+      benefit4:     'Check-in por QR e conclusão automática do turno',
+      benefit5:     'Relatórios prontos para a contabilidade',
+
+      // ── Support ──
+      supportTitle: 'Suporte',
+      supportSub:   'Respondemos em dias úteis, normalmente no próprio dia.',
+      supportEmail: 'Escrever ao suporte',
+      supportNote:  'Para alterar o NIPC, o email de acesso ou cancelar a conta, fala connosco.',
+
+      // ── Legal ──
+      legalTitle:   'Conta e privacidade',
+      legalTerms:   'Termos de utilização',
+      legalPrivacy: 'Política de privacidade e RGPD',
+      legalFaq:     'Perguntas frequentes',
+      legalData:    'Pedir uma cópia dos meus dados',
+      legalDelete:  'Pedir a eliminação da conta',
+      legalNote:    'O RGPD dá-te direito de acesso e de eliminação dos teus dados. Tratamos qualquer pedido em 30 dias.',
+    },
+
     billing: {
       title: 'Faturação',
       sub:   'Gerir o teu plano de subscrição Turnos',
@@ -1704,6 +1770,9 @@ export const pt = {
       noImage:            'Nenhuma imagem fornecida.',
       cvFormat:           'O CV tem de ser um ficheiro PDF ou Word (.doc/.docx).',
       noFile:             'Nenhum ficheiro fornecido.',
+      emailInvalid:        'Email inválido.',
+      passwordTooShort:    'A palavra-passe deve ter pelo menos 8 caracteres.',
+      currentPasswordWrong:'A palavra-passe atual está incorreta.',
       pushTokenMissing:   'Token inválido.',
     },
 

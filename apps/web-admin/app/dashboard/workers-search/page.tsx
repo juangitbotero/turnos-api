@@ -318,7 +318,7 @@ export default function WorkersSearchPage() {
       {/* Sidebar */}
       <aside style={s.sidebar}>
         <div style={s.sidebarTop}>
-          <div style={s.logoWrap}><Logo height={22} href="/dashboard" /></div>
+          <div style={s.logoWrap}><Logo height={30} href="/dashboard" /></div>
           <div style={s.divider} />
           <nav style={s.nav}>
             {SIDEBAR_NAV.map(({ Icon, key, href, soon }) => {
