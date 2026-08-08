@@ -290,6 +290,8 @@ export interface EmployerProfile {
   accountantEmail?: string | null;
   adminEmail?: string | null;
   subscriptionStatus?: string;
+  logoUrl?: string | null;
+  notificationPrefs?: { ratingReminders: boolean; wageReminders: boolean };
 }
 
 export interface HiredWorker {
@@ -431,9 +433,17 @@ export const adminApi = {
   updateEmployerProfile: (dto: {
     companyName?: string; sector?: string; nif?: string;
     address?: string; postalCode?: string; city?: string; accountantEmail?: string;
+    notificationPrefs?: { ratingReminders?: boolean; wageReminders?: boolean };
   }) => request<EmployerProfile>('/auth/employer/profile', {
     method: 'PATCH', body: JSON.stringify(dto),
   }),
+
+  /** Upload the company logo. FormData — request() skips the JSON header. */
+  uploadEmployerLogo: (file: File) => {
+    const form = new FormData();
+    form.append('logo', file);
+    return request<{ logoUrl: string }>('/auth/employer/logo', { method: 'POST', body: form });
+  },
 
   /** Change the account password. Signs other devices out. */
   changePassword: (currentPassword: string, newPassword: string) =>

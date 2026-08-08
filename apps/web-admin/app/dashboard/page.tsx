@@ -111,7 +111,11 @@ export default function DashboardPage() {
         </div>
         <div style={s.sidebarBottom}>
           <Link href="/dashboard/settings" style={s.companyBadge}>
-            <div style={s.companyAvatar}><IconBuilding size={18} /></div>
+            <div style={s.companyAvatar}>
+              {profile?.logoUrl
+                ? <img src={profile.logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />
+                : <IconBuilding size={18} />}
+            </div>
             <div>
               <div style={s.companyName}>{profile?.companyName ?? t('admin.chrome.myCompany')}</div>
               <div style={s.companyPlan}>{profile?.sector ?? '—'}</div>
@@ -290,7 +294,7 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex', alignItems: 'center', gap: 10,
     padding: '10px 12px', background: 'var(--color-bg)', borderRadius: 'var(--radius-sm)',
   },
-  companyAvatar: {
+  companyAvatar: { overflow: 'hidden',
     width: 36, height: 36,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     background: 'var(--color-primary-light)', borderRadius: 'var(--radius-sm)', flexShrink: 0,

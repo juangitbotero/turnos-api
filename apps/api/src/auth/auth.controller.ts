@@ -252,6 +252,30 @@ export class AuthController {
     return this.authService.updateEmployerProfile(req.user.userId, body);
   }
 
+  /** Company logo (image, max 5 MB). Mirrors the worker-photo upload. */
+  @UseGuards(JwtAuthGuard)
+  @Post('employer/logo')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('logo', {
+    storage: memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (!file.mimetype.startsWith('image/')) {
+        cb(new BadRequestException(t('api.auth.imagesOnly')), false);
+      } else {
+        cb(null, true);
+      }
+    },
+  }))
+  async uploadEmployerLogo(
+    @Request() req: { user: { userId: string } },
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException(t('api.auth.noImage'));
+    const logoUrl = await this.authService.uploadEmployerLogo(req.user.userId, file);
+    return { logoUrl };
+  }
+
   /** Change the account password. Signs other sessions out. */
   @UseGuards(JwtAuthGuard)
   @Post('change-password')

@@ -1049,6 +1049,24 @@ export const pt = {
       benefit4:     'Check-in por QR e conclusão automática do turno',
       benefit5:     'Relatórios prontos para a contabilidade',
 
+      // ── Logo ──
+      logoTitle:    'Logótipo da empresa',
+      logoSub:      'Aparece no teu painel e, em breve, nos turnos que os trabalhadores veem.',
+      logoUpload:   'Carregar logótipo',
+      logoChange:   'Alterar logótipo',
+      logoUploading:'A carregar...',
+      logoHint:     'PNG ou JPG, até 5 MB. Um quadrado fica melhor.',
+      logoError:    'Não foi possível carregar o logótipo.',
+
+      // ── Notifications ──
+      notifTitle:   'Notificações por email',
+      notifSub:     'Escolhe o que queres receber. Os emails essenciais são sempre enviados.',
+      notifRating:  'Lembretes para avaliar trabalhadores',
+      notifRatingSub:'Enviado algumas horas depois de um turno terminar, se ainda não avaliaste.',
+      notifWage:    'Lembretes de pagamentos pendentes',
+      notifWageSub: 'Enviados às 8h, 24h e 48h. O aviso final às 48h é sempre enviado — depois dele, a publicação de turnos é suspensa.',
+      notifAlways:  'Sempre ativo',
+
       // ── Support ──
       supportTitle: 'Suporte',
       supportSub:   'Respondemos em dias úteis, normalmente no próprio dia.',

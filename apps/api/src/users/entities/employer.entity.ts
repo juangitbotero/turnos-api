@@ -48,6 +48,20 @@ export class Employer {
   @Column({ type: 'varchar', length: 255, nullable: true })
   accountantEmail?: string;         // Email of employer's accountant for SS Direta notifications
 
+  /**
+   * Which optional emails this company wants.
+   *
+   * Only covers mail a company can reasonably live without. Deliberately NOT
+   * here: the email-verification link (transactional), the Segurança Social
+   * notification (a legal obligation, and it goes to the accountant anyway),
+   * and the FINAL unpaid-wage warning — that one precedes posting being
+   * blocked, so silencing it would let a company be locked out with no notice.
+   *
+   * Absent (legacy rows) means "everything on" — see notificationPrefsOf().
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  notificationPrefs?: { ratingReminders?: boolean; wageReminders?: boolean } | null;
+
   // ── Billing & Subscription ────────────────────────────────────────────────
   @Column({
     type: 'enum',

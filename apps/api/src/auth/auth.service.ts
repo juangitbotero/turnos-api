@@ -16,6 +16,7 @@ import {
   WorkerExperience, normalizeSkills,
 } from '@turnos/shared';
 import { t } from '../i18n/request-language';
+import { notificationPrefsOf } from '../users/notification-prefs';
 
 const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
@@ -276,6 +277,14 @@ export class AuthService {
     return photoUrl;
   }
 
+  /** Company logo. Shown in the dashboard chrome, and on shift cards later. */
+  async uploadEmployerLogo(userId: string, file: Express.Multer.File): Promise<string> {
+    const logoUrl = await this.storage.uploadPhoto(file.buffer, file.mimetype, 'employer-logos');
+    await this.usersService.updateEmployerProfile(userId, { logoUrl });
+    this.logger.log(`Employer ${userId} logo updated`);
+    return logoUrl;
+  }
+
   async uploadWorkerCv(userId: string, file: Express.Multer.File): Promise<{
     cvUrl: string | null; cvFileName: string | null; profileQualityScore: number;
   }> {
@@ -352,6 +361,10 @@ export class AuthService {
         accountantEmail:    employer?.accountantEmail    ?? null,
         adminEmail:         employer?.user?.email        ?? null,
         subscriptionStatus: employer?.subscriptionStatus ?? 'INACTIVE',
+        logoUrl:            employer?.logoUrl            ?? null,
+        // Unset fields default to ON — a null column must not read as
+        // "opted out of everything" for companies that predate the feature.
+        notificationPrefs:  notificationPrefsOf(employer),
       };
     }
     return { userId, role };
@@ -367,6 +380,7 @@ export class AuthService {
     companyName?: string; sector?: string; nif?: string;
     address?: string; postalCode?: string; city?: string;
     accountantEmail?: string;
+    notificationPrefs?: { ratingReminders?: boolean; wageReminders?: boolean };
   }): Promise<Record<string, unknown>> {
     if (dto.nif && !isValidNIF(dto.nif)) {
       throw new BadRequestException(t('api.auth.nifInvalid'));

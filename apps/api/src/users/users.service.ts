@@ -81,14 +81,21 @@ export class UsersService {
     companyName?: string; sector?: string; nif?: string;
     address?: string; postalCode?: string; city?: string;
     accountantEmail?: string;
+    notificationPrefs?: { ratingReminders?: boolean; wageReminders?: boolean };
+    logoUrl?: string;
   }): Promise<void> {
     const employer = await this.employerRepo.findOne({ where: { user: { id: userId } } });
     if (!employer) throw new NotFoundException('Employer profile not found');
 
     const patch: Partial<Employer> = {};
-    for (const key of ['companyName', 'sector', 'nif', 'address', 'postalCode', 'city', 'accountantEmail'] as const) {
+    for (const key of ['companyName', 'sector', 'nif', 'address', 'postalCode', 'city', 'accountantEmail', 'logoUrl'] as const) {
       const value = dto[key];
       if (value !== undefined) (patch as Record<string, unknown>)[key] = value.trim() || null;
+    }
+    // Merged, not replaced: a client sending only one switch must not blank the
+    // other back to its default.
+    if (dto.notificationPrefs !== undefined) {
+      patch.notificationPrefs = { ...(employer.notificationPrefs ?? {}), ...dto.notificationPrefs };
     }
     if (Object.keys(patch).length === 0) return;
 

@@ -242,6 +242,21 @@ export const IconBox = ({ size = 16, style }: IconProps) => (
   </svg>
 );
 
+export const IconImage = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+    <circle cx="8.5" cy="9.5" r="1.6" />
+    <path d="M4 17l4.5-4.5 3.5 3.5 3-2.5L20 17" />
+  </svg>
+);
+
+export const IconMonitor = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <rect x="3" y="4" width="18" height="12" rx="2" />
+    <path d="M8 20h8M12 16v4" />
+  </svg>
+);
+
 export const IconChevron = ({ size = 14, style }: IconProps) => (
   <svg {...base(size)} style={style}>
     <path d="M6 9l6 6 6-6" />

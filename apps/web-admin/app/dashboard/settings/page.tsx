@@ -23,6 +23,7 @@ import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 import { Logo } from '../../../components/Logo';
 import {
   IconBuilding, IconShield, IconCheck, IconHeadset, IconCard, IconUser,
+  IconImage, IconBell,
 } from '../../../components/icons';
 
 const SUPPORT_EMAIL = 'suporte@turnos.pt';
@@ -40,6 +41,9 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
+
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoError, setLogoError] = useState('');
 
   const [pw, setPw] = useState({ current: '', next: '', confirm: '' });
   const [pwBusy, setPwBusy] = useState(false);
@@ -98,6 +102,38 @@ export default function SettingsPage() {
     }
   };
 
+  const handleLogo = async (file: File) => {
+    setLogoBusy(true); setLogoError('');
+    try {
+      const { logoUrl } = await adminApi.uploadEmployerLogo(file);
+      setProfile(p => (p ? { ...p, logoUrl } : p));
+    } catch (err) {
+      setLogoError(err instanceof ApiError ? err.message : t('admin.settings.logoError'));
+    } finally {
+      setLogoBusy(false);
+    }
+  };
+
+  /**
+   * Preferences save on toggle — no separate save button for a switch.
+   * Optimistic, and reverted from the server response if the call fails.
+   */
+  const savePrefs = async (patch: { ratingReminders?: boolean; wageReminders?: boolean }) => {
+    const previous = profile;
+    setProfile(p => (p ? { ...p, notificationPrefs: { ...prefs, ...patch } } : p));
+    try {
+      setProfile(await adminApi.updateEmployerProfile({ notificationPrefs: patch }));
+    } catch {
+      setProfile(previous);
+    }
+  };
+
+  // Unset means ON — matches notificationPrefsOf on the server.
+  const prefs = {
+    ratingReminders: profile?.notificationPrefs?.ratingReminders ?? true,
+    wageReminders:   profile?.notificationPrefs?.wageReminders   ?? true,
+  };
+
   const planActive = profile?.subscriptionStatus === 'ACTIVE';
 
   return (
@@ -131,7 +167,11 @@ export default function SettingsPage() {
         </div>
         <div style={s.sidebarBottom}>
           <Link href="/dashboard/settings" style={s.companyBadge}>
-            <div style={s.companyAvatar}><IconBuilding size={18} /></div>
+            <div style={s.companyAvatar}>
+              {profile?.logoUrl
+                ? <img src={profile.logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />
+                : <IconBuilding size={18} />}
+            </div>
             <div>
               <div style={s.companyName}>{profile?.companyName ?? t('admin.chrome.myCompany')}</div>
               <div style={s.companyPlan}>{profile?.sector ? tSector(profile.sector) : '—'}</div>
@@ -288,6 +328,60 @@ export default function SettingsPage() {
             </form>
           </section>
 
+          {/* ── Logo ── */}
+          <section style={s.card}>
+            <div style={s.cardHead}>
+              <span style={s.cardIcon}><IconImage size={18} /></span>
+              <div>
+                <h2 style={s.cardTitle}>{t('admin.settings.logoTitle')}</h2>
+                <p style={s.cardSub}>{t('admin.settings.logoSub')}</p>
+              </div>
+            </div>
+            <div style={s.logoRow}>
+              <div style={s.logoPreview}>
+                {profile?.logoUrl
+                  ? <img src={profile.logoUrl} alt="" style={s.logoImg} />
+                  : <IconBuilding size={26} />}
+              </div>
+              <div>
+                <label style={s.uploadBtn}>
+                  {logoBusy ? t('admin.settings.logoUploading')
+                    : profile?.logoUrl ? t('admin.settings.logoChange')
+                    : t('admin.settings.logoUpload')}
+                  <input
+                    type="file" accept="image/*" hidden disabled={logoBusy}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) void handleLogo(f); }}
+                  />
+                </label>
+                <p style={s.hint}>{t('admin.settings.logoHint')}</p>
+                {logoError && <span style={s.err}>{logoError}</span>}
+              </div>
+            </div>
+          </section>
+
+          {/* ── Notifications ── */}
+          <section style={s.card}>
+            <div style={s.cardHead}>
+              <span style={s.cardIcon}><IconBell size={18} /></span>
+              <div>
+                <h2 style={s.cardTitle}>{t('admin.settings.notifTitle')}</h2>
+                <p style={s.cardSub}>{t('admin.settings.notifSub')}</p>
+              </div>
+            </div>
+            <Toggle
+              on={prefs.ratingReminders}
+              onChange={v => savePrefs({ ratingReminders: v })}
+              title={t('admin.settings.notifRating')}
+              sub={t('admin.settings.notifRatingSub')}
+            />
+            <Toggle
+              on={prefs.wageReminders}
+              onChange={v => savePrefs({ wageReminders: v })}
+              title={t('admin.settings.notifWage')}
+              sub={t('admin.settings.notifWageSub')}
+            />
+          </section>
+
           {/* ── Support ── */}
           <section style={s.card}>
             <div style={s.cardHead}>
@@ -320,6 +414,29 @@ export default function SettingsPage() {
           </section>
         </div>
       </main>
+    </div>
+  );
+}
+
+/** A labelled on/off row. Saves immediately — a switch with a Save button reads as broken. */
+function Toggle({ on, onChange, title, sub }: {
+  on: boolean; onChange: (v: boolean) => void; title: string; sub: string;
+}) {
+  return (
+    <div style={s.toggleRow}>
+      <div style={{ flex: 1 }}>
+        <div style={s.toggleTitle}>{title}</div>
+        <div style={s.toggleSub}>{sub}</div>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        onClick={() => onChange(!on)}
+        style={{ ...s.switch, ...(on ? s.switchOn : {}) }}
+      >
+        <span style={{ ...s.knob, ...(on ? s.knobOn : {}) }} />
+      </button>
     </div>
   );
 }
@@ -366,7 +483,7 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
     borderRadius: 10, background: 'var(--color-secondary)', textDecoration: 'none',
   },
-  companyAvatar: {
+  companyAvatar: { overflow: 'hidden',
     width: 36, height: 36, color: 'var(--color-primary)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     background: 'var(--color-primary-light)', borderRadius: 8, flexShrink: 0,
@@ -445,6 +562,34 @@ const s: Record<string, React.CSSProperties> = {
   },
   note: { fontSize: 12, color: 'var(--color-text-muted)', lineHeight: 1.6, marginTop: 12 },
   legalList: { display: 'flex', flexDirection: 'column', gap: 2 },
+  logoRow: { display: 'flex', gap: 16, alignItems: 'flex-start' },
+  logoPreview: {
+    width: 72, height: 72, borderRadius: 12, flexShrink: 0, overflow: 'hidden',
+    background: 'var(--color-primary-light)', color: 'var(--color-primary)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  logoImg: { width: '100%', height: '100%', objectFit: 'cover' },
+  uploadBtn: {
+    display: 'inline-block', padding: '9px 16px', borderRadius: 'var(--radius-full)',
+    border: '1.5px solid var(--color-border)', cursor: 'pointer',
+    fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 6,
+  },
+  toggleRow: {
+    display: 'flex', alignItems: 'flex-start', gap: 16, padding: '14px 0',
+    borderTop: '1px solid var(--color-border)',
+  },
+  toggleTitle: { fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)' },
+  toggleSub: { fontSize: 12, color: 'var(--color-text-secondary)', lineHeight: 1.55, marginTop: 3 },
+  switch: {
+    flexShrink: 0, width: 42, height: 24, borderRadius: 20, border: 'none',
+    background: '#d8dbe3', cursor: 'pointer', padding: 3, transition: 'background .15s',
+  },
+  switchOn: { background: 'var(--color-primary)' },
+  knob: {
+    display: 'block', width: 18, height: 18, borderRadius: '50%',
+    background: '#fff', transition: 'transform .15s',
+  },
+  knobOn: { transform: 'translateX(18px)' },
   legalLink: {
     padding: '9px 0', fontSize: 13.5, fontWeight: 600,
     color: 'var(--color-text-primary)', textDecoration: 'none',

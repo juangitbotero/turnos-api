@@ -36,6 +36,7 @@ import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../storage/storage.service';
 import { t } from '../i18n/request-language';
+import { notificationPrefsOf } from '../users/notification-prefs';
 
 /**
  * Gross-up basis (Stripe EEA pricing).
@@ -751,6 +752,8 @@ export class WagePaymentsService {
        ${wage.payLinkUrl ? `<p><a href="${wage.payLinkUrl}">Pagar agora →</a></p>`
                          : `<p>Método escolhido: ${wage.paymentMethod}. Depois de pagares, marca como pago no dashboard.</p>`}
        ${isFinalWarning ? '<p><strong>Se o pagamento não for regularizado nas próximas 24 horas, a publicação de novos turnos será suspensa.</strong></p>' : ''}`,
+      // The final warning ignores the notification preference — see emailEmployer.
+      isFinalWarning,
     );
 
     // Schedule the next step
@@ -789,13 +792,25 @@ export class WagePaymentsService {
     );
   }
 
-  private async emailEmployer(wage: WagePayment, subject: string, html: string): Promise<void> {
+  /**
+   * @param alwaysSend bypasses the company's notification preference. Used for
+   *   the final warning: the next step after it is `assertCanPostShift`
+   *   refusing to publish, and being locked out with no warning would be worse
+   *   than an unwanted email.
+   */
+  private async emailEmployer(
+    wage: WagePayment, subject: string, html: string, alwaysSend = false,
+  ): Promise<void> {
     const employer = await this.employerRepo.findOne({
       where: { id: wage.employerId },
       relations: ['user'],
     });
     const to = employer?.user?.email;
     if (!to) return;
+    if (!alwaysSend && !notificationPrefsOf(employer).wageReminders) {
+      this.logger.log(`[Wage] Reminder suppressed by preference for employer ${wage.employerId}`);
+      return;
+    }
     await this.mail.sendMail({ to, subject, html });
   }
 }

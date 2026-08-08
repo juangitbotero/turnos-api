@@ -19,6 +19,7 @@ import { Shift, ShiftStatus } from '../shifts/entities/shift.entity';
 import { User } from '../users/entities/user.entity';
 import { MailService } from '../mail/mail.service';
 import { t } from '../i18n/request-language';
+import { notificationPrefsOf } from '../users/notification-prefs';
 import { BADGE_THRESHOLDS } from '@turnos/shared';
 
 export interface CreateRatingDto {
@@ -517,7 +518,19 @@ export class RatingsService {
       workerPushToken = worker?.expoPushToken ?? null;
     }
 
-    return { remindEmployer: !employerRated, workerPushToken };
+    // A company that switched rating reminders off in settings is not nudged.
+    // Gated here rather than in the processor so the preference applies to
+    // every caller of this method, not just the one that exists today.
+    let employerWantsReminder = true;
+    if (!employerRated) {
+      const shift = await this.shiftRepo.findOne({
+        where: { id: data.shiftId },
+        relations: ['employer'],
+      });
+      employerWantsReminder = notificationPrefsOf(shift?.employer).ratingReminders;
+    }
+
+    return { remindEmployer: !employerRated && employerWantsReminder, workerPushToken };
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

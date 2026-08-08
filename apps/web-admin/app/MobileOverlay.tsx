@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useT } from '../lib/i18n';
+import { IconMonitor } from '../components/icons';
 
 const STORAGE_KEY = 'turnos_mobile_overlay_dismissed';
 
@@ -24,7 +25,7 @@ export default function MobileOverlay() {
   return (
     <div style={s.backdrop}>
       <div style={s.card}>
-        <div style={s.icon}>💻</div>
+        <div style={s.icon}><IconMonitor size={34} /></div>
         <h2 style={s.title}>{t('admin.mobileOverlay.title')}</h2>
         <p style={s.body}>{t('admin.mobileOverlay.body')}</p>
         <button style={s.continueBtn} onClick={dismiss}>
@@ -56,7 +57,7 @@ const s: Record<string, React.CSSProperties> = {
     textAlign: 'center',
     boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
   },
-  icon: {
+  icon: { color: 'var(--color-primary)', display: 'flex', justifyContent: 'center',
     fontSize: '48px',
     marginBottom: '16px',
   },

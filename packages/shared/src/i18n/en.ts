@@ -1039,6 +1039,22 @@ export const en: Translated<TranslationCatalogue> = {
       benefit4:     'QR check-in and automatic shift completion',
       benefit5:     'Accounting-ready reports',
 
+      logoTitle:    'Company logo',
+      logoSub:      'Shown in your dashboard and, soon, on the shifts workers see.',
+      logoUpload:   'Upload logo',
+      logoChange:   'Change logo',
+      logoUploading:'Uploading...',
+      logoHint:     'PNG or JPG, up to 5 MB. A square works best.',
+      logoError:    'Could not upload the logo.',
+
+      notifTitle:   'Email notifications',
+      notifSub:     'Choose what you receive. Essential emails are always sent.',
+      notifRating:  'Reminders to rate workers',
+      notifRatingSub:'Sent a few hours after a shift ends, if you have not rated yet.',
+      notifWage:    'Pending payment reminders',
+      notifWageSub: 'Sent at 8h, 24h and 48h. The final 48h warning always sends — after it, shift posting is suspended.',
+      notifAlways:  'Always on',
+
       supportTitle: 'Support',
       supportSub:   'We reply on working days, usually the same day.',
       supportEmail: 'Email support',
