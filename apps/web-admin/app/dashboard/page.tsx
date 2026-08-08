@@ -8,6 +8,7 @@ import { SIDEBAR_NAV } from '../../lib/nav';
 import { useT } from '../../lib/i18n';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import { Logo } from '../../components/Logo';
+import { IconClipboard, IconBolt, IconUsers, IconAlert, IconSearch, IconQr, IconBuilding } from '../../components/icons';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function DashboardPage() {
 
   const kpiCards = [
     {
-      icon: '📋', label: t('admin.home.kpiActive'), color: 'var(--color-primary)',
+      Icon: IconClipboard, label: t('admin.home.kpiActive'), color: 'var(--color-primary)',
       value: String(activeShifts.length),
       sub: t('admin.home.kpiActiveSub', {
         open: openShifts.length === 1
@@ -50,7 +51,7 @@ export default function DashboardPage() {
       href: '/dashboard/shifts',
     },
     {
-      icon: '⚡', label: t('admin.home.kpiAwaiting'), color: '#d97706',
+      Icon: IconBolt, label: t('admin.home.kpiAwaiting'), color: '#d97706',
       value: String(pendingApproval.length),
       sub: pendingApproval.length === 0
         ? t('admin.home.kpiAwaitingNone')
@@ -58,7 +59,7 @@ export default function DashboardPage() {
       href: '/dashboard/shifts',
     },
     {
-      icon: '⏳', label: t('admin.home.kpiApplicants'), color: 'var(--color-success)',
+      Icon: IconUsers, label: t('admin.home.kpiApplicants'), color: 'var(--color-success)',
       value: String(openShifts.length),
       sub: openShifts.length === 0
         ? t('admin.home.kpiApplicantsNone')
@@ -66,7 +67,7 @@ export default function DashboardPage() {
       href: '/dashboard/shifts',
     },
     {
-      icon: '⚠️', label: t('admin.home.kpiExpired'), color: '#ef4444',
+      Icon: IconAlert, label: t('admin.home.kpiExpired'), color: '#ef4444',
       value: String(expiredShifts.length),
       sub: expiredShifts.length === 0
         ? t('admin.home.kpiExpiredNone')
@@ -84,13 +85,13 @@ export default function DashboardPage() {
           <div style={{ padding: '8px 12px', marginBottom: 8 }}><Logo height={22} href="/dashboard" /></div>
           <div style={s.sidebarDivider} />
           <nav style={s.sidebarNav}>
-            {SIDEBAR_NAV.map(({ icon, key, href, soon }) => {
+            {SIDEBAR_NAV.map(({ Icon, key, href, soon }) => {
               const isActive = href === '/dashboard';
               const label = t(`admin.nav.${key}`);
               if (soon || !href) {
                 return (
                   <div key={key} style={{ ...s.sidebarItem, ...s.sidebarItemDisabled }}>
-                    <span style={s.sidebarIcon}>{icon}</span>
+                    <span style={s.sidebarIcon}><Icon size={17} /></span>
                     <span>{label}</span>
                     <span style={s.soonPill}>{t('admin.chrome.soon')}</span>
                   </div>
@@ -100,7 +101,7 @@ export default function DashboardPage() {
                 <Link key={href} href={href}
                   style={{ ...s.sidebarItem, ...(isActive ? s.sidebarItemActive : {}) }}
                 >
-                  <span style={s.sidebarIcon}>{icon}</span>
+                  <span style={s.sidebarIcon}><Icon size={17} /></span>
                   <span>{label}</span>
                   {isActive && <span style={s.activeIndicator} />}
                 </Link>
@@ -110,7 +111,7 @@ export default function DashboardPage() {
         </div>
         <div style={s.sidebarBottom}>
           <div style={s.companyBadge}>
-            <div style={s.companyAvatar}>🏢</div>
+            <div style={s.companyAvatar}><IconBuilding size={18} /></div>
             <div>
               <div style={s.companyName}>{profile?.companyName ?? t('admin.chrome.myCompany')}</div>
               <div style={s.companyPlan}>{profile?.sector ?? '—'}</div>
@@ -143,10 +144,10 @@ export default function DashboardPage() {
 
         {/* KPI cards */}
         <section style={s.kpiGrid}>
-          {kpiCards.map(({ icon, label, value, sub, color, href }) => (
+          {kpiCards.map(({ Icon, label, value, sub, color, href }) => (
             <Link key={label} href={href} style={{ textDecoration: 'none' }}>
               <div style={s.kpiCard}>
-                <div style={{ ...s.kpiIcon, background: `${color}18`, color }}>{icon}</div>
+                <div style={{ ...s.kpiIcon, background: `${color}18`, color }}><Icon size={19} /></div>
                 <div>
                   <div style={s.kpiValue}>{value}</div>
                   <div style={s.kpiLabel}>{label}</div>
@@ -160,22 +161,22 @@ export default function DashboardPage() {
         {/* Quick actions */}
         <section style={s.quickActions}>
           <QuickAction
-            icon="📋" title={t('admin.home.actionPostTitle')}
+            Icon={IconClipboard} title={t('admin.home.actionPostTitle')}
             desc={t('admin.home.actionPostDesc')}
             cta={t('admin.home.actionPostCta')} href="/dashboard/new-shift" primary
           />
           <QuickAction
-            icon="🔍" title={t('admin.home.actionSearchTitle')}
+            Icon={IconSearch} title={t('admin.home.actionSearchTitle')}
             desc={t('admin.home.actionSearchDesc')}
             cta={t('admin.home.actionSearchCta')} href="/dashboard/workers-search"
           />
           <QuickAction
-            icon="👷" title={t('admin.home.actionWorkersTitle')}
+            Icon={IconUsers} title={t('admin.home.actionWorkersTitle')}
             desc={t('admin.home.actionWorkersDesc')}
             cta={t('admin.home.actionWorkersCta')} href="/dashboard/workers"
           />
           <QuickAction
-            icon="📲" title={t('admin.home.actionQrTitle')}
+            Icon={IconQr} title={t('admin.home.actionQrTitle')}
             desc={t('admin.home.actionQrDesc')}
             cta={t('admin.home.actionQrCta')} href="/dashboard/qr-codes"
           />
@@ -186,13 +187,14 @@ export default function DashboardPage() {
   );
 }
 
-function QuickAction({ icon, title, desc, cta, href, primary }: {
-  icon: string; title: string; desc: string; cta: string; href: string; primary?: boolean;
+function QuickAction({ Icon, title, desc, cta, href, primary }: {
+  Icon: (p: { size?: number }) => React.ReactElement;
+  title: string; desc: string; cta: string; href: string; primary?: boolean;
 }) {
   return (
     <Link href={href} style={{ textDecoration: 'none' }}>
       <div style={{ ...qa.card, ...(primary ? qa.cardPrimary : {}) }}>
-        <span style={qa.icon}>{icon}</span>
+        <span style={qa.icon}><Icon size={20} /></span>
         <div style={qa.body}>
           <div style={qa.title}>{title}</div>
           <div style={qa.desc}>{desc}</div>
@@ -269,7 +271,7 @@ const s: Record<string, React.CSSProperties> = {
     color: 'var(--color-primary)', fontWeight: 700,
   },
   sidebarItemDisabled: { opacity: 0.45, cursor: 'default' },
-  sidebarIcon: { fontSize: 16, width: 20, textAlign: 'center' },
+  sidebarIcon: { width: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   activeIndicator: {
     marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%',
     background: 'var(--color-primary)',
@@ -289,7 +291,7 @@ const s: Record<string, React.CSSProperties> = {
     padding: '10px 12px', background: 'var(--color-bg)', borderRadius: 'var(--radius-sm)',
   },
   companyAvatar: {
-    fontSize: 24, width: 36, height: 36,
+    width: 36, height: 36,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     background: 'var(--color-primary-light)', borderRadius: 'var(--radius-sm)', flexShrink: 0,
   },

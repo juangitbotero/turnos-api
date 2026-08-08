@@ -182,6 +182,66 @@ export const IconBuilding = ({ size = 16, style }: IconProps) => (
   </svg>
 );
 
+export const IconHome = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M4 10.5L12 4l8 6.5" /><path d="M6 9.8V20h12V9.8" /><path d="M10 20v-5h4v5" />
+  </svg>
+);
+
+export const IconCard = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <rect x="3" y="5.5" width="18" height="13" rx="2.5" /><path d="M3 10h18" /><path d="M6.5 14.5h3" />
+  </svg>
+);
+
+export const IconSettings = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <circle cx="12" cy="12" r="3.2" /><path d="M12 2.8v2.4M12 18.8v2.4M21.2 12h-2.4M5.2 12H2.8M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7M18.5 18.5l-1.7-1.7M7.2 7.2L5.5 5.5" />
+  </svg>
+);
+
+export const IconAlert = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M12 4.5L21 19.5H3z" /><path d="M12 10v4M12 17h.01" />
+  </svg>
+);
+
+export const IconUtensils = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M6 3v7a2.5 2.5 0 0 0 5 0V3" /><path d="M8.5 10v11" /><path d="M17 3c-1.5 2-2 4-2 6.5 0 1.5.7 2.5 2 2.5v9" />
+  </svg>
+);
+
+export const IconBed = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M3 18V7" /><path d="M3 12h18v6" /><path d="M21 18v-4a2 2 0 0 0-2-2" /><circle cx="7.5" cy="9.5" r="1.8" />
+  </svg>
+);
+
+export const IconTicket = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1.5a2.5 2.5 0 0 0 0 5V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3.5a2.5 2.5 0 0 0 0-5z" /><path d="M13 6v12" />
+  </svg>
+);
+
+export const IconTag = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M3.5 11.5V5a1.5 1.5 0 0 1 1.5-1.5h6.5l9 9-8 8z" /><circle cx="8" cy="8" r="1.4" />
+  </svg>
+);
+
+export const IconHeadset = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M4 14v-2a8 8 0 0 1 16 0v2" /><rect x="2.5" y="13.5" width="4" height="6" rx="1.6" /><rect x="17.5" y="13.5" width="4" height="6" rx="1.6" /><path d="M19.5 19.5v.5a2 2 0 0 1-2 2H13" />
+  </svg>
+);
+
+export const IconBox = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M3.5 7.5L12 3l8.5 4.5v9L12 21l-8.5-4.5z" /><path d="M3.5 7.5L12 12l8.5-4.5M12 12v9" />
+  </svg>
+);
+
 export const IconChevron = ({ size = 14, style }: IconProps) => (
   <svg {...base(size)} style={style}>
     <path d="M6 9l6 6 6-6" />

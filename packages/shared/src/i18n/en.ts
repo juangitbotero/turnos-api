@@ -699,12 +699,12 @@ export const en: Translated<TranslationCatalogue> = {
     nav: {
       dashboard:     'Dashboard',
       workersSearch: 'Find workers',
-      workers:       'My workers',
+      workers:       'Who worked for us',
       shifts:        'Shifts',
       qrCheckIn:     'QR check-in',
       compliance:    'Compliance',
       spending:      'Spending',
-      billing:       'Billing',
+      billing:       'My subscription',
       settings:      'Settings',
     },
 
@@ -724,8 +724,8 @@ export const en: Translated<TranslationCatalogue> = {
     },
 
     home: {
-      greeting:       'Welcome 👋',
-      greetingNamed:  'Welcome, {{company}} 👋',
+      greeting:       'Welcome',
+      greetingNamed:  'Welcome, {{company}}',
 
       kpiActive:        'Active shifts',
       kpiActiveSub:     '{{open}} · {{filled}}',
@@ -842,8 +842,8 @@ export const en: Translated<TranslationCatalogue> = {
       shiftsOne:   '1 shift worked',
       shiftsOther: '{{count}} shifts worked',
       lastShift:   ' · last {{date}}',
-      noShowOne:   '⚠ 1 no-show',
-      noShowOther: '⚠ {{count}} no-shows',
+      noShowOne:   '1 no-show',
+      noShowOther: '{{count}} no-shows',
 
       skillsLabel:       'Skills',
       availabilityLabel: 'Availability',
@@ -853,7 +853,7 @@ export const en: Translated<TranslationCatalogue> = {
       back:  '← Back to shifts',
       title: 'Check-in QR code',
       sub:   'Print this QR code and put it up at the entrance to your venue. The worker scans it on arrival — the shift completes automatically at its end time.',
-      print:     '🖨️ Print',
+      print:     'Print',
       regenerate:'↻ Regenerate',
       loading:   'Generating QR codes...',
       loadError: "Couldn't load your QR codes.",
@@ -887,19 +887,19 @@ export const en: Translated<TranslationCatalogue> = {
       fallback1:      "If the worker can't scan the QR code (camera trouble, etc.), you can confirm the shift manually on the ",
       fallbackLink:   'My Shifts',
       fallback2:      ' page with the ',
-      fallbackButton: '✓ Confirm',
+      fallbackButton: 'Confirm',
       fallback3:      ' button.',
     },
 
     // TSU, MCD, SS Direta and ACT are Portuguese legal instruments/bodies —
     // kept verbatim, glossed where first encountered.
     compliance: {
-      title: '📊 Legal compliance',
+      title: 'Legal compliance',
       sub:   'TSU / SS Direta · MCD contracts · ACT audit trail',
 
-      tabTsu:   '💶 TSU report',
-      tabMcd:   '📄 MCD contracts',
-      tabAudit: '🔒 ACT audit',
+      tabTsu:   'TSU report',
+      tabMcd:   'MCD contracts',
+      tabAudit: 'ACT audit',
 
       emptyTsu:    'No completed shifts in {{month}} {{year}}',
       emptyMcd:    'No MCD contracts recorded yet',
@@ -925,7 +925,7 @@ export const en: Translated<TranslationCatalogue> = {
       colRate:      'Rate/hour',
       colSsDireta:  'SS Direta',
 
-      auditNote:    '🔒 Immutable record of every compliance event. Used in ACT inspections.',
+      auditNote:    'Immutable record of every compliance event. Used in ACT inspections.',
       colDateTime:  'Date/time',
       colEvent:     'Event',
       colShiftShort:'Shift',
@@ -942,7 +942,7 @@ export const en: Translated<TranslationCatalogue> = {
     spending: {
       title: 'Spending',
       sub:   'Cost analysis per shift and TSU report for your accountant',
-      exportCsv: '⬇ Export CSV',
+      exportCsv: 'Export CSV',
       csvFilename: 'turnos-spending',
       csvHeader: 'Date,Shift ID,Gross (€),Turnos fee (€),Employer TSU (€),Worker TSU (€),Hours,Worker net (€)',
 
@@ -1060,7 +1060,7 @@ export const en: Translated<TranslationCatalogue> = {
       cancelPolicyBold3: 'free',
       cancelPolicy4: '.',
 
-      proTitle: 'Turnos Pro — coming soon 🚀',
+      proTitle: 'Turnos Pro — coming soon',
       proBody1: 'Unlimited concurrent shifts, 5 users, a €2/shift fee, advanced search filters and direct worker invites, accounting reports — ',
       proPrice: '€99/month',
       proBody2: '. Talk to us to find out more.',
@@ -1138,15 +1138,17 @@ export const en: Translated<TranslationCatalogue> = {
       descPlaceholder:  'Describe the shift, the working environment, any specific requirements...',
 
       // Skills
-      skillsSection: 'Skills required',
-      skillsHint:    'Select the skills most relevant to this shift. You can also add custom skills.',
+      skillsSection: 'Additional skills',
+      skillsHint:    'The role you picked above is already used to find workers. Add here only what goes beyond it.',
       customSkillPlaceholder: 'Add a custom skill...',
       addSkill:      '+ Add',
       selectedLabel: 'Selected:',
 
       // Languages
-      languagesSection: 'Languages required',
-      languagesHint:    'Select the languages needed for this shift. Only workers who speak them will be notified.',
+      languagesSection: 'Languages required',      languagesPlaceholder: 'Select languages',
+      languagesCount:       '{{count}} languages selected',
+
+      languagesHint:    'Only workers who speak these languages will be notified. Leave empty if it does not matter.',
       languagesPickedOne:   '1 language selected: {{list}}',
       languagesPickedOther: '{{count}} languages selected: {{list}}',
 
@@ -1218,7 +1220,7 @@ export const en: Translated<TranslationCatalogue> = {
     shifts: {
       title: 'My shifts',
       refresh:   '↻ Refresh',
-      qrCodes:   '📲 QR codes',
+      qrCodes:   'QR codes',
       newShift:  '+ Post a shift',
       loadError: "Couldn't load your shifts.",
 
@@ -1232,8 +1234,8 @@ export const en: Translated<TranslationCatalogue> = {
       expiredClose:   '▲ Close',
       expiredOpen:    '▼ View',
       expiredPill:    'Expired',
-      repost:         '🔁 Re-post',
-      deleteExpired:  '🗑 Delete',
+      repost:         'Re-post',
+      deleteExpired:  'Delete',
       deleteConfirm:  'Delete this expired shift?',
       deleteError:    "Couldn't delete it.",
 
@@ -1281,7 +1283,7 @@ export const en: Translated<TranslationCatalogue> = {
       backToList:      '← Back to the list',
       noName:          'Name not set',
       ratingsCount:    '({{count}} reviews)',
-      coverNoteTitle:  '💬 Message from the applicant',
+      coverNoteTitle:  'Message from the applicant',
       panelBio:        'About',
       panelScore:      'Profile complete',
       panelSkills:     'Skills',
@@ -1290,15 +1292,15 @@ export const en: Translated<TranslationCatalogue> = {
       panelCvFallback: 'View CV',
       panelLanguages:  'Languages',
       panelAvailability:'Availability',
-      availableOn:     '🟢 Available for work',
-      availableOff:    '⚪ Not available right now',
+      availableOn:     'Available for work',
+      availableOff:    'Not available right now',
       profileIncomplete:"This applicant hasn't completed their profile yet.",
 
       // Pending wages strip
       pendingTitle:    '💶 Wage payments due to workers ({{count}})',
       cancellationMin: '⚠️ 2h minimum (cancellation) — ',
       awaitingWorker:  ' · awaiting the worker’s confirmation',
-      disputed:        ' · 🚩 the worker reports not being paid',
+      disputed:        ' · the worker reports not being paid',
       workerFallback:  'Worker',
       ibanLabel:       'IBAN:',
       referenceLabel:  'Reference:',

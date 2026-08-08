@@ -10,6 +10,8 @@ import {
 import { adminApi, ApiError } from '../../../lib/api';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
+import { MultiSelect } from '../../../components/MultiSelect';
+import { IconUtensils, IconBed, IconTicket, IconTag, IconHeadset, IconBox, IconBriefcase, IconShield, IconClipboard } from '../../../components/icons';
 
 type GeoResult = { lat: number; lng: number; display: string } | null;
 
@@ -26,16 +28,17 @@ async function geocodeAddress(address: string): Promise<GeoResult> {
   return { lat: parseFloat(first.lat), lng: parseFloat(first.lon), display: first.display_name };
 }
 
-// ── Category icons ─────────────────────────────────────────────────────────────
-const CATEGORY_ICONS: Record<string, string> = {
-  'Restauração':      '🍽️',
-  'Hotelaria':        '🏨',
-  'Eventos':          '🎪',
-  'Vendas':           '🏷️',
-  'Apoio ao Cliente': '🎧',
-  'Logística':          '📦',
-  'Administração':      '💼',
-  'Limpeza e Segurança': '🧹',
+// Category icons. Keyed on the stored Portuguese name; a category without an
+// entry falls back to the generic clipboard rather than breaking the row.
+const CATEGORY_ICONS: Record<string, (p: { size?: number }) => React.ReactElement> = {
+  'Restauração':         IconUtensils,
+  'Hotelaria':           IconBed,
+  'Eventos':             IconTicket,
+  'Vendas':              IconTag,
+  'Apoio ao Cliente':    IconHeadset,
+  'Logística':           IconBox,
+  'Administração':       IconBriefcase,
+  'Limpeza e Segurança': IconShield,
 };
 
 // ── Skills selector — grouped by category accordion ───────────────────────────
@@ -60,7 +63,7 @@ function CategoryRow({
         style={sk.catHeader}
         onClick={() => setOpen(v => !v)}
       >
-        <span style={sk.catIcon}>{CATEGORY_ICONS[cat] ?? '📋'}</span>
+<span style={sk.catIcon}>{(() => { const I = CATEGORY_ICONS[cat] ?? IconClipboard; return <I size={16} />; })()}</span>
         <span style={sk.catLabel}>{tCategory(cat)}</span>
         {count > 0 && (
           <span style={sk.catBadge}>{count}</span>
@@ -182,7 +185,7 @@ const sk: Record<string, React.CSSProperties> = {
     cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' as const,
     transition: 'background 0.15s',
   },
-  catIcon: { fontSize: 16 },
+  catIcon: { display: 'inline-flex', color: 'var(--color-primary)' },
   catLabel: { fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', flex: 1 },
   catBadge: {
     fontSize: 11, fontWeight: 700, color: '#fff',
@@ -375,7 +378,10 @@ export default function NewShiftPage() {
         address,
         lat: geo.lat,
         lng: geo.lng,
-        skillsRequired: selectedSkills.length > 0 ? selectedSkills : undefined,
+        // The role is the primary skill — matching runs on skillsRequired
+        // alone, so sending the role with it is what makes the role count.
+        // Deduped: the extra-skills picker offers the same vocabulary.
+        skillsRequired: [...new Set([subcategory, ...selectedSkills])],
         languagesRequired: selectedLanguages.length > 0 ? selectedLanguages : undefined,
         paymentMethod,
       });
@@ -396,7 +402,7 @@ export default function NewShiftPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <LanguageSwitcher />
-          <button style={s.backBtn} onClick={() => router.push('/dashboard/shifts')}>{t('admin.newShift.back')}</button>
+          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>{t('admin.newShift.back')}</button>
         </div>
       </div>
 
@@ -468,270 +474,14 @@ export default function NewShiftPage() {
             <span style={s.sectionBadge}>{t('admin.newShift.optional')}</span>
           </h2>
           <p style={s.sectionHint}>{t('admin.newShift.languagesHint')}</p>
-          <div style={sk.suggestions}>
-            {(LANGUAGES as readonly string[]).map(lang => {
-              const active = selectedLanguages.includes(lang);
-              return (
-                <button
-                  key={lang}
-                  type="button"
-                  style={{
-                    ...sk.tag,
-                    ...(active ? sk.tagSelected : sk.tagUnselected),
-                  }}
-                  onClick={() =>
-                    setSelectedLanguages(prev =>
-                      prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]
-                    )
-                  }
-                >
-                  {/* Display only — the stored PT language name is submitted */}
-                  {active ? '✓ ' : '+ '}{tWorkerLanguage(lang)}
-                </button>
-              );
-            })}
-          </div>
-          {selectedLanguages.length > 0 && (
-            <p style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, marginTop: 4 }}>
-              {selectedLanguages.length === 1
-                ? t('admin.newShift.languagesPickedOne', { list: selectedLanguages.map(tWorkerLanguage).join(', ') })
-                : t('admin.newShift.languagesPickedOther', { count: selectedLanguages.length, list: selectedLanguages.map(tWorkerLanguage).join(', ') })}
-            </p>
-          )}
-        </div>
-
-        {/* ── Payment method ── */}
-        <div style={s.section}>
-          <h2 style={s.sectionTitle}>{t('admin.newShift.paymentSection')}</h2>
-          <p style={s.sectionHint}>{t('admin.newShift.paymentHint')}</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map(method => {
-              const label = t(`domain.paymentMethods.${method}`);
-              const active = paymentMethod === method;
-              const recommended = method === RECOMMENDED_PAYMENT_METHOD;
-              return (
-                <button
-                  key={method}
-                  type="button"
-                  onClick={() => setPaymentMethod(method)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '10px 16px', borderRadius: 10, fontSize: 14, fontWeight: 600,
-                    cursor: 'pointer', fontFamily: 'inherit',
-                    border: active ? '2px solid var(--color-primary)' : '1.5px solid var(--color-border)',
-                    background: active ? 'var(--color-primary-light)' : 'var(--color-surface)',
-                    color: active ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                  }}
-                >
-                  {active ? '✓ ' : ''}{label}
-                  {recommended && (
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20,
-                      background: active ? 'var(--color-primary)' : 'var(--color-primary-light)',
-                      color: active ? '#fff' : 'var(--color-primary)',
-                    }}>
-                      {t('admin.newShift.recommended')}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          {paymentMethod === 'TURNOS_PAY_LINK' && (
-            <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 8 }}>
-              {t('admin.newShift.payLinkNote')}
-            </p>
-          )}
-          {(paymentMethod === 'TRANSFERENCIA' || paymentMethod === 'MBWAY') && (
-            <p style={{ fontSize: 12, color: '#b45309', marginTop: 8 }}>
-              {t('admin.newShift.manualPayNote')}
-            </p>
-          )}
-        </div>
-
-        {/* ── Date & Time ── */}
-        <div style={s.section}>
-          <h2 style={s.sectionTitle}>
-            {t('admin.newShift.dateSection')}
-            <span style={s.minShiftBadge}>{t('admin.newShift.minBadge')}</span>
-          </h2>
-
-          <div style={s.grid3}>
-            {/* Date */}
-            <div style={s.field}>
-              <label style={s.label}>{isMultiDay ? t('admin.newShift.labelFirstDay') : t('admin.newShift.labelDate')}</label>
-              <input
-                style={s.input}
-                type="date"
-                required
-                min={new Date().toISOString().slice(0, 10)}
-                value={date}
-                onChange={e => setDate(e.target.value)}
-              />
-            </div>
-
-            {/* Start time — dropdown */}
-            <div style={s.field}>
-              <label style={s.label}>{t('admin.newShift.labelStart')}</label>
-              <select
-                style={s.select}
-                required
-                value={startTime}
-                onChange={e => setStartTime(e.target.value)}
-              >
-                <option value="">{t('admin.newShift.pickTime')}</option>
-                {Array.from({ length: 48 }, (_, i) => {
-                  const h = Math.floor(i / 2);
-                  const m = i % 2 === 0 ? '00' : '30';
-                  const val = `${String(h).padStart(2, '0')}:${m}`;
-                  return <option key={val} value={val}>{val}</option>;
-                })}
-              </select>
-            </div>
-
-            {/* Duration — dropdown */}
-            <div style={s.field}>
-              <label style={s.label}>{t('admin.newShift.labelDuration')}</label>
-              <select
-                style={s.select}
-                value={durationHours}
-                onChange={e => setDuration(Number(e.target.value))}
-              >
-                {[2, 3, 4, 5, 6, 7, 8, 9, 10, 12].map(h => (
-                  <option key={h} value={h}>{h}h {h === 2 ? t('admin.newShift.durationMin') : ''}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* ── Multi-day toggle + day list ── */}
-          <div style={s.multiDayBox}>
-            <label style={s.multiDayToggle}>
-              <input
-                type="checkbox"
-                checked={isMultiDay}
-                onChange={e => {
-                  setIsMultiDay(e.target.checked);
-                  if (!e.target.checked) setExtraDates([]);
-                }}
-              />
-              <span>
-                <strong>{t('admin.newShift.multiDayLabel')}</strong>
-                <span style={s.multiDayHint}>{t('admin.newShift.multiDayHint')}</span>
-              </span>
-            </label>
-
-            {isMultiDay && (
-              <div style={s.multiDayBody}>
-                <div style={s.multiDayAddRow}>
-                  <input
-                    style={{ ...s.input, maxWidth: 200 }}
-                    type="date"
-                    min={date || new Date().toISOString().slice(0, 10)}
-                    value={newExtraDate}
-                    onChange={e => setNewExtraDate(e.target.value)}
-                  />
-                  <button type="button" style={s.multiDayAddBtn} onClick={addExtraDate}>
-                    {t('admin.newShift.addDay')}
-                  </button>
-                </div>
-
-                {allDates.length > 0 && (
-                  <>
-                    <div style={s.multiDayChips}>
-                      {allDates.map(d => (
-                        <span key={d} style={s.multiDayChip}>
-                          {fShortDate(d)}
-                          {d !== date && (
-                            <button
-                              type="button"
-                              style={s.multiDayChipX}
-                              onClick={() => setExtraDates(extraDates.filter(x => x !== d))}
-                              aria-label={t('admin.newShift.removeDay', { date: d })}
-                            >
-                              ×
-                            </button>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                    <div style={s.multiDaySummary}>
-                      📅 <strong>
-                        {allDates.length === 1
-                          ? t('admin.newShift.daysOne')
-                          : t('admin.newShift.daysOther', { count: allDates.length })}
-                      </strong>
-                      {allDates.length > 1 && <> · {fDateRange(allDates)}</>}
-                      {' · '}
-                      {t('admin.newShift.totalHours', { hours: (durationHours * allDates.length).toFixed(0) })}
-                      {rateNum > 0 && <> · {t('admin.newShift.grossEstimate', { amount: (rateNum * durationHours * allDates.length).toFixed(2) })}</>}
-                    </div>
-                    {allDates.length > 1 && (
-                      <div style={s.multiDayNote}>
-                        {t('admin.newShift.feeNote1')}
-                        <strong>{t('admin.newShift.feeNoteBold1', { fee: TURNOS_FEE_FIXED_EUR })}</strong>
-                        {t('admin.newShift.feeNote2')}
-                        <strong>{t('admin.newShift.feeNoteBold2')}</strong>
-                        {t('admin.newShift.feeNote3')}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Computed end time display */}
-          {startTime && computedEndTime && (
-            <div style={s.computedTime}>
-              <span style={s.computedLabel}>{t('admin.newShift.endLabel')}</span>
-              <span style={s.computedValue}>{startTime} → {computedEndTime}</span>
-              <span style={s.computedDuration}>{t('admin.newShift.endDuration', { hours: durationHours })}</span>
-              {computedEndTime < startTime && (
-                <span style={s.nextDayBadge}>{t('admin.newShift.nextDay')}</span>
-              )}
-            </div>
-          )}
-
-          {/* Portuguese labour law alerts */}
-          {lawAlert && (
-            <div style={{
-              ...s.lawAlert,
-              background: lawAlert.level === 'warn' ? '#fffbeb' : '#eff6ff',
-              borderColor: lawAlert.level === 'warn' ? '#fcd34d' : '#93c5fd',
-              color: lawAlert.level === 'warn' ? '#92400e' : '#1d4ed8',
-            }}>
-              {lawAlert.msg}
-            </div>
-          )}
-        </div>
-
-        {/* ── Location ── */}
-        <div style={s.section}>
-          <h2 style={s.sectionTitle}>{t('admin.newShift.locationSection')}</h2>
-          <div style={s.field}>
-            <label style={s.label}>{t('admin.newShift.labelAddress')}</label>
-            <div style={s.addrRow}>
-              <input
-                style={{ ...s.input, flex: 1 }}
-                type="text"
-                required
-                placeholder={t('admin.newShift.addressPlaceholder')}
-                value={address}
-                onChange={e => { setAddress(e.target.value); setGeo(null); setGeoError(''); }}
-              />
-              <button type="button" style={s.geocodeBtn} onClick={handleGeocode} disabled={!address.trim() || isGeocoding}>
-                {isGeocoding ? '...' : t('admin.newShift.verifyAddress')}
-              </button>
-            </div>
-            {geoError && <p style={s.geoError}>{geoError}</p>}
-            {geo && (
-              <div style={s.geoSuccess}>
-                ✅ <strong>{geo.display.split(',').slice(0, 3).join(',')}</strong>
-                <span style={s.geoCoords}> ({geo.lat.toFixed(4)}, {geo.lng.toFixed(4)})</span>
-              </div>
-            )}
-          </div>
+          <MultiSelect
+            options={LANGUAGES as readonly string[]}
+            selected={selectedLanguages}
+            onChange={setSelectedLanguages}
+            label={tWorkerLanguage}
+            placeholder={t('admin.newShift.languagesPlaceholder')}
+            countLabel={n => t('admin.newShift.languagesCount', { count: n })}
+          />
         </div>
 
         {/* ── Pay & TSU ── */}
@@ -778,7 +528,7 @@ export default function NewShiftPage() {
 
         {/* ── Actions ── */}
         <div style={s.actions}>
-          <button type="button" style={s.cancelBtn} onClick={() => router.push('/dashboard/shifts')}>
+          <button type="button" style={s.cancelBtn} onClick={() => router.push('/dashboard')}>
             {t('common.cancel')}
           </button>
           <button

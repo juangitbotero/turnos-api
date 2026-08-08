@@ -321,12 +321,12 @@ export default function WorkersSearchPage() {
           <div style={s.logoWrap}><Logo height={22} href="/dashboard" /></div>
           <div style={s.divider} />
           <nav style={s.nav}>
-            {SIDEBAR_NAV.map(({ icon, key, href, soon }) => {
+            {SIDEBAR_NAV.map(({ Icon, key, href, soon }) => {
               const label = t(`admin.nav.${key}`);
               if (soon || !href) {
                 return (
                   <div key={key} style={{ ...s.navItem, opacity: 0.45, cursor: 'default' }}>
-                    <span style={s.navIcon}>{icon}</span>
+                    <span style={s.navIcon}><Icon size={17} /></span>
                     <span>{label}</span>
                     <span style={s.soonPill}>{t('admin.chrome.soon')}</span>
                   </div>
@@ -337,7 +337,7 @@ export default function WorkersSearchPage() {
                 <Link key={href} href={href}
                   style={{ ...s.navItem, ...(active ? s.navItemActive : {}) }}
                 >
-                  <span style={s.navIcon}>{icon}</span>
+                  <span style={s.navIcon}><Icon size={17} /></span>
                   <span>{label}</span>
                   {active && <span style={s.activeDot} />}
                 </Link>
@@ -747,7 +747,7 @@ const s: Record<string, React.CSSProperties> = {
   },
   navItemActive: { background: 'var(--color-primary-light)', color: 'var(--color-primary)', fontWeight: 700 },
   soonPill: { marginLeft: 'auto', fontSize: 9, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', borderRadius: 4, padding: '2px 5px', letterSpacing: 0.5 },
-  navIcon: { fontSize: 16, width: 20, textAlign: 'center' as const },
+  navIcon: { width: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--color-primary)' },
   logoutBtn: {
     fontSize: 13, color: 'var(--color-text-muted)', textDecoration: 'none',

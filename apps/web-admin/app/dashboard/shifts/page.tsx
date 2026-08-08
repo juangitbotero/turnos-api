@@ -1193,12 +1193,14 @@ function ShiftRow({ shift, onCancel, onManualConfirm, cancelling, confirming, on
   return (
     <div style={s.tableRow}>
       <div>
-        <p style={s.rowTitle}>
-          {shift.title || tSkill(shift.subcategory)}
-          {isMultiDay(shift) && (
+        <p style={s.rowTitle}>{shift.title || tSkill(shift.subcategory)}</p>
+        {/* Own line, not trailing the title: inline, a long shift name pushed
+            the chip to wrap and it broke across two lines mid-pill. */}
+        {isMultiDay(shift) && (
+          <div>
             <span style={s.multiDayTag}>{t('admin.shifts.multiDayTag', { count: shift.seriesDates!.length })}</span>
-          )}
-        </p>
+          </div>
+        )}
         <p style={s.rowSub}>{tCategory(shift.category)} · {shift.address.split(',')[0]}</p>
       </div>
       <span style={s.rowCell}>
@@ -1302,7 +1304,8 @@ const s: Record<string, React.CSSProperties> = {
   },
   rowTitle: { fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 2 },
   multiDayTag: {
-    marginLeft: 8, padding: '2px 8px', borderRadius: 20,
+    display: 'inline-flex', alignItems: 'center', margin: '5px 0 1px',
+    padding: '2px 8px', borderRadius: 20,
     fontSize: 11, fontWeight: 700, color: '#1d4ed8',
     background: '#dbeafe', border: '1px solid #bfdbfe',
   },

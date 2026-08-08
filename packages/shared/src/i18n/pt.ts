@@ -702,12 +702,12 @@ export const pt = {
     nav: {
       dashboard:     'Dashboard',
       workersSearch: 'Procurar Workers',
-      workers:       'Trabalhadores',
+      workers:       'Quem já trabalhou',
       shifts:        'Turnos',
       qrCheckIn:     'QR Check-in',
       compliance:    'Conformidade',
       spending:      'Gastos',
-      billing:       'Faturação',
+      billing:       'A minha subscrição',
       settings:      'Definições',
     },
 
@@ -729,8 +729,8 @@ export const pt = {
     },
 
     home: {
-      greeting:       'Bem-vindo 👋',
-      greetingNamed:  'Bem-vindo, {{company}} 👋',
+      greeting:       'Bem-vindo',
+      greetingNamed:  'Bem-vindo, {{company}}',
 
       kpiActive:        'Turnos ativos',
       kpiActiveSub:     '{{open}} · {{filled}}',
@@ -769,7 +769,7 @@ export const pt = {
     workersSearch: {
       title: 'Procurar Trabalhadores',
       sub:   'Workers com perfil ≥80% activos na plataforma',
-      search:     '🔍 Pesquisar',
+      search:     'Pesquisar',
       searching:  'A pesquisar...',
 
       searchPlaceholder: 'Nome, competência ou bio...',
@@ -797,13 +797,13 @@ export const pt = {
 
       noName:    'Nome não definido',
       ratings:   '({{count}} aval.)',
-      badgeTop:      '🏆 Top Rated',
-      badgeReliable: '✅ Fiável',
-      badgeVerified: '✔️ Verificado',
-      badgeTopShort:      '🏆 Top',
-      badgeReliableShort: '✅ Fiável',
-      badgeVerifiedShort: '✔️ Verif.',
-      availablePill: '🟢 Disponível',
+      badgeTop:      'Top Rated',
+      badgeReliable: 'Fiável',
+      badgeVerified: 'Verificado',
+      badgeTopShort:      'Top',
+      badgeReliableShort: 'Fiável',
+      badgeVerifiedShort: 'Verif.',
+      availablePill: 'Disponível',
       viewProfile:   'Ver perfil & convidar →',
 
       panelCompleteness: 'Perfil Completo',
@@ -814,18 +814,18 @@ export const pt = {
       panelSkills:       'Competências',
       panelLanguages:    'Idiomas',
       panelAvailability: 'Disponibilidade',
-      availableOn:  '🟢 Disponível para trabalhar',
-      availableOff: '⚪ Não disponível de momento',
+      availableOn:  'Disponível para trabalhar',
+      availableOff: 'Não disponível de momento',
       statNoShows: 'faltas',
       statRatings: 'avaliações',
       statProfile: 'perfil',
 
       inviteTitle:   'Convidar para um turno',
-      inviteSuccess: '✅ Convite enviado! O worker tem 2h para aceitar.',
+      inviteSuccess: 'Convite enviado! O worker tem 2h para aceitar.',
       inviteNoShifts: 'Não tens turnos abertos.',
       inviteNoShiftsCta: 'Publicar turno →',
       invitePick:    'Seleciona um turno...',
-      inviteBtn:     '⚡ Convidar',
+      inviteBtn:     'Convidar',
       inviteFailed:  'Erro ao convidar.',
     },
 
@@ -847,8 +847,8 @@ export const pt = {
       shiftsOne:   '1 turno realizado',
       shiftsOther: '{{count}} turnos realizados',
       lastShift:   ' · último {{date}}',
-      noShowOne:   '⚠ 1 falta',
-      noShowOther: '⚠ {{count}} faltas',
+      noShowOne:   '1 falta',
+      noShowOther: '{{count}} faltas',
 
       skillsLabel:       'Competências',
       availabilityLabel: 'Disponibilidade',
@@ -858,7 +858,7 @@ export const pt = {
       back:  '← Voltar aos Turnos',
       title: 'Código QR de Check-in',
       sub:   'Imprima este QR code e afixe-o à entrada do seu local de trabalho. O trabalhador digitaliza-o na chegada — o turno conclui automaticamente à hora de fim.',
-      print:     '🖨️ Imprimir',
+      print:     'Imprimir',
       regenerate:'↻ Regenerar',
       loading:   'A gerar QR codes...',
       loadError: 'Erro ao carregar os QR codes.',
@@ -877,12 +877,12 @@ export const pt = {
       cardTitle:   'CHECK-IN',
       cardSub:     'Digitalizar na chegada',
       qrAlt:       'QR Code Check-in',
-      instruction1:'📱 Trabalhador abre a app → toca em ',
+      instruction1:'Trabalhador abre a app → toca em',
       instructionBold:'Fazer Check-in',
-      instruction2:' → aponta a câmara aqui',
-      download:    '⬇ Descarregar PNG',
+      instruction2:'→ aponta a câmara aqui',
+      download:    'Descarregar PNG',
 
-      placementTitle: '📌 Onde colocar o QR code',
+      placementTitle: 'Onde colocar o QR code',
       placementInLabel: 'CHECK-IN',
       placementInWhere: ' — Entrada / Receção',
       placementInDesc:  'À entrada do espaço de trabalho, onde o trabalhador chega.',
@@ -893,19 +893,19 @@ export const pt = {
       fallback1:      'Se o trabalhador não conseguir digitalizar o QR (câmara com problemas, etc.), pode confirmar manualmente o turno na página ',
       fallbackLink:   'Os Meus Turnos',
       fallback2:      ' com o botão ',
-      fallbackButton: '✓ Confirmar',
+      fallbackButton: 'Confirmar',
       fallback3:      '.',
     },
 
     // TSU, MCD, SS Direta and ACT are Portuguese legal instruments/bodies —
     // kept verbatim in both languages.
     compliance: {
-      title: '📊 Conformidade Legal',
+      title: 'Conformidade Legal',
       sub:   'TSU / SS Direta · Contratos MCD · Registo de auditoria ACT',
 
-      tabTsu:   '💶 Relatório TSU',
-      tabMcd:   '📄 Contratos MCD',
-      tabAudit: '🔒 Auditoria ACT',
+      tabTsu:   'Relatório TSU',
+      tabMcd:   'Contratos MCD',
+      tabAudit: 'Auditoria ACT',
 
       emptyTsu:    'Sem turnos concluídos em {{month}} {{year}}',
       emptyMcd:    'Sem contratos MCD registados ainda',
@@ -932,7 +932,7 @@ export const pt = {
       colRate:      'Valor/hora',
       colSsDireta:  'SS Direta',
 
-      auditNote:    '🔒 Registo imutável de todos os eventos de conformidade. Usado em inspeções da ACT.',
+      auditNote:    'Registo imutável de todos os eventos de conformidade. Usado em inspeções da ACT.',
       colDateTime:  'Data/Hora',
       colEvent:     'Evento',
       colShiftShort:'Turno',
@@ -949,7 +949,7 @@ export const pt = {
     spending: {
       title: 'Gastos',
       sub:   'Análise de custos por turno e relatório TSU para contabilidade',
-      exportCsv: '⬇ Exportar CSV',
+      exportCsv: 'Exportar CSV',
       csvFilename: 'turnos-gastos',
       csvHeader: 'Data,Turno ID,Bruto (€),Taxa Turnos (€),TSU Entidade (€),TSU Trabalhador (€),Horas,Líquido Trabalhador (€)',
 
@@ -1029,12 +1029,12 @@ export const pt = {
 
       ctaNote:     'Para ativar a subscrição, precisas primeiro de adicionar um cartão de crédito. Usa o painel de pagamentos Stripe para guardar o teu método de pagamento.',
       ctaSubNote:  'Nota: Se ainda não tens cartão guardado, a ativação irá falhar com uma mensagem clara. Fala com o suporte Turnos para adicionar o cartão via Stripe Dashboard.',
-      activate:    '🚀 Ativar subscrição — €45/mês',
+      activate:    'Ativar subscrição — €45/mês',
       processing:  'A processar…',
       cancel:      'Cancelar subscrição',
-      pastDueBanner: '⚠️ O pagamento do teu plano falhou. Por favor atualiza o método de pagamento no Stripe Dashboard ou contacta o suporte Turnos.',
+      pastDueBanner: 'O pagamento do teu plano falhou. Por favor atualiza o método de pagamento no Stripe Dashboard ou contacta o suporte Turnos.',
 
-      activated:      '✅ Subscrição ativada com sucesso! Podes agora publicar turnos.',
+      activated:      'Subscrição ativada com sucesso! Podes agora publicar turnos.',
       activateStatus: 'Estado da subscrição: {{status}}',
       activateError:  'Erro ao ativar a subscrição.',
       cancelConfirm:  'Tens a certeza que queres cancelar a subscrição? Perderás o acesso no final do período atual.',
@@ -1067,7 +1067,7 @@ export const pt = {
       cancelPolicyBold3: 'gratuitos',
       cancelPolicy4: '.',
 
-      proTitle: 'Turnos Pro — brevemente 🚀',
+      proTitle: 'Turnos Pro — brevemente',
       proBody1: 'Turnos ilimitados em simultâneo, 5 utilizadores, taxa de 2€/turno, filtros avançados de pesquisa e convite direto de trabalhadores, relatórios de contabilidade — ',
       proPrice: '€99/mês',
       proBody2: '. Fala connosco para saber mais.',
@@ -1093,8 +1093,8 @@ export const pt = {
       statNoShowOne:   'falta',
       statNoShowOther: 'faltas',
       statProfile:  'perfil',
-      rateBtn:      '⭐ Avaliar',
-      noShowBtn:    '⚠ Reportar falta',
+      rateBtn:      'Avaliar',
+      noShowBtn:    'Reportar falta',
 
       // Rating modal
       rateTitle:      'Avaliar trabalhador',
@@ -1104,11 +1104,11 @@ export const pt = {
       pickShift:      'Seleciona o turno',
       rateQuestion:   'Como foi o desempenho?',
       scores: {
-        1: 'Mau 😞',
-        2: 'Razoável 😐',
-        3: 'Bom 😊',
-        4: 'Muito bom 😄',
-        5: 'Excelente 🤩',
+        1: 'Mau',
+        2: 'Razoável',
+        3: 'Bom',
+        4: 'Muito bom',
+        5: 'Excelente',
       },
       tagsLabel:      'O que destacas? (opcional)',
       reviewLabel:    'Avaliação escrita',
@@ -1144,15 +1144,17 @@ export const pt = {
       descPlaceholder:  'Descreva o turno, ambiente de trabalho, requisitos específicos...',
 
       // Skills
-      skillsSection: 'Competências necessárias',
-      skillsHint:    'Selecione as competências mais relevantes para este turno. Pode também adicionar competências personalizadas.',
+      skillsSection: 'Competências adicionais',
+      skillsHint:    'A função que escolheste acima já é usada para encontrar trabalhadores. Acrescenta aqui só o que for além disso.',
       customSkillPlaceholder: 'Adicionar competência personalizada...',
       addSkill:      '+ Adicionar',
       selectedLabel: 'Selecionadas:',
 
       // Languages
-      languagesSection: 'Idiomas necessários',
-      languagesHint:    'Selecione os idiomas necessários para este turno. Apenas trabalhadores com esses idiomas serão notificados.',
+      languagesSection: 'Idiomas necessários',      languagesPlaceholder: 'Selecionar idiomas',
+      languagesCount:       '{{count}} idiomas selecionados',
+
+      languagesHint:    'Só os trabalhadores que falam estes idiomas serão notificados. Deixa vazio se for indiferente.',
       languagesPickedOne:   '1 idioma selecionado: {{list}}',
       languagesPickedOther: '{{count}} idiomas selecionados: {{list}}',
 
@@ -1160,8 +1162,8 @@ export const pt = {
       paymentSection: 'Como vais pagar ao trabalhador?',
       paymentHint:    'O pagamento é feito diretamente por ti ao trabalhador após o turno — não passa pela Turnos. O método escolhido é mostrado ao trabalhador antes de se candidatar.',
       recommended:    'Recomendado',
-      payLinkNote:    '💳 Recebes um link após o turno e pagas por cartão ou MB WAY. O dinheiro vai direto para a conta do trabalhador e o pagamento fica confirmado automaticamente.',
-      manualPayNote:  '💡 Depois de pagares, anexa o comprovativo no dashboard. É o que resolve a disputa se o trabalhador reportar que não recebeu.',
+      payLinkNote:    'Recebes um link após o turno e pagas por cartão ou MB WAY. O dinheiro vai direto para a conta do trabalhador e o pagamento fica confirmado automaticamente.',
+      manualPayNote:  'Depois de pagares, anexa o comprovativo no dashboard. É o que resolve a disputa se o trabalhador reportar que não recebeu.',
 
       // Date & time
       dateSection:  'Data & Horário',
@@ -1193,14 +1195,14 @@ export const pt = {
       nextDay:     '+1 dia',
 
       // Portuguese labour-law alerts
-      law8h: '⚠️ Turno ≥ 8h: o trabalhador tem direito a pausa de 1h e subsídio de refeição (~€6,00/dia). Certifica-te de que o valor/hora reflecte este custo.',
+      law8h: 'Turno ≥ 8h: o trabalhador tem direito a pausa de 1h e subsídio de refeição (~€6,00/dia). Certifica-te de que o valor/hora reflecte este custo.',
       law4h: 'ℹ️ Turno ≥ 4h: o trabalhador tem direito a pausa obrigatória de 15–30 min (não computada no horário de trabalho).',
 
       // Location
       locationSection:    'Localização',
       labelAddress:       'Morada completa',
       addressPlaceholder: 'Ex: Rua Augusta 1, 1100-048 Lisboa',
-      verifyAddress:      '📍 Verificar',
+      verifyAddress:      'Verificar',
       addressNotFound:    'Morada não encontrada. Tente ser mais específico (ex: "Rua Augusta 1, Lisboa").',
 
       // Pay & TSU
@@ -1213,7 +1215,7 @@ export const pt = {
       tsuShiftCost: 'Custo total do turno ({{hours}}h)',
 
       // Actions & validation
-      submit:     '✓ Publicar Turno',
+      submit:     'Publicar Turno',
       submitting: 'A publicar...',
       errGeo:      'Por favor verifique a localização antes de publicar.',
       errDuration: 'A duração mínima de um turno é 2 horas.',
@@ -1224,7 +1226,7 @@ export const pt = {
     shifts: {
       title: 'Os Meus Turnos',
       refresh:   '↻ Atualizar',
-      qrCodes:   '📲 Códigos QR',
+      qrCodes:   'Códigos QR',
       newShift:  '+ Publicar Turno',
       loadError: 'Erro ao carregar turnos.',
 
@@ -1238,8 +1240,8 @@ export const pt = {
       expiredClose:   '▲ Fechar',
       expiredOpen:    '▼ Ver',
       expiredPill:    'Caducado',
-      repost:         '🔁 Re-publicar',
-      deleteExpired:  '🗑 Eliminar',
+      repost:         'Re-publicar',
+      deleteExpired:  'Eliminar',
       deleteConfirm:  'Eliminar este turno caducado?',
       deleteError:    'Erro ao eliminar.',
 
@@ -1250,9 +1252,9 @@ export const pt = {
       colStatus: 'Estado',
       colActions:'Ações',
 
-      multiDayTag:  '🔁 {{count}} dias',
-      viewApps:     '👥 Candidatos',
-      manualDone:   '🏁 Concluído',
+      multiDayTag:  '{{count}} dias',
+      viewApps:     'Candidatos',
+      manualDone:   'Concluído',
       manualDoneTitle: 'Marcar como concluído (sem QR) — usar quando o turno não concluiu automaticamente',
       cancelBtn:    'Cancelar',
       cancelConfirmSimple: 'Tem a certeza que quer cancelar este turno?',
@@ -1271,15 +1273,15 @@ export const pt = {
       appsLoading: 'A carregar candidatos...',
       appsEmpty:   'Nenhum candidato ainda.',
       sortLabel:   'Ordenar:',
-      sortRating:  '⭐ Melhor avaliação',
-      sortScore:   '📋 Perfil mais completo',
-      sortDate:    '🕐 Mais antigo',
-      matchBadge:  '✓ Match total',
+      sortRating:  'Melhor avaliação',
+      sortScore:   'Perfil mais completo',
+      sortDate:    'Mais antigo',
+      matchBadge:  'Match total',
       matchCount:  '{{matched}}/{{total}} competências',
       appProfile:  'Perfil: {{score}}%',
       viewProfile: 'Ver perfil →',
-      approved:    '✓ Aprovado',
-      rejected:    '✕ Rejeitado',
+      approved:    'Aprovado',
+      rejected:    'Rejeitado',
       select:      'Selecionar',
       approveError:'Erro ao aprovar.',
 
@@ -1287,7 +1289,7 @@ export const pt = {
       backToList:      '← Voltar à lista',
       noName:          'Nome não definido',
       ratingsCount:    '({{count}} aval.)',
-      coverNoteTitle:  '💬 Mensagem do candidato',
+      coverNoteTitle:  'Mensagem do candidato',
       panelBio:        'Apresentação',
       panelScore:      'Perfil completo',
       panelSkills:     'Competências',
@@ -1296,26 +1298,26 @@ export const pt = {
       panelCvFallback: 'Ver CV',
       panelLanguages:  'Idiomas',
       panelAvailability:'Disponibilidade',
-      availableOn:     '🟢 Disponível para trabalhar',
-      availableOff:    '⚪ Não disponível de momento',
+      availableOn:     'Disponível para trabalhar',
+      availableOff:    'Não disponível de momento',
       profileIncomplete:'Este candidato ainda não preencheu o perfil completo.',
 
       // Pending wages strip
-      pendingTitle:    '💶 Pagamentos pendentes a trabalhadores ({{count}})',
-      cancellationMin: '⚠️ Mínimo 2h (cancelamento) — ',
+      pendingTitle:    'Pagamentos pendentes a trabalhadores ({{count}})',
+      cancellationMin: 'Mínimo 2h (cancelamento) —',
       awaitingWorker:  ' · aguarda confirmação do trabalhador',
-      disputed:        ' · 🚩 trabalhador reporta não ter recebido',
+      disputed:        '· trabalhador reporta não ter recebido',
       workerFallback:  'Trabalhador',
       ibanLabel:       'IBAN:',
       referenceLabel:  'Referência:',
       ibanWithheld:    'O trabalhador não autorizou a partilha do IBAN. Combina outro método (MB WAY) diretamente com ele, ou pede-lhe que ative o Turnos Pay Link.',
-      viewProof:       '📎 Ver comprovativo',
-      noProofDeclared: '⚠️ Declarado sem comprovativo',
-      payNow:          '💳 Pagar agora',
-      markPaid:        '✓ Marcar como pago',
-      adjustHours:     '✏️ Ajustar horas',
-      reportProblem:   '⚠️ Reportar problema',
-      underReview:     '⚖️ Em análise pela Turnos (48h)',
+      viewProof:       'Ver comprovativo',
+      noProofDeclared: 'Declarado sem comprovativo',
+      payNow:          'Pagar agora',
+      markPaid:        'Marcar como pago',
+      adjustHours:     'Ajustar horas',
+      reportProblem:   'Reportar problema',
+      underReview:     'Em análise pela Turnos (48h)',
       pendingFooter:   'Pagamentos em falta há mais de 72h suspendem a publicação de novos turnos.',
 
       // Mark-as-paid modal
@@ -1328,7 +1330,7 @@ export const pt = {
       proofRest:     ' (recibo do banco ou captura do MB WAY). Fica associado a este turno e é o que resolve a disputa se o trabalhador reportar que não recebeu.',
       noProofPrompt: 'Sem comprovativo? Explica porquê — fica registado e visível em caso de disputa.',
       noProofPlaceholder: 'Ex.: pagamento feito por terceiro, recibo indisponível',
-      markPaidSubmit:'✓ Confirmar pagamento',
+      markPaidSubmit:'Confirmar pagamento',
       sending:       'A enviar…',
       genericRetry:  'Erro — tenta novamente.',
 
@@ -1351,7 +1353,7 @@ export const pt = {
       // Cancel-shift modal
       cancelTitle:  'Cancelar turno preenchido',
       cancelSub:    '{{shift}} · {{date}} · {{time}}',
-      under3h1:     '⚠️ Faltam menos de ',
+      under3h1:     'Faltam menos de',
       under3hBold1: '3 horas',
       under3h2:     ' para o início. Se o cancelamento for por erro/decisão da empresa, deves pagar o ',
       under3hBold2: 'mínimo de 2 horas (€{{amount}})',
@@ -1360,7 +1362,7 @@ export const pt = {
       erroEmpresaTag: '2h mín. + 3€',
       cancelNotePlaceholder: 'Descrição (opcional, recomendado para motivos justificados)',
       under24h:     '⏳ Faltam menos de 24 horas. O cancelamento é gratuito mas fica registado na fiabilidade da empresa. O trabalhador será notificado com um pedido de desculpas.',
-      over24h:      '✓ Faltam mais de 24 horas — cancelamento gratuito. O trabalhador será notificado com um pedido de desculpas e o turno reabre para outros workers.',
+      over24h:      'Faltam mais de 24 horas — cancelamento gratuito. O trabalhador será notificado com um pedido de desculpas e o turno reabre para outros workers.',
       cancelSubmit: 'Cancelar turno',
       cancelling:   'A cancelar…',
     },
