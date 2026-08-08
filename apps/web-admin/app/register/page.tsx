@@ -105,7 +105,7 @@ export default function RegisterPage() {
       {/* Left panel */}
       <aside style={s.panel}>
         <div style={s.panelInner}>
-          <Logo variant="white" height={26} href="/" />
+          <Logo variant="white" height={30} href="/" />
           <div style={s.panelContent}>
             <h2 style={s.panelTitle}>{t('home.register.panelTitle')}</h2>
             <p style={s.panelSub}>{t('home.register.panelSub')}</p>
@@ -144,7 +144,7 @@ export default function RegisterPage() {
       <main style={s.formSide}>
         <div style={s.formBox}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-            <Logo height={24} href="/" />
+            <Logo height={30} href="/" />
             <LanguageSwitcher />
           </div>
 

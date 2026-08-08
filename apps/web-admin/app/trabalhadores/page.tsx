@@ -43,7 +43,7 @@ export default function WorkersPage() {
       {/* ── Nav ── */}
       <nav style={s.nav}>
         <div style={s.navInner}>
-          <Logo height={26} href="/" />
+          <Logo height={30} href="/" />
           <div style={s.navActions}>
             <LanguageSwitcher />
             <Link href="/" style={s.navLink}>{t('home.nav.forCompanies')}</Link>

@@ -42,7 +42,7 @@ export default function AdminLogin() {
       {/* ── Left brand panel ── */}
       <aside style={s.panel}>
         <div style={s.panelInner}>
-          <Logo variant="white" height={26} href="/" />
+          <Logo variant="white" height={30} href="/" />
           <div style={s.panelContent}>
             <h2 style={s.panelTitle}>
               {t('home.login.panelTitle1')}<br />{t('home.login.panelTitle2')}
@@ -74,7 +74,7 @@ export default function AdminLogin() {
 
           {/* Mobile logo (hidden on desktop) */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
-            <Logo height={24} href="/" />
+            <Logo height={30} href="/" />
             <LanguageSwitcher />
           </div>
 

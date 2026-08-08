@@ -74,6 +74,43 @@ Swap for live keys, and re-point:
 The Connect webhook is easy to forget and its absence is silent: Pay Link
 payments simply never reconcile.
 
+### 5. Public shift search leaks every company's billing record
+
+`GET /api/shifts/search` and `GET /api/shifts/:id` are public by design (Stint 2
+— workers browse before signing in). Both serialize the **full `employer`
+relation**, so an unauthenticated request returns, for every company:
+
+```
+stripeCustomerId, stripeSubscriptionId, stripePaymentMethodId,
+subscriptionStatus, subscriptionTier, isActive, accountantEmail,
+notificationPrefs, nipc, nif, lateCancellationCount, address, postalCode
+```
+
+Reproduce with no credentials at all:
+
+```bash
+curl -s "https://turnos-api-production-6c70.up.railway.app/api/shifts/search" | head -c 800
+```
+
+Confirmed live 2026-08-08 — returns `"stripeCustomerId":"cus_…"` for Carolina
+Bakes.
+
+**Accepted for beta, deliberately.** There are no real companies yet, so the
+only records exposed are demo rows and one test account. This must not survive
+the first paying company.
+
+**The fix:** the worker-facing feed and shift detail need company name, sector
+and `logoUrl` — nothing else. The shift's own `address`/`lat`/`lng` are
+top-level on `Shift`, not on the employer. Narrow the join with an explicit
+public DTO in `apps/api/src/shifts/shifts.service.ts` rather than a
+`select([...])`, so that adding a column to the `Employer` entity cannot
+silently re-widen the response. Then grep `relations: ['employer']` and
+`leftJoinAndSelect('shift.employer'` for the same pattern elsewhere.
+
+Decide separately whether `lateCancellationCount` should be visible to workers.
+It is a company-reliability signal and might be wanted on purpose — but that
+should be a decision, not a leak.
+
 ---
 
 ## 🟠 Data — test rows that must not appear to a real user
@@ -81,7 +118,7 @@ payments simply never reconcile.
 Delete in this order (children before parents), or use the demo endpoint for the
 first item while it still exists.
 
-### 5. Demo rows from the seeder
+### 6. Demo rows from the seeder
 
 Every row it wrote has an id starting `dede`. While `DEMO_SEED_TOKEN` is still
 set:
@@ -121,7 +158,7 @@ FROM (
 WHERE w.id = '<worker-id>';
 ```
 
-### 6. Test accounts
+### 7. Test accounts
 
 - **Worker** `+33767560422` (Juanes) — worker id `8b5811e0-f5b4-4e5b-b2f8-81ff1e829817`
 - **Employer** `Carolina Bakes` and its 8 hand-made shifts
@@ -139,7 +176,7 @@ by hand — the demo values are fiction.
 
 ## 🟡 Configuration — correct for beta, wrong for launch
 
-### 7. `synchronize: true`
+### 8. `synchronize: true`
 
 `apps/api/src/app.module.ts:86`
 
@@ -149,10 +186,10 @@ careless rename drops a column and its data. Generate migrations and set this to
 
 Related: `autoLoadEntities: true` was added alongside it so a feature module's
 entity cannot be silently unregistered (that bug killed the whole Pay Link flow
-in production — see item 11). Keep it either way; it is harmless with
+in production — see item 12). Keep it either way; it is harmless with
 migrations.
 
-### 8. `BYPASS_SUBSCRIPTION`
+### 9. `BYPASS_SUBSCRIPTION`
 
 `apps/api/src/payments/payments.service.ts:205` — reads the Railway variable and
 skips the subscription check entirely, which also skips the overdue-wage block
@@ -161,7 +198,7 @@ below it.
 Delete the variable in Railway. Keeping the code is fine (useful for staging),
 but consider gating it on `NODE_ENV !== 'production'`.
 
-### 9. Local dev artefacts
+### 10. Local dev artefacts
 
 - `apps/api/.env` — never committed, but confirm it is not baked into any image
 - `useStaticAssets('/uploads')` in `main.ts` serves uploads from local disk;
@@ -174,14 +211,14 @@ but consider gating it on `NODE_ENV !== 'production'`.
 Not created for the demo, but on the same "before launch" clock. Listed so this
 document is the single place to look.
 
-### 10. Unexercised critical path
+### 11. Unexercised critical path
 
 `wage_payments` did not exist as a table until 2026-08-07, so **no shift has
 ever completed end to end in production**. Before real workers arrive, run one
 shift through publish → apply → approve → check-in → auto-complete and confirm a
 `wage_payments` row appears and the Pay Link resolves. This path has never run.
 
-### 11. From `CLAUDE.md`
+### 12. From `CLAUDE.md`
 
 - Attorney sign-off on the Pay Link structure (`docs/legal/pay-link-legal-brief.md`) — **still unsigned**
 - €45 Stripe price + `STRIPE_SUBSCRIPTION_PRICE_ID` in Railway
@@ -194,7 +231,7 @@ shift through publish → apply → approve → check-in → auto-complete and c
 - Mobile `tsc` has pre-existing `TS2786` / `TS2339` noise (LinearGradient and
   design-token typings)
 
-### 12. Marketing-only bits
+### 13. Marketing-only bits
 
 If the home-screen shortcut for the demo video is added to the web-admin
 (`apple-touch-icon`, web manifest, `apple-mobile-web-app-capable`), it is
@@ -211,6 +248,9 @@ grep -rn "BYPASS_SUBSCRIPTION" apps/api/src/          # decide: gate or delete
 grep -n  "origin:"             apps/api/src/main.ts   # must not be '*'
 grep -n  "synchronize"         apps/api/src/app.module.ts
 ls apps/api/src/demo/                                 # must not exist
+
+# item 5 — must return nothing (no billing fields on the public endpoint)
+curl -s "$API/api/shifts/search" | grep -o "stripeCustomerId\|accountantEmail"
 ```
 
 Railway variables that must be **gone**: `DEMO_SEED_TOKEN`, `BYPASS_SUBSCRIPTION`.

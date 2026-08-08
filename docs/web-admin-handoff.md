@@ -243,6 +243,7 @@ belong in this table.
 | **Test the settings endpoints** | see top of this doc |
 | **Run one shift end to end** | see top of this doc |
 | Demo seed data still live, `DEMO_SEED_TOKEN` still set | `docs/go-live-cleanup.md` item 2 |
+| Public shift search returns every company's Stripe id and billing state — **accepted for beta, blocker before the first paying company** | `docs/go-live-cleanup.md` item 5 |
 | Everything for launch | `docs/go-live-cleanup.md` |
 
 ### Demo data

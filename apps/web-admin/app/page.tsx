@@ -57,7 +57,7 @@ export default function LandingPage() {
       {/* ── Nav ── */}
       <nav style={s.nav}>
         <div style={s.navInner}>
-          <Logo height={26} />
+          <Logo height={30} />
           <div style={s.navActions}>
             <LanguageSwitcher />
             <Link href="/trabalhadores" style={s.navLink}>{t('home.workers.navLink')}</Link>
