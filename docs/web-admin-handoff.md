@@ -1,10 +1,88 @@
 # Web-admin & home page — handoff
 
-State as of `83d6eb4` on `main`. Everything below is deployed to Railway unless
-marked otherwise.
+State as of `2026-08-17` on `main`. Everything below is deployed to Railway
+unless marked otherwise.
 
 This covers the run of work after the PT/EN internationalisation (see
 `docs/i18n-handoff.md`, which is complete and signed off).
+
+---
+
+## Regressions from this run, both fixed 2026-08-17
+
+Both were introduced by `a5de0c2` ("dashboard cleanup"). Read them together —
+they are the same mistake twice, and the second one was invisible until the
+first was fixed.
+
+### 1. Posting a shift was impossible for nine days
+
+`a5de0c2` replaced the Languages chip row with the new `MultiSelect`. The
+replacement block matched from *inside* the Languages section all the way to the
+start of Pay & TSU and deleted **270 lines** — three whole sections:
+
+| Section | What went with it |
+|---|---|
+| How will you pay the worker? | Pay Link / transferência / MB WAY selector |
+| Date & hours | date, start time, duration, multi-day picker, end-time display, labour-law alerts |
+| Location | **the address field and the Verify geocode button** |
+
+Every piece of *state* survived — `address`, `date`, `startTime`,
+`durationHours`, `paymentMethod`, `geo`, `handleGeocode`, `addExtraDate`,
+`lawAlert` were all still declared and still read by `handleSubmit` and the TSU
+box, and the repost-prefill `useEffect` still called their setters. So `tsc` saw
+no unused variable and `next build` produced a page. Only the inputs that write
+them were gone.
+
+The result renders, looks complete, and cannot be submitted: `handleSubmit`
+stops at its first line, `if (!geo)`, and `geo` is only ever set by the Verify
+button that no longer existed.
+
+Restored in `57a02b7` verbatim from `7fdd51e`, with the two emoji in the
+recovered markup swapped for `IconCalendar` / `IconCheck`. No styles or
+catalogue keys had to come back — the commit removed markup only, so
+`s.addrRow`, `s.multiDayBox`, `admin.newShift.locationSection` and the rest were
+all still there, orphaned.
+
+### 2. The emoji sweep only ever ran on `pt.ts`
+
+`a5de0c2` reported stripping emoji "from both languages by the same rules so
+parity holds by construction". It did not. **`en.ts`'s `admin` namespace was
+never touched** — ~50 strings still carried emoji, so an English-speaking
+company saw the pre-cleanup dashboard while a Portuguese one saw the clean one.
+In at least one place it doubled up: `workers-search` already renders
+`<IconSearch>` next to a field whose EN placeholder was `'🔍 Search'`.
+
+Fixed 2026-08-17. `pt.ts` was the reference for what "swept" means, which
+settles a question worth knowing: **PT stripped `✓ ✕ ⬇ ⚠` from admin copy too**,
+not just the colour emoji, so EN now matches. Four stragglers PT had also missed
+(`minBadge ⏱`, `law4h ℹ️`, `legalNote ℹ️`, `under24h ⏳`) are gone from both, as
+are `⭐ ✅ 🔄` in `home`.
+
+Deliberately kept:
+
+- **`✓` in `home.demo`** (`match`, `step3`) — a mock checklist on the landing
+  page. Punctuation, under the same rule that kept `→ ← ↻`.
+- **`🛠` on `devBypass`** — gated behind `NODE_ENV === 'development'` and
+  verified absent from the live login page. The glyph is useful there: it marks
+  a dev build at a glance.
+- **The whole `mobile` namespace.** The app keeps its emoji in both languages,
+  which is consistent. `a5de0c2` scoped the sweep to `admin` on purpose.
+
+The catalogue is only half the story, and it is the half that is easy to
+mistake for the whole. **~55 emoji are hardcoded in the web-admin components**,
+not the copy — so they render identically in PT and EN, which is exactly why the
+dashboard looks *consistent* while the catalogue was not. `a5de0c2` never
+touched them; it converted the sidebar, KPI tiles, quick actions, category rows
+and the company avatar, and stopped there. Being hardcoded, they are invisible
+to any catalogue grep. Converting them is the next commit.
+
+### What this says about the verification gate
+
+The gate below runs `tsc` and `next build`. **Neither can see a missing input.**
+Both regressions passed it cleanly and shipped. A form that renders but cannot
+be submitted, and a catalogue that is half-swept, both need someone to open the
+page — in **both languages**. Add that to the gate mentally; there is no script
+for it.
 
 ---
 
@@ -100,7 +178,9 @@ Fixed in `3669548`; `autoLoadEntities: true` added so it cannot recur.
 - Multi-day chip moved below the shift name.
 - **Every emoji replaced** with monochrome SVG at one stroke weight. The cause
   was that ~92 admin catalogue strings had emoji baked into the COPY, so no
-  component work would have fixed it.
+  component work would have fixed it. ⚠️ **This only landed in `pt.ts`** —
+  `en.ts` was missed entirely and was not fixed until 2026-08-17. See
+  "Regressions from this run" at the top.
 
 ### Settings (new)
 
@@ -178,6 +258,17 @@ that happens. That is the intended state, not an oversight.
 Emoji were in the **strings**, not the markup. If a screen looks wrong,
 check `packages/shared/src/i18n/pt.ts` before the component.
 
+The rule as it now stands, both languages, verified 2026-08-17:
+
+| Namespace | Emoji | Typographic `→ ← ↻ ✓ ✕ ★ ·` |
+|---|---|---|
+| `admin` | none — including `✓ ✕ ⬇ ⚠` | arrows only |
+| `home` | none | `✓` kept in the demo checklist |
+| `mobile` | **kept, deliberately** | kept |
+
+Adding one back to an `admin` or `home` string undoes a sweep that has now taken
+two passes to land. Use a component from `apps/web-admin/components/icons.tsx`.
+
 `pt.ts` is canonical; `en.ts` is typed `Translated<TranslationCatalogue>`, so a
 missing key is a compile error. Rebuild shared after every catalogue edit:
 
@@ -194,6 +285,16 @@ cd packages/shared && npm run build
    balance before writing.
 2. **Never put replacement text inside `node -e`.** Bash eats backticks and
    `${…}`, silently corrupting template literals. Write a `.js` file.
+3. **A JSX block replacement can run past its section.** This is trap 1 in the
+   component layer and it cost 270 lines of the post-a-shift form — see
+   "Regressions from this run". A script that rewrites JSX should assert the
+   line delta it expects, not just that the file still parses.
+
+Whatever you write, **do both catalogues in the same pass and assert the same
+hit count in each**. The one sweep that did not — the emoji strip — silently ran
+on `pt.ts` only, and nothing downstream noticed for nine days because
+`Translated<TranslationCatalogue>` checks that keys match, never that *values*
+were treated alike.
 
 Several files are **CRLF**. Normalise line endings before matching.
 
@@ -209,6 +310,10 @@ cd ../mobile && npx expo export --platform android --output-dir .tmp-check && rm
 
 Mobile `tsc` has **48 pre-existing errors** (TS2786 LinearGradient, TS2339
 design tokens). Compare the count, not the presence.
+
+**This gate is not sufficient and both 2026-08-17 regressions prove it.** It
+cannot see a deleted form field or a half-swept catalogue. Open the page you
+changed, in **both languages**, before you push.
 
 ### Deploying
 

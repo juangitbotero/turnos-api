@@ -948,7 +948,7 @@ export const pt = {
       colTurnosFee:  'Taxa Turnos',
       colEmployerTsu:'TSU Emp.',
       colWorkerNet:  'Líquido Trabalh.',
-      legalNote:     'ℹ️ SS Trabalhador (11%) é entregue pelo próprio trabalhador via SS Direta — não incluído acima. TSU Entidade (23.75%) deve ser pago mensalmente pelo empregador.',
+      legalNote:     'SS Trabalhador (11%) é entregue pelo próprio trabalhador via SS Direta — não incluído acima. TSU Entidade (23.75%) deve ser pago mensalmente pelo empregador.',
 
       colWorkerNif: 'Trabalhador / NIF',
       colShiftDate: 'Data do Turno',
@@ -1276,7 +1276,7 @@ export const pt = {
 
       // Date & time
       dateSection:  'Data & Horário',
-      minBadge:     '⏱ Mínimo 2 horas',
+      minBadge:     'Mínimo 2 horas',
       labelFirstDay:'Primeiro dia',
       labelDate:    'Data do turno',
       labelStart:   'Hora de início',
@@ -1305,7 +1305,7 @@ export const pt = {
 
       // Portuguese labour-law alerts
       law8h: 'Turno ≥ 8h: o trabalhador tem direito a pausa de 1h e subsídio de refeição (~€6,00/dia). Certifica-te de que o valor/hora reflecte este custo.',
-      law4h: 'ℹ️ Turno ≥ 4h: o trabalhador tem direito a pausa obrigatória de 15–30 min (não computada no horário de trabalho).',
+      law4h: 'Turno ≥ 4h: o trabalhador tem direito a pausa obrigatória de 15–30 min (não computada no horário de trabalho).',
 
       // Location
       locationSection:    'Localização',
@@ -1470,7 +1470,7 @@ export const pt = {
       reasonLabel:  'Motivo do cancelamento',
       erroEmpresaTag: '2h mín. + 3€',
       cancelNotePlaceholder: 'Descrição (opcional, recomendado para motivos justificados)',
-      under24h:     '⏳ Faltam menos de 24 horas. O cancelamento é gratuito mas fica registado na fiabilidade da empresa. O trabalhador será notificado com um pedido de desculpas.',
+      under24h:     'Faltam menos de 24 horas. O cancelamento é gratuito mas fica registado na fiabilidade da empresa. O trabalhador será notificado com um pedido de desculpas.',
       over24h:      'Faltam mais de 24 horas — cancelamento gratuito. O trabalhador será notificado com um pedido de desculpas e o turno reabre para outros workers.',
       cancelSubmit: 'Cancelar turno',
       cancelling:   'A cancelar…',
@@ -1505,7 +1505,7 @@ export const pt = {
     heroCard: {
       role:        'Cozinheiro',
       workerName:  'Carlos M.',
-      workerMeta:  '{{role}} · ⭐ 4.9 · Verificado',
+      workerMeta:  '{{role}} · 4.9 · Verificado',
       available:   'Disponível',
       companyName: 'Restaurante A Taberna',
       companyMeta: '{{role}} · Hoje 18h–02h · €10/hr',
@@ -1564,8 +1564,8 @@ export const pt = {
       s7: 'Ratings & Reputação',
       s8: 'Produto & Operações',
       s9: 'Crescimento & Flywheel',
-      statusDone:    '✅ Completo',
-      statusActive:  '🔄 Em progresso',
+      statusDone:    'Completo',
+      statusActive:  'Em progresso',
       statusPlanned: 'Planeado',
     },
 
