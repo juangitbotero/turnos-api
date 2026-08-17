@@ -9,6 +9,7 @@ import { COMPANY_CANCEL_REASONS, paymentMethodLabel } from '@turnos/shared';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 import { WorkerReviews } from '../../../components/WorkerReviews';
+import { IconAlert, IconBriefcase, IconFile, IconTarget, IconChat, IconQr, IconClipboard, Stars } from '../../../components/icons';
 
 /** A shift row that stands for a multi-day job rather than a single day. */
 const isMultiDay = (shift: Shift): boolean => (shift.seriesDates?.length ?? 0) > 1;
@@ -32,7 +33,6 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
   const score = w?.profileQualityScore ?? 0;
   const scoreColor = score >= 80 ? '#16a34a' : score >= 50 ? '#d97706' : '#dc2626';
   const avgR = w?.avgRating != null ? Number(w.avgRating) : null;
-  const filledStars = Math.round(avgR ?? 0);
   return (
     <div style={s.profilePanel}>
       <button style={s.backInPanel} onClick={onBack}>{t('admin.shifts.backToList')}</button>
@@ -54,7 +54,7 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
           </span>
           {avgR != null && (
             <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ color: '#fbbf24', fontSize: 14 }}>{'★'.repeat(filledStars)}{'☆'.repeat(5 - filledStars)}</span>
+              <Stars value={avgR ?? 0} size={14} />
               <span style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b' }}>{avgR.toFixed(1)}</span>
               <span style={{ fontSize: 12, color: '#6b7280' }}>{t('admin.shifts.ratingsCount', { count: w?.totalRatings ?? 0 })}</span>
             </div>
@@ -118,7 +118,7 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
           <div style={s.skillTags}>
             {w.experiences.map(exp => (
               <span key={exp.jobTitle} style={{ ...s.skillTag, background: '#fef3c7', color: '#92400e' }}>
-                💼 {tSkill(exp.jobTitle)} · {t(`domain.experienceLevels.${exp.level}`)}
+                <IconBriefcase size={12} /> {tSkill(exp.jobTitle)} · {t(`domain.experienceLevels.${exp.level}`)}
               </span>
             ))}
           </div>
@@ -130,7 +130,7 @@ function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => v
         <div style={s.profileSection}>
           <p style={s.profileSectionTitle}>{t('admin.shifts.panelCv')}</p>
           <a href={w.cvUrl} target="_blank" rel="noopener noreferrer" style={s.cvLink}>
-            📄 {w.cvFileName ?? t('admin.shifts.panelCvFallback')}
+            <IconFile size={12} /> {w.cvFileName ?? t('admin.shifts.panelCvFallback')}
           </a>
         </div>
       )}
@@ -303,14 +303,14 @@ function ShiftApplicationsModal({
                         </p>
                         {matchLabel && (
                           <p style={{ ...s.appSkills, color: isFullMatch ? '#16a34a' : 'var(--color-text-secondary)' }}>
-                            🎯 {matchLabel}
+                            <IconTarget size={12} /> {matchLabel}
                           </p>
                         )}
                         {app.worker?.skills && app.worker.skills.length > 0 && (
                           <p style={s.appSkills}>{app.worker.skills.slice(0, 3).map(tSkill).join(', ')}{app.worker.skills.length > 3 ? ` +${app.worker.skills.length - 3}` : ''}</p>
                         )}
                         {app.coverNote && (
-                          <p style={s.coverNote}>💬 "{app.coverNote}"</p>
+                          <p style={s.coverNote}><IconChat size={12} /> "{app.coverNote}"</p>
                         )}
                       </div>
                     </div>
@@ -478,7 +478,7 @@ export default function ShiftsPage() {
         </div>
       </div>
 
-      {error && <div style={s.errorBanner}>⚠️ {error}</div>}
+      {error && <div style={s.errorBanner}><IconAlert size={15} /> {error}</div>}
 
       {/* ── Pending wage payments (Pay Link + trust loop) ── */}
       {pendingWages.length > 0 && (
@@ -605,7 +605,7 @@ export default function ShiftsPage() {
       {/* QR tip banner — shown when there are FILLED/ACTIVE shifts */}
       {active.some(sh => ['FILLED', 'ACTIVE'].includes(sh.status)) && (
         <div style={s.qrTipBanner}>
-          <span>📲</span>
+          <IconQr size={15} />
           <span>
             {t('admin.shifts.qrTip1')}
             <Link href="/dashboard/qr-codes" style={{ color: '#7c3aed', fontWeight: 700 }}>
@@ -618,7 +618,7 @@ export default function ShiftsPage() {
 
       {!isLoading && shifts.length === 0 && !error && (
         <div style={s.empty}>
-          <div style={s.emptyIcon}>📋</div>
+          <div style={s.emptyIcon}><IconClipboard size={44} /></div>
           <p style={s.emptyText}>{t('admin.shifts.emptyText')}</p>
           <Link href="/dashboard/new-shift" style={s.emptyBtn}>{t('admin.shifts.emptyCta')}</Link>
         </div>
@@ -684,7 +684,7 @@ export default function ShiftsPage() {
             style={s.expiredToggle}
             onClick={() => setShowExpired(v => !v)}
           >
-            <span style={s.expiredToggleIcon}>⚠️</span>
+            <span style={s.expiredToggleIcon}><IconAlert size={14} /></span>
             <span style={s.expiredToggleTitle}>
               {t('admin.shifts.expiredToggle', { count: expired.length })}
             </span>
@@ -882,7 +882,7 @@ function MarkPaidModal({ wage, onClose, onDone }: {
             background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
             padding: '8px 12px', fontSize: 13, color: '#991b1b', marginBottom: 12,
           }}>
-            ⚠️ {error}
+            <IconAlert size={15} /> {error}
           </div>
         )}
 
@@ -1010,7 +1010,7 @@ function WageActionModal({ wage, mode, onClose, onDone }: {
             background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
             padding: '8px 12px', fontSize: 13, color: '#991b1b', marginBottom: 12,
           }}>
-            ⚠️ {error}
+            <IconAlert size={15} /> {error}
           </div>
         )}
 
@@ -1278,7 +1278,7 @@ const s: Record<string, React.CSSProperties> = {
     padding: '12px 16px', fontSize: 13, color: '#ef4444', marginBottom: 24,
   },
   empty: { textAlign: 'center', padding: '80px 0' },
-  emptyIcon: { fontSize: 48, marginBottom: 16 },
+  emptyIcon: { display: 'flex', justifyContent: 'center', marginBottom: 16, color: 'var(--color-text-muted, #9ca3af)' },
   emptyText: { fontSize: 16, color: 'var(--color-text-secondary)', fontWeight: 500, marginBottom: 20 },
   emptyBtn: {
     display: 'inline-block', padding: '12px 24px',
@@ -1462,7 +1462,7 @@ const s: Record<string, React.CSSProperties> = {
     cursor: 'pointer', fontFamily: 'inherit', color: '#92400e',
     fontSize: 14, fontWeight: 600,
   },
-  expiredToggleIcon: { fontSize: 18 },
+  expiredToggleIcon: { display: 'inline-flex' },
   expiredToggleTitle: { flex: 1, textAlign: 'left' as const },
   repostBtn: {
     padding: '6px 12px', background: 'var(--color-primary-light)',

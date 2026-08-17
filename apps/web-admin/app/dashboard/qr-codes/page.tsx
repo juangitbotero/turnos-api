@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { adminApi, ApiError } from '../../../lib/api';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
+import { IconBulb, IconAlert, IconDoor, IconClock, IconInfo } from '../../../components/icons';
 
 interface QrData {
   checkInQrDataUrl:  string;
@@ -86,7 +87,7 @@ export default function QrCodesPage() {
 
       {/* Info banner */}
       <div style={s.infoBanner} className="no-print">
-        <div style={s.infoIcon}>💡</div>
+        <div style={s.infoIcon}><IconBulb size={18} /></div>
         <div>
           <strong>{t('admin.qrCodes.infoLead')}</strong>{t('admin.qrCodes.infoBody1')}
           <em>{t('admin.qrCodes.infoCheckIn')}</em>{t('admin.qrCodes.infoBody2')}
@@ -106,7 +107,7 @@ export default function QrCodesPage() {
       {/* Error */}
       {error && !loading && (
         <div style={s.errorBanner}>
-          ⚠️ {error}
+          <IconAlert size={15} /> {error}
           <button style={s.retryBtn} onClick={fetch}>{t('common.retry')}</button>
         </div>
       )}
@@ -159,14 +160,14 @@ export default function QrCodesPage() {
             <h3 style={s.placementTitle}>{t('admin.qrCodes.placementTitle')}</h3>
             <div style={s.placementGrid}>
               <div style={s.placementItem}>
-                <div style={s.placementIcon}>🚪</div>
+                <div style={s.placementIcon}><IconDoor size={18} /></div>
                 <div>
                   <strong>{t('admin.qrCodes.placementInLabel')}</strong>{t('admin.qrCodes.placementInWhere')}
                   <p style={s.placementDesc}>{t('admin.qrCodes.placementInDesc')}</p>
                 </div>
               </div>
               <div style={s.placementItem}>
-                <div style={s.placementIcon}>⏱️</div>
+                <div style={s.placementIcon}><IconClock size={18} /></div>
                 <div>
                   <strong>{t('admin.qrCodes.placementEndLabel')}</strong>{t('admin.qrCodes.placementEndWhere')}
                   <p style={s.placementDesc}>{t('admin.qrCodes.placementEndDesc')}</p>
@@ -177,7 +178,7 @@ export default function QrCodesPage() {
 
           {/* Fallback note */}
           <div style={s.fallbackNote} className="no-print">
-            <span>ℹ️</span>
+            <IconInfo size={15} />
             <span>
               {t('admin.qrCodes.fallback1')}
               <Link href="/dashboard/shifts" style={{ color: 'var(--color-primary)' }}>{t('admin.qrCodes.fallbackLink')}</Link>
@@ -218,7 +219,7 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: 10, padding: '14px 16px', fontSize: 13, color: '#1d4ed8',
     lineHeight: 1.6, marginBottom: 28,
   },
-  infoIcon: { fontSize: 20, flexShrink: 0, marginTop: 1 },
+  infoIcon: { display: 'inline-flex', flexShrink: 0, marginTop: 1 },
 
   centered: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 0', gap: 16 },
   spinner: {
@@ -297,7 +298,7 @@ const s: Record<string, React.CSSProperties> = {
     padding: 12, background: 'var(--color-secondary)', borderRadius: 8,
     fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)',
   },
-  placementIcon: { fontSize: 24, flexShrink: 0 },
+  placementIcon: { display: 'inline-flex', flexShrink: 0, color: 'var(--color-primary)' },
   placementDesc: { fontSize: 12, fontWeight: 400, color: 'var(--color-text-secondary)', marginTop: 4, lineHeight: 1.5 },
 
   // Fallback note

@@ -68,13 +68,41 @@ Deliberately kept:
 - **The whole `mobile` namespace.** The app keeps its emoji in both languages,
   which is consistent. `a5de0c2` scoped the sweep to `admin` on purpose.
 
-The catalogue is only half the story, and it is the half that is easy to
-mistake for the whole. **~55 emoji are hardcoded in the web-admin components**,
-not the copy — so they render identically in PT and EN, which is exactly why the
-dashboard looks *consistent* while the catalogue was not. `a5de0c2` never
+The catalogue was only half the story, and it is the half that is easy to
+mistake for the whole. **~56 emoji were hardcoded in the web-admin components**,
+not the copy — so they rendered identically in PT and EN, which is exactly why
+the dashboard looked *consistent* while the catalogue was not. `a5de0c2` never
 touched them; it converted the sidebar, KPI tiles, quick actions, category rows
-and the company avatar, and stopped there. Being hardcoded, they are invisible
-to any catalogue grep. Converting them is the next commit.
+and the company avatar, and stopped there. Being hardcoded, they were invisible
+to any catalogue grep.
+
+Converted the same day across 11 files. **14 icons added** — `IconInfo`,
+`IconBulb`, `IconClock`, `IconMail`, `IconLock`, `IconEye`, `IconEyeOff`,
+`IconFile`, `IconChat`, `IconTarget`, `IconDoor`, `IconTrend`, `IconInbox` and
+`Spinner` — bringing `components/icons.tsx` to 49.
+
+Three things that are not obvious from the diff:
+
+- **`fontSize` does nothing to an SVG.** Every container that held one of these
+  emoji was sized with `fontSize: 48` (empty states) or `fontSize: 20-36`
+  (inline badges). Each had to become an `inline-flex`/`flex` box, 14 of them.
+  Miss this and the icon renders at its default size in a box built for a 48px
+  glyph.
+- **The `⏳` loading spinners were invisible to a rendered-HTML scan** — they
+  only exist while `isLoading` is true. Four of them (three on compliance, one
+  on login) were found only by scanning *source*. They are now a real `Spinner`
+  that turns, using the `@keyframes spin` already in `globals.css`. If you sweep
+  for glyphs again, scan the source, and widen the range to **U+2300–23FF** —
+  the first pass here missed it, which is exactly where `⏳ ⌛ ⏱ ⏰` live.
+- **`Stars` existed and nothing used it.** Four screens were building ratings
+  with `'★'.repeat(n) + '☆'.repeat(5-n)`. They now use the component.
+
+Kept: `↑` on the QR check-in badge, and `★ ☆ ✓ ✕ → ← ↻ ·` wherever they are
+punctuation.
+
+Verified by rendering all 49 icons on a throwaway route and asserting each has a
+non-empty `getBBox()` — a build cannot tell you an SVG draws nothing. Then every
+route re-scanned in both languages: clean apart from the dev-only `🛠`.
 
 ### What this says about the verification gate
 
@@ -266,8 +294,18 @@ The rule as it now stands, both languages, verified 2026-08-17:
 | `home` | none | `✓` kept in the demo checklist |
 | `mobile` | **kept, deliberately** | kept |
 
-Adding one back to an `admin` or `home` string undoes a sweep that has now taken
-two passes to land. Use a component from `apps/web-admin/components/icons.tsx`.
+The same now holds for the **web-admin components** — no emoji in JSX either.
+
+Adding one back to an `admin` or `home` string, or to a component, undoes a
+sweep that took three passes to land. Use `apps/web-admin/components/icons.tsx`;
+if the icon you need is not there, add it rather than reaching for a glyph.
+
+A pre-existing issue found while checking icon colours, **not fixed**:
+`--color-text-muted` and `--color-border` are **not defined anywhere**. On the
+login page that means the inputs render with **no border at all**
+(`border: 0px none`), because an undefined var makes the whole declaration
+invalid. Icon colours there now point at `--color-text-secondary`, which does
+exist. The missing border is untouched and worth a look.
 
 `pt.ts` is canonical; `en.ts` is typed `Translated<TranslationCatalogue>`, so a
 missing key is a compile error. Rebuild shared after every catalogue edit:

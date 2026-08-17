@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { adminApi, TsuReport, McdContract, AuditLogEntry } from '../../../lib/api';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
+import { IconInbox, Spinner } from '../../../components/icons';
 
 type Tab = 'tsu' | 'mcd' | 'audit';
 
@@ -125,10 +126,10 @@ export default function CompliancePage() {
           </div>
 
           {tsuLoading ? (
-            <div style={s.center}><span style={s.spinner}>⏳</span> {t('common.loading')}</div>
+            <div style={s.center}><Spinner size={15} style={{ verticalAlign: -2 }} /> {t('common.loading')}</div>
           ) : !tsuReport || !tsuReport.rows?.length ? (
             <div style={s.emptyState}>
-              <p style={s.emptyIcon}>📭</p>
+              <p style={s.emptyIcon}><IconInbox size={44} /></p>
               <p style={s.emptyText}>
                 {t('admin.compliance.emptyTsu', { month: fMonthName((month ?? 1) - 1, year), year })}
               </p>
@@ -185,10 +186,10 @@ export default function CompliancePage() {
       {tab === 'mcd' && (
         <div>
           {contractsLoading ? (
-            <div style={s.center}><span style={s.spinner}>⏳</span> {t('common.loading')}</div>
+            <div style={s.center}><Spinner size={15} style={{ verticalAlign: -2 }} /> {t('common.loading')}</div>
           ) : contracts.length === 0 ? (
             <div style={s.emptyState}>
-              <p style={s.emptyIcon}>📭</p>
+              <p style={s.emptyIcon}><IconInbox size={44} /></p>
               <p style={s.emptyText}>{t('admin.compliance.emptyMcd')}</p>
             </div>
           ) : (
@@ -228,10 +229,10 @@ export default function CompliancePage() {
         <div>
           <p style={s.auditNote}>{t('admin.compliance.auditNote')}</p>
           {auditLoading ? (
-            <div style={s.center}><span style={s.spinner}>⏳</span> {t('common.loading')}</div>
+            <div style={s.center}><Spinner size={15} style={{ verticalAlign: -2 }} /> {t('common.loading')}</div>
           ) : auditLog.length === 0 ? (
             <div style={s.emptyState}>
-              <p style={s.emptyIcon}>📭</p>
+              <p style={s.emptyIcon}><IconInbox size={44} /></p>
               <p style={s.emptyText}>{t('admin.compliance.emptyAudit')}</p>
             </div>
           ) : (
@@ -359,6 +360,6 @@ const s: Record<string, React.CSSProperties> = {
   center: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 48, color: '#6b7280' },
   spinner: { fontSize: 24 },
   emptyState: { textAlign: 'center', padding: 64 },
-  emptyIcon: { fontSize: 48, margin: '0 0 8px' },
+  emptyIcon: { display: 'flex', justifyContent: 'center', margin: '0 0 8px', color: 'var(--color-text-muted, #9ca3af)' },
   emptyText: { fontSize: 16, color: '#6b7280', margin: 0 },
 };

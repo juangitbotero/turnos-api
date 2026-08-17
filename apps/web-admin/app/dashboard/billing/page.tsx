@@ -24,6 +24,7 @@ import { useRouter } from 'next/navigation';
 import { adminApi, ApiError } from '../../../lib/api';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
+import { IconAlert, IconBriefcase, IconClipboard, IconUsers, IconQr, IconChart, IconBuilding, IconEuro, IconBolt } from '../../../components/icons';
 
 type BillingState =
   | 'loading'
@@ -143,7 +144,7 @@ export default function BillingPage() {
 
       {/* Error */}
       {state === 'error' && (
-        <div style={s.errorBanner}>⚠️ {t('admin.billing.loadError')}</div>
+        <div style={s.errorBanner}><IconAlert size={15} /> {t('admin.billing.loadError')}</div>
       )}
 
       {/* Plan card */}
@@ -158,7 +159,7 @@ export default function BillingPage() {
             </div>
 
             <div style={s.planName}>
-              <span style={s.planIcon}>💼</span>
+              <span style={s.planIcon}><IconBriefcase size={22} /></span>
               <div>
                 <div style={s.planTitle}>{t('admin.billing.planName')}</div>
                 <div style={s.planPrice}>{t('admin.billing.planPrice')} <span style={s.planPriceSub}>{t('admin.billing.planPriceSub')}</span></div>
@@ -222,13 +223,13 @@ export default function BillingPage() {
           <div style={s.card}>
             <h2 style={s.cardTitle}>{t('admin.billing.aboutTitle')}</h2>
             <div style={s.infoSection}>
-              <InfoRow icon="📋" label={t('admin.billing.rowShifts')} value={t('admin.billing.rowShiftsVal')} />
-              <InfoRow icon="👷" label={t('admin.billing.rowWorkers')} value={t('admin.billing.rowWorkersVal')} />
-              <InfoRow icon="📲" label={t('admin.billing.rowQr')} value={t('admin.billing.rowQrVal')} />
-              <InfoRow icon="📊" label={t('admin.billing.rowTsu')} value={t('admin.billing.rowTsuVal')} />
-              <InfoRow icon="🏛️" label={t('admin.billing.rowSs')} value={t('admin.billing.rowSsVal')} />
-              <InfoRow icon="💶" label={t('admin.billing.rowFee')} value={t('admin.billing.rowFeeVal')} />
-              <InfoRow icon="⚡" label={t('admin.billing.rowWage')} value={t('admin.billing.rowWageVal')} />
+              <InfoRow icon={<IconClipboard size={15} />} label={t('admin.billing.rowShifts')} value={t('admin.billing.rowShiftsVal')} />
+              <InfoRow icon={<IconUsers size={15} />} label={t('admin.billing.rowWorkers')} value={t('admin.billing.rowWorkersVal')} />
+              <InfoRow icon={<IconQr size={15} />} label={t('admin.billing.rowQr')} value={t('admin.billing.rowQrVal')} />
+              <InfoRow icon={<IconChart size={15} />} label={t('admin.billing.rowTsu')} value={t('admin.billing.rowTsuVal')} />
+              <InfoRow icon={<IconBuilding size={15} />} label={t('admin.billing.rowSs')} value={t('admin.billing.rowSsVal')} />
+              <InfoRow icon={<IconEuro size={15} />} label={t('admin.billing.rowFee')} value={t('admin.billing.rowFeeVal')} />
+              <InfoRow icon={<IconBolt size={15} />} label={t('admin.billing.rowWage')} value={t('admin.billing.rowWageVal')} />
             </div>
 
             <div style={s.divider} />
@@ -288,7 +289,7 @@ function StatusBadge({ status }: { status: BillingState }) {
   );
 }
 
-function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div style={sb.infoRow}>
       <span style={sb.infoIcon}>{icon}</span>
@@ -413,7 +414,7 @@ const s: Record<string, React.CSSProperties> = {
     marginBottom: 20,
     border: '1px solid rgba(106,121,255,0.2)',
   },
-  planIcon: { fontSize: 36 },
+  planIcon: { display: 'inline-flex', color: 'var(--color-primary)' },
   planTitle: {
     fontSize: 18,
     fontWeight: 800,
@@ -571,7 +572,7 @@ const sb: Record<string, React.CSSProperties> = {
     padding: '8px 0',
     borderBottom: '1px solid var(--color-neutral-light)',
   },
-  infoIcon: { fontSize: 16, width: 22, textAlign: 'center' as const },
+  infoIcon: { display: 'inline-flex', justifyContent: 'center', width: 22, color: 'var(--color-text-secondary)' },
   infoLabel: {
     flex: 1,
     fontSize: 13,

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { adminApi, ApiError, HiredWorker } from '../../../lib/api';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
+import { IconAlert, IconUsers, Stars } from '../../../components/icons';
 
 export default function WorkersPage() {
   const router = useRouter();
@@ -50,12 +51,12 @@ export default function WorkersPage() {
         </div>
       </div>
 
-      {error && <div style={s.errorBanner}>⚠️ {error}</div>}
+      {error && <div style={s.errorBanner}><IconAlert size={15} /> {error}</div>}
 
       {/* Empty state */}
       {!isLoading && workers.length === 0 && !error && (
         <div style={s.empty}>
-          <div style={s.emptyIcon}>👷</div>
+          <div style={s.emptyIcon}><IconUsers size={44} /></div>
           <p style={s.emptyTitle}>{t('admin.workers.emptyTitle')}</p>
           <p style={s.emptySub}>{t('admin.workers.emptySub')}</p>
           <button style={s.emptyBtn} onClick={() => router.push('/dashboard/shifts')}>
@@ -84,7 +85,7 @@ export default function WorkersPage() {
                   <p style={s.workerName}>{worker.fullName ?? t('admin.workers.noName')}</p>
                   <div style={s.ratingRow}>
                     <span style={s.ratingStars}>
-                      {(() => { const r = Math.round(Number(worker.avgRating ?? 0)); return '★'.repeat(r) + '☆'.repeat(5 - r); })()}
+                      <Stars value={Number(worker.avgRating ?? 0)} size={13} />
                     </span>
                     <span style={s.ratingVal}>
                       {worker.avgRating != null ? Number(worker.avgRating).toFixed(1) : '—'}
@@ -179,7 +180,7 @@ const s: Record<string, React.CSSProperties> = {
     padding: '12px 16px', fontSize: 13, color: '#ef4444', marginBottom: 24,
   },
   empty: { textAlign: 'center', padding: '80px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 },
-  emptyIcon: { fontSize: 48 },
+  emptyIcon: { display: 'flex', justifyContent: 'center', color: 'var(--color-text-muted, #9ca3af)' },
   emptyTitle: { fontSize: 16, fontWeight: 700, color: 'var(--color-text-primary)' },
   emptySub: { fontSize: 14, color: 'var(--color-text-secondary)', maxWidth: 360 },
   emptyBtn: {
@@ -212,7 +213,7 @@ const s: Record<string, React.CSSProperties> = {
   scoreLabel: { fontSize: 11, color: 'var(--color-text-secondary)' },
   shiftCount: { fontSize: 12, color: 'var(--color-text-secondary)' },
   ratingRow: { display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 },
-  ratingStars: { fontSize: 13, color: '#fbbf24', letterSpacing: '-1px' },
+  ratingStars: { display: 'inline-flex', alignItems: 'center' },
   ratingVal: { fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' },
   ratingCount: { fontSize: 12, color: 'var(--color-text-secondary)' },
   badgeRow: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4 },

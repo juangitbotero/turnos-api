@@ -16,6 +16,7 @@ import { adminApi, ApiError, HiredWorker, Shift } from '../../../lib/api';
 import { WORKER_RATING_TAGS } from '@turnos/shared';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
+import { IconAlert, IconStar, Stars } from '../../../components/icons';
 
 // ─── Rating Modal ─────────────────────────────────────────────────────────────
 
@@ -361,12 +362,12 @@ export default function RatingsPage() {
         </div>
       </div>
 
-      {error && <div style={s.errorBanner}>⚠️ {error}</div>}
+      {error && <div style={s.errorBanner}><IconAlert size={15} /> {error}</div>}
 
       {/* Empty state */}
       {!isLoading && workers.length === 0 && !error && (
         <div style={s.empty}>
-          <div style={s.emptyIcon}>⭐</div>
+          <div style={s.emptyIcon}><IconStar size={44} /></div>
           <p style={s.emptyTitle}>{t('admin.ratings.emptyTitle')}</p>
           <p style={s.emptySub}>{t('admin.ratings.emptySub')}</p>
           <button style={s.emptyBtn} onClick={() => router.push('/dashboard/shifts')}>
@@ -398,7 +399,7 @@ export default function RatingsPage() {
                   {/* Stars + avg */}
                   <div style={s.starsRow}>
                     <span style={s.stars}>
-                      {'★'.repeat(Math.round(avgR ?? 0))}{'☆'.repeat(5 - Math.round(avgR ?? 0))}
+                      <Stars value={avgR ?? 0} size={14} />
                     </span>
                     <span style={s.avgVal}>
                       {avgR != null ? avgR.toFixed(1) : '—'}
@@ -529,7 +530,7 @@ const s: Record<string, React.CSSProperties> = {
     padding: '12px 16px', fontSize: 13, color: '#ef4444', marginBottom: 24,
   },
   empty: { textAlign: 'center', padding: '80px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 },
-  emptyIcon: { fontSize: 48 },
+  emptyIcon: { display: 'flex', justifyContent: 'center', color: 'var(--color-text-muted, #9ca3af)' },
   emptyTitle: { fontSize: 16, fontWeight: 700, color: 'var(--color-text-primary)' },
   emptySub: { fontSize: 14, color: 'var(--color-text-secondary)', maxWidth: 360 },
   emptyBtn: {

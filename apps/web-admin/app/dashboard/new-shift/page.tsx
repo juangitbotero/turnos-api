@@ -11,7 +11,7 @@ import { adminApi, ApiError } from '../../../lib/api';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 import { MultiSelect } from '../../../components/MultiSelect';
-import { IconUtensils, IconBed, IconTicket, IconTag, IconHeadset, IconBox, IconBriefcase, IconShield, IconClipboard, IconCheck, IconCalendar } from '../../../components/icons';
+import { IconUtensils, IconBed, IconTicket, IconTag, IconHeadset, IconBox, IconBriefcase, IconShield, IconClipboard, IconCheck, IconCalendar, IconAlert } from '../../../components/icons';
 
 type GeoResult = { lat: number; lng: number; display: string } | null;
 
@@ -406,7 +406,7 @@ export default function NewShiftPage() {
         </div>
       </div>
 
-      {error && <div style={s.errorBanner}>⚠️ {error}</div>}
+      {error && <div style={s.errorBanner}><IconAlert size={15} /> {error}</div>}
 
       <form onSubmit={handleSubmit} style={s.form}>
 

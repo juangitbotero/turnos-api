@@ -7,6 +7,7 @@ import { adminApi, ApiError } from '../../lib/api';
 import { useT } from '../../lib/i18n';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import { Logo } from '../../components/Logo';
+import { IconBolt, IconClipboard, IconCard, IconMail, IconLock, IconEye, IconEyeOff, IconAlert, Spinner } from '../../components/icons';
 
 export default function AdminLogin() {
   const { t } = useT();
@@ -50,12 +51,12 @@ export default function AdminLogin() {
             <p style={s.panelSub}>{t('home.login.panelSub')}</p>
             <div style={s.panelCards}>
               {[
-                { icon: '⚡', id: 'panelSpeed'      },
-                { icon: '📋', id: 'panelCompliance' },
-                { icon: '💳', id: 'panelDirectPay'  },
-              ].map(({ icon, id }) => (
+                { Icon: IconBolt,      id: 'panelSpeed'      },
+                { Icon: IconClipboard, id: 'panelCompliance' },
+                { Icon: IconCard,      id: 'panelDirectPay'  },
+              ].map(({ Icon, id }) => (
                 <div key={id} style={s.panelCard}>
-                  <span style={s.panelCardIcon}>{icon}</span>
+                  <span style={s.panelCardIcon}><Icon size={18} /></span>
                   <span style={s.panelCardText}>{t(`home.login.${id}`)}</span>
                 </div>
               ))}
@@ -92,7 +93,7 @@ export default function AdminLogin() {
             <div style={s.field}>
               <label htmlFor="email" style={s.label}>{t('home.login.email')}</label>
               <div style={s.inputWrap}>
-                <span style={s.inputIcon} aria-hidden>✉</span>
+                <span style={s.inputIcon} aria-hidden><IconMail size={16} /></span>
                 <input
                   id="email"
                   type="email"
@@ -110,7 +111,7 @@ export default function AdminLogin() {
             <div style={s.field}>
               <label htmlFor="password" style={s.label}>{t('home.login.password')}</label>
               <div style={s.inputWrap}>
-                <span style={s.inputIcon} aria-hidden>🔒</span>
+                <span style={s.inputIcon} aria-hidden><IconLock size={16} /></span>
                 <input
                   id="password"
                   type={showPass ? 'text' : 'password'}
@@ -127,7 +128,7 @@ export default function AdminLogin() {
                   style={s.showPassBtn}
                   aria-label={showPass ? t('home.login.hidePassword') : t('home.login.showPassword')}
                 >
-                  {showPass ? '🙈' : '👁'}
+                  {showPass ? <IconEyeOff size={16} /> : <IconEye size={16} />}
                 </button>
               </div>
             </div>
@@ -135,7 +136,7 @@ export default function AdminLogin() {
             {/* Error */}
             {error && (
               <div style={s.errorBanner} role="alert">
-                <span>⚠️</span> {error}
+                <IconAlert size={15} style={{ flexShrink: 0 }} /> {error}
               </div>
             )}
 
@@ -156,7 +157,7 @@ export default function AdminLogin() {
               }}
             >
               {isLoading ? (
-                <span style={s.spinner} className="animate-spin">⏳</span>
+                <Spinner size={18} />
               ) : (
                 t('home.login.submit')
               )}
@@ -260,7 +261,7 @@ const s: Record<string, React.CSSProperties> = {
     backdropFilter: 'blur(8px)',
     border: '1px solid rgba(255,255,255,0.2)',
   },
-  panelCardIcon: { fontSize: 20 },
+  panelCardIcon: { display: 'inline-flex', alignItems: 'center', color: 'rgba(255,255,255,0.85)' },
   panelCardText: { fontSize: 14, fontWeight: 600, color: '#fff' },
   panelFooter: {
     fontSize: 12,
@@ -346,8 +347,13 @@ const s: Record<string, React.CSSProperties> = {
   inputIcon: {
     position: 'absolute',
     left: 14,
-    fontSize: 14,
-    color: 'var(--color-text-muted)',
+    // top/bottom pin the box to the field's full height so the SVG centres on
+    // it. A text glyph sat on the baseline and did not need this.
+    top: 0,
+    bottom: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    color: 'var(--color-text-secondary)',
     pointerEvents: 'none',
     zIndex: 1,
   },
@@ -367,12 +373,15 @@ const s: Record<string, React.CSSProperties> = {
   showPassBtn: {
     position: 'absolute',
     right: 12,
+    top: 0,
+    bottom: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: 16,
     padding: 4,
-    color: 'var(--color-text-muted)',
+    color: 'var(--color-text-secondary)',
   },
 
   /* Error banner */
@@ -428,7 +437,7 @@ const s: Record<string, React.CSSProperties> = {
     margin: '24px 0',
   },
   dividerLine: { flex: 1, height: 1, background: 'var(--color-border)' },
-  dividerText: { fontSize: 12, color: 'var(--color-text-muted)', fontWeight: 500 },
+  dividerText: { fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 500 },
 
   /* Google btn */
   googleBtn: {
@@ -479,7 +488,7 @@ const s: Record<string, React.CSSProperties> = {
   legal: {
     marginTop: 24,
     fontSize: 12,
-    color: 'var(--color-text-muted)',
+    color: 'var(--color-text-secondary)',
     textAlign: 'center',
     lineHeight: 1.6,
   },

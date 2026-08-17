@@ -7,6 +7,7 @@ import { EMPLOYER_SECTORS } from '@turnos/shared';
 import { useT } from '../../lib/i18n';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import { Logo } from '../../components/Logo';
+import { IconAlert } from '../../components/icons';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 
@@ -258,7 +259,7 @@ export default function RegisterPage() {
                 ))}
               </div>
               {apiError && (
-                <div style={s.errorBanner} role="alert">⚠️ {apiError}</div>
+                <div style={s.errorBanner} role="alert"><IconAlert size={15} /> {apiError}</div>
               )}
               <div style={s.btnRow}>
                 <button id="reg-back-admin" onClick={() => setStep('admin')} style={s.backBtn}>{t('home.register.back')}</button>

@@ -8,8 +8,13 @@
  * emoji, coloured glyphs and no icons at all, which is what made the filter bar
  * look unlike the app.
  *
- * Deliberately not an icon library — six inline SVGs weigh nothing and avoid a
+ * Deliberately not an icon library — inline SVGs weigh nothing and avoid a
  * dependency whose default styling we would have to override anyway.
+ *
+ * Because they inherit `currentColor`, an icon takes the colour of whatever it
+ * sits in: red inside an error banner, amber inside a warning strip, muted grey
+ * inside an empty state. That is what the emoji they replaced could not do —
+ * a 🔴 stays red on a green background.
  */
 
 type IconProps = { size?: number; style?: React.CSSProperties };
@@ -260,6 +265,107 @@ export const IconMonitor = ({ size = 16, style }: IconProps) => (
 export const IconChevron = ({ size = 14, style }: IconProps) => (
   <svg {...base(size)} style={style}>
     <path d="M6 9l6 6 6-6" />
+  </svg>
+);
+
+export const IconInfo = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 7.8h.01" />
+  </svg>
+);
+
+export const IconBulb = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M9 17.5a6 6 0 1 1 6 0v1.5a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 19z" />
+    <path d="M9.5 17.5h5" />
+  </svg>
+);
+
+export const IconClock = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <circle cx="12" cy="12" r="9" /><path d="M12 6.8V12l3.5 2.2" />
+  </svg>
+);
+
+export const IconMail = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="M3.8 6.8L12 12.8l8.2-6" />
+  </svg>
+);
+
+export const IconLock = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <rect x="4.5" y="10" width="15" height="10.5" rx="2.5" />
+    <path d="M8 10V7.5a4 4 0 0 1 8 0V10" />
+  </svg>
+);
+
+export const IconEye = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z" />
+    <circle cx="12" cy="12" r="2.8" />
+  </svg>
+);
+
+export const IconEyeOff = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M4 4l16 16" />
+    <path d="M9.6 6.2A9.4 9.4 0 0 1 12 5.8c6 0 9.5 6.2 9.5 6.2a17 17 0 0 1-3.3 4" />
+    <path d="M6.4 8.1A17 17 0 0 0 2.5 12S6 18.2 12 18.2a9.6 9.6 0 0 0 3.5-.65" />
+    <path d="M9.8 9.9a2.8 2.8 0 0 0 3.9 3.9" />
+  </svg>
+);
+
+export const IconFile = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5" /><path d="M9 13h6M9 16.5h4" />
+  </svg>
+);
+
+export const IconChat = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M20.5 12.5a7.5 7.5 0 0 1-10.9 6.7L4.5 20.5l1.3-5.1A7.5 7.5 0 1 1 20.5 12.5z" />
+  </svg>
+);
+
+export const IconTarget = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" />
+  </svg>
+);
+
+export const IconDoor = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M6 21V4.5a1.5 1.5 0 0 1 1.8-1.47l8 1.6A1.5 1.5 0 0 1 17 6.1v12.8a1.5 1.5 0 0 1-1.2 1.47l-8 1.6A1.5 1.5 0 0 1 6 21z" />
+    <path d="M4 21h16" /><path d="M13.8 12h.01" />
+  </svg>
+);
+
+export const IconTrend = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M4 20V4M4 20h16" /><path d="M7.5 15.5l3.5-4 3 2.5 4.5-6" />
+    <path d="M18.5 8v3.5M18.5 8H15" />
+  </svg>
+);
+
+/** Nothing here yet — an open tray. */
+export const IconInbox = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M3.5 13.5L6 5.2A2 2 0 0 1 7.9 3.8h8.2A2 2 0 0 1 18 5.2l2.5 8.3" />
+    <path d="M3.5 13.5h4.2l1.2 2.6h6.2l1.2-2.6h4.2v4.7a2 2 0 0 1-2 2H5.5a2 2 0 0 1-2-2z" />
+  </svg>
+);
+
+/**
+ * Loading spinner. Replaces the ⏳ that four screens used — an hourglass is a
+ * static picture of waiting, this actually turns. `.animate-spin` and its
+ * `@keyframes spin` live in app/globals.css.
+ */
+export const Spinner = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style} className="animate-spin">
+    <path d="M12 3a9 9 0 0 1 9 9" />
+    <circle cx="12" cy="12" r="9" opacity="0.25" />
   </svg>
 );
 

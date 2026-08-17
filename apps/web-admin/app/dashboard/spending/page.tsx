@@ -18,6 +18,7 @@ import { useRouter } from 'next/navigation';
 import { adminApi, SpendingReport, PaymentRecord } from '../../../lib/api';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
+import { IconAlert, IconEuro, IconBuilding, IconChart, IconTrend } from '../../../components/icons';
 
 type Period = 'month' | 'year';
 
@@ -154,13 +155,13 @@ export default function SpendingPage() {
 
       {/* Error */}
       {!loading && error && (
-        <div style={s.errorBanner}>⚠️ {error}</div>
+        <div style={s.errorBanner}><IconAlert size={15} /> {error}</div>
       )}
 
       {/* Empty */}
       {!loading && !error && report?.records.length === 0 && (
         <div style={s.emptyState}>
-          <div style={s.emptyIcon}>💶</div>
+          <div style={s.emptyIcon}><IconEuro size={44} /></div>
           <div style={s.emptyTitle}>{t('admin.spending.emptyTitle', { period: periodLabel })}</div>
           <p style={s.emptySub}>{t('admin.spending.emptySub')}</p>
           <Link href="/dashboard/shifts" style={s.emptyLink}>{t('admin.spending.emptyCta')}</Link>
@@ -173,7 +174,7 @@ export default function SpendingPage() {
           {/* KPI cards */}
           <section style={s.kpiGrid}>
             <KpiCard
-              icon="💶"
+              icon={<IconEuro size={20} />}
               label={t('admin.spending.kpiWages')}
               value={fMoney(report.totalGross)}
               sub={report.shiftCount === 1
@@ -182,14 +183,14 @@ export default function SpendingPage() {
               color="#6a79ff"
             />
             <KpiCard
-              icon="🏛️"
+              icon={<IconBuilding size={20} />}
               label={t('admin.spending.kpiTsu')}
               value={fMoney(report.employerTsu)}
               sub={t('admin.spending.kpiTsuSub')}
               color="#f59e0b"
             />
             <KpiCard
-              icon="📊"
+              icon={<IconChart size={20} />}
               label={t('admin.spending.kpiFees')}
               value={fMoney(report.turnosFees)}
               sub={report.shiftCount === 1
@@ -198,7 +199,7 @@ export default function SpendingPage() {
               color="#8b5cf6"
             />
             <KpiCard
-              icon="📈"
+              icon={<IconTrend size={20} />}
               label={t('admin.spending.kpiAvg')}
               value={fMoney(report.avgCostPerShift)}
               sub={t('admin.spending.kpiAvgSub')}
@@ -209,7 +210,7 @@ export default function SpendingPage() {
           {/* TSU reminder */}
           <div style={s.tsuReminder}>
             <div style={s.tsuReminderLeft}>
-              <span style={s.tsuReminderIcon}>⚠️</span>
+              <span style={s.tsuReminderIcon}><IconAlert size={16} /></span>
               <div>
                 <div style={s.tsuReminderTitle}>{t('admin.spending.tsuReminderTitle')}</div>
                 <div style={s.tsuReminderText}>
@@ -307,7 +308,7 @@ export default function SpendingPage() {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function KpiCard({ icon, label, value, sub, color }: {
-  icon: string; label: string; value: string; sub: string; color: string;
+  icon: React.ReactNode; label: string; value: string; sub: string; color: string;
 }) {
   return (
     <div style={sk.card}>
@@ -451,7 +452,7 @@ const s: Record<string, React.CSSProperties> = {
     border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius-md)',
   },
-  emptyIcon: { fontSize: 48, marginBottom: 8 },
+  emptyIcon: { display: 'flex', justifyContent: 'center', marginBottom: 8, color: 'var(--color-text-muted, #9ca3af)' },
   emptyTitle: { fontSize: 16, fontWeight: 700, color: 'var(--color-text-primary)' },
   emptySub: { fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.6, maxWidth: 340 },
   emptyLink: {
@@ -480,7 +481,7 @@ const s: Record<string, React.CSSProperties> = {
     padding: '16px 20px',
   },
   tsuReminderLeft: { display: 'flex', alignItems: 'flex-start', gap: 12 },
-  tsuReminderIcon: { fontSize: 20, flexShrink: 0, marginTop: 2 },
+  tsuReminderIcon: { display: 'inline-flex', flexShrink: 0, marginTop: 2 },
   tsuReminderTitle: {
     fontSize: 14,
     fontWeight: 700,
@@ -633,7 +634,6 @@ const sk: Record<string, React.CSSProperties> = {
     boxShadow: 'var(--shadow-sm)',
   },
   icon: {
-    fontSize: 22,
     width: 44,
     height: 44,
     display: 'flex',

@@ -12,7 +12,7 @@ import { WorkerReviews } from '../../../components/WorkerReviews';
 import { Logo } from '../../../components/Logo';
 import {
   IconSearch, IconBriefcase, IconGlobe, IconStar, IconCalendar,
-  IconDownload, IconReset, IconChevron,
+  IconDownload, IconReset, IconChevron, IconFile, Stars,
 } from '../../../components/icons';
 
 // ── Worker detail panel ────────────────────────────────────────────────────────
@@ -33,7 +33,6 @@ function WorkerDetailPanel({
 
   const openShifts = myShifts.filter(s => s.status === 'OPEN');
   const avgR = worker.avgRating != null ? Number(worker.avgRating) : null;
-  const filledStars = Math.round(avgR ?? 0);
 
   const handleInvite = async () => {
     if (!selectedShift) return;
@@ -62,7 +61,7 @@ function WorkerDetailPanel({
               <h2 style={p.name}>{worker.fullName ?? t('admin.workersSearch.noName')}</h2>
               {avgR != null && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                  <span style={{ color: '#fbbf24', fontSize: 14 }}>{'★'.repeat(filledStars)}{'☆'.repeat(5 - filledStars)}</span>
+                  <Stars value={avgR ?? 0} size={14} />
                   <span style={p.ratingVal}>{avgR.toFixed(1)}</span>
                   <span style={p.ratingCount}>{t('admin.workersSearch.ratings', { count: worker.totalRatings })}</span>
                 </div>
@@ -535,7 +534,7 @@ export default function WorkersSearchPage() {
                     <p style={s.cardName}>{w.fullName ?? t('admin.workersSearch.noName')}</p>
                     {avgR != null && (
                       <div style={s.starsRow}>
-                        <span style={{ color: '#fbbf24', fontSize: 12 }}>{'★'.repeat(stars)}{'☆'.repeat(5 - stars)}</span>
+                        <Stars value={stars} size={12} />
                         <span style={s.ratingNum}>{avgR.toFixed(1)}</span>
                         <span style={s.ratingCnt}>({w.totalRatings})</span>
                       </div>
@@ -571,7 +570,7 @@ export default function WorkersSearchPage() {
                   <div style={s.skillRow}>
                     {w.experiences.slice(0, 2).map(exp => (
                       <span key={exp.jobTitle} style={s.expPill}>
-                        💼 {tSkill(exp.jobTitle)} · {t(`domain.experienceLevelsShort.${exp.level}`)}
+                        <IconBriefcase size={12} /> {tSkill(exp.jobTitle)} · {t(`domain.experienceLevelsShort.${exp.level}`)}
                       </span>
                     ))}
                     {w.experiences.length > 2 && <span style={s.more}>+{w.experiences.length - 2}</span>}
@@ -581,12 +580,12 @@ export default function WorkersSearchPage() {
                 {/* Languages + availability */}
                 <div style={s.cardMeta}>
                   {w.isAvailableForWork && <span style={s.availPill}>{t('admin.workersSearch.availablePill')}</span>}
-                  {w.cvUrl && <span style={s.metaItem}>📄 CV</span>}
+                  {w.cvUrl && <span style={s.metaItem}><IconFile size={12} /> CV</span>}
                   {w.languages && w.languages.length > 0 && (
-                    <span style={s.metaItem}>🌐 {w.languages.slice(0,2).map(tWorkerLanguage).join(', ')}{w.languages.length > 2 ? ` +${w.languages.length - 2}` : ''}</span>
+                    <span style={s.metaItem}><IconGlobe size={12} /> {w.languages.slice(0,2).map(tWorkerLanguage).join(', ')}{w.languages.length > 2 ? ` +${w.languages.length - 2}` : ''}</span>
                   )}
                   {w.availableDays && w.availableDays.length > 0 && (
-                    <span style={s.metaItem}>📅 {w.availableDays.map(tWeekday).join(', ')}</span>
+                    <span style={s.metaItem}><IconCalendar size={12} /> {w.availableDays.map(tWeekday).join(', ')}</span>
                   )}
                 </div>
 
@@ -597,7 +596,7 @@ export default function WorkersSearchPage() {
 
           {!loading && filtered.length === 0 && (
             <div style={s.empty}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
+              <div style={{ marginBottom: 12, color: 'var(--color-text-secondary)' }}><IconSearch size={40} /></div>
               <p style={s.emptyTitle}>{t('admin.workersSearch.emptyTitle')}</p>
               <p style={s.emptySub}>{t('admin.workersSearch.emptySub')}</p>
             </div>
@@ -905,7 +904,7 @@ const s: Record<string, React.CSSProperties> = {
     background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0',
   },
   cardMeta: { display: 'flex', flexDirection: 'column' as const, gap: 3 },
-  metaItem: { fontSize: 11, color: 'var(--color-text-secondary)' },
+  metaItem: { fontSize: 11, color: 'var(--color-text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 4 },
   viewBtn: {
     marginTop: 4, padding: '8px 0', background: 'none',
     border: '1.5px solid var(--color-border)', borderRadius: 8,
