@@ -112,6 +112,45 @@ be submitted, and a catalogue that is half-swept, both need someone to open the
 page — in **both languages**. Add that to the gate mentally; there is no script
 for it.
 
+### ⚠️ Retracted: the "missing CSS variables" claim was wrong
+
+Commit `6fe2806`'s message and an earlier version of this document claimed that
+`--color-text-muted` and `--color-border` were undefined, and that the login
+inputs therefore rendered with no border. **Both claims are false.** The commit
+message is pushed history and cannot be corrected; this note is the correction.
+
+Both variables are defined in `app/globals.css`, lines 25 and 30 of `:root`.
+A full cross-check of the codebase:
+
+```
+defined in globals.css : 40
+referenced in source   : 23
+UNDEFINED REFERENCES   : none
+```
+
+On production the login input computes to `border: 1px solid rgba(217,217,217,0.6)`.
+
+**How the mistake happened, because it will happen again to someone.** The
+reading came from `getComputedStyle` run against the **local dev server seconds
+after editing files**, while Next was hot-reloading. The stylesheet had not
+applied yet, so the lookups returned empty strings — indistinguishable from
+undefined variables. A transient loading state was read as a defect.
+
+> Never diagnose computed styles on a dev server you have just written to.
+> Reload and re-read, or check production. An empty `getPropertyValue()` means
+> "not applied **yet**" at least as often as it means "not defined".
+
+Four lines in `login/page.tsx` were changed from `--color-text-muted` to
+`--color-text-secondary` on the strength of that wrong conclusion. They have
+been reverted.
+
+The one real finding from the cross-check, **not a bug and not being fixed**:
+17 variables are defined and never referenced — the entire `--space-*` scale,
+`--transition-base`/`slow`, `--shadow-md`/`lg`/`glow`, `--color-warning*`. The
+codebase uses inline style objects with literal numbers instead. Threading the
+spacing tokens through hundreds of inline styles is a large diff with no visible
+payoff.
+
 ---
 
 ## 🔴 Read this first — untested in production
@@ -279,6 +318,98 @@ that happens. That is the intended state, not an oversight.
 
 ---
 
+## The dev machine runs Node 24, which Expo SDK 54 does not support
+
+Found 2026-08-17 when `npx expo start` stopped working. Worth reading in full
+before anyone "fixes" it by upgrading things.
+
+The machine has **only Node v24.6.0** — one install at `C:\Program Files\nodejs`,
+no nvm. Expo SDK 54 / RN 0.81.5 supports **Node 20 and 22 LTS**. Node 24
+produces two errors that look unrelated and share this one cause:
+
+| Error | Severity |
+|---|---|
+| `Error while reading cache … Unable to deserialize cloned data` | Non-fatal — falls back to a full crawl and continues |
+| `TypeError: Body is unusable: Body has already been read` | **Fatal** — Metro never starts |
+
+The fatal one names its own cause in the stack:
+
+```
+validateDependenciesVersionsAsync
+  -> getVersionedDependenciesAsync
+    -> getNativeModuleVersionsAsync
+      -> Response.json          <- throws
+```
+
+On startup `expo start` checks your dependency versions against `api.expo.dev`,
+and that code reads the fetch `Response` body twice. Node 22 tolerated it;
+Node 24's `undici` throws. Because it is a network call, it fails
+**intermittently** — which is why it "worked an hour ago".
+
+### The fix in place
+
+`EXPO_NO_DEPENDENCY_VALIDATION=1` is set in **`apps/mobile/.env`**, with a
+comment pointing here. Plain `npx expo start` now works. Verified end to end on
+2026-08-17: Metro started, served the manifest, and built the full **8.7 MB**
+Android bundle in ~135 s.
+
+Add `--clear` once if the cache error reappears.
+
+**What you lose:** that check is what warns you when a package drifts from the
+version SDK 54 expects. It is a warning and never a gate — it has no effect on
+what gets built — but the early warning is gone. Run the same checks
+deliberately before any store build:
+
+```bash
+npx expo-doctor
+```
+
+### Does this affect Play Store / App Store builds? No.
+
+Keep three things separate:
+
+| | Runs where | Node involved |
+|---|---|---|
+| `expo start` / Metro | your machine | yes — this is the only place Node 24 bites |
+| `eas build` | **Expo's servers** | their Node, not yours |
+| the installed app | the phone | **none** — JS runs on Hermes |
+
+There is no Node runtime inside a React Native app. Metro compiles the bundle;
+Hermes executes it on device. Store builds do not use this machine at all —
+`eas build` uploads the source and builds in Expo's cloud. `apps/mobile/eas.json`
+pins no `node` version, so EAS uses the default for SDK 54, a supported LTS.
+Local Node 24 is invisible to the store artefact.
+
+### If you do want to move to Node 22
+
+Not done, deliberately — it was not worth the risk mid-testing when a one-line
+env var works. When you do it, do it on a quiet day, not before a demo.
+
+`winget` is available (v1.29.280). Two options:
+
+| | Command | Reversible |
+|---|---|---|
+| **nvm-windows** (recommended) | `winget install CoreyButler.NVMforWindows`, then `nvm install 22` / `nvm use 22` | yes — `nvm use 24` |
+| Node 22 LTS directly | `winget install OpenJS.NodeJS.LTS` | only by reinstalling 24 |
+
+Budget for `npm install` at the repo root afterwards and a re-check of all three
+apps. `node_modules` carries compiled binaries — `sharp`, `next-swc`,
+`tailwindcss-oxide`, `bcrypt`, `msgpackr-extract` (which ships a `node.abi115`
+prebuild). Most are N-API and survive a version switch; not reliably all.
+
+### Stale Metro holds port 8081
+
+Separate trap, same afternoon. A leftover `expo start` keeps 8081, so the next
+run silently falls back to **8082** while Expo Go still looks at 8081 — the app
+just never loads and nothing says why. Check listeners on 8081 before debugging
+anything else:
+
+```bash
+netstat -ano | findstr :8081
+```
+
+---
+
 ## Things worth knowing before you touch the code
 
 ### The catalogue is the source of copy — including icons
@@ -300,12 +431,8 @@ Adding one back to an `admin` or `home` string, or to a component, undoes a
 sweep that took three passes to land. Use `apps/web-admin/components/icons.tsx`;
 if the icon you need is not there, add it rather than reaching for a glyph.
 
-A pre-existing issue found while checking icon colours, **not fixed**:
-`--color-text-muted` and `--color-border` are **not defined anywhere**. On the
-login page that means the inputs render with **no border at all**
-(`border: 0px none`), because an undefined var makes the whole declaration
-invalid. Icon colours there now point at `--color-text-secondary`, which does
-exist. The missing border is untouched and worth a look.
+Every CSS variable referenced in web-admin **is** defined — see the retraction
+above if you have read an older copy of this document saying otherwise.
 
 `pt.ts` is canonical; `en.ts` is typed `Translated<TranslationCatalogue>`, so a
 missing key is a compile error. Rebuild shared after every catalogue edit:
@@ -353,6 +480,28 @@ design tokens). Compare the count, not the presence.
 cannot see a deleted form field or a half-swept catalogue. Open the page you
 changed, in **both languages**, before you push.
 
+### How to check things without reaching a wrong conclusion
+
+Four ways a check went wrong in one afternoon. All four are cheap to avoid.
+
+1. **A green build proves nothing about what renders.** Both regressions passed
+   `tsc` and `next build`. Deleted JSX leaves the state declared and still read
+   elsewhere, so nothing is "unused" and nothing errors. Open the page.
+2. **Never read computed styles off a dev server you just wrote to.** Mid-HMR,
+   `getComputedStyle().getPropertyValue()` returns `""` for variables that are
+   perfectly well defined. That produced a completely fabricated bug report —
+   see the retraction near the top. Reload first, or check production.
+3. **Scan source, not just rendered HTML.** Anything behind a condition —
+   `{isLoading && …}`, error banners, empty states — is absent from the initial
+   HTML. Four `⏳` spinners hid there. And widen your character ranges:
+   the first emoji sweep missed **U+2300–23FF** entirely, which is where
+   `⏳ ⌛ ⏱ ⏰` live.
+4. **Assert on ink, not on existence.** An `<svg>` with a broken path is a
+   perfectly valid element of the right size. The icon pass was verified by
+   rendering all 49 on a throwaway route and checking each has a non-empty
+   `getBBox()`. Delete the route afterwards — and note that Next ignores
+   `_`-prefixed folders, so `app/_probe/` will silently 404.
+
 ### Deploying
 
 Both services auto-deploy on push to `main`.
@@ -365,6 +514,10 @@ does nothing for an installed APK. Expo Go loads from Metro, so `git pull` +
 `npx expo start --clear` is the fast path. For an APK, run
 `npm run build` in `packages/shared` first — `dist` is gitignored but not
 `.easignore`d, so EAS ships your working copy.
+
+If `expo start` will not start at all, it is almost certainly one of the two
+Node-24 errors or a stale Metro on 8081 — see "The dev machine runs Node 24"
+above before investigating anything else.
 
 ### Local preview
 

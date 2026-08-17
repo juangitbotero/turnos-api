@@ -353,7 +353,7 @@ const s: Record<string, React.CSSProperties> = {
     bottom: 0,
     display: 'inline-flex',
     alignItems: 'center',
-    color: 'var(--color-text-secondary)',
+    color: 'var(--color-text-muted)',
     pointerEvents: 'none',
     zIndex: 1,
   },
@@ -381,7 +381,7 @@ const s: Record<string, React.CSSProperties> = {
     border: 'none',
     cursor: 'pointer',
     padding: 4,
-    color: 'var(--color-text-secondary)',
+    color: 'var(--color-text-muted)',
   },
 
   /* Error banner */
@@ -437,7 +437,7 @@ const s: Record<string, React.CSSProperties> = {
     margin: '24px 0',
   },
   dividerLine: { flex: 1, height: 1, background: 'var(--color-border)' },
-  dividerText: { fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 500 },
+  dividerText: { fontSize: 12, color: 'var(--color-text-muted)', fontWeight: 500 },
 
   /* Google btn */
   googleBtn: {
@@ -488,7 +488,7 @@ const s: Record<string, React.CSSProperties> = {
   legal: {
     marginTop: 24,
     fontSize: 12,
-    color: 'var(--color-text-secondary)',
+    color: 'var(--color-text-muted)',
     textAlign: 'center',
     lineHeight: 1.6,
   },
