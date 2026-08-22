@@ -19,7 +19,7 @@ const quiet = require('./directions/quiet-signal.js');
 const drawn = require('./directions/drawn.js');
 
 const OUT = path.join(L.REPO, 'docs', 'brand', 'ad-campaign');
-const SIZES = [{ w: 1080, h: 1080 }, { w: 1080, h: 1920 }];
+const SIZES = [{ w: 1080, h: 1080 }, { w: 1080, h: 1350 }, { w: 1080, h: 1920 }];
 
 const QUIET = [
   ['A-nobody-told-you', quiet.conceptA, 'dark'],

@@ -15,6 +15,33 @@ screenshots/       Source screens for Direction 3                 drop new expor
 
 Each direction folder has a `_contact-sheet.png` showing everything at a glance.
 
+## `templates/` — editing in Canva without touching this repo
+
+Two `.pptx` files, 8 slides each: a guide slide plus 7 templates covering all
+three directions across their grounds.
+
+**Upload to Canva** → *Create a design* → *Import file*. Canva converts
+PowerPoint into a fully editable design: live text boxes, movable shapes,
+correct 1080×1080 / 1080×1920 canvas.
+
+PPTX rather than PDF or SVG, for a specific reason. The main generator
+**outlines every glyph** — that is what fixed the opentype NaN bug — so a PDF
+exported from it would arrive in Canva as un-editable vector shapes. And Canva
+takes SVG as an *element*, never as an editable layout. PPTX is the only route
+that keeps text as text.
+
+**Fonts.** The templates declare `Outfit` and `Geist Mono` by name. Both are SIL
+OFL and copies live in `scripts/ad-campaign/fonts/` — upload them to Canva's
+Brand Kit (Pro) and every slide matches exactly with no further work. Without
+that, Canva substitutes; the guide slide carries the fallback ladder.
+
+The **wordmark is an embedded image**, not text, so no font substitution can
+break it. That is deliberate: it is ITC Bauhaus, which we do not hold a licence
+file for.
+
+Regenerate with `npm run templates` after changing the skeleton, so the
+templates keep matching what the generator actually produces.
+
 **The generator lives in `scripts/ad-campaign/`.** Rebuild everything with
 `node build.js`, or one direction with `node build.js in-hand`. The mood and its
 rules are written down in [`../CAMPAIGN_SYSTEM.md`](../CAMPAIGN_SYSTEM.md).

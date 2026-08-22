@@ -86,7 +86,7 @@ timid size ratio is the most common way this system is executed badly.
 
 ## 5. Composition skeleton
 
-Every asset, both formats, same bones:
+Every asset, all three formats, same bones:
 
 ```
   INDEX LABEL                     mono, tracked, quiet
@@ -103,6 +103,21 @@ Every asset, both formats, same bones:
 Type is sized from the **width**; vertical rhythm is distributed across the
 **actual band**. Deriving both from the square and stretching is what left a
 500px void at the foot of every 9:16 in the first pass.
+
+| Format | Size | Placement |
+|---|---|---|
+| Square | `1080×1080` | General purpose, works everywhere |
+| **Portrait** | `1080×1350` | **Meta feed — occupies more vertical space than 1:1 and usually wins on cost per result** |
+| Story | `1080×1920` | Reels, Stories |
+
+Anything sized from the vertical band must be **capped against the width too**.
+The in-hand device frame was not, so at 4:5 it grew until it ran 43px off the
+right edge — a bug that only appears on the middle format.
+
+**Editable templates** for hand-editing in Canva live in
+`docs/brand/ad-campaign/templates/` (`npm run templates` to regenerate). They
+are PPTX because the generator outlines every glyph, so a PDF from it would
+carry un-editable text.
 
 ## 6. Copy rules
 
@@ -172,7 +187,7 @@ this system is defined against.
 ```bash
 cd scripts/ad-campaign
 npm install            # first time only
-node build.js          # all three directions, both formats
+node build.js          # all three directions, all three formats
 node build.js drawn    # one direction
 node build.js in-hand P   # one variant
 ```
@@ -184,7 +199,7 @@ node build.js in-hand P   # one variant
   source image. Fractions, never pixels — a screenshot re-exported at another
   device resolution still lands on the right control.
 
-Layout, both formats, overflow guards and the footer come for free.
+Layout, all three formats, overflow guards and the footer come for free.
 
 **The generator is the source of truth for the assets.** Never hand-edit an
 exported PNG; the next rebuild silently discards it.

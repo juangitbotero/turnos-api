@@ -1,10 +1,17 @@
 # Web-admin & home page — handoff
 
-State as of `2026-08-17` on `main`. Everything below is deployed to Railway
+State as of `2026-08-22` on `main`. Everything below is deployed to Railway
 unless marked otherwise.
 
 This covers the run of work after the PT/EN internationalisation (see
-`docs/i18n-handoff.md`, which is complete and signed off).
+`docs/old handoff/i18n-handoff.md`, which is complete and signed off).
+
+> ⚠️ **Two docs moved and the pointers to them are stale.**
+> `i18n-handoff.md` and `turnos_roadmap.md` were moved into
+> `docs/old handoff/`. That move is **uncommitted** at the time of writing.
+> `CLAUDE.md` still names `docs/turnos_roadmap.md` as the roadmap source of
+> truth in three places (lines 24, 166, 404). Fix those pointers in the same
+> commit as the move, or the next person follows a dead path.
 
 ---
 
@@ -180,7 +187,7 @@ the business model and it is unproven.
 ### Internationalisation — complete
 
 All five phases, both apps and the API, PT + EN, copy signed off 2026-08-07.
-Catalogues at **1440 keys** per language. See `docs/i18n-handoff.md`.
+Catalogues at **1440 keys** per language. See `docs/old handoff/i18n-handoff.md`.
 
 ### A production bug found and fixed
 
@@ -248,6 +255,44 @@ Fixed in `3669548`; `autoLoadEntities: true` added so it cannot recur.
   component work would have fixed it. ⚠️ **This only landed in `pt.ts`** —
   `en.ts` was missed entirely and was not fixed until 2026-08-17. See
   "Regressions from this run" at the top.
+
+### Ad campaign system (new, 2026-08-22)
+
+Creative for the worker waiting list at <https://turnos.systeme.io/en/turnos>,
+English to match that page. Not web-admin, but it changed two files this
+document's readers depend on, so it is recorded here.
+
+| Where | What |
+|---|---|
+| `docs/brand/CAMPAIGN_SYSTEM.md` | The mood and its rules — palette, type, composition skeleton, copy rules |
+| `docs/brand/COPY_BANK.md` | 24 approved headlines by angle, **plus the rejected ones and why** |
+| `scripts/ad-campaign/` | The generator. `node build.js` rebuilds all 125 assets in ~18s |
+| `docs/brand/ad-campaign/` | Three directions + a 17-motif graphics library (SVG + transparent PNG) |
+
+**Outputs are deliberately not versioned.** The 105 composition PNGs are
+gitignored; the generator, screenshots, motif SVGs and contact sheets are
+committed. Git cannot delta-compress a PNG, and these regenerate whenever a
+headline changes — committing them would grow history without bound, and
+unwinding that later needs a history rewrite on the branch Railway deploys
+from. The files still exist on disk; `git clean -fdx` would remove them, and
+the rebuild is one command.
+
+Two changes that reach beyond the campaign:
+
+- **`DESIGN_SYSTEM.md` now records the brand typeface**, which was nowhere in
+  the repo: **ITC Bauhaus**, a licensed Monotype family we do not hold a file
+  for. The wordmark is therefore always *placed* from
+  `apps/web-admin/public/logo.png`, never re-typed. **Do not substitute
+  `Bauhaus 93`** — it ships with Windows, it is the font people reach for by
+  mistake, and it is a visibly heavier, different face.
+- **`docs/brand/turnos-logo.png` is a 0-byte file.** The image embed at the top
+  of `DESIGN_SYSTEM.md` has always been broken. Use
+  `apps/web-admin/public/logo.png` (1200×360) or `logo-white.png`.
+
+One open question, deliberately left open: the campaign uses `#14141F` as its
+near-black, which is **not** the product's `#1a1a2e`. Deeper and cooler, so the
+blue reads brighter in a feed. Either standardise the product on it or accept
+the split knowingly — but do not let a third value appear.
 
 ### Settings (new)
 
@@ -363,6 +408,17 @@ deliberately before any store build:
 ```bash
 npx expo-doctor
 ```
+
+### `.easignore` now excludes `scripts/` (2026-08-22)
+
+It excluded `docs` but not `scripts`, so `scripts/ad-campaign/` — and the
+**24 MB of sharp native binaries** in its `node_modules` — would have been
+uploaded in every EAS build archive. Nothing under `scripts/` is needed to
+build the mobile app. Your next preview build is lighter, not heavier.
+
+Worth remembering the general rule: **when `.easignore` exists, EAS uses it
+instead of `.gitignore`.** Anything you rely on `.gitignore` to keep out of the
+build archive has to be repeated there.
 
 ### Does this affect Play Store / App Store builds? No.
 
@@ -538,6 +594,10 @@ belong in this table.
 |---|---|
 | **Test the settings endpoints** | see top of this doc |
 | **Run one shift end to end** | see top of this doc |
+| **Make the dashboard work on a phone** | "The dashboard on a phone", below — diagnosed, not built |
+| Commit the `docs/old handoff/` move and fix the three `CLAUDE.md` pointers | see the note at the top |
+| Re-export `04-my-shifts` from a clean account — every card shows `Demo ·` | limits which campaign crops are usable |
+| Confirm Apple's terms on Maps imagery in paid ads | blocks 2 of the 12 in-hand variants |
 | Demo seed data still live, `DEMO_SEED_TOKEN` still set | `docs/go-live-cleanup.md` item 2 |
 | Public shift search returns every company's Stripe id and billing state — **accepted for beta, blocker before the first paying company** | `docs/go-live-cleanup.md` item 5 |
 | Everything for launch | `docs/go-live-cleanup.md` |
@@ -562,4 +622,54 @@ curl -X DELETE "https://turnos-api-production-6c70.up.railway.app/api/demo/seed?
 - Frontend blanket 401 → logout masks real auth errors as "session expired".
 - Company logo is uploaded and shown in the sidebar, but **not yet on the shift
   cards workers see** — that is mobile work.
-- Home page and settings have only been checked at desktop width.
+- The dashboard does not work on a phone. Diagnosed, not yet built — see below.
+
+---
+
+## The dashboard on a phone — diagnosed 2026-08-22, not yet built
+
+The earlier note said "only checked at desktop width", which undersells it. It
+was measured. **There is no responsive layer at all**, and the reason is
+structural rather than sloppy:
+
+| Finding | Number |
+|---|---|
+| `@media` queries in `app/globals.css` | **0** |
+| Inline `style={{…}}` objects across the 11 dashboard pages | **843** |
+| Tailwind `className` usage in those pages | **0** (Tailwind is installed and unused, except 7 in `qr-codes`) |
+| Sidebar | `width: 240`, `flexShrink: 0`, inside a `display:flex` shell |
+
+**Inline style objects cannot contain media queries.** That is why there are
+zero — it is an architectural dead end, not an oversight. On a 390px phone the
+240px sidebar consumes **62% of the screen** before any content renders, and
+[`shifts/page.tsx:1295`](../apps/web-admin/app/dashboard/shifts/page.tsx) lays
+its table out as a hardcoded `gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1.8fr'`
+— six columns that cannot wrap.
+
+There is already an [`app/MobileOverlay.tsx`](../apps/web-admin/app/MobileOverlay.tsx)
+that detects `window.innerWidth < 768` and tells the user to switch to a
+desktop. That is the current answer, and it needs deleting as part of this work.
+
+### The recommended approach, in order
+
+1. **Build a real shell first.** `app/dashboard/layout.tsx` is a 28-line socket
+   passthrough that renders `<>{children}</>`. Every page re-renders its own
+   `<aside>` and its own sidebar styles — **the markup is duplicated 11 times**,
+   and only 3 pages even import `SIDEBAR_NAV`. Hoisting it into a
+   `DashboardShell` with a top bar and a drawer under 900px is **one change that
+   fixes the frame on all 11 pages**. Biggest win by a wide margin.
+2. **CSS-first, not JS branching.** Add semantic classNames to the ~25
+   containers that actually break and put real `@media` rules in `globals.css`.
+   ⚠️ **Inline styles beat class rules on specificity** — so any property that
+   must change on mobile has to *move out* of the inline object into the class.
+   Cosmetics stay inline and untouched. That keeps the diff surgical.
+3. **Do not migrate to Tailwind.** Restyling 9,778 lines is commit `a5de0c2`'s
+   270-line deletion at thirty times the size, and that one passed `tsc` and
+   `next build` cleanly before shipping broken.
+4. **Sequence by what a company actually does on a phone**, which is *not*
+   posting shifts: `qr-codes` first (showing the check-in QR to a worker from
+   your phone is arguably the best mobile use case in the product), then
+   `shifts` (review applicants, approve, mark wages paid), then the dashboard
+   home. `new-shift` (926 lines) last, collapsed to a single column — it is the
+   least phone-critical screen.
+5. **Verify by looking**, at 390px, in both languages. The gate cannot see this.

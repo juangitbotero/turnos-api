@@ -13,7 +13,7 @@ const { SPECS } = require('./directions/in-hand-specs.js');
 const { r } = L;
 
 const OUT = path.join(L.REPO, 'docs', 'brand', 'ad-campaign', '03-in-hand');
-const SIZES = [{ w: 1080, h: 1080 }, { w: 1080, h: 1920 }];
+const SIZES = [{ w: 1080, h: 1080 }, { w: 1080, h: 1350 }, { w: 1080, h: 1920 }];
 
 /** Phone beside the copy, with one magnified detail tied back to its source. */
 async function layoutCallout({ W, H, spec, logo, g, tall }) {
@@ -39,7 +39,13 @@ async function layoutCallout({ W, H, spec, logo, g, tall }) {
     cardAt = { x: M * 0.55, y: phTop + (f.footTop - phTop) * 0.46 };
   } else {
     const phTop = f.bandTop + W * 0.02;
-    ph = D.phone({ id: spec.id, x: W * 0.605, y: phTop, h: (f.footTop - phTop) * 0.99, img, stroke, sw });
+    const phX = W * 0.605;
+    // Cap the height so the derived WIDTH still fits. The device is sized from
+    // the available vertical band, so on a taller canvas (4:5) it grew until it
+    // ran off the right edge — at 1080×1350 it overflowed by 43px.
+    const maxPhW = W - phX - W * 0.03;
+    const phH = Math.min((f.footTop - phTop) * 0.99, maxPhW / (9 / 19.5));
+    ph = D.phone({ id: spec.id, x: phX, y: phTop, h: phH, img, stroke, sw });
     const head = L.block(D.HEAD, spec.headline, { x: M, y: 0, size, leading: size * 1.15, maxWidth: W * 0.47, fill: g.ink, tracking: -size * 0.012 });
     const headY = f.bandTop + W * 0.075;
     headBox = { headY, subY: headY + head.height + size * 1.15 };
