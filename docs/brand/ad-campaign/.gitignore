@@ -1,0 +1,31 @@
+# Generated compositions are NOT versioned.
+#
+# Every PNG in this folder is derived from the spec arrays in
+# scripts/ad-campaign/. A full rebuild takes ~18 seconds:
+#
+#     cd scripts/ad-campaign && npm install && node build.js
+#
+# Why: git cannot delta-compress a PNG, so it stores a complete new copy of the
+# file for every version. These are outputs that change whenever a headline
+# changes, so committing them would grow history without bound — and removing
+# them later needs a history rewrite (filter-repo/BFG), which invalidates every
+# clone and every commit SHA on the branch Railway deploys from.
+#
+# NOTE: these files still exist on disk. This stops them being versioned, it
+# does not delete them. `git clean -fdx` WOULD remove them — rebuild after.
+
+01-quiet-signal/*.png
+02-drawn/*.png
+03-in-hand/*.png
+graphics/*.png
+
+# …except the contact sheets and the specimen. ~700 KB total, and they are the
+# visual record — you can see every set on GitHub without cloning and building.
+!01-quiet-signal/_contact-sheet.png
+!02-drawn/_contact-sheet.png
+!03-in-hand/_contact-sheet.png
+!graphics/_specimen.png
+
+# Kept deliberately, and not covered by the rules above:
+#   screenshots/   real inputs — cannot be regenerated, must be versioned
+#   graphics/*.svg text, 124 KB for all 47, diffs cleanly, the preferred format
