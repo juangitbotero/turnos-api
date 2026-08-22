@@ -1,0 +1,15 @@
+{
+  "name": "turnos-ad-campaign",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Generates the Turnos waiting-list ad creative from spec arrays.",
+  "scripts": {
+    "build": "node build.js",
+    "graphics": "node export.js",
+    "specimen": "node specimen.js"
+  },
+  "dependencies": {
+    "opentype.js": "^1.3.4",
+    "sharp": "^0.34.5"
+  }
+}

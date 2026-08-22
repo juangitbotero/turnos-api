@@ -52,8 +52,33 @@
 | Button | 15px / 16sp | 600 SemiBold | All button labels |
 
 **Font family:**
-- Mobile: System font (SF Pro on iOS, Roboto on Android) — use `fontFamily: 'System'`
-- Web: `Inter` (Google Fonts) — import in `layout.tsx`
+
+| Role | Typeface | Where |
+|---|---|---|
+| **Brand / display** | **ITC Bauhaus** | Logo, marketing, ad creative, campaign headlines |
+| Product UI — web | `Inter` (Google Fonts) | imported in `layout.tsx` |
+| Product UI — mobile | System font (SF Pro on iOS, Roboto on Android) | `fontFamily: 'System'` |
+
+**ITC Bauhaus is the brand typeface.** The wordmark is set in it (Medium weight —
+monoline geometric, single-storey `u`, circular `o`). It is a **licensed Monotype
+family**, not a free font, so it is deliberately *not* used in the product UI:
+webfont licensing for `apps/web-admin` would be a separate purchase, and Inter is
+the closest widely-licensed substitute for interface text.
+
+Two traps worth knowing before anyone sets brand type:
+
+- **`Bauhaus 93` is not ITC Bauhaus.** It ships with Windows/Office and is the
+  font people reach for by mistake. It is a much heavier, quirkier derivative —
+  the `r`, `s` and `a` are visibly different shapes. It will read as off-brand.
+  Do not substitute it.
+- **The licence file lives with Juanes, not in this repo.** Anyone producing
+  brand assets needs the actual `.ttf`/`.otf`. Without it, set the wordmark from
+  the **logo asset** (`apps/web-admin/public/logo.png`, 1200×360) rather than
+  re-typing "Turnos" in a lookalike face.
+
+⚠️ **`docs/brand/turnos-logo.png` is a 0-byte empty file** — the embed at the top
+of this document is broken. The real assets are
+`apps/web-admin/public/logo.png` and `logo-white.png`, both 1200×360.
 
 ---
 

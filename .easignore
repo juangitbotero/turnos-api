@@ -15,3 +15,8 @@ docs
 # Misc
 *.pem
 .DS_Store
+
+# Tooling — not needed to build apps/mobile.
+# scripts/ad-campaign carries its own node_modules (~24 MB of sharp's native
+# binaries), which would otherwise ride along in every EAS upload.
+scripts
