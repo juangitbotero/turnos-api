@@ -21,7 +21,8 @@ apps/
 packages/
   shared/        Types, DTOs, validation utils, design tokens — imported by all apps
 docs/
-  turnos_roadmap.md     Full product roadmap (Stints 0–10) — source of truth
+  pre-flight.md         What's left before launch and the stores — status reference
+  go-live-cleanup.md    Detail behind the launch blockers (SQL, greps, Railway vars)
   adr/                  Architecture Decision Records (all decisions locked)
   brand/                Design system and logo
   legal/                Attorney briefs (Pay Link structure — unsigned)
@@ -163,7 +164,12 @@ Always add new shared types here, never duplicate them in individual apps.
 
 ## Stint Progress
 
-Stints are 2–3 week development phases. Full roadmap in `docs/turnos_roadmap.md`.
+Stints are 2–3 week development phases. What is **built** is below; what is
+**left before launch** is in `docs/pre-flight.md`.
+
+> `docs/turnos_roadmap.md` was deleted on 2026-09-09. It had not been updated
+> since 2026-06-04 and still described the pre-pivot model (worker paying 10%,
+> T+1 payouts, check-out scan, €55/mo), all retired by ADR 007 and ADR 008.
 
 | Stint | Name | Status |
 |---|---|---|
@@ -401,7 +407,7 @@ These are non-negotiable and must be correct before launch:
 4. **Payment (superseded by ADR 007; amended 2026-07-29):** company pays the worker **directly** (Pay Link / transferência / MB WAY, chosen at publish — cash retired); Turnos never holds wages, takes **no cut of the Pay Link charge**, and only invoices its own fees monthly.
 5. **Worker payout (superseded by ADR 007):** full gross direct from company; Stripe Connect kept optional for the Pay Link rail.
 6. **MVP scope:** Stints 0–5 = v1 launch target (Payments in v1.1)
-7. **Marketplace model:** Workers browse and apply, employers review and confirm. Push notifications target workers by skill match. No auto-assignment. See `docs/turnos_roadmap.md` for full model.
+7. **Marketplace model:** Workers browse and apply, employers review and confirm. Push notifications target workers by skill match. No auto-assignment.
 8. **QR model (amended by ADR 008, 2026-07-14):** Static HMAC-SHA256 token (permanent per employer) — **single check-in QR only**. The worker scans on arrival; the shift **auto-completes at its scheduled end** (BullMQ job at check-in + 15-min sweep). No check-out scan. Auto-completion triggers the fee/wage/review chain; employer can "Ajustar horas" (2h floor, regenerates Pay Link) or "Reportar problema" (pauses reminders, ops review) before paying. Two-way review prompts fire at completion and +8h.
 
 ---
