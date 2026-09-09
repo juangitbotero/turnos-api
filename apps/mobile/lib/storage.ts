@@ -4,6 +4,7 @@ const KEY_ACCESS  = 'turnos_access_token';
 const KEY_REFRESH = 'turnos_refresh_token';
 const KEY_USER_ID = 'turnos_user_id';
 const KEY_ROLE    = 'turnos_user_role';
+const KEY_INTRO_SEEN = 'turnos_intro_seen';
 
 export const tokenStorage = {
   getAccessToken:  () => SecureStore.getItemAsync(KEY_ACCESS),
@@ -33,6 +34,27 @@ export const tokenStorage = {
     SecureStore.deleteItemAsync(KEY_USER_ID),
     SecureStore.deleteItemAsync(KEY_ROLE),
   ]),
+
+  /**
+   * Deliberately NOT cleared by `clear()`. Signing out is not a reason to
+   * replay the introduction — it is a property of this install, not of the
+   * session. Reinstalling shows it again, which is correct.
+   */
+  hasSeenIntro: async (): Promise<boolean> => {
+    try {
+      return (await SecureStore.getItemAsync(KEY_INTRO_SEEN)) === '1';
+    } catch {
+      // A read failure must not trap the user on the intro — treat it as seen.
+      return true;
+    }
+  },
+  markIntroSeen: async (): Promise<void> => {
+    try {
+      await SecureStore.setItemAsync(KEY_INTRO_SEEN, '1');
+    } catch {
+      // Non-fatal: worst case the intro shows once more.
+    }
+  },
 
   isTokenExpired: (token: string): boolean => {
     try {

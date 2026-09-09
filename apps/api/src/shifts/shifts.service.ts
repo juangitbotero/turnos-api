@@ -87,6 +87,8 @@ export class ShiftsService {
     lng: number;
     skillsRequired?: string[];
     paymentMethod?: string;
+    hasDressCode?: boolean;
+    dressCode?: string | null;
   }): Promise<Shift> {
     // Guard: minimum 2-hour shift duration
     const [sh, sm] = data.startTime.split(':').map(Number);
@@ -118,6 +120,15 @@ export class ShiftsService {
       );
     }
 
+    // Guard: a dress code that is switched on must actually say something —
+    // "there is a dress code, figure it out" is worse than no dress code, and
+    // it is what the company would later cancel the shift over.
+    const dressCode = (data.dressCode ?? '').trim().slice(0, 300);
+    const hasDressCode = data.hasDressCode === true && dressCode.length > 0;
+    if (data.hasDressCode === true && dressCode.length === 0) {
+      throw new BadRequestException(t('api.shifts.dressCodeRequired'));
+    }
+
     // Guard: active subscription + concurrent shift limit
     await this.payments.assertCanPostShift(userId);
 
@@ -134,6 +145,10 @@ export class ShiftsService {
       allDates.map((day, i) => this.shiftRepo.create({
         ...rest,
         date: day,
+        // Normalised above — a toggle switched back off must not leave stale
+        // instructions on the card.
+        hasDressCode,
+        dressCode: hasDressCode ? dressCode : null,
         status: ShiftStatus.OPEN,
         employer: { id: employer.id } as any,
         lat,
@@ -232,6 +247,13 @@ export class ShiftsService {
     }
     const { lat, lng, ...rest } = data;
     Object.assign(shift, rest);
+    // Same normalisation as create() — switching the toggle off has to clear
+    // the text, or the shift card keeps showing a code nobody is held to.
+    if (rest.hasDressCode !== undefined || rest.dressCode !== undefined) {
+      const code = (shift.dressCode ?? '').trim().slice(0, 300);
+      shift.hasDressCode = shift.hasDressCode === true && code.length > 0;
+      shift.dressCode = shift.hasDressCode ? code : null;
+    }
     if (lat !== undefined && lng !== undefined) {
       shift.lat = lat;
       shift.lng = lng;

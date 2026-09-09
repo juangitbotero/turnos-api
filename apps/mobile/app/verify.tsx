@@ -97,7 +97,7 @@ export default function VerifyScreen() {
   const handleVerify = async (code: string) => {
     setIsLoading(true);
     try {
-      const { accessToken, refreshToken, isNewUser } = await authApi.verifyOtp(phone!, code);
+      const { accessToken, refreshToken } = await authApi.verifyOtp(phone!, code);
       await tokenStorage.saveSession(accessToken, refreshToken);
 
       // Connect WebSocket with JWT so the worker joins their private room
@@ -106,9 +106,12 @@ export default function VerifyScreen() {
       // Register Expo push token (non-blocking — runs in background)
       registerPushToken();
 
-      // Always go to home — new workers browse first, profile gate triggers on apply
-      router.replace('/');
-      void isNewUser; // kept for future analytics
+      // First run on this install: the five-slide intro, then home. Gated on
+      // the stored flag rather than `isNewUser` so someone who signed up but
+      // closed the app mid-intro still sees it. Either way it lands on home —
+      // new workers browse first, and the profile gate triggers on apply.
+      const seenIntro = await tokenStorage.hasSeenIntro();
+      router.replace(seenIntro ? '/' : '/intro');
     } catch (err) {
       setHasError(true);
       setDigits(Array(OTP_LENGTH).fill(''));

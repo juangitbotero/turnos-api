@@ -217,6 +217,8 @@ export interface Shift {
   grossHourlyRate: number;
   address: string;
   skillsRequired: string[] | null;
+  hasDressCode?: boolean;
+  dressCode?: string | null;
   status: ShiftStatus;
   createdAt: string;
   employer: { id: string; companyName: string } | null;
@@ -380,6 +382,9 @@ export interface CreateShiftDto {
   lng: number;
   skillsRequired?: string[];
   languagesRequired?: string[];
+  /** Company-authored, like `description` — displayed to the worker, not translated. */
+  hasDressCode?: boolean;
+  dressCode?: string | null;
   paymentMethod: string;   // PaymentMethod from @turnos/shared — required at publish
 }
 

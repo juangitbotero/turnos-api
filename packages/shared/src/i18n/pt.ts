@@ -135,6 +135,28 @@ export const pt = {
       profile: 'Perfil',
     },
 
+    /**
+     * Five-slide intro shown once, after the OTP, before the profile wizard.
+     * Every claim here has to stay true to the product: check-in only (ADR
+     * 008), no wage handling by Turnos, and no bonus programme. Do not add
+     * payment-timing promises — the 2026-07 pivot swept them all out.
+     */
+    intro: {
+      skip: 'Saltar a introdução',
+      next: 'Seguinte',
+      start: 'Começar',
+      slide1Title: 'Encontra turnos perto de ti',
+      slide1Body:  'Vê turnos na tua zona com o valor à hora sempre à vista. Candidatares-te é grátis. Sempre.',
+      slide2Title: 'Completa o teu perfil para te candidatares',
+      slide2Body:  'Precisas de 80% para te poderes candidatar. Foto, NIF, IBAN e as tuas competências. Cinco minutos.',
+      slide3Title: 'Candidatares-te é assumir um compromisso',
+      slide3Body:  'Confirma a data, a hora, o local e o código de vestuário antes de te candidatares. Faltar sem avisar suspende a tua conta.',
+      slide4Title: 'Faz check-in ao chegar',
+      slide4Body:  'Lê o QR code da empresa quando chegares. É só isso — o turno fecha sozinho à hora marcada.',
+      slide5Title: 'Boas avaliações = mais trabalho',
+      slide5Body:  'Os trabalhadores com melhores avaliações são os primeiros a ser notificados de novos turnos.',
+    },
+
     login: {
       tagline: 'Work Today. Staff Today.',   // brand line — same in both languages
       sheetTitle: 'Entrar ou criar conta',
@@ -229,6 +251,8 @@ export const pt = {
       reviewsCtaSubEmpty: 'Ainda sem avaliações',
       editCta:        'Editar Perfil',
       editCtaSub:     'Nome, competências, disponibilidade, foto',
+      introCta:       'Como funciona a Turnos',
+      introCtaSub:    'Rever a introdução em 5 passos',
 
       languageTitle: 'IDIOMA DA APLICAÇÃO',
       languageSub:   'Escolhe o idioma em que queres usar a Turnos.',
@@ -399,6 +423,8 @@ export const pt = {
 
       skillsTitle: 'Competências necessárias',
       aboutTitle:  'Sobre o turno',
+      dressCodeTitle: 'Como te apresentares',
+      dressCodeNote:  'Definido pela empresa. Se não cumprires, a empresa pode cancelar o turno à chegada.',
 
       doneTitle:     'Turno concluído',
       doneSubHours:  '{{hours}}h concluídas · a empresa paga-te diretamente',
@@ -1267,6 +1293,15 @@ export const pt = {
       languagesPickedOne:   '1 idioma selecionado: {{list}}',
       languagesPickedOther: '{{count}} idiomas selecionados: {{list}}',
 
+      // Dress code
+      dressCodeSection:     'Código de vestuário',
+      dressCodeToggle:      'Este turno tem código de vestuário',
+      dressCodeHint:        'Ajuda o trabalhador a chegar preparado. É mostrado no turno antes de se candidatar.',
+      dressCodePlaceholder: 'Ex: Camisa branca, calças pretas e sapatos fechados. O avental é fornecido pela empresa.',
+      dressCodeCounter:     '{{count}}/300',
+      dressCodeTip:         'Diz também o que é fornecido pela empresa — evita que o trabalhador compre algo desnecessário.',
+      errDressCode:         'Escreve o código de vestuário ou desliga a opção.',
+
       // Payment
       paymentSection: 'Como vais pagar ao trabalhador?',
       paymentHint:    'O pagamento é feito diretamente por ti ao trabalhador após o turno — não passa pela Turnos. O método escolhido é mostrado ao trabalhador antes de se candidatar.',
@@ -1824,6 +1859,7 @@ export const pt = {
       noDates:               'Indica pelo menos uma data para o turno.',
       maxSeriesDays:         'Um turno de vários dias pode ter no máximo {{max}} dias (limite do contrato MCD).',
       paymentMethodRequired: 'Indica como vais pagar ao trabalhador (Turnos Pay Link, transferência bancária ou MB WAY).',
+      dressCodeRequired:     'Escreve o código de vestuário ou desliga a opção.',
       cancelReasonRequired:  'Cancelamentos a menos de 3 horas do início exigem um motivo (erro da empresa ou uma das exceções justificadas).',
       cancelConsequence:     'Cancelamento a menos de 3h do início: deves pagar o mínimo de 2 horas (€{{amount}}) ao trabalhador + taxa de 3€.',
 

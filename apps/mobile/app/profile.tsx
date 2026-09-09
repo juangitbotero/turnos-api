@@ -483,6 +483,24 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={18} color={colors.primary} />
           </TouchableOpacity>
 
+          {/* ── How Turnos works ──
+              The intro is skippable, so it needs a way back. Passes `next` so
+              finishing returns here instead of dropping the worker on home. */}
+          <TouchableOpacity
+            style={s.ctaBtn}
+            onPress={() => router.push('/intro?next=/profile' as any)}
+            activeOpacity={0.85}
+          >
+            <View style={[s.ctaIcon, { backgroundColor: '#eef0ff' }]}>
+              <Ionicons name="help-circle-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={s.ctaBody}>
+              <Text style={s.ctaTitle}>{t('mobile.profile.introCta')}</Text>
+              <Text style={s.ctaSub}>{t('mobile.profile.introCtaSub')}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+          </TouchableOpacity>
+
           {/* ── Logout ── */}
           <TouchableOpacity style={s.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
             <Ionicons name="log-out-outline" size={18} color="#dc2626" />

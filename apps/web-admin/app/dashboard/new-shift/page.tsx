@@ -261,6 +261,8 @@ export default function NewShiftPage() {
   const [address, setAddress]     = useState('');
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [hasDressCode, setHasDressCode] = useState(false);
+  const [dressCode, setDressCode]       = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(RECOMMENDED_PAYMENT_METHOD);
 
   // Pre-fill form when re-posting a caducated shift
@@ -280,6 +282,10 @@ export default function NewShiftPage() {
       if (sh.address) setAddress(sh.address);
       if (sh.skillsRequired?.length) setSelectedSkills(sh.skillsRequired);
       if (sh.languagesRequired?.length) setSelectedLanguages(sh.languagesRequired);
+      if (sh.hasDressCode && sh.dressCode) {
+        setHasDressCode(true);
+        setDressCode(sh.dressCode);
+      }
       if (sh.startTime) setStartTime(sh.startTime.slice(0, 5));
       // Recalculate duration from original start/end if available
       if (sh.startTime && sh.endTime) {
@@ -361,6 +367,7 @@ export default function NewShiftPage() {
     if (!geo) { setError(t('admin.newShift.errGeo')); return; }
     if (durationHours < 2) { setError(t('admin.newShift.errDuration')); return; }
     if (!startTime) { setError(t('admin.newShift.errStart')); return; }
+    if (hasDressCode && !dressCode.trim()) { setError(t('admin.newShift.errDressCode')); return; }
     setError('');
     setIsSubmitting(true);
     try {
@@ -383,6 +390,8 @@ export default function NewShiftPage() {
         // Deduped: the extra-skills picker offers the same vocabulary.
         skillsRequired: [...new Set([subcategory, ...selectedSkills])],
         languagesRequired: selectedLanguages.length > 0 ? selectedLanguages : undefined,
+        hasDressCode,
+        dressCode: hasDressCode ? dressCode.trim() : null,
         paymentMethod,
       });
       router.push('/dashboard/shifts');
@@ -482,6 +491,46 @@ export default function NewShiftPage() {
             placeholder={t('admin.newShift.languagesPlaceholder')}
             countLabel={n => t('admin.newShift.languagesCount', { count: n })}
           />
+        </div>
+
+        {/* ── Dress code ── */}
+        <div style={s.section}>
+          <h2 style={s.sectionTitle}>
+            {t('admin.newShift.dressCodeSection')}
+            <span style={s.sectionBadge}>{t('admin.newShift.optional')}</span>
+          </h2>
+          <p style={s.sectionHint}>{t('admin.newShift.dressCodeHint')}</p>
+          <div style={s.multiDayBox}>
+            <label style={s.multiDayToggle}>
+              <input
+                type="checkbox"
+                checked={hasDressCode}
+                onChange={e => {
+                  setHasDressCode(e.target.checked);
+                  if (!e.target.checked) setDressCode('');
+                }}
+              />
+              <span><strong>{t('admin.newShift.dressCodeToggle')}</strong></span>
+            </label>
+
+            {hasDressCode && (
+              <div style={s.multiDayBody}>
+                <textarea
+                  style={{ ...s.input, minHeight: 84, resize: 'vertical' as const, lineHeight: 1.5 }}
+                  value={dressCode}
+                  maxLength={300}
+                  onChange={e => setDressCode(e.target.value)}
+                  placeholder={t('admin.newShift.dressCodePlaceholder')}
+                />
+                <div style={s.dressCodeFoot}>
+                  <span style={s.dressCodeTip}>{t('admin.newShift.dressCodeTip')}</span>
+                  <span style={s.dressCodeCounter}>
+                    {t('admin.newShift.dressCodeCounter', { count: dressCode.length })}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Payment method ── */}
@@ -843,6 +892,12 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: 13, color: 'var(--color-text-primary)', cursor: 'pointer', lineHeight: 1.5,
   },
   multiDayHint: { color: 'var(--color-text-secondary)', fontWeight: 400 },
+  dressCodeFoot: {
+    display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+    gap: 12, flexWrap: 'wrap' as const,
+  },
+  dressCodeTip: { fontSize: 12, color: 'var(--color-text-secondary)', lineHeight: 1.5, flex: 1 },
+  dressCodeCounter: { fontSize: 11, color: 'var(--color-text-secondary)', flexShrink: 0 },
   multiDayBody: { marginTop: 12, display: 'flex', flexDirection: 'column' as const, gap: 10 },
   multiDayAddRow: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' as const },
   multiDayAddBtn: {

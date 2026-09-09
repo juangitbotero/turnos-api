@@ -134,6 +134,13 @@ export interface Shift {
   grossHourlyRate: number;  // EUR
   status: ShiftStatus;
   skillsRequired: string[];
+  /**
+   * Dress code as the company wrote it. Free text, like `title` and
+   * `description` — company-authored content that is displayed but never
+   * translated. `dressCode` is only set when `hasDressCode` is true.
+   */
+  hasDressCode?: boolean;
+  dressCode?: string | null;
   workerId?: string;
   createdAt: string;
   updatedAt: string;

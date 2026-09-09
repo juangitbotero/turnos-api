@@ -476,6 +476,17 @@ export default function ShiftDetailScreen() {
             </View>
           )}
 
+          {/* Dress code — deliberately the last thing above the apply bar. The
+              company can cancel a shift over it (CODIGO_VESTUARIO), so the
+              worker has to see it before committing, not after. */}
+          {shift.hasDressCode && shift.dressCode && (
+            <View style={styles.dressSection}>
+              <Text style={styles.sectionTitle}>{t('mobile.shiftDetail.dressCodeTitle')}</Text>
+              <Text style={styles.dressCodeText}>{shift.dressCode}</Text>
+              <Text style={styles.dressCodeNote}>{t('mobile.shiftDetail.dressCodeNote')}</Text>
+            </View>
+          )}
+
           <View style={{ height: 120 }} />
         </View>
       </ScrollView>
@@ -789,6 +800,16 @@ const styles = StyleSheet.create({
 
   descSection: { marginBottom: spacing.md },
   description: { fontSize: fontSize.body, color: colors.textPrimary, lineHeight: 24 },
+  dressSection: {
+    marginBottom: spacing.md, padding: spacing.md,
+    backgroundColor: colors.primaryLight, borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.primary,
+  },
+  dressCodeText: { fontSize: fontSize.body, color: colors.textPrimary, lineHeight: 24 },
+  dressCodeNote: {
+    fontSize: fontSize.caption, color: colors.textSecondary,
+    lineHeight: 18, marginTop: spacing.sm,
+  },
 
   // Bottom bar
   bottomBar: {

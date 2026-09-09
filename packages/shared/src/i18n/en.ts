@@ -135,6 +135,28 @@ export const en: Translated<TranslationCatalogue> = {
       profile:  'Profile',
     },
 
+    /**
+     * Five-slide intro shown once, after the OTP, before the profile wizard.
+     * Every claim here has to stay true to the product: check-in only (ADR
+     * 008), no wage handling by Turnos, and no bonus programme. Do not add
+     * payment-timing promises — the 2026-07 pivot swept them all out.
+     */
+    intro: {
+      skip: 'Skip the introduction',
+      next: 'Next',
+      start: 'Get started',
+      slide1Title: 'Find shifts near you',
+      slide1Body:  'See shifts in your area with the hourly rate always in plain sight. Applying is free. Always.',
+      slide2Title: 'Complete your profile to apply',
+      slide2Body:  'You need 80% before you can apply. Photo, NIF, IBAN and your skills. Five minutes.',
+      slide3Title: 'Applying means committing',
+      slide3Body:  'Check the date, the time, the location and the dress code before you apply. Not turning up without warning suspends your account.',
+      slide4Title: 'Check in when you arrive',
+      slide4Body:  "Scan the company's QR code when you get there. That is it — the shift closes itself at the scheduled end.",
+      slide5Title: 'Good ratings = more work',
+      slide5Body:  'Workers with the best ratings are the first to be notified about new shifts.',
+    },
+
     login: {
       tagline: 'Work Today. Staff Today.',   // brand line — kept in English
       sheetTitle: 'Sign in or create account',
@@ -230,6 +252,8 @@ export const en: Translated<TranslationCatalogue> = {
       reviewsCtaSubEmpty: 'No reviews yet',
       editCta:        'Edit Profile',
       editCtaSub:     'Name, skills, availability, photo',
+      introCta:       'How Turnos works',
+      introCtaSub:    'Replay the 5-step introduction',
 
       languageTitle: 'APP LANGUAGE',
       languageSub:   'Choose the language you want to use Turnos in.',
@@ -396,6 +420,8 @@ export const en: Translated<TranslationCatalogue> = {
 
       skillsTitle: 'Skills required',
       aboutTitle:  'About this shift',
+      dressCodeTitle: 'What to wear',
+      dressCodeNote:  'Set by the company. If you do not meet it, they can cancel the shift when you arrive.',
 
       doneTitle:     'Shift completed',
       doneSubHours:  '{{hours}}h completed · the company pays you directly',
@@ -1254,6 +1280,15 @@ export const en: Translated<TranslationCatalogue> = {
       languagesPickedOne:   '1 language selected: {{list}}',
       languagesPickedOther: '{{count}} languages selected: {{list}}',
 
+      // Dress code
+      dressCodeSection:     'Dress code',
+      dressCodeToggle:      'This shift has a dress code',
+      dressCodeHint:        'Helps the worker turn up prepared. Shown on the shift before they apply.',
+      dressCodePlaceholder: 'e.g. White shirt, black trousers and closed shoes. The apron is provided by the company.',
+      dressCodeCounter:     '{{count}}/300',
+      dressCodeTip:         'Say what the company provides too — it stops the worker buying something they do not need.',
+      errDressCode:         'Write the dress code or switch the option off.',
+
       // Payment
       paymentSection: 'How will you pay the worker?',
       paymentHint:    'You pay the worker directly after the shift — the money never passes through Turnos. The method you choose is shown to the worker before they apply.',
@@ -1796,6 +1831,7 @@ export const en: Translated<TranslationCatalogue> = {
       noDates:               'Pick at least one date for the shift.',
       maxSeriesDays:         'A multi-day job can run for at most {{max}} days (MCD — Muito Curta Duração — contract limit).',
       paymentMethodRequired: 'Choose how you will pay the worker (Turnos Pay Link, bank transfer or MB WAY).',
+      dressCodeRequired:     'Write the dress code or switch the option off.',
       cancelReasonRequired:  'Cancelling less than 3 hours before the start requires a reason (company error, or one of the justified exceptions).',
       cancelConsequence:     'Cancelled less than 3h before the start: you must pay the worker a 2-hour minimum (€{{amount}}) plus the €3 fee.',
 

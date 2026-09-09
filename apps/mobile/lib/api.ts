@@ -194,6 +194,12 @@ export interface ShiftSummary {
   grossHourlyRate: number;
   address: string;
   skillsRequired: string[] | null;
+  /**
+   * Dress code as the company wrote it — free text, shown as-is like the
+   * description. Only present when `hasDressCode` is true.
+   */
+  hasDressCode?: boolean;
+  dressCode?: string | null;
   /** How the company pays the worker directly (PaymentMethod from @turnos/shared) */
   paymentMethod?: string | null;
   status: string;

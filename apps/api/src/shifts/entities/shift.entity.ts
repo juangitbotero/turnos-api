@@ -106,6 +106,24 @@ export class Shift {
   languagesRequired: string[];      // e.g. ['Inglês', 'Espanhol']
 
   /**
+   * Dress code, written by the company in its own words. Free text rather than
+   * preset options on purpose: it behaves like `title` and `description` —
+   * company-authored content the platform displays but does not translate.
+   *
+   * `dressCode` is only meaningful when `hasDressCode` is true; the service
+   * nulls it out otherwise, so a toggle switched back off cannot leave stale
+   * instructions showing on the shift card.
+   *
+   * This is also what makes the CODIGO_VESTUARIO cancellation reason fair —
+   * a company can only hold a worker to a dress code it actually stated.
+   */
+  @Column({ type: 'boolean', default: false })
+  hasDressCode: boolean;
+
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  dressCode: string | null;
+
+  /**
    * How the company will pay the worker (directly, outside Turnos).
    * Nullable only for pre-pivot rows — required on new shifts.
    */
