@@ -57,22 +57,39 @@ the Railway variable alone 404s every demo route.
 No document in the repo covered this before 2026-09-09. Derived from
 `apps/mobile/app.json` and the surrounding code.
 
-### Hard blockers
+### Hard blockers — both built 2026-09-09, both need one more step
 
-| Blocker | Requirement |
+| Blocker | State |
 |---|---|
-| **No privacy policy exists** | Both stores require a publicly reachable URL before you can submit |
-| **No in-app account deletion** | Apple guideline 5.1.1(v) — a web form or support email does not satisfy it |
+| Privacy policy | 🟠 Built at `/privacidade` (PT + EN). **Draft — not lawyer-reviewed, and the controller identity is still `[[PLACEHOLDER]]`** |
+| In-app account deletion | 🟢 Built. Profile → Eliminar a minha conta → `/delete-account` |
 
-There is no policy page (`docs/policies/` holds only the cancellation policy and
-there is no route in web-admin). The policy must be true to the pivot: Turnos
-never holds wages, and a worker's IBAN is disclosed to a company under recorded
-consent (`Worker.ibanShareConsentAt`).
+**Privacy policy** — `apps/web-admin/app/privacidade/`. Text lives in
+`content.ts` beside the route, not in the shared catalogue: a legal document is
+reviewed whole by a lawyer, and 100+ catalogue keys would obstruct that.
 
-Account deletion collides with the **ACT audit trail**, which is deliberately
-immutable and append-only, and with MCD contract retention. The resolution is to
-**anonymise the worker and retain the compliance rows** — see
-`AuthService.deleteWorkerAccount()`.
+Before this URL goes into a store listing:
+
+1. Fill `[[RAZÃO SOCIAL]]`, `[[NIPC]]`, `[[MORADA]]`, `[[EMAIL DE CONTACTO]]`
+   in `content.ts` — they render literally on the page today.
+2. Have a lawyer read it. Two statements in it are load-bearing and must not be
+   softened by a later edit: **Turnos never holds wage money** (ADR 007), and
+   **an IBAN is disclosed only under recorded, withdrawable consent**.
+
+**Account deletion** — Apple 5.1.1(v). It **anonymises rather than dropping the
+row**, because MCD contracts, the append-only ACT audit trail, ratings and
+`wage_payments` all reference the worker and are legally retained (GDPR Art.
+17(3)(b)). `UsersService.deleteWorkerAccount()` clears every identifying field;
+what survives is a worker id attached to shift history with no name, contacts,
+NIF, IBAN or documents. `WorkerStatus` gained a terminal `DELETED`.
+
+Two guards refuse deletion, both for the worker's benefit: a confirmed shift
+cannot be abandoned, and an unpaid wage must land first — anonymising sooner
+would destroy the worker's own evidence of what they are owed.
+
+Still to do around it: the deletion path has not been exercised against a real
+account, and `Worker.deletedAt` plus the new enum value reach production through
+`synchronize: true`.
 
 ### Configuration fixes
 

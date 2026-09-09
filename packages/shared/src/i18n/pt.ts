@@ -284,6 +284,7 @@ export const pt = {
       editCtaSub:     'Nome, competências, disponibilidade, foto',
       introCta:       'Como funciona a Turnos',
       introCtaSub:    'Rever a introdução em 5 passos',
+      privacyCta:       'Política de Privacidade',
       deleteAccountCta: 'Eliminar a minha conta',
 
       languageTitle: 'IDIOMA DA APLICAÇÃO',

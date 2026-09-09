@@ -285,6 +285,7 @@ export const en: Translated<TranslationCatalogue> = {
       editCtaSub:     'Name, skills, availability, photo',
       introCta:       'How Turnos works',
       introCtaSub:    'Replay the 5-step introduction',
+      privacyCta:       'Privacy Policy',
       deleteAccountCta: 'Delete my account',
 
       languageTitle: 'APP LANGUAGE',

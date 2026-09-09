@@ -30,6 +30,14 @@ type WorkerProfile = {
 };
 
 /** Colours only — the labels come from the catalogue via t('domain.workerStatus.*') */
+/**
+ * Public site, for the privacy policy link. Derived from the API URL so a
+ * single env var keeps working: the API lives at <host>/api, the site at the
+ * web-admin host. Override with EXPO_PUBLIC_WEB_URL when they differ.
+ */
+const WEB_URL =
+  process.env.EXPO_PUBLIC_WEB_URL ?? 'https://turnos-admin-production.up.railway.app';
+
 const STATUS_COLOURS: Record<string, { bg: string; text: string }> = {
   INCOMPLETE:     { bg: '#fef9c3', text: '#854d0e' },
   PENDING_REVIEW: { bg: '#dbeafe', text: '#1d4ed8' },
@@ -499,6 +507,17 @@ export default function ProfileScreen() {
               <Text style={s.ctaSub}>{t('mobile.profile.introCtaSub')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+          </TouchableOpacity>
+
+          {/* ── Privacy policy ──
+              Both stores want the policy reachable from inside the app, not
+              only from the store listing. */}
+          <TouchableOpacity
+            style={s.deleteAccountBtn}
+            onPress={() => Linking.openURL(`${WEB_URL}/privacidade`)}
+            activeOpacity={0.7}
+          >
+            <Text style={s.deleteAccountText}>{t('mobile.profile.privacyCta')}</Text>
           </TouchableOpacity>
 
           {/* ── Delete account ──
