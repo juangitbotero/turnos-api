@@ -1,21 +1,11 @@
-# Web-admin & home page — handoff
+# Web-admin — lessons from past mistakes
 
-State as of `2026-08-22` on `main`. Everything below is deployed to Railway
-unless marked otherwise.
-
-This covers the run of work after the PT/EN internationalisation (see
-`docs/old handoff/i18n-handoff.md`, which is complete and signed off).
-
-> ⚠️ **Two docs moved and the pointers to them are stale.**
-> `i18n-handoff.md` and `turnos_roadmap.md` were moved into
-> `docs/old handoff/`. That move is **uncommitted** at the time of writing.
-> `CLAUDE.md` still names `docs/turnos_roadmap.md` as the roadmap source of
-> truth in three places (lines 24, 166, 404). Fix those pointers in the same
-> commit as the move, or the next person follows a dead path.
+Status, shipped work and open items have been removed. What is left is only the
+things that went wrong before and what they taught, so they are not repeated.
 
 ---
 
-## Regressions from this run, both fixed 2026-08-17
+## Regressions from the 2026-08 run, both fixed 2026-08-17
 
 Both were introduced by `a5de0c2` ("dashboard cleanup"). Read them together —
 they are the same mistake twice, and the second one was invisible until the
@@ -113,13 +103,14 @@ route re-scanned in both languages: clean apart from the dev-only `🛠`.
 
 ### What this says about the verification gate
 
-The gate below runs `tsc` and `next build`. **Neither can see a missing input.**
-Both regressions passed it cleanly and shipped. A form that renders but cannot
-be submitted, and a catalogue that is half-swept, both need someone to open the
-page — in **both languages**. Add that to the gate mentally; there is no script
-for it.
+`tsc` and `next build` **cannot see a missing input.** Both regressions passed
+them cleanly and shipped. A form that renders but cannot be submitted, and a
+catalogue that is half-swept, both need someone to open the page — in **both
+languages**. There is no script for it.
 
-### ⚠️ Retracted: the "missing CSS variables" claim was wrong
+---
+
+## ⚠️ Retracted: the "missing CSS variables" claim was wrong
 
 Commit `6fe2806`'s message and an earlier version of this document claimed that
 `--color-text-muted` and `--color-border` were undefined, and that the login
@@ -160,206 +151,82 @@ payoff.
 
 ---
 
-## 🔴 Read this first — untested in production
+## The catalogue is the source of copy — including icons
 
-Two things shipped that **have never been exercised against a real account**.
-Both are one manual test each.
+Emoji were in the **strings**, not the markup. If a screen looks wrong,
+check `packages/shared/src/i18n/pt.ts` before the component.
 
-### 1. The settings endpoints
+The rule as it now stands, both languages, verified 2026-08-17:
 
-`PATCH /auth/employer/profile` and `POST /auth/change-password` compile and the
-page renders, but no company has actually saved a profile or changed a password.
+| Namespace | Emoji | Typographic `→ ← ↻ ✓ ✕ ★ ·` |
+|---|---|---|
+| `admin` | none — including `✓ ✕ ⬇ ⚠` | arrows only |
+| `home` | none | `✓` kept in the demo checklist |
+| `mobile` | **kept, deliberately** | kept |
 
-**Test:** sign in as Carolina Bakes → Definições → change the address → Save →
-reload. Then change the password and confirm you are signed out elsewhere.
+The same now holds for the **web-admin components** — no emoji in JSX either.
 
-### 2. The wage-payment path has still never run end to end
+Adding one back to an `admin` or `home` string, or to a component, undoes a
+sweep that took three passes to land. Use `apps/web-admin/components/icons.tsx`;
+if the icon you need is not there, add it rather than reaching for a glyph.
 
-`wage_payments` did not exist as a table until 2026-08-07 (see below), so **no
-shift has ever completed in production**. Publish → apply → approve → check-in →
-auto-complete, and confirm a `wage_payments` row appears. This is the core of
-the business model and it is unproven.
+Every CSS variable referenced in web-admin **is** defined — see the retraction
+above if you have read an older copy of this document saying otherwise.
 
----
+`pt.ts` is canonical; `en.ts` is typed `Translated<TranslationCatalogue>`, so a
+missing key is a compile error. Rebuild shared after every catalogue edit:
 
-## What shipped
-
-### Internationalisation — complete
-
-All five phases, both apps and the API, PT + EN, copy signed off 2026-08-07.
-Catalogues at **1440 keys** per language. See `docs/old handoff/i18n-handoff.md`.
-
-### A production bug found and fixed
-
-**`WagePayment` was the only `@Entity` missing from the TypeORM `entities`
-array.** `forFeature()` registers the repository, not the entity, and
-`getRepository()` resolves metadata lazily — so the app booted fine and died at
-the first query with `EntityMetadataNotFoundError`. `synchronize` never created
-the table either.
-
-Everything in ADR 007 phase 4 was dead on the deployed API: wage creation on
-completion, the cancellation minimum, `hasOverdueUnpaid`, the whole
-pending-wages / mark-paid / adjust-hours surface, the webhook reconciliation and
-the reminder processor.
-
-It went unnoticed because `assertCanPostShift` returns early when
-`BYPASS_SUBSCRIPTION` is set, and the rest only fires when a shift completes.
-Fixed in `3669548`; `autoLoadEntities: true` added so it cannot recur.
-
-### Mobile
-
-- **Estimated total was wrong on two counts** (`7fdd51e`). Overnight shifts
-  computed ZERO hours (`hoursWorked` did not wrap past midnight, so 20:00→00:00
-  gave −1200 minutes clamped to 0), and multi-day jobs showed a single day's
-  value. Live examples: "Waiter for 2 days" €0.00 → €88.00, "Cook assistant"
-  €40.00 → €120.00. **Display only** — `calcScheduledHours`, which decides what
-  a worker is PAID, already wrapped correctly.
-- **Earnings screen**: the "Received" KPI showed gross minus 11% TSU, a number
-  the worker never receives, contradicting the note six lines below it. Tile
-  removed; the strip is Gross + Shifts and the card below is retitled "TSU
-  simulator (if applicable)".
-- **Employer reviews** now render on the worker profile.
-
-### Home page
-
-`/` (companies) and `/trabalhadores` (workers), linked both ways.
-
-- Development-programme section and the "Built for the Portuguese market" trust
-  bar both deleted — the page should not read as Portugal-only with Spain
-  planned. MCD is still covered in the FAQ.
-- **Sectors block reads `SHIFT_CATEGORIES`**, so sectors and role chips come
-  from the same source the app posts shifts from and cannot drift.
-- FAQ sourced from `docs/faq-turnos.md`.
-- `<10s to post a shift` → `~5 min`. It was never true.
-- Order: Hero → Stats → How it works → FAQ → Sectors → What the platform does → CTA.
-
-### Dashboard
-
-- **Compliance removed from the sidebar.** The route and data still exist at
-  `/dashboard/compliance` — MCD contracts, TSU report, ACT audit trail. Only the
-  link is gone, so a company can still produce a contract for an inspection.
-- Nav renames: "Quem já trabalhou" / "Who worked for us", "A minha subscrição" /
-  "My subscription".
-- **Role vs skills fixed.** Matching ran on `skillsRequired` only; the role
-  dropdown fed `subcategory`, used for display and the MCD contract and nothing
-  else. An employer who picked a role and left skills empty had the shift pushed
-  to EVERY active worker, because `notifyMatchingWorkers` skips its filter on an
-  empty list. The role is now seeded into `skillsRequired` and the second field
-  is "additional skills".
-- Worker search auto-applies (250ms debounce); Search became Clear filters.
-- Languages use a new `MultiSelect` (dropdown that still multi-selects).
-- CV downloadable from the applicant panel.
-- Multi-day chip moved below the shift name.
-- **Every emoji replaced** with monochrome SVG at one stroke weight. The cause
-  was that ~92 admin catalogue strings had emoji baked into the COPY, so no
-  component work would have fixed it. ⚠️ **This only landed in `pt.ts`** —
-  `en.ts` was missed entirely and was not fixed until 2026-08-17. See
-  "Regressions from this run" at the top.
-
-### Ad campaign system (new, 2026-08-22)
-
-Creative for the worker waiting list at <https://turnos.systeme.io/en/turnos>,
-English to match that page. Not web-admin, but it changed two files this
-document's readers depend on, so it is recorded here.
-
-| Where | What |
-|---|---|
-| `docs/brand/CAMPAIGN_SYSTEM.md` | The mood and its rules — palette, type, composition skeleton, copy rules |
-| `docs/brand/COPY_BANK.md` | 24 approved headlines by angle, **plus the rejected ones and why** |
-| `scripts/ad-campaign/` | The generator. `node build.js` rebuilds all 125 assets in ~18s |
-| `docs/brand/ad-campaign/` | Three directions + a 17-motif graphics library (SVG + transparent PNG) |
-
-**Outputs are deliberately not versioned.** The 105 composition PNGs are
-gitignored; the generator, screenshots, motif SVGs and contact sheets are
-committed. Git cannot delta-compress a PNG, and these regenerate whenever a
-headline changes — committing them would grow history without bound, and
-unwinding that later needs a history rewrite on the branch Railway deploys
-from. The files still exist on disk; `git clean -fdx` would remove them, and
-the rebuild is one command.
-
-Two changes that reach beyond the campaign:
-
-- **`DESIGN_SYSTEM.md` now records the brand typeface**, which was nowhere in
-  the repo: **ITC Bauhaus**, a licensed Monotype family we do not hold a file
-  for. The wordmark is therefore always *placed* from
-  `apps/web-admin/public/logo.png`, never re-typed. **Do not substitute
-  `Bauhaus 93`** — it ships with Windows, it is the font people reach for by
-  mistake, and it is a visibly heavier, different face.
-- **`docs/brand/turnos-logo.png` is a 0-byte file.** The image embed at the top
-  of `DESIGN_SYSTEM.md` has always been broken. Use
-  `apps/web-admin/public/logo.png` (1200×360) or `logo-white.png`.
-
-One open question, deliberately left open: the campaign uses `#14141F` as its
-near-black, which is **not** the product's `#1a1a2e`. Deeper and cooler, so the
-blue reads brighter in a feed. Either standardise the product on it or accept
-the split knowingly — but do not let a third value appear.
-
-### Settings (new)
-
-A company could change **nothing** after registering. There was no employer
-profile update endpoint and no change-password endpoint for either role.
-
-The field that mattered most was invisible: **`accountantEmail` is READ by the
-compliance flow** — it is where the Segurança Social notification goes before
-every shift — but nothing could set it, so it fell back to the admin's sign-in
-email. Companies were receiving their own SS notifications.
-
-Cards: account details, plan, password, **company logo**, **email
-notifications**, support, account & privacy (with explicit GDPR access and
-erasure requests).
-
-Locked on purpose, with the reason shown: **NIPC** (legal identifier, unique,
-already on issued MCD contracts) and **sign-in email** (it is the login).
-
-### Notification preferences
-
-`Employer.notificationPrefs` (jsonb). **Both senders check it** — this is not a
-switch wired to nothing:
-
-| Preference | Gated in |
-|---|---|
-| `ratingReminders` | `RatingsService.processReviewFollowUp` |
-| `wageReminders` | `WagePaymentsService.emailEmployer` |
-
-Two deliberate decisions:
-
-- **The final unpaid-wage warning ignores the preference.** The next step after
-  it is `assertCanPostShift` refusing to publish. Being locked out with no
-  warning is worse than an unwanted email. The UI says so.
-- **No "new applicant" preference.** Applicant alerts are push/websocket only —
-  offering a switch for an email that does not exist would be decorative.
-
-**Unset reads as ON**, in both `notificationPrefsOf()` and the client. A null
-column on every pre-existing company must not mean "opted out of everything".
+```bash
+cd packages/shared && npm run build
+```
 
 ---
 
-## Closed by decision — do not raise these as gaps
+## Regex traps that cost real time
 
-Both were considered and settled. They are **not** open work, they are not
-blocking anything, and they should not appear in a status list as missing.
+1. **Anchor block patterns with `^` and the `m` flag.** An unanchored
+   `    features: \{` matched *inside* `      features: {` (admin.billing) and
+   deleted 44 lines. The file still looked plausible and only failed at the end
+   of `tsc`. Any script that rewrites a catalogue block should verify brace
+   balance before writing.
+2. **Never put replacement text inside `node -e`.** Bash eats backticks and
+   `${…}`, silently corrupting template literals. Write a `.js` file.
+3. **A JSX block replacement can run past its section.** This is trap 1 in the
+   component layer and it cost 270 lines of the post-a-shift form — see
+   "Regressions" above. A script that rewrites JSX should assert the line delta
+   it expects, not just that the file still parses.
 
-### Team members — not being built
+Whatever you write, **do both catalogues in the same pass and assert the same
+hit count in each**. The one sweep that did not — the emoji strip — silently ran
+on `pt.ts` only, and nothing downstream noticed for nine days because
+`Translated<TranslationCatalogue>` checks that keys match, never that *values*
+were treated alike.
 
-One login per company is the product for now. A company that needs to share
-access shares the password; say that plainly to a customer rather than letting
-them find out.
+Several files are **CRLF**. Normalise line endings before matching.
 
-Reopening it is a structural change, not a feature: `Employer` has
-`@OneToOne(() => User)`, and every `findEmployerProfile(userId)` in `auth`,
-`payments`, `shifts`, `compliance` and `ratings` resolves a company from that
-single user. If it ever comes back, that cardinality is the starting point —
-but nobody should be scoping it unprompted.
+---
 
-### Attorney sign-off — parked, deliberately
+## How to check things without reaching a wrong conclusion
 
-`docs/legal/pay-link-legal-brief.md` still needs a law firm to read and approve
-it. Juanes knows. It is **not** happening on this stint and is not a launch
-blocker being tracked here.
+Four ways a check went wrong in one afternoon. All four are cheap to avoid.
 
-Consequence to be aware of, not to act on: the two FAQ answers marked 🔵 in
-`docs/faq-turnos.md` (ETT status, who the employer is) stay held back until
-that happens. That is the intended state, not an oversight.
+1. **A green build proves nothing about what renders.** Both regressions passed
+   `tsc` and `next build`. Deleted JSX leaves the state declared and still read
+   elsewhere, so nothing is "unused" and nothing errors. Open the page.
+2. **Never read computed styles off a dev server you just wrote to.** Mid-HMR,
+   `getComputedStyle().getPropertyValue()` returns `""` for variables that are
+   perfectly well defined. That produced a completely fabricated bug report —
+   see the retraction above. Reload first, or check production.
+3. **Scan source, not just rendered HTML.** Anything behind a condition —
+   `{isLoading && …}`, error banners, empty states — is absent from the initial
+   HTML. Four `⏳` spinners hid there. And widen your character ranges:
+   the first emoji sweep missed **U+2300–23FF** entirely, which is where
+   `⏳ ⌛ ⏱ ⏰` live.
+4. **Assert on ink, not on existence.** An `<svg>` with a broken path is a
+   perfectly valid element of the right size. The icon pass was verified by
+   rendering all 49 on a throwaway route and checking each has a non-empty
+   `getBBox()`. Delete the route afterwards — and note that Next ignores
+   `_`-prefixed folders, so `app/_probe/` will silently 404.
 
 ---
 
@@ -414,7 +281,7 @@ npx expo-doctor
 It excluded `docs` but not `scripts`, so `scripts/ad-campaign/` — and the
 **24 MB of sharp native binaries** in its `node_modules` — would have been
 uploaded in every EAS build archive. Nothing under `scripts/` is needed to
-build the mobile app. Your next preview build is lighter, not heavier.
+build the mobile app.
 
 Worth remembering the general rule: **when `.easignore` exists, EAS uses it
 instead of `.gitignore`.** Anything you rely on `.gitignore` to keep out of the
@@ -463,213 +330,3 @@ anything else:
 ```bash
 netstat -ano | findstr :8081
 ```
-
----
-
-## Things worth knowing before you touch the code
-
-### The catalogue is the source of copy — including icons
-
-Emoji were in the **strings**, not the markup. If a screen looks wrong,
-check `packages/shared/src/i18n/pt.ts` before the component.
-
-The rule as it now stands, both languages, verified 2026-08-17:
-
-| Namespace | Emoji | Typographic `→ ← ↻ ✓ ✕ ★ ·` |
-|---|---|---|
-| `admin` | none — including `✓ ✕ ⬇ ⚠` | arrows only |
-| `home` | none | `✓` kept in the demo checklist |
-| `mobile` | **kept, deliberately** | kept |
-
-The same now holds for the **web-admin components** — no emoji in JSX either.
-
-Adding one back to an `admin` or `home` string, or to a component, undoes a
-sweep that took three passes to land. Use `apps/web-admin/components/icons.tsx`;
-if the icon you need is not there, add it rather than reaching for a glyph.
-
-Every CSS variable referenced in web-admin **is** defined — see the retraction
-above if you have read an older copy of this document saying otherwise.
-
-`pt.ts` is canonical; `en.ts` is typed `Translated<TranslationCatalogue>`, so a
-missing key is a compile error. Rebuild shared after every catalogue edit:
-
-```bash
-cd packages/shared && npm run build
-```
-
-### Two regex traps that cost real time this run
-
-1. **Anchor block patterns with `^` and the `m` flag.** An unanchored
-   `    features: \{` matched *inside* `      features: {` (admin.billing) and
-   deleted 44 lines. The file still looked plausible and only failed at the end
-   of `tsc`. Any script that rewrites a catalogue block should verify brace
-   balance before writing.
-2. **Never put replacement text inside `node -e`.** Bash eats backticks and
-   `${…}`, silently corrupting template literals. Write a `.js` file.
-3. **A JSX block replacement can run past its section.** This is trap 1 in the
-   component layer and it cost 270 lines of the post-a-shift form — see
-   "Regressions from this run". A script that rewrites JSX should assert the
-   line delta it expects, not just that the file still parses.
-
-Whatever you write, **do both catalogues in the same pass and assert the same
-hit count in each**. The one sweep that did not — the emoji strip — silently ran
-on `pt.ts` only, and nothing downstream noticed for nine days because
-`Translated<TranslationCatalogue>` checks that keys match, never that *values*
-were treated alike.
-
-Several files are **CRLF**. Normalise line endings before matching.
-
-### Verification gate
-
-```bash
-cd packages/shared && npm run build
-node scripts/i18n-check-keys.js "$PWD"
-cd apps/api && npx tsc --noEmit
-cd ../web-admin && npx tsc --noEmit && npx next build
-cd ../mobile && npx expo export --platform android --output-dir .tmp-check && rm -rf .tmp-check
-```
-
-Mobile `tsc` has **48 pre-existing errors** (TS2786 LinearGradient, TS2339
-design tokens). Compare the count, not the presence.
-
-**This gate is not sufficient and both 2026-08-17 regressions prove it.** It
-cannot see a deleted form field or a half-swept catalogue. Open the page you
-changed, in **both languages**, before you push.
-
-### How to check things without reaching a wrong conclusion
-
-Four ways a check went wrong in one afternoon. All four are cheap to avoid.
-
-1. **A green build proves nothing about what renders.** Both regressions passed
-   `tsc` and `next build`. Deleted JSX leaves the state declared and still read
-   elsewhere, so nothing is "unused" and nothing errors. Open the page.
-2. **Never read computed styles off a dev server you just wrote to.** Mid-HMR,
-   `getComputedStyle().getPropertyValue()` returns `""` for variables that are
-   perfectly well defined. That produced a completely fabricated bug report —
-   see the retraction near the top. Reload first, or check production.
-3. **Scan source, not just rendered HTML.** Anything behind a condition —
-   `{isLoading && …}`, error banners, empty states — is absent from the initial
-   HTML. Four `⏳` spinners hid there. And widen your character ranges:
-   the first emoji sweep missed **U+2300–23FF** entirely, which is where
-   `⏳ ⌛ ⏱ ⏰` live.
-4. **Assert on ink, not on existence.** An `<svg>` with a broken path is a
-   perfectly valid element of the right size. The icon pass was verified by
-   rendering all 49 on a throwaway route and checking each has a non-empty
-   `getBBox()`. Delete the route afterwards — and note that Next ignores
-   `_`-prefixed folders, so `app/_probe/` will silently 404.
-
-### Deploying
-
-Both services auto-deploy on push to `main`.
-
-- API: `https://turnos-api-production-6c70.up.railway.app/api`
-- Web-admin: `https://turnos-admin-production.up.railway.app`
-
-**Mobile does not deploy from git.** EAS Update is not configured, so a push
-does nothing for an installed APK. Expo Go loads from Metro, so `git pull` +
-`npx expo start --clear` is the fast path. For an APK, run
-`npm run build` in `packages/shared` first — `dist` is gitignored but not
-`.easignore`d, so EAS ships your working copy.
-
-If `expo start` will not start at all, it is almost certainly one of the two
-Node-24 errors or a stale Metro on 8081 — see "The dev machine runs Node 24"
-above before investigating anything else.
-
-### Local preview
-
-The dev server dies when a turn ends unless started detached. Run it yourself:
-
-```bash
-cd apps/web-admin && npm run dev
-```
-
----
-
-## Open items
-
-Work that is actually open. Anything in "Closed by decision" above does not
-belong in this table.
-
-| Item | Where |
-|---|---|
-| **Test the settings endpoints** | see top of this doc |
-| **Run one shift end to end** | see top of this doc |
-| **Make the dashboard work on a phone** | "The dashboard on a phone", below — diagnosed, not built |
-| Commit the `docs/old handoff/` move and fix the three `CLAUDE.md` pointers | see the note at the top |
-| Re-export `04-my-shifts` from a clean account — every card shows `Demo ·` | limits which campaign crops are usable |
-| Confirm Apple's terms on Maps imagery in paid ads | blocks 2 of the 12 in-hand variants |
-| Demo seed data still live, `DEMO_SEED_TOKEN` still set | `docs/go-live-cleanup.md` item 2 |
-| Public shift search returns every company's Stripe id and billing state — **accepted for beta, blocker before the first paying company** | `docs/go-live-cleanup.md` item 5 |
-| Everything for launch | `docs/go-live-cleanup.md` |
-
-### Demo data
-
-Production contains **demo rows** from the video seeder (every id starts
-`dede`) plus two real test accounts: worker `+33767560422` (Juanes) and employer
-Carolina Bakes with 8 hand-made shifts. The `dede` cleanup does **not** touch
-the two real accounts. The seeder also **overwrote** the Juanes profile's bio,
-skills and experiences — those values are fiction.
-
-```bash
-curl -X DELETE "https://turnos-api-production-6c70.up.railway.app/api/demo/seed?phone=%2B33767560422" \
-  -H "x-demo-token: <token>"
-```
-
-### Known gaps not yet raised as work
-
-- `/dashboard/ratings` is orphaned — built, no sidebar link.
-- `createGoogleEmployer` creates a `User` but no `Employer` row.
-- Frontend blanket 401 → logout masks real auth errors as "session expired".
-- Company logo is uploaded and shown in the sidebar, but **not yet on the shift
-  cards workers see** — that is mobile work.
-- The dashboard does not work on a phone. Diagnosed, not yet built — see below.
-
----
-
-## The dashboard on a phone — diagnosed 2026-08-22, not yet built
-
-The earlier note said "only checked at desktop width", which undersells it. It
-was measured. **There is no responsive layer at all**, and the reason is
-structural rather than sloppy:
-
-| Finding | Number |
-|---|---|
-| `@media` queries in `app/globals.css` | **0** |
-| Inline `style={{…}}` objects across the 11 dashboard pages | **843** |
-| Tailwind `className` usage in those pages | **0** (Tailwind is installed and unused, except 7 in `qr-codes`) |
-| Sidebar | `width: 240`, `flexShrink: 0`, inside a `display:flex` shell |
-
-**Inline style objects cannot contain media queries.** That is why there are
-zero — it is an architectural dead end, not an oversight. On a 390px phone the
-240px sidebar consumes **62% of the screen** before any content renders, and
-[`shifts/page.tsx:1295`](../apps/web-admin/app/dashboard/shifts/page.tsx) lays
-its table out as a hardcoded `gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1.8fr'`
-— six columns that cannot wrap.
-
-There is already an [`app/MobileOverlay.tsx`](../apps/web-admin/app/MobileOverlay.tsx)
-that detects `window.innerWidth < 768` and tells the user to switch to a
-desktop. That is the current answer, and it needs deleting as part of this work.
-
-### The recommended approach, in order
-
-1. **Build a real shell first.** `app/dashboard/layout.tsx` is a 28-line socket
-   passthrough that renders `<>{children}</>`. Every page re-renders its own
-   `<aside>` and its own sidebar styles — **the markup is duplicated 11 times**,
-   and only 3 pages even import `SIDEBAR_NAV`. Hoisting it into a
-   `DashboardShell` with a top bar and a drawer under 900px is **one change that
-   fixes the frame on all 11 pages**. Biggest win by a wide margin.
-2. **CSS-first, not JS branching.** Add semantic classNames to the ~25
-   containers that actually break and put real `@media` rules in `globals.css`.
-   ⚠️ **Inline styles beat class rules on specificity** — so any property that
-   must change on mobile has to *move out* of the inline object into the class.
-   Cosmetics stay inline and untouched. That keeps the diff surgical.
-3. **Do not migrate to Tailwind.** Restyling 9,778 lines is commit `a5de0c2`'s
-   270-line deletion at thirty times the size, and that one passed `tsc` and
-   `next build` cleanly before shipping broken.
-4. **Sequence by what a company actually does on a phone**, which is *not*
-   posting shifts: `qr-codes` first (showing the check-in QR to a worker from
-   your phone is arguably the best mobile use case in the product), then
-   `shifts` (review applicants, approve, mark wages paid), then the dashboard
-   home. `new-shift` (926 lines) last, collapsed to a single column — it is the
-   least phone-critical screen.
-5. **Verify by looking**, at 390px, in both languages. The gate cannot see this.
