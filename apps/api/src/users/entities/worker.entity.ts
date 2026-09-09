@@ -94,10 +94,21 @@ export class Worker {
 
   @Column({
     type: 'enum',
-    enum: ['INCOMPLETE', 'PENDING_REVIEW', 'ACTIVE', 'SUSPENDED', 'REJECTED'],
+    enum: ['INCOMPLETE', 'PENDING_REVIEW', 'ACTIVE', 'SUSPENDED', 'REJECTED', 'DELETED'],
     default: 'INCOMPLETE',
   })
   status: WorkerStatus;
+
+  /**
+   * When the worker deleted their own account (Apple guideline 5.1.1(v)).
+   *
+   * The row is anonymised in place rather than dropped: MCD contracts, the
+   * immutable ACT audit trail, ratings and wage_payments all reference this
+   * worker and are legally retained. Everything identifying is cleared —
+   * see `UsersService.deleteWorkerAccount()` for exactly what.
+   */
+  @Column({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
 
   // ── Scoring ───────────────────────────────────────────────────────────────
   @Column({ type: 'int', default: 0 })

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -87,5 +87,47 @@ export class StorageService {
       `https://pub-placeholder.r2.dev`,
     );
     return `${publicUrl}/${filename}`;
+  }
+
+  /**
+   * Delete a stored file by the public URL `upload()` returned.
+   *
+   * Needed for account deletion: clearing `photoUrl` on the row is not
+   * erasure while the object is still fetchable at a guessable URL.
+   *
+   * Never throws — a failed delete must not abort the account deletion the
+   * user asked for. Returns whether the object is gone, so the caller can log
+   * what was left behind.
+   */
+  async deleteByUrl(url: string | null | undefined): Promise<boolean> {
+    if (!url) return true;
+
+    // Both branches of `upload()` end in `<base>/<folder>/<uuid>.<ext>`, so the
+    // last two segments are the storage key wherever the file actually lives.
+    const parts = url.split('/').filter(Boolean);
+    const key = parts.slice(-2).join('/');
+    if (!key.includes('/')) {
+      this.logger.warn(`Cannot derive a storage key from URL: ${url}`);
+      return false;
+    }
+
+    try {
+      if (this.useLocal) {
+        const localPath = path.join(this.uploadsDir, key);
+        // Guard against a crafted URL walking out of the uploads directory.
+        if (!localPath.startsWith(this.uploadsDir)) {
+          this.logger.warn(`Refusing to delete outside uploads dir: ${key}`);
+          return false;
+        }
+        await fs.promises.rm(localPath, { force: true });
+        return true;
+      }
+
+      await this.s3!.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+      return true;
+    } catch (err) {
+      this.logger.error(`Failed to delete ${key}: ${(err as Error).message}`);
+      return false;
+    }
   }
 }

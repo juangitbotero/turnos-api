@@ -82,8 +82,12 @@ export const api = {
   postForm: <T>(path: string, form: FormData) =>
     request<T>(path, { method: 'POST', body: form }),
 
-  delete: <T>(path: string) =>
-    request<T>(path, { method: 'DELETE' }),
+  // Body is optional — account deletion sends a typed confirmation with it.
+  delete: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: 'DELETE',
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    }),
 };
 
 // ─── Typed API helpers ────────────────────────────────────────────────────────
@@ -127,6 +131,19 @@ export const authApi = {
     api.delete<{
       cvUrl: string | null; cvFileName: string | null; profileQualityScore: number;
     }>('/auth/worker/cv'),
+
+  /** Checked before the confirmation screen, so the reason is shown up front. */
+  getDeletionStatus: () =>
+    api.get<{
+      canDelete: boolean;
+      blocker: { reason: 'UPCOMING_SHIFTS' | 'UNPAID_WAGES'; count: number } | null;
+    }>('/auth/worker/deletion-status'),
+
+  /** Irreversible. The server enforces the typed confirmation too. */
+  deleteAccount: () =>
+    api.delete<{ message: string; filesRemoved: boolean }>(
+      '/auth/worker/account', { confirm: 'ELIMINAR' },
+    ),
 
   getMe: () => api.get<{
     userId: string; role: string;

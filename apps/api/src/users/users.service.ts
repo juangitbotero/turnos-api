@@ -1,9 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { User } from './entities/user.entity';
 import { Worker } from './entities/worker.entity';
 import { Employer } from './entities/employer.entity';
+import { Shift, ShiftStatus } from '../shifts/entities/shift.entity';
+import { WagePayment, WagePaymentStatus } from '../payments/entities/wage-payment.entity';
+import { StorageService } from '../storage/storage.service';
+import { t } from '../i18n/request-language';
 import {
   calculateProfileQualityScore,
   normalizeSkills,
@@ -26,6 +30,12 @@ export class UsersService {
     private readonly workerRepo: Repository<Worker>,
     @InjectRepository(Employer)
     private readonly employerRepo: Repository<Employer>,
+    // Read-only here — used to decide whether an account may be deleted yet.
+    @InjectRepository(Shift)
+    private readonly shiftRepo: Repository<Shift>,
+    @InjectRepository(WagePayment)
+    private readonly wageRepo: Repository<WagePayment>,
+    private readonly storage: StorageService,
   ) {}
 
   // ─── Lookups ───────────────────────────────────────────────────────────────
@@ -177,6 +187,9 @@ export class UsersService {
     });
 
     worker.profileQualityScore = result.score;
+    // DELETED is terminal — an anonymised account must never be re-activated
+    // by a re-score, and `refreshWorkerScoreIfStale()` runs on every GET /me.
+    if (worker.status === 'DELETED') return result;
     if (result.score >= 80 && worker.status !== 'SUSPENDED' && worker.status !== 'REJECTED') {
       worker.status = 'ACTIVE';
     } else if (result.score < 80 && worker.status === 'ACTIVE') {
@@ -447,5 +460,127 @@ export class UsersService {
     user.emailVerificationToken = undefined;
     await this.userRepo.save(user);
     return true;
+  }
+
+  // ─── Account deletion ──────────────────────────────────────────────────────
+
+  /**
+   * Why a worker can be blocked from deleting right now. `null` means the
+   * deletion can proceed. Exposed separately so the app can warn *before* the
+   * user types their confirmation, rather than failing them at the last step.
+   */
+  async workerDeletionBlocker(
+    userId: string,
+  ): Promise<{ reason: 'UPCOMING_SHIFTS' | 'UNPAID_WAGES'; count: number } | null> {
+    const worker = await this.findWorkerProfile(userId);
+    if (!worker) throw new NotFoundException('Worker profile not found');
+
+    // A confirmed shift is a commitment to a company that has staffed around
+    // it. Deleting mid-commitment would read to the employer as a no-show.
+    const upcoming = await this.shiftRepo.count({
+      where: {
+        assignedWorker: { id: worker.id },
+        status: In([
+          ShiftStatus.PENDING_ACCEPTANCE,
+          ShiftStatus.FILLED,
+          ShiftStatus.ACTIVE,
+        ]),
+      },
+    });
+    if (upcoming > 0) return { reason: 'UPCOMING_SHIFTS', count: upcoming };
+
+    // Money still owed to this worker. Anonymising now would destroy their own
+    // evidence in a dispute — the IBAN and name the company needs to pay them.
+    const unpaid = await this.wageRepo.count({
+      where: {
+        workerId: worker.id,
+        status: In([
+          WagePaymentStatus.PENDING,
+          WagePaymentStatus.MARKED_PAID,
+          WagePaymentStatus.DISPUTED,
+          WagePaymentStatus.UNDER_REVIEW,
+        ]),
+      },
+    });
+    if (unpaid > 0) return { reason: 'UNPAID_WAGES', count: unpaid };
+
+    return null;
+  }
+
+  /**
+   * Delete a worker's account — Apple guideline 5.1.1(v) requires this to be
+   * initiated and completed inside the app.
+   *
+   * **Anonymise, do not drop.** MCD contracts, the append-only ACT audit
+   * trail, ratings and `wage_payments` all reference this worker and are
+   * legally retained for inspection (GDPR Art. 17(3)(b) — retention required
+   * by law). Dropping the row would either break those foreign keys or
+   * cascade away compliance records Turnos is obliged to keep.
+   *
+   * So every identifying field is cleared and the row survives as an
+   * anonymous shell. What remains is a worker id attached to shift history
+   * with no name, no contact details, no NIF, no IBAN and no documents.
+   *
+   * `phone` and `email` are nulled rather than tombstoned because both are
+   * UNIQUE — freeing them is also what lets a person sign up again later,
+   * which is what someone deleting an account expects.
+   */
+  async deleteWorkerAccount(userId: string): Promise<{ filesRemoved: boolean }> {
+    const blocker = await this.workerDeletionBlocker(userId);
+    if (blocker) {
+      throw new BadRequestException(
+        blocker.reason === 'UPCOMING_SHIFTS'
+          ? t('api.account.deleteBlockedShifts', { count: blocker.count })
+          : t('api.account.deleteBlockedWages', { count: blocker.count }),
+      );
+    }
+
+    const worker = await this.findWorkerProfile(userId);
+    if (!worker) throw new NotFoundException('Worker profile not found');
+    const user = await this.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    // Remove the blobs before clearing the URLs — once the columns are null we
+    // no longer know where the files were.
+    const removed = await Promise.all([
+      this.storage.deleteByUrl(worker.photoUrl),
+      this.storage.deleteByUrl(worker.cvUrl),
+    ]);
+
+    worker.fullName           = undefined;
+    worker.nif                = undefined;
+    worker.iban               = undefined;
+    worker.ibanShareConsentAt = null;
+    worker.photoUrl           = undefined;
+    worker.cvUrl              = undefined;
+    worker.cvFileName         = undefined;
+    worker.cvUploadedAt       = null;
+    worker.bio                = undefined;
+    worker.skills             = [];
+    worker.languages          = [];
+    worker.experiences        = [];
+    worker.availableDays      = [];
+    worker.isAvailableForWork = false;
+    worker.expoPushToken      = undefined;   // stops every future push
+    worker.profileQualityScore = 0;
+    worker.isVerified         = false;
+    worker.status             = 'DELETED';
+    worker.deletedAt          = new Date();
+
+    // `stripeAccountId` is deliberately KEPT. It is Stripe's record, not
+    // personal data we hold, and it is the only way to reconcile a Pay Link
+    // charge that already settled against this worker's Connect account.
+
+    user.phone                 = undefined;
+    user.email                 = undefined;
+    user.googleId              = undefined;
+    user.password              = undefined;
+    user.emailVerificationToken = undefined;
+    user.emailVerified         = false;
+
+    await this.workerRepo.save(worker);
+    await this.userRepo.save(user);
+
+    return { filesRemoved: removed.every(Boolean) };
   }
 }

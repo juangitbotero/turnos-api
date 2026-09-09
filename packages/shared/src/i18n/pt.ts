@@ -141,6 +141,37 @@ export const pt = {
      * 008), no wage handling by Turnos, and no bonus programme. Do not add
      * payment-timing promises — the 2026-07 pivot swept them all out.
      */
+    /**
+     * Account deletion (Apple 5.1.1(v)). The "kept" copy is deliberately
+     * honest: MCD contracts and the ACT audit trail are legally retained, so
+     * this anonymises rather than erasing everything. Do not soften it into a
+     * promise of a clean wipe — that would be false.
+     */
+    deleteAccount: {
+      title:        'Eliminar conta',
+      lede:         'Esta ação é permanente. Não é possível recuperar a conta depois de eliminada.',
+      erasedTitle:  'O que é apagado',
+      erased1:      'Nome, telemóvel, NIF e IBAN',
+      erased2:      'Foto de perfil e CV',
+      erased3:      'Competências, idiomas, experiência e disponibilidade',
+      erased4:      'Notificações — deixas de receber turnos',
+      keptTitle:    'O que se mantém',
+      keptWhy:      'Sem o teu nome nem os teus contactos. A lei portuguesa obriga a Turnos a guardar estes registos para inspeções da ACT.',
+      kept1:        'Contratos MCD e registos de Segurança Social já emitidos',
+      kept2:        'Histórico de turnos e pagamentos, de forma anónima',
+      confirmLabel: 'Escreve {{word}} para confirmares',
+      cta:          'Eliminar a conta',
+      keepAccount:  'Manter a minha conta',
+      blockedTitle: 'Ainda não podes eliminar',
+      blockedShifts:'Tens {{count}} turno(s) confirmado(s). Cancela-os ou conclui-os primeiro — há uma empresa a contar contigo.',
+      blockedWages: 'Tens {{count}} pagamento(s) por receber. Espera até receberes: se apagarmos os teus dados agora, ficas sem forma de provar o que te é devido.',
+      finalTitle:   'Tens a certeza?',
+      finalBody:    'A tua conta e os teus dados pessoais vão ser apagados. Não há forma de voltar atrás.',
+      finalConfirm: 'Eliminar',
+      errorTitle:   'Não foi possível eliminar',
+      errorBody:    'Tenta novamente dentro de momentos.',
+    },
+
     intro: {
       skip: 'Saltar a introdução',
       next: 'Seguinte',
@@ -253,6 +284,7 @@ export const pt = {
       editCtaSub:     'Nome, competências, disponibilidade, foto',
       introCta:       'Como funciona a Turnos',
       introCtaSub:    'Rever a introdução em 5 passos',
+      deleteAccountCta: 'Eliminar a minha conta',
 
       languageTitle: 'IDIOMA DA APLICAÇÃO',
       languageSub:   'Escolhe o idioma em que queres usar a Turnos.',
@@ -1852,6 +1884,13 @@ export const pt = {
       passwordTooShort:    'A palavra-passe deve ter pelo menos 8 caracteres.',
       currentPasswordWrong:'A palavra-passe atual está incorreta.',
       pushTokenMissing:   'Token inválido.',
+    },
+
+    account: {
+      confirmRequired:     'Escreve ELIMINAR para confirmares.',
+      deleteBlockedShifts: 'Tens {{count}} turno(s) confirmado(s). Cancela-os ou conclui-os antes de eliminares a conta — a empresa está a contar contigo.',
+      deleteBlockedWages:  'Ainda tens {{count}} pagamento(s) por receber. Elimina a conta só depois de receberes — precisamos dos teus dados para resolver qualquer disputa.',
+      deleted:             'Conta eliminada. Os teus dados pessoais foram apagados.',
     },
 
     shifts: {

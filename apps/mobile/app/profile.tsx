@@ -501,6 +501,18 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={18} color={colors.primary} />
           </TouchableOpacity>
 
+          {/* ── Delete account ──
+              Apple 5.1.1(v): must be reachable and completable inside the app.
+              Kept visually quiet and placed after logout — it is a real option,
+              not one to trip over. */}
+          <TouchableOpacity
+            style={s.deleteAccountBtn}
+            onPress={() => router.push('/delete-account' as any)}
+            activeOpacity={0.7}
+          >
+            <Text style={s.deleteAccountText}>{t('mobile.profile.deleteAccountCta')}</Text>
+          </TouchableOpacity>
+
           {/* ── Logout ── */}
           <TouchableOpacity style={s.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
             <Ionicons name="log-out-outline" size={18} color="#dc2626" />
@@ -689,6 +701,12 @@ const s = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#fca5a5', borderRadius: radius.md, paddingVertical: 14,
   },
   logoutText: { color: '#dc2626', fontSize: fontSize.body, fontWeight: fontWeight.bold as any },
+
+  deleteAccountBtn: { alignItems: 'center', paddingVertical: spacing.sm },
+  deleteAccountText: {
+    color: colors.textSecondary, fontSize: fontSize.caption,
+    fontWeight: fontWeight.semibold as any, textDecorationLine: 'underline',
+  },
 
   /* Bottom nav */
   bottomNav: {

@@ -18,7 +18,13 @@ export type WorkerStatus =
   | 'PENDING_REVIEW'  // Profile submitted, waiting for Turnos team approval
   | 'ACTIVE'          // Approved, can apply for shifts
   | 'SUSPENDED'       // Temporarily blocked
-  | 'REJECTED';       // Rejected after review
+  | 'REJECTED'        // Rejected after review
+  /**
+   * Account deleted by the worker. The row survives, anonymised, because MCD
+   * contracts and the ACT audit trail are legally retained and reference it.
+   * Terminal: a DELETED worker is never resurrected by re-scoring.
+   */
+  | 'DELETED';
 
 /** Employer subscription tiers */
 export type SubscriptionTier = 'NONE' | 'STARTER' | 'PRO';

@@ -231,6 +231,41 @@ export class AuthController {
     return this.authService.getProfile(req.user.userId, req.user.role);
   }
 
+  // ─── Account deletion ─────────────────────────────────────────────────────
+  // Apple guideline 5.1.1(v): an app that lets you create an account must let
+  // you delete it from inside the app. A support email does not satisfy it.
+
+  /**
+   * Whether the account can be deleted right now. The app calls this before
+   * showing the confirmation screen, so a worker with a confirmed shift is
+   * told why up front instead of being refused after typing ELIMINAR.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('worker/deletion-status')
+  async workerDeletionStatus(@Request() req: { user: { userId: string } }) {
+    const blocker = await this.authService.workerDeletionBlocker(req.user.userId);
+    return { canDelete: blocker === null, blocker };
+  }
+
+  /**
+   * Anonymises the worker in place and ends the session. Not reversible.
+   * The typed confirmation is enforced server-side too — a destructive,
+   * irreversible action should not rely on the client having asked.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Delete('worker/account')
+  @HttpCode(HttpStatus.OK)
+  async deleteWorkerAccount(
+    @Request() req: { user: { userId: string } },
+    @Body() body: { confirm?: string },
+  ) {
+    if (body?.confirm !== 'ELIMINAR') {
+      throw new BadRequestException(t('api.account.confirmRequired'));
+    }
+    const result = await this.authService.deleteWorkerAccount(req.user.userId);
+    return { message: t('api.account.deleted'), ...result };
+  }
+
   // ─── Employer self-service (settings) ─────────────────────────────────────
 
   /**

@@ -305,6 +305,27 @@ export class AuthService {
     await this.usersService.saveWorkerPushToken(userId, token);
   }
 
+  // ─── Account deletion ──────────────────────────────────────────────────────
+
+  /** What, if anything, currently stops this worker deleting their account. */
+  async workerDeletionBlocker(userId: string) {
+    return this.usersService.workerDeletionBlocker(userId);
+  }
+
+  /**
+   * Delete the worker's account and end the session immediately.
+   *
+   * The anonymisation itself lives in `UsersService.deleteWorkerAccount()`;
+   * revoking the refresh token is auth's job, and it has to happen here or a
+   * deleted account keeps a working 7-day refresh token.
+   */
+  async deleteWorkerAccount(userId: string): Promise<{ filesRemoved: boolean }> {
+    const result = await this.usersService.deleteWorkerAccount(userId);
+    await this.redis.del(`refresh:${userId}`);
+    this.logger.log(`Worker account deleted and anonymised: user ${userId}`);
+    return result;
+  }
+
   // ─── Profile ───────────────────────────────────────────────────────────────
 
   async getProfile(userId: string, role: string): Promise<Record<string, unknown>> {

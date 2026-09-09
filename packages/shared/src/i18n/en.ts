@@ -141,6 +141,37 @@ export const en: Translated<TranslationCatalogue> = {
      * 008), no wage handling by Turnos, and no bonus programme. Do not add
      * payment-timing promises — the 2026-07 pivot swept them all out.
      */
+    /**
+     * Account deletion (Apple 5.1.1(v)). The "kept" copy is deliberately
+     * honest: MCD contracts and the ACT audit trail are legally retained, so
+     * this anonymises rather than erasing everything. Do not soften it into a
+     * promise of a clean wipe — that would be false.
+     */
+    deleteAccount: {
+      title:        'Delete account',
+      lede:         'This is permanent. Your account cannot be recovered once deleted.',
+      erasedTitle:  'What is erased',
+      erased1:      'Name, phone number, NIF and IBAN',
+      erased2:      'Profile photo and CV',
+      erased3:      'Skills, languages, experience and availability',
+      erased4:      'Notifications — you stop receiving shifts',
+      keptTitle:    'What is kept',
+      keptWhy:      'Without your name or contact details. Portuguese law requires Turnos to keep these records for ACT labour inspections.',
+      kept1:        'MCD contracts and Social Security filings already issued',
+      kept2:        'Shift and payment history, anonymised',
+      confirmLabel: 'Type {{word}} to confirm',
+      cta:          'Delete my account',
+      keepAccount:  'Keep my account',
+      blockedTitle: 'You cannot delete yet',
+      blockedShifts:'You have {{count}} confirmed shift(s). Cancel or complete them first — a company is counting on you.',
+      blockedWages: 'You have {{count}} payment(s) outstanding. Wait until you are paid: if we erase your details now, you lose your evidence of what you are owed.',
+      finalTitle:   'Are you sure?',
+      finalBody:    'Your account and personal data will be erased. There is no way back.',
+      finalConfirm: 'Delete',
+      errorTitle:   'Could not delete',
+      errorBody:    'Please try again in a moment.',
+    },
+
     intro: {
       skip: 'Skip the introduction',
       next: 'Next',
@@ -254,6 +285,7 @@ export const en: Translated<TranslationCatalogue> = {
       editCtaSub:     'Name, skills, availability, photo',
       introCta:       'How Turnos works',
       introCtaSub:    'Replay the 5-step introduction',
+      deleteAccountCta: 'Delete my account',
 
       languageTitle: 'APP LANGUAGE',
       languageSub:   'Choose the language you want to use Turnos in.',
@@ -1824,6 +1856,13 @@ export const en: Translated<TranslationCatalogue> = {
       passwordTooShort:    'The password must be at least 8 characters.',
       currentPasswordWrong:'Your current password is incorrect.',
       pushTokenMissing:   'Invalid token.',
+    },
+
+    account: {
+      confirmRequired:     'Type ELIMINAR to confirm.',
+      deleteBlockedShifts: 'You have {{count}} confirmed shift(s). Cancel or complete them before deleting your account — the company is counting on you.',
+      deleteBlockedWages:  'You still have {{count}} payment(s) outstanding. Delete your account once you have been paid — we need your details to settle any dispute.',
+      deleted:             'Account deleted. Your personal data has been erased.',
     },
 
     shifts: {
