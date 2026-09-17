@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F172A"
+      "backgroundColor": "#6a79ff"
     },
     "ios": {
       "supportsTablet": false,
@@ -22,7 +22,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0F172A"
+        "backgroundColor": "#fafdff"
       },
       "package": "com.turnos.app",
       "permissions": [
@@ -58,7 +58,7 @@
       [
         "expo-notifications",
         {
-          "color": "#6366F1"
+          "color": "#6a79ff"
         }
       ],
       [
