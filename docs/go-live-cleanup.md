@@ -143,7 +143,12 @@ DELETE FROM users              WHERE id::text LIKE 'dede%' AND role = 'EMPLOYER'
 ```
 
 Then recompute the demo worker's reputation from the ratings that survive —
-**do not zero it**, in case the account has earned real ratings by then:
+**do not zero it**, in case the account has earned real ratings by then.
+
+> The column is `ratee_worker_id`, not `"rateeWorkerId"`. An earlier version of
+> this block had the camelCase name and would have failed with 42703; the
+> `@JoinColumn({ name: 'ratee_worker_id' })` on the Rating entity overrides
+> TypeORM's usual default. Corrected 2026-09-23.
 
 ```sql
 UPDATE workers w SET
@@ -153,7 +158,7 @@ UPDATE workers w SET
 FROM (
   SELECT AVG(score)::numeric(3,2) AS avg, COUNT(*) AS cnt
     FROM ratings
-   WHERE "rateeWorkerId" = '<worker-id>' AND direction = 'EMPLOYER_TO_WORKER'
+   WHERE ratee_worker_id = '<worker-id>' AND direction = 'EMPLOYER_TO_WORKER'
 ) sub
 WHERE w.id = '<worker-id>';
 ```

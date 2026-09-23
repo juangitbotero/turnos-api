@@ -522,7 +522,12 @@ export class DemoSeedService {
         .createQueryBuilder('r')
         .select('AVG(r.score)', 'avg')
         .addSelect('COUNT(r.id)', 'count')
-        .where('r."rateeWorkerId" = :id', { id: worker.id })
+        // Column is `ratee_worker_id` — the relation sets it explicitly with
+        // @JoinColumn({ name: 'ratee_worker_id' }), so TypeORM's usual
+        // camelCase default does not apply. Quoting "rateeWorkerId" asked
+        // Postgres for a column that has never existed.
+        // RatingsService.getWorkerRatings has always had this right.
+        .where('r.ratee_worker_id = :id', { id: worker.id })
         .andWhere("r.direction = 'EMPLOYER_TO_WORKER'")
         .getRawOne<{ avg: string | null; count: string }>();
 
