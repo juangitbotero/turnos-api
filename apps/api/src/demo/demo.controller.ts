@@ -90,6 +90,24 @@ export class DemoController {
   ) {
     this.assertEnabled(headerToken ?? queryToken);
     if (!phone) throw new ForbiddenException('phone query parameter is required');
-    return { ok: true, removed: await this.demo.reset(phone) };
+    try {
+      return { ok: true, removed: await this.demo.reset(phone) };
+    } catch (err) {
+      // Same reasoning as seed() above: whoever runs this has no access to the
+      // Railway logs, and a bare 500 makes a foreign-key failure impossible to
+      // diagnose from outside. reset() runs in a transaction, so a failure here
+      // means nothing was deleted — safe to re-run once the cause is fixed.
+      if (err instanceof HttpException) throw err;
+      const e = err as Error & { code?: string; detail?: string; table?: string; constraint?: string };
+      this.logger.error(`[Demo] Reset failed: ${e.message}`, e.stack);
+      return {
+        ok: false,
+        error:      e.message,
+        code:       e.code ?? null,
+        detail:     e.detail ?? null,
+        table:      e.table ?? null,
+        constraint: e.constraint ?? null,
+      };
+    }
   }
 }
