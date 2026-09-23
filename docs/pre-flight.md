@@ -18,37 +18,69 @@ until the day they aren't.
 
 ## Track 1 — Launch blockers
 
-Five, all confirmed live on 2026-09-09. Ordered by what happens if you forget.
+Five found on 2026-09-09. **Two closed on 2026-09-23**; three still live.
+Ordered by what happens if you forget.
 
 | # | Blocker | Where | State |
 |---|---|---|---|
 | 1 | Mock OTP `123456` accepts any phone number | `apps/api/src/auth/auth.service.ts:76` | 🔴 Live |
-| 2 | Public shift search leaks every company's billing record | `GET /api/shifts/search` | 🔴 **Leaking in production** |
+| 2 | Public endpoints leaked billing + worker PII | `GET /api/shifts/search`, `/shifts/:id` | 🟢 **Fixed `dbb95f3`** |
 | 3 | Demo seeding endpoint deployed | `apps/api/src/demo/` + `DEMO_SEED_TOKEN` | 🔴 Live |
-| 4 | CORS open to every origin | `apps/api/src/main.ts:22` | 🔴 Live |
+| 4 | CORS open to every origin | `apps/api/src/main.ts` | 🟢 **Fixed `dbb95f3`** |
 | 5 | Stripe still in test mode | Railway variables | 🔴 Live |
 
 **1 — Mock OTP.** Activates whenever Twilio credentials are absent or still
 `replace_me`. Setting the Twilio variables is *not* sufficient — if one is ever
-unset by accident the bypass returns. Delete the path or gate it on
-`NODE_ENV !== 'production'`.
+unset by accident the bypass returns.
 
-**2 — Billing leak.** The endpoint is public by design (workers browse before
-signing in) but serialises the whole `employer` relation. An unauthenticated
-request on 2026-09-09 returned `stripeCustomerId`, `accountantEmail`,
-`subscriptionTier` and `nipc`. Accepted for beta because only demo rows and one
-test company exist — but ads for workers are already running.
+⚠️ **Do not gate this on `NODE_ENV !== 'production'`.** The Railway variable is
+the literal string `"=production"` — stray `=` included — so every
+`NODE_ENV === 'production'` comparison in this codebase is false. A gate written
+that way would look fixed and leave the bypass live. Either fix the variable
+first and verify it (`GET /api/health` echoes it back), or delete the mock path
+outright.
 
-Fix with an explicit public DTO in `shifts.service.ts` returning company name,
-sector and `logoUrl` only. Not a `select([...])`: adding a column to `Employer`
-must not be able to silently re-widen the response. Then grep
-`relations: ['employer']` and `leftJoinAndSelect('shift.employer'` for the same
-pattern elsewhere.
+**2 — Billing leak. FIXED 2026-09-23 (`dbb95f3`).** Both public endpoints now go
+through `toPublicShift()` in `shifts.service.ts`, which maps the four employer
+fields a worker needs — id, companyName, sector, logoUrl — one by one, so adding
+a column to `Employer` cannot silently re-widen the response.
 
-**3 — Demo endpoint.** While `DEMO_SEED_TOKEN` is set, anyone who knows the path
-can overwrite any worker's profile and set their score to 100 / status ACTIVE.
-The beta token was published in a chat transcript — treat it as public. Deleting
-the Railway variable alone 404s every demo route.
+Found while fixing it, and worse than what was recorded: `findById` also joined
+`assignedWorker`, whose entity carries the worker's **NIF, IBAN and
+stripeAccountId**. The id of a FILLED shift was enough to read them. Earlier
+checks missed it because `search()` only returns OPEN shifts, which have no
+worker assigned. Both that relation and `applications` are now stripped.
+
+Verified against production after deploy: the employer object is exactly those
+four keys, `assignedWorker` and `applications` are absent, and no
+`stripeCustomerId` / `accountantEmail` / `nipc` / `nif` / `iban` appears anywhere
+in the feed.
+
+**3 — Demo endpoint.** Still live — a token-less POST returns **403, not 404**,
+confirming `DEMO_SEED_TOKEN` is set. While it is, anyone who knows the path can
+overwrite any worker's profile and set their score to 100 / status ACTIVE. The
+beta token was published in a chat transcript — treat it as public.
+
+**Order matters when removing it.** `DELETE /api/demo/seed` is the easy way to
+remove the seeded rows and it only exists while the module does. Clean the data
+first, then delete `apps/api/src/demo/` and its two references in
+`app.module.ts`, then unset the Railway variable. Reversed, the cleanup becomes
+hand-written SQL across seven tables, children before parents.
+
+**4 — CORS. FIXED 2026-09-23 (`dbb95f3`).** `origin: '*'` replaced with an
+allowlist in `apps/api/src/cors.ts`, shared by the HTTP layer and the WebSocket
+gateway. Requests with **no Origin header are still allowed** — React Native's
+fetch sends none and neither do Stripe's webhooks; CORS protects a browser
+session, it is not what authenticates those callers.
+
+The gateway had been reading `NODE_ENV === 'production' ? false : '*'`, which
+resolves to `'*'` in production for the reason in item 1 — so the socket layer
+was open too. It no longer depends on that variable.
+
+Verified against production: the dashboard origin is echoed back, a hostile
+origin and a lookalike suffix (`…railway.app.evil.com`) get no
+`Access-Control-Allow-Origin` header at all, and an origin-less request still
+returns 200.
 
 ---
 
