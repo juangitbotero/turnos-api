@@ -11,15 +11,15 @@ including the SQL for demo-row cleanup, read `docs/go-live-cleanup.md`. This
 file is the index.
 
 Everything here was re-verified against the code and against the live Railway
-API on **2026-09-09**. Re-check before acting — some of these are load-bearing
+API on **2026-09-23**. Re-check before acting — some of these are load-bearing
 until the day they aren't.
 
 ---
 
 ## Track 1 — Launch blockers
 
-Five found on 2026-09-09. **Three closed on 2026-09-23**; two still live.
-Ordered by what happens if you forget.
+Five found on 2026-09-09; **three closed on 2026-09-23**. A sixth was found on
+2026-09-13 and is still open. Ordered by what happens if you forget.
 
 > Which build is serving is now answerable directly: `GET /api/health` returns
 > the short commit sha. Added after an afternoon where a failed Railway build
@@ -31,20 +31,30 @@ Ordered by what happens if you forget.
 |---|---|---|---|
 | 1 | Mock OTP `123456` accepts any phone number | `apps/api/src/auth/auth.service.ts:76` | 🔴 Live |
 | 2 | Public endpoints leaked billing + worker PII | `GET /api/shifts/search`, `/shifts/:id` | 🟢 **Fixed `dbb95f3`** |
-| 3 | Demo seeding endpoint deployed | `apps/api/src/demo/` + `DEMO_SEED_TOKEN` | 🟢 **Code deleted 2026-09-23** · unset the Railway variable |
+| 3 | Demo seeding endpoint deployed | `apps/api/src/demo/` + `DEMO_SEED_TOKEN` | 🟢 **Done `001a99d`** — code deleted, rows cleaned, variable unset |
 | 4 | CORS open to every origin | `apps/api/src/main.ts` | 🟢 **Fixed `dbb95f3`** |
 | 5 | Stripe still in test mode | Railway variables | 🔴 Live |
+| 6 | **Rate limiting does not enforce** | `app.module.ts:45` ThrottlerModule | 🔴 Live — verified 2026-09-23 |
 
 **1 — Mock OTP.** Activates whenever Twilio credentials are absent or still
 `replace_me`. Setting the Twilio variables is *not* sufficient — if one is ever
 unset by accident the bypass returns.
 
-⚠️ **Do not gate this on `NODE_ENV !== 'production'`.** The Railway variable is
-the literal string `"=production"` — stray `=` included — so every
-`NODE_ENV === 'production'` comparison in this codebase is false. A gate written
-that way would look fixed and leave the bypass live. Either fix the variable
-first and verify it (`GET /api/health` echoes it back), or delete the mock path
-outright.
+⚠️ **Do not remove the mock until Twilio is actually signed up.** With no Twilio
+credentials it is the *only* way anyone can sign in — deleting it first locks
+out you, every tester and any demo in progress. That is why this blocker is
+still open on purpose, not by neglect.
+
+Gating it on `NODE_ENV !== 'production'` is now safe. It was not until
+2026-09-23: the Railway variable held the literal string `"=production"`, stray
+`=` included, so every `NODE_ENV === 'production'` comparison in the codebase
+was false and a gate written that way would have looked fixed while leaving the
+bypass live. **Fixed and verified** — `GET /api/health` now returns
+`"environment":"production"`. Check it again before relying on it.
+
+Note that fixing it turned on Postgres SSL for the first time
+(`app.module.ts:72` keys `ssl` off the same comparison). Verified working after
+the change.
 
 **2 — Billing leak. FIXED 2026-09-23 (`dbb95f3`).** Both public endpoints now go
 through `toPublicShift()` in `shifts.service.ts`, which maps the four employer
@@ -62,16 +72,15 @@ four keys, `assignedWorker` and `applications` are absent, and no
 `stripeCustomerId` / `accountantEmail` / `nipc` / `nif` / `iban` appears anywhere
 in the feed.
 
-**3 — Demo endpoint. DONE 2026-09-23**, except for one manual step.
+**3 — Demo endpoint. DONE 2026-09-23.**
 
 Production rows removed via the endpoint: 34 shifts, 27 applications, 22 each of
 ratings / wage_payments / payment_records / attendance, 5 employers and their 5
 user rows. Verified by re-running it — second pass removed zero of everything —
 and the real data is untouched (Carolina Bakes, 3 open shifts, no `dede` rows).
-`apps/api/src/demo/` and its two `app.module.ts` references are deleted.
-
-⚠️ **Still to do by hand: unset `DEMO_SEED_TOKEN` in Railway.** Harmless now that
-no code reads it, but leave it and the next person assumes it does something.
+`apps/api/src/demo/` and its two `app.module.ts` references are deleted, and
+`DEMO_SEED_TOKEN` is unset in Railway. Confirmed after deploy: `/demo/seed`
+returns 404 **even with a valid token** — the route is gone, not merely gated.
 
 ⚠️ **The demo worker's profile is still fiction.** The seeder overwrote
 `+33767560422`'s bio, skills, languages and experiences; no cleanup path touches
@@ -92,14 +101,43 @@ gateway. Requests with **no Origin header are still allowed** — React Native's
 fetch sends none and neither do Stripe's webhooks; CORS protects a browser
 session, it is not what authenticates those callers.
 
-The gateway had been reading `NODE_ENV === 'production' ? false : '*'`, which
-resolves to `'*'` in production for the reason in item 1 — so the socket layer
-was open too. It no longer depends on that variable.
+The gateway had been reading `NODE_ENV === 'production' ? false : '*'`. With
+`NODE_ENV` malformed at the time (see item 1) that resolved to `'*'`, so the
+socket layer was open too. It no longer depends on that variable at all, which
+is deliberate — the allowlist should not silently widen because an environment
+variable is wrong.
 
 Verified against production: the dashboard origin is echoed back, a hostile
 origin and a lookalike suffix (`…railway.app.evil.com`) get no
 `Access-Control-Allow-Origin` header at all, and an origin-less request still
 returns 200.
+
+**5 — Stripe test keys.** Live keys, plus three re-pointed variables:
+`STRIPE_SUBSCRIPTION_PRICE_ID` → the live €45 Starter price,
+`STRIPE_WEBHOOK_SECRET`, and `STRIPE_CONNECT_WEBHOOK_SECRET`. The **Connect**
+webhook is the one that gets forgotten and its absence is silent — Pay Link
+payments simply never reconcile.
+
+**6 — Rate limiting does not enforce. Found 2026-09-13, re-verified 2026-09-23.**
+
+`ThrottlerModule` is configured at 60 req/min and `ThrottlerGuard` is registered
+globally as an `APP_GUARD`, but it does not limit anything. Measured twice
+against production: 195 requests, then 90 more in parallel — **zero 429s**. The
+requests reach the app (timestamps differ by ~250ms, nothing is cached).
+
+The stake is not `/health`. `POST /auth/send-otp` carries
+`@Throttle({ limit: 5 })` and **every per-route limit rides on the same broken
+guard** — so once Twilio is live, OTP sending is unmetered. That is a direct
+SMS-cost and abuse channel, and employer login brute-forcing is equally
+unlimited. *(The OTP endpoint was deliberately not load-tested — it would send
+real SMS and cost money.)*
+
+Leading hypothesis, unconfirmed: Express sits behind Railway's edge proxy with
+`trust proxy` never set, so `req.ip` — the throttler's default key — is the same
+value for every caller. That should make the limit *stricter*, not absent, so
+the hypothesis is incomplete. Reproduce locally before fixing.
+
+**Fix this before Twilio, not after.**
 
 ---
 
@@ -181,7 +219,49 @@ false` is already set, which also clears export compliance.
 | `BYPASS_SUBSCRIPTION` | `payments.service.ts:205` returns early, which also skips the overdue-wage block. Delete the Railway variable |
 | Uploads on local disk | R2 is decided, wiring incomplete. `useStaticAssets('/uploads')` serves photos, CVs and payment proofs from a container filesystem that does not survive a Railway redeploy |
 | Dashboard unusable on a phone | 0 media queries, 843 inline style objects across 11 pages, a 240px sidebar duplicated in each, and an overlay telling sub-768px visitors to use a desktop. Cheapest large win: hoist the sidebar into a real `DashboardShell` |
-| Smaller defects | `createGoogleEmployer` creates a `User` but no `Employer` row · blanket 401 → logout masks real auth errors · demo rows (ids starting `dede`) still in production · `/dashboard/ratings` built but unlinked · pre-shift consequence reminder is policy but not scheduled in code |
+| Smaller defects | `createGoogleEmployer` creates a `User` but no `Employer` row · blanket 401 → logout masks real auth errors · `/dashboard/ratings` built but unlinked · pre-shift consequence reminder is policy but not scheduled in code |
+
+### Capacity — measured 2026-09-13
+
+Registered users cost nothing; concurrent active ones do. For a Lisbon beta the
+API is not the constraint. What *is*, and all three are architectural rather
+than plan size:
+
+| Constraint | Where | Effect |
+|---|---|---|
+| Single Node process | `Dockerfile` → `CMD node dist/.../main.js` | No clustering. One CPU core of JavaScript however many vCPU the plan gives |
+| In-memory Socket.IO | `main.ts` → `new IoAdapter(app)` | **A second replica cannot be run.** A worker on instance A never receives an event emitted on instance B. Needs a Redis adapter before scaling out |
+| DB pool not configured | `app.module.ts` | Defaults to 10 connections — the real ceiling on concurrent query work |
+
+Rough arithmetic, wide error bars: ~150–400 req/s sustained, so order-of-1,000
+simultaneously active users. Load-test before trusting that. Web-admin is not a
+bottleneck — every route builds as `○ (Static)`, so it is a prerendered bundle
+and all real load lands on the API.
+
+**Storage.** Photos and CVs go to the container filesystem, not R2 (see the
+uploads row above). Budget ~1 MB per worker — photo is a 1:1 crop at quality
+0.8 with no server-side resize, CV is 200 KB–1 MB — so 10,000 workers ≈ 10 GB.
+**Payment proofs are the sneaky one**: they scale with transaction volume, not
+user count, and nothing deletes them. On R2 that is free-tier or pennies; the
+cost is not the problem, the wiring is.
+
+### Railway operational notes
+
+Learned the hard way on 2026-09-23; all cost real time.
+
+- **A failed build leaves the previous image serving**, and *Redeploy* on a
+  failed deployment brings that same old image back rather than building HEAD.
+  From outside the two are indistinguishable. `GET /api/health` now returns the
+  running commit sha — check it before concluding a fix did or did not work.
+- **The builder runs out of disk.** A build failed with
+  `ResourceExhausted … no space left on device` in buildkit. Retrying on a
+  different builder worked. Likelier to recur while the Dockerfile ships the
+  full `python3 make g++` toolchain *and* every dev dependency into the final
+  image and never prunes — a multi-stage build would cut it substantially.
+- **Postgres → Data → Query appends a `LIMIT`**, so it accepts `SELECT` only.
+  Wrap DML to use it: `WITH d AS (DELETE … RETURNING id) SELECT count(*) FROM d;`
+- **Postgres → Console is a bash shell**, not psql. Run `psql $DATABASE_URL`
+  inside it first.
 
 ---
 

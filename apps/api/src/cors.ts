@@ -11,10 +11,12 @@
  * callers. That is the JWT. Rejecting origin-less requests would break the
  * mobile app and the webhooks while adding no security.
  *
- * Deliberately NOT keyed off NODE_ENV: the Railway variable is currently the
- * literal string "=production" (note the stray `=`), so every
- * `NODE_ENV === 'production'` check in this codebase is false. Anything gated
- * that way is silently running in its development branch.
+ * Deliberately NOT keyed off NODE_ENV. When this was written the Railway
+ * variable held the literal string "=production" (stray `=` included), so every
+ * `NODE_ENV === 'production'` check in the codebase was false and the WebSocket
+ * gateway had been serving `origin: '*'` in production as a result. The
+ * variable was corrected on 2026-09-23, but the lesson stands: an allowlist
+ * must not silently widen because an environment variable is wrong.
  */
 
 /** Trailing slashes never appear in a browser's Origin header — strip them. */
