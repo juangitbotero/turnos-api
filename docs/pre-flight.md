@@ -18,14 +18,20 @@ until the day they aren't.
 
 ## Track 1 — Launch blockers
 
-Five found on 2026-09-09. **Two closed on 2026-09-23**; three still live.
+Five found on 2026-09-09. **Three closed on 2026-09-23**; two still live.
 Ordered by what happens if you forget.
+
+> Which build is serving is now answerable directly: `GET /api/health` returns
+> the short commit sha. Added after an afternoon where a failed Railway build
+> (its builder ran out of disk) left the previous image running, a redeploy
+> brought that same old image back, and the only way to tell which code was live
+> was which bug reproduced.
 
 | # | Blocker | Where | State |
 |---|---|---|---|
 | 1 | Mock OTP `123456` accepts any phone number | `apps/api/src/auth/auth.service.ts:76` | 🔴 Live |
 | 2 | Public endpoints leaked billing + worker PII | `GET /api/shifts/search`, `/shifts/:id` | 🟢 **Fixed `dbb95f3`** |
-| 3 | Demo seeding endpoint deployed | `apps/api/src/demo/` + `DEMO_SEED_TOKEN` | 🔴 Live |
+| 3 | Demo seeding endpoint deployed | `apps/api/src/demo/` + `DEMO_SEED_TOKEN` | 🟢 **Code deleted 2026-09-23** · unset the Railway variable |
 | 4 | CORS open to every origin | `apps/api/src/main.ts` | 🟢 **Fixed `dbb95f3`** |
 | 5 | Stripe still in test mode | Railway variables | 🔴 Live |
 
@@ -56,16 +62,29 @@ four keys, `assignedWorker` and `applications` are absent, and no
 `stripeCustomerId` / `accountantEmail` / `nipc` / `nif` / `iban` appears anywhere
 in the feed.
 
-**3 — Demo endpoint.** Still live — a token-less POST returns **403, not 404**,
-confirming `DEMO_SEED_TOKEN` is set. While it is, anyone who knows the path can
-overwrite any worker's profile and set their score to 100 / status ACTIVE. The
-beta token was published in a chat transcript — treat it as public.
+**3 — Demo endpoint. DONE 2026-09-23**, except for one manual step.
 
-**Order matters when removing it.** `DELETE /api/demo/seed` is the easy way to
-remove the seeded rows and it only exists while the module does. Clean the data
-first, then delete `apps/api/src/demo/` and its two references in
-`app.module.ts`, then unset the Railway variable. Reversed, the cleanup becomes
-hand-written SQL across seven tables, children before parents.
+Production rows removed via the endpoint: 34 shifts, 27 applications, 22 each of
+ratings / wage_payments / payment_records / attendance, 5 employers and their 5
+user rows. Verified by re-running it — second pass removed zero of everything —
+and the real data is untouched (Carolina Bakes, 3 open shifts, no `dede` rows).
+`apps/api/src/demo/` and its two `app.module.ts` references are deleted.
+
+⚠️ **Still to do by hand: unset `DEMO_SEED_TOKEN` in Railway.** Harmless now that
+no code reads it, but leave it and the next person assumes it does something.
+
+⚠️ **The demo worker's profile is still fiction.** The seeder overwrote
+`+33767560422`'s bio, skills, languages and experiences; no cleanup path touches
+those. Reputation numbers were recomputed correctly (0 ratings remain). Rewrite
+the profile in the app or re-onboard the account.
+
+**Two bugs found doing this, both now fixed.** `reset()` had never once run to
+completion: it built its predicate with `Like()` against `uuid` columns
+(Postgres has no `uuid ~~ text` operator, 42883), and its reputation recompute
+asked for `"rateeWorkerId"` when the column is `ratee_worker_id` (42703). The
+SQL fallback in `go-live-cleanup.md` carried the same wrong column name, so
+**both documented routes for this cleanup were broken**. Worth remembering: a
+cleanup procedure nobody has executed end to end is not a procedure.
 
 **4 — CORS. FIXED 2026-09-23 (`dbb95f3`).** `origin: '*'` replaced with an
 allowlist in `apps/api/src/cors.ts`, shared by the HTTP layer and the WebSocket

@@ -36,7 +36,6 @@ import { ShiftAttendance } from './attendance/entities/shift-attendance.entity';
 import { PaymentRecord } from './payments/entities/payment-record.entity';
 import { WagePayment } from './payments/entities/wage-payment.entity';
 import { LanguageMiddleware } from './i18n/language.middleware';
-import { DemoModule } from './demo/demo.module';
 
 @Module({
   imports: [
@@ -119,8 +118,6 @@ import { DemoModule } from './demo/demo.module';
     RatingsModule,
     ShiftsModule,
     AdminModule,
-    // Demo data for marketing recordings. Inert unless DEMO_SEED_TOKEN is set.
-    DemoModule,
   ],
   controllers: [AppController],
   providers: [
