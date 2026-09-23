@@ -19,7 +19,7 @@
  */
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, EntityManager, Like } from 'typeorm';
+import { Repository, DataSource, EntityManager, Raw } from 'typeorm';
 import { calculateTSU, TURNOS_FEE_FIXED_EUR, WorkerExperience } from '@turnos/shared';
 
 import { User } from '../users/entities/user.entity';
@@ -487,7 +487,13 @@ export class DemoSeedService {
   /** Delete every demo row. Only touches ids starting `dede`. */
   async reset(phone: string): Promise<Record<string, number>> {
     const worker = await this.findWorker(this.repos(this.dataSource.manager), phone);
-    const like = Like(`${DEMO_PREFIX}%`);
+    // `Like()` here produced `WHERE id LIKE $1`, and every one of these id
+    // columns is a Postgres `uuid`. Postgres has no `uuid ~~ text` operator, so
+    // the whole reset failed with 42883 — meaning it had never once worked.
+    // The cast has to be in the SQL, which needs Raw() rather than Like().
+    const like = Raw(alias => `${alias}::text LIKE :demoPrefix`, {
+      demoPrefix: `${DEMO_PREFIX}%`,
+    });
     const removed: Record<string, number> = {};
 
     return this.dataSource.transaction(async (m) => {
