@@ -29,6 +29,33 @@ import { t, tNumericDate } from '../i18n/request-language';
 // 5 hours in milliseconds — delay before re-notification job fires
 const RE_NOTIFY_DELAY_MS = 5 * 60 * 60 * 1000;
 
+// ── Public shape ─────────────────────────────────────────────────────────────
+// `GET /shifts/search` and `GET /shifts/:id` are public by design — workers
+// browse before signing in (Stint 2). Both used to return the whole `employer`
+// relation, which meant an unauthenticated request exposed every company's
+// stripeCustomerId, stripeSubscriptionId, subscriptionStatus, accountantEmail,
+// nipc, nif and lateCancellationCount. `findById` also returned the full
+// `assignedWorker`, so a FILLED shift's id was enough to read that worker's
+// NIF and IBAN.
+//
+// The fields below are mapped ONE BY ONE on purpose. A `select([...])` would
+// have worked today and silently re-widened the moment someone added a column
+// to Employer; an explicit mapping cannot.
+
+/** Everything a worker is allowed to know about the company running a shift. */
+export interface PublicEmployer {
+  id: string;
+  companyName: string;
+  sector: string | null;
+  /** For the company avatar on shift cards — mobile work, not wired yet. */
+  logoUrl: string | null;
+}
+
+export type PublicShift = Omit<Shift, 'employer' | 'assignedWorker' | 'applications'> & {
+  employer: PublicEmployer | null;
+  seriesDates?: string[];
+};
+
 @Injectable()
 export class ShiftsService {
   constructor(
@@ -698,7 +725,7 @@ export class ShiftsService {
     lng?: number;
     radiusMeters?: number;
     category?: string;
-  }): Promise<Shift[]> {
+  }): Promise<PublicShift[]> {
     const query = this.shiftRepo
       .createQueryBuilder('shift')
       .leftJoinAndSelect('shift.employer', 'employer')
@@ -743,7 +770,7 @@ export class ShiftsService {
       const days = [...(bySeries.get(row.seriesId) ?? [])].sort((a, b) => a.date.localeCompare(b.date));
       collapsed.push({ ...days[0]!, seriesDates: days.map(d => d.date) });
     }
-    return collapsed;
+    return collapsed.map(shift => this.toPublicShift(shift));
   }
 
   async apply(userId: string, shiftId: string, coverNote?: string): Promise<ShiftApplication & { warning?: string }> {
@@ -1064,12 +1091,42 @@ export class ShiftsService {
 
   // ── Shared ────────────────────────────────────────────────────────────────
 
-  async findById(id: string): Promise<Shift & { seriesDates?: string[] }> {
+  /**
+   * Strip a shift down to what an unauthenticated caller may see.
+   *
+   * `assignedWorker` and `applications` are destructured off and discarded —
+   * they carry the worker's NIF, IBAN and contact details and nothing public
+   * needs them. The remaining Shift columns are all worker-facing by nature
+   * (title, hours, rate, address, dress code, payment method); if a sensitive
+   * column is ever added to Shift itself, exclude it here too.
+   */
+  private toPublicShift(shift: Shift & { seriesDates?: string[] }): PublicShift {
+    const {
+      employer,
+      assignedWorker: _assignedWorker,
+      applications: _applications,
+      ...rest
+    } = shift;
+
+    return {
+      ...rest,
+      employer: employer
+        ? {
+            id: employer.id,
+            companyName: employer.companyName,
+            sector: employer.sector ?? null,
+            logoUrl: employer.logoUrl ?? null,
+          }
+        : null,
+    };
+  }
+
+  async findById(id: string): Promise<PublicShift> {
     const shift = await this.shiftRepo.findOne({
       where: { id },
       relations: ['employer', 'assignedWorker'],
     });
     if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
-    return this.withSeriesInfo(shift);
+    return this.toPublicShift(await this.withSeriesInfo(shift));
   }
 }

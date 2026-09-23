@@ -12,11 +12,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Employer } from '../users/entities/employer.entity';
 import { Worker } from '../users/entities/worker.entity';
+import { corsOriginCheck } from '../cors';
 
 @Injectable()
 @WebSocketGateway({
   cors: {
-    origin: process.env['NODE_ENV'] === 'production' ? false : '*',
+    // Was `NODE_ENV === 'production' ? false : '*'`, which resolves to '*' in
+    // production today: the Railway variable is the literal string
+    // "=production", so the comparison is false. Same allowlist as the HTTP
+    // layer now, with no dependence on that variable.
+    origin: corsOriginCheck,
     credentials: true,
   },
 })

@@ -3,6 +3,7 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { corsOriginCheck, allowedOrigins } from './cors';
 import * as path from 'path';
 
 async function bootstrap() {
@@ -16,13 +17,18 @@ async function bootstrap() {
   // Socket.IO adapter (must be set before listen)
   app.useWebSocketAdapter(new IoAdapter(app));
 
-  // CORS — open for all origins: mobile apps have no browser origin,
-  // security is enforced via JWT tokens. Tighten to specific domains at launch.
+  // CORS — allowlisted browser origins, plus every request that carries no
+  // Origin header at all (the mobile app, Stripe webhooks, curl). See cors.ts
+  // for why that exception is correct rather than a loophole.
   app.enableCors({
-    origin: '*',
+    origin: corsOriginCheck,
     methods: 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    credentials: false, // must be false when origin is '*'
+    // Auth is a Bearer token, not a cookie, so credentialed requests are not
+    // needed — and leaving this false keeps the allowlist from ever being
+    // relaxed into `*` with credentials, which browsers reject anyway.
+    credentials: false,
   });
+  logger.log(`🔐 CORS origins: ${allowedOrigins().join(', ')} (+ requests with no Origin)`);
 
   // Global validation pipe — rejects invalid DTOs automatically
   app.useGlobalPipes(
