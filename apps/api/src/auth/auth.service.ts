@@ -13,7 +13,7 @@ import * as crypto from 'crypto';
 import { Twilio } from 'twilio';
 import {
   isValidNIF, isValidIBAN, isValidNIPC, isValidPostalCode,
-  WorkerExperience, normalizeSkills,
+  WorkerExperience, normalizeSkills, TERMS_VERSIONS,
 } from '@turnos/shared';
 import { t } from '../i18n/request-language';
 import { notificationPrefsOf } from '../users/notification-prefs';
@@ -112,7 +112,11 @@ export class AuthService {
     companyName: string; nipc: string; nif?: string; sector: string;
     address: string; postalCode: string; city: string;
     adminEmail: string; adminPassword: string;
+    acceptTerms?: boolean;
   }): Promise<{ accessToken: string; refreshToken: string }> {
+    if (dto.acceptTerms !== true) {
+      throw new BadRequestException(t('api.auth.termsRequired'));
+    }
     if (!isValidNIPC(dto.nipc)) {
       throw new BadRequestException(t('api.auth.nipcInvalid'));
     }
@@ -242,6 +246,7 @@ export class AuthService {
     skills: string[]; availableDays: string[];
     declaredExternalMonthlyIncome?: number;
     ibanShareConsent?: boolean;
+    dateOfBirth?: string;
   }): Promise<{ profileQualityScore: number; status: string; missingItems: string[] }> {
     if (!isValidNIF(dto.nif)) {
       throw new BadRequestException(t('api.auth.nifInvalid'));
@@ -266,6 +271,7 @@ export class AuthService {
     isAvailableForWork?: boolean;
     experiences?: WorkerExperience[];
     preferredLanguage?: string;
+    dateOfBirth?: string;
   }): Promise<{ profileQualityScore: number }> {
     return this.usersService.updateWorkerPartialFields(userId, dto);
   }
@@ -328,7 +334,26 @@ export class AuthService {
 
   // ─── Profile ───────────────────────────────────────────────────────────────
 
+  async acceptTerms(userId: string, version: string) {
+    return this.usersService.recordTermsAcceptance(userId, version);
+  }
+
   async getProfile(userId: string, role: string): Promise<Record<string, unknown>> {
+    const profile = await this.getRoleProfile(userId, role);
+    // Terms state rides on every /me so both apps can gate on it without an
+    // extra request. `termsCurrent` is false for users who never accepted.
+    const user = await this.usersService.findById(userId);
+    const current = role === 'EMPLOYER' ? TERMS_VERSIONS.EMPLOYER : TERMS_VERSIONS.WORKER;
+    return {
+      ...profile,
+      termsVersion:        user?.termsVersion ?? null,
+      termsAcceptedAt:     user?.termsAcceptedAt ?? null,
+      termsCurrentVersion: current,
+      termsCurrent:        user?.termsVersion === current,
+    };
+  }
+
+  private async getRoleProfile(userId: string, role: string): Promise<Record<string, unknown>> {
     if (role === 'WORKER') {
       const worker = await this.usersService.findWorkerProfile(userId);
       // Converge scores written under an older rule set (e.g. before the CV
@@ -338,6 +363,7 @@ export class AuthService {
         userId,
         role,
         fullName:            worker?.fullName            ?? null,
+        dateOfBirth:         worker?.dateOfBirth         ?? null,
         photoUrl:            worker?.photoUrl            ?? null,
         cvUrl:               worker?.cvUrl               ?? null,
         cvFileName:          worker?.cvFileName          ?? null,
@@ -361,6 +387,11 @@ export class AuthService {
         totalRatings:        worker?.totalRatings        ?? 0,
         noShowCount:         worker?.noShowCount         ?? 0,
         badges:              worker?.badges              ?? [],
+        // ── Restrictions — shown to the worker with the reason on record ────
+        suspendedUntil:      worker?.suspendedUntil      ?? null,
+        isBlocked:           worker?.isBlocked           ?? false,
+        restrictionReason:   worker?.restrictionReason   ?? null,
+        restrictedAt:        worker?.restrictedAt        ?? null,
       };
     }
     if (role === 'EMPLOYER') {

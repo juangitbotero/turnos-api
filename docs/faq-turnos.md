@@ -3,7 +3,13 @@
 > Rascunho para o site e para a app. Redigido 2026-07-29 a partir do comportamento real
 > do código (ADR 007, ADR 008, política de cancelamento v1.1) — não de intenções.
 > **Antes de publicar:** as respostas marcadas 🔵 tocam no enquadramento jurídico e devem
-> passar pelo advogado com o brief `docs/legal/pay-link-legal-brief.md`.
+> passar pelo advogado com `docs/legal/brief-advogados.md` e
+> `docs/legal/pay-link-legal-brief.md`.
+>
+> 2026-09-27: corrigidas três respostas que contradiziam o modelo — "desconto de 11% pela
+> empresa" (o trabalhador recebe o bruto), "contrato MCD gerado automaticamente" (a Turnos
+> não gera documento de contrato) e "comunicado à SS" pela Turnos (é a empresa que comunica).
+> O resto do FAQ ainda não foi revisto contra a política de cancelamento v1.2.
 >
 > Nota de manutenção: sempre que a política mudar, esta página muda. Um FAQ desatualizado
 > num produto de conformidade é pior do que não ter FAQ.
@@ -21,9 +27,10 @@ empregadora e não intermediamos a relação laboral. O contrato é entre a sua 
 trabalhador.
 
 **Então quem é o empregador?** 🔵
-A sua empresa. É a sua empresa que contrata em regime MCD (Muito Curta Duração), que
-comunica à Segurança Social e que paga o salário. A Turnos gera o contrato MCD
-automaticamente e calcula os valores, mas a relação laboral e a responsabilidade são suas.
+A sua empresa. É a sua empresa que contrata, que comunica a admissão à Segurança Social e que
+paga o salário. A Turnos envia ao seu contabilista os dados de cada contratação e verifica os
+limites legais (70 dias/ano, 11 h de descanso, 18+), mas a relação laboral e a
+responsabilidade são suas.
 
 **A Turnos fica com uma parte do salário do trabalhador?**
 Não, nunca. O trabalhador recebe o bruto por inteiro. A nossa receita é a subscrição mensal
@@ -232,16 +239,20 @@ diretamente na tua conta bancária. Ativas uma vez, em cerca de 3 minutos, verif
 identidade e o IBAN com a Stripe. Não é obrigatório, mas turnos com Pay Link pagam-te sem
 teres de andar atrás da empresa.
 
-**Que contrato tenho?**
-Contrato MCD — Muito Curta Duração — com a empresa onde fazes o turno. É gerado
-automaticamente e comunicado à Segurança Social.
+**Que contrato tenho?** 🔵
+Um contrato de trabalho com a empresa onde fazes o turno — a empresa é a tua entidade
+empregadora, não a Turnos. É a empresa que trata do contrato e da comunicação à Segurança
+Social; a Turnos envia-lhe os dados de que precisa para isso.
 
 **Tenho de passar recibo verde?**
-Não. O MCD é um contrato de trabalho, não prestação de serviços.
+Não. Trabalhas por conta da empresa, com contrato de trabalho — não é prestação de serviços.
+A Turnos nunca te pede recibos verdes.
 
-**E os descontos para a Segurança Social?**
-São 11% sobre o bruto, descontados pela empresa. Mostramos-te sempre o cálculo para saberes o
-que esperar. A empresa contribui ainda com 23,75% por cima.
+**E os descontos para a Segurança Social?** 🔵
+Recebes o valor bruto por inteiro, diretamente da empresa. As tuas obrigações fiscais e de
+Segurança Social dependem da tua situação pessoal e são da tua responsabilidade — a Turnos não
+as calcula nem as paga por ti. A app mostra uma simulação (11% do bruto) apenas como
+referência.
 
 **Há limite de dias que posso trabalhar?**
 Sim: 35 dias por contrato e 70 dias por ano com a mesma empresa, e 11 horas de descanso entre

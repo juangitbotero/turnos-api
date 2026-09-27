@@ -246,6 +246,11 @@ export const en: Translated<TranslationCatalogue> = {
     },
 
     profile: {
+      // Restriction banner — shows the statement of reasons on record
+      restrictedSuspended: 'Applications suspended until {{date}}',
+      restrictedBlocked:   'Account blocked',
+      restrictedWhy:       'Why?',
+      restrictedReview:    'Ask for a review',
       title: 'My Profile',
       loadError: "Couldn't load your profile.",
       noName: 'Name not set',
@@ -387,7 +392,7 @@ export const en: Translated<TranslationCatalogue> = {
       cancelAnyway:    'Cancel anyway',
       cancelYes:       'Yes, cancel',
       reasonTitle:     'Do you have a valid reason?',
-      reasonBody:      'Illness, injury or an emergency with supporting evidence is reviewed by Turnos — if accepted, the late cancellation is removed from your record. Send your evidence to suporte@turnos.pt.',
+      reasonBody:      'Illness, injury or an emergency with supporting evidence is reviewed by Turnos — if accepted, the late cancellation is removed from your record. Send your evidence to turnos.contact@gmail.com.',
       reasonIllness:   '🤒 Illness / Injury',
       reasonEmergency: '🚨 Emergency',
       reasonNone:      'No justification',
@@ -396,7 +401,7 @@ export const en: Translated<TranslationCatalogue> = {
 
       support:         'Contact support',
       seriesLockTitle: 'Multi-day commitment',
-      seriesLockBody:  'You accepted a multi-day job that has already started, so you cannot cancel it here. If something serious has come up, talk to support: suporte@turnos.pt',
+      seriesLockBody:  'You accepted a multi-day job that has already started, so you cannot cancel it here. If something serious has come up, talk to support: turnos.contact@gmail.com',
 
       // Payment trust loop
       wageConfirmTitle:  'Confirm payment',
@@ -431,7 +436,7 @@ export const en: Translated<TranslationCatalogue> = {
       payGrossHour: 'Gross/hour',
       payNetHour:   'You receive/hour (no fees)',
       // TSU is Portugal's social-security contribution — kept, not translated
-      tsuNote:      'ℹ️ Worker SS (11%): €{{amount}}/hour — informative only, you pay this to the State yourself',
+      tsuNote:      'ℹ️ Worker TSU (11%): €{{amount}}/hour — for reference only; your obligations depend on your situation',
       payViaMethod: '💳 Paid by the company via {{method}}',
       payDirect:    '💳 Paid directly by the company',
 
@@ -506,6 +511,11 @@ export const en: Translated<TranslationCatalogue> = {
 
       nameTitle:       'FULL NAME',
       namePlaceholder: 'Your full name',
+
+      birthDateTitle:   'DATE OF BIRTH',
+      birthDateSub:     'Needed before you can apply — Turnos is only for people aged 18 and over.',
+      birthDateInvalid: 'Invalid date — use the DD/MM/YYYY format.',
+      underAge:         'Turnos is only for people aged 18 and over.',
 
       bioTitle:       'INTRODUCTION',
       bioSub:         'A short introduction for employers (max. 200 characters)',
@@ -584,6 +594,14 @@ export const en: Translated<TranslationCatalogue> = {
       namePlaceholder: 'E.g. Carlos Manuel Silva',
       nameRequiredTitle: 'Name required',
       nameRequiredBody:  'Please enter your full name.',
+      birthDateTitle:    'Date of birth',
+      birthDateSub:      'Turnos is only for people aged 18 and over.',
+      birthDateRequiredTitle: 'Date of birth',
+      birthDateRequiredBody:  'Enter your date of birth as DD/MM/YYYY.',
+      birthDateInvalid:  'Invalid date — use the DD/MM/YYYY format.',
+      underAgeTitle:     'Adults only',
+      underAgeBody:      'Turnos is only for people aged 18 and over. You can create your profile once you turn 18.',
+      summaryBirthDate:  'Born',
       photoTitle:      'Profile photo (+20 pts)',
       photoSub:        'A good photo improves your chances of being approved.',
       photoAdd:        'Add a photo',
@@ -656,6 +674,25 @@ export const en: Translated<TranslationCatalogue> = {
       submitError:  "Couldn't submit your profile.",
     },
 
+    // Terms of Use acceptance — first sign-in and after every change
+    terms: {
+      title:      'Terms of Use',
+      intro:      'Before you continue, please read and accept the Turnos Terms of Use and Privacy Policy.',
+      updated:    'We have updated the Terms of Use. To continue, please read and accept the new version.',
+      points: {
+        p1: 'The company running the shift is your employer and pays you the full gross amount directly. Turnos charges you nothing.',
+        p2: 'Cancelling less than 24 h before and no-shows have consequences — suspensions and, at the 2nd no-show, a block.',
+        p3: 'Any automated decision can be reviewed by a person on the Turnos team.',
+      },
+      readTerms:   'Read the Terms of Use (Portuguese)',
+      readPrivacy: 'Read the Privacy Policy',
+      checkbox:    'I have read and accept the Terms of Use and the Privacy Policy.',
+      accept:      'Accept and continue',
+      saving:      'Saving…',
+      failed:      'Could not record your acceptance. Please try again.',
+      logout:      'Sign out',
+    },
+
     earnings: {
       title: 'My Earnings',
       periods: {
@@ -680,26 +717,17 @@ export const en: Translated<TranslationCatalogue> = {
       payLinkActiveMbWay: 'The company can pay you by card or MB WAY. You always receive the full gross amount — the processing fee is covered by the company.',
       payLinkActiveCard:  'The company pays by card. You always receive the full gross amount — the processing fee is covered by the company.',
 
-      // Segurança Social is Portugal's social-security authority — kept, not translated
-      ssReminderTitle: 'Quarterly SS reminder',
-      ssReminderBody:  '{{month}} is a declaration month. Remember to submit your income to Segurança Social before the end of the month.',
-      ssReminderLink:  'Open SS Direta →',
-      ssCtaTitle: 'Segurança Social Direta',
-      ssCtaText:  'Declare your income quarterly on the SS portal.',
-      ssAlertBody: "You'll be taken to the Segurança Social portal to submit your quarterly declaration.",
-      ssAlertOpen: 'Open',
-
       kpiGross:    'Gross',
       kpiShifts:   'Shifts',
 
       breakdownTitle: 'TSU simulator (if applicable)',
       rowGross:   'Gross amount (paid by the company)',
       // TSU is Portugal's social-security contribution — kept, not translated
-      rowTsu:     'TSU to pay the State (11%)',
+      rowTsu:     'Worker TSU (11%) — for reference',
       rowAfterTsu:'Estimate after TSU',
-      tsuNote:      '⚠️ You receive the full gross amount directly from the company — Turnos charges workers nothing. As a worker you are responsible for declaring and paying ',
-      tsuNoteBold:  '11% of your gross',
-      tsuNoteEnd:   ' to Segurança Social (the figure above is informative).',
+      tsuNote:      'You receive the full gross amount directly from the company — Turnos charges workers nothing. ',
+      tsuNoteBold:  'The figures above are only a simulation.',
+      tsuNoteEnd:   ' Your tax and Segurança Social obligations depend on your own situation and are your responsibility — Turnos neither calculates nor pays them for you.',
 
       listTitle:  'Completed shifts — {{period}}',
       emptyTitle: 'No paid shifts {{period}}',
@@ -740,46 +768,20 @@ export const en: Translated<TranslationCatalogue> = {
       },
     },
 
-    // Recibo Verde is the Portuguese self-employed invoice — kept, not translated
-    reciboVerde: {
-      title:     'Recibo Verde',
-      headerSub: 'Shift completed — submit your receipt to the tax authority',
-      shiftFallback: 'Shift',
-
-      whatTitle: 'What is a Recibo Verde?',
-      // MCD and Portal das Finanças are Portuguese legal/official names — kept verbatim
-      whatBody1: 'As a self-employed worker on a Contrato de Muito Curta Duração (MCD), you must issue a ',
-      whatBoldReceipt: 'Recibo Verde',
-      whatBody2: ' on the Portal das Finanças for every shift you complete.\n\nThe legal deadline is ',
-      whatBoldDeadline: '5 working days',
-      whatBody3: ' after the shift ends. Keeping the receipt is mandatory for your IRS tax return.',
-
-      valuesTitle: 'Values for your receipt',
-      valuesHint:  'Copy these values into the Portal das Finanças',
-      valueGross:  'Gross amount for the shift',
-      valueReceived: 'What you receive from the company',
-      valueTsu:    'ℹ️  Worker SS (11% of gross)',
-      tsuNote:     'You pay this to the State yourself via Segurança Social Direta — Turnos does not deduct it.',
-
-      howTitle: 'How to submit',
-      steps: {
-        s1: 'Sign in to the Portal das Finanças with your NIF and password.',
-        s2: 'Go to "Recibos Verdes" → "Emitir Recibo".',
-        s3: 'Select "Prestação de Serviços" and enter the gross amount for the shift.',
-        s4: "Enter the employer's NIF (you'll find it on the shift offer).",
-        s5: 'Issue the receipt and save the PDF confirmation.',
-      },
-
-      openPortal:   '🌐  Open Portal das Finanças',
-      portalError:  "Couldn't open the Portal das Finanças. Go to: irs.portaldasfinancas.gov.pt",
-      confirm:      "I've submitted my receipt",
-      confirmed:    '✅  Receipt already submitted',
-      confirmTitle: 'Receipt submitted! ✅',
-      confirmBody:  "Thanks for confirming. We're here if you need any help.",
-    },
   },
 
   admin: {
+    // Blocking modal when the company terms changed since the last acceptance
+    termsGate: {
+      title:   'We have updated the Terms for Companies',
+      body:    'To keep using Turnos, please read and accept the current Terms for Companies.',
+      read:    'Read the Terms for Companies',
+      privacy: 'Privacy Policy',
+      accept:  'I have read and accept',
+      saving:  'Saving…',
+      failed:  'Could not record your acceptance. Please try again.',
+    },
+
     nav: {
       dashboard:     'Dashboard',
       workersSearch: 'Find workers',
@@ -1809,6 +1811,10 @@ export const en: Translated<TranslationCatalogue> = {
       // Step 3 — review
       reviewTitle: 'Check your details',
       reviewSub:   'Review everything before submitting your registration.',
+      termsPrefix: 'I have read and accept the',
+      termsLink:   'Terms for Companies',
+      termsAnd:    'and the',
+      privacyLink: 'Privacy Policy',
       rowCompany:  'Company',
       rowNipc:     'NIPC',
       rowSector:   'Sector',
@@ -1848,6 +1854,10 @@ export const en: Translated<TranslationCatalogue> = {
       emailTaken:         'This email is already registered.',
       invalidCredentials: 'Invalid credentials.',
       ibanInvalid:        'Invalid IBAN. Format: PT50... (25 characters).',
+      birthDateInvalid:   'Invalid date of birth. Use the DD/MM/YYYY format.',
+      underAge:           'Turnos is only for people aged {{age}} and over.',
+      termsRequired:      'You must accept the Terms for Companies to create an account.',
+      termsOutdated:      'The Terms have been updated. Reload and accept the current version.',
       verifyLinkInvalid:  'That verification link is invalid or has expired.',
       imagesOnly:         'Only image files are allowed.',
       noImage:            'No image provided.',
@@ -1879,12 +1889,16 @@ export const en: Translated<TranslationCatalogue> = {
       notOpen:            'This shift is no longer open for applications.',
       alreadyApplied:     'You have already applied to this shift.',
       accountBlocked:     'Your account has been blocked for repeatedly missing confirmed shifts. Contact Turnos support.',
+      birthDateRequired:  'Add your date of birth under Profile → Edit profile before applying. Turnos is only for people aged 18 and over.',
+      underAge:           'You need to be at least {{age}} on the day of the shift to apply.',
+      workerBirthDateMissing: "This worker hasn't added their date of birth yet, so they can't be invited.",
+      workerUnderAge:     "This worker won't be {{age}} yet on the day of the shift.",
       accountSuspended:   'Your account is suspended until {{date}} because of late cancellations or no-shows.',
       profileIncomplete:  'Your profile is {{score}}% complete. You need at least 80% to apply.',
 
       // Worker cancellation
       cancelOnlyConfirmed: 'You can only cancel confirmed shifts that have not started yet.',
-      seriesStarted:       'This is a multi-day job that has already started. By accepting it you committed to every day — contact support (suporte@turnos.pt) if something has come up.',
+      seriesStarted:       'This is a multi-day job that has already started. By accepting it you committed to every day — contact support (turnos.contact@gmail.com) if something has come up.',
       alreadyStarted:      'The shift has already started — cancel it directly with the employer.',
       cancelledSuspended:  'Shift cancelled. With 2 late cancellations in 30 days, you cannot apply for shifts for 7 days.',
       cancelledLate:       'Shift cancelled. Note: cancelling less than 24h before the start affects your reliability on the platform.',

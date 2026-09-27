@@ -3,8 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { NotificationsService } from './notifications.service';
 import { ReNotificationProcessor } from './processors/re-notification.processor';
-import { QuarterlySsReminderProcessor } from './processors/quarterly-ss-reminder.processor';
-import { QuarterlySsSchedulerService } from './quarterly-ss-scheduler.service';
 import { RedisModule } from '../redis/redis.module';
 import { Worker } from '../users/entities/worker.entity';
 import { Shift } from '../shifts/entities/shift.entity';
@@ -15,15 +13,13 @@ import { FavouriteWorker } from '../ratings/entities/favourite-worker.entity';
   imports: [
     TypeOrmModule.forFeature([Worker, Shift, ShiftApplication, FavouriteWorker]),
     BullModule.registerQueue({ name: 'shift-notifications' }),
-    // Quarterly SS reminder — repeatable cron job, one per quarter
-    BullModule.registerQueue({ name: 'quarterly-ss' }),
+    // The quarterly "declare your SS" push to every worker was removed on
+    // 2026-09-27: a worker's SS obligations are theirs, not the marketplace's.
     RedisModule,
   ],
   providers: [
     NotificationsService,
     ReNotificationProcessor,
-    QuarterlySsReminderProcessor,
-    QuarterlySsSchedulerService,
   ],
   exports: [NotificationsService],
 })

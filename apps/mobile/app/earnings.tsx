@@ -2,21 +2,21 @@
  * Earnings screen — Worker income dashboard.
  *
  * Shows the gross the worker receives in full (paid directly by the company —
- * Turnos charges workers nothing) and the informative 11% TSU the worker must
- * declare and pay to the Portuguese Segurança Social (MCD contract).
+ * Turnos charges workers nothing) and an informative TSU simulation.
  *
  * Period toggles: Hoje | Este mês | Este ano
  * Each period fetches from GET /payments/worker/earnings?period=...
  *
- * Quarterly SS reminder: the screen itself shows a prominent banner in
- * March, June, September and December reminding the worker to submit
- * their SS declaration before the end of the month.
+ * There is deliberately no tax or Segurança Social reminder here. The
+ * quarterly "declare your SS" banner and the SS Direta shortcut were removed
+ * on 2026-09-27: whether and how a worker declares anything depends on their
+ * own situation, and a marketplace telling them what to file is not our role.
  */
 
 import { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  ActivityIndicator, Linking, Alert,
+  ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -31,26 +31,17 @@ type Period = 'day' | 'month' | 'year';
 
 const PERIODS: Period[] = ['day', 'month', 'year'];
 
-// Months that trigger SS quarterly reminder (end of quarter)
-const SS_REMINDER_MONTHS = [3, 6, 9, 12];
-
-const SS_DIRETA_URL = 'https://www.seg-social.pt/inicio';
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmt(n: number): string {
   return `€${n.toFixed(2)}`;
 }
 
-function isQuarterReminder(): boolean {
-  return SS_REMINDER_MONTHS.includes(new Date().getMonth() + 1);
-}
-
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function EarningsScreen() {
   const router = useRouter();
-  const { t, fMonthName } = useT();
+  const { t } = useT();
 
   const now = new Date();
   const [period,  setPeriod]  = useState<Period>('month');
@@ -102,17 +93,6 @@ export default function EarningsScreen() {
 
   // "Este mês" / "This month" reads mid-sentence in both languages lowercased.
   const periodLabelLower = t(`mobile.earnings.periods.${period}`).toLowerCase();
-
-  const handleSsLink = () => {
-    Alert.alert(
-      t('mobile.earnings.ssCtaTitle'),
-      t('mobile.earnings.ssAlertBody'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('mobile.earnings.ssAlertOpen'), onPress: () => Linking.openURL(SS_DIRETA_URL) },
-      ],
-    );
-  };
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -198,22 +178,6 @@ export default function EarningsScreen() {
                 : t('mobile.earnings.payLinkActiveCard')}
             </Text>
           </View>
-        )}
-
-        {/* Quarterly SS reminder */}
-        {isQuarterReminder() && (
-          <TouchableOpacity style={s.ssReminder} onPress={handleSsLink} activeOpacity={0.85}>
-            <Text style={s.ssReminderIcon}>🏛️</Text>
-            <View style={s.ssReminderBody}>
-              <Text style={s.ssReminderTitle}>{t('mobile.earnings.ssReminderTitle')}</Text>
-              <Text style={s.ssReminderText}>
-                {t('mobile.earnings.ssReminderBody', {
-                  month: fMonthName(now.getMonth(), now.getFullYear()),
-                })}
-              </Text>
-              <Text style={s.ssReminderLink}>{t('mobile.earnings.ssReminderLink')}</Text>
-            </View>
-          </TouchableOpacity>
         )}
 
         {/* Loading */}
@@ -302,17 +266,6 @@ export default function EarningsScreen() {
                 <Text style={s.emptySub}>{t('mobile.earnings.emptySub')}</Text>
               </View>
             )}
-
-            {/* SS CTA */}
-            <TouchableOpacity style={s.ssCta} onPress={handleSsLink} activeOpacity={0.85}>
-              <Text style={s.ssCtaIcon}>🏛️</Text>
-              <View style={s.ssCtaBody}>
-                <Text style={s.ssCtaTitle}>{t('mobile.earnings.ssCtaTitle')}</Text>
-                <Text style={s.ssCtaText}>{t('mobile.earnings.ssCtaText')}</Text>
-              </View>
-              <Text style={s.ssCtaArrow}>→</Text>
-            </TouchableOpacity>
-
           </>
         )}
 
@@ -432,23 +385,6 @@ const s = StyleSheet.create({
   payLinkActiveText: { fontSize: fontSize.caption, fontWeight: fontWeight.semibold, color: '#166534', lineHeight: 18 },
   payLinkActiveSub:  { fontSize: fontSize.caption, color: '#15803d', lineHeight: 17, marginTop: 6 },
 
-  // SS reminder
-  ssReminder: {
-    flexDirection: 'row',
-    gap: 12,
-    backgroundColor: '#fffbeb',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: '#fcd34d',
-    padding: spacing.md,
-    alignItems: 'flex-start',
-  },
-  ssReminderIcon: { fontSize: 24, marginTop: 2 },
-  ssReminderBody: { flex: 1 },
-  ssReminderTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.bold as any, color: '#92400e', marginBottom: 4 },
-  ssReminderText:  { fontSize: 12, color: '#78350f', lineHeight: 18 },
-  ssReminderLink:  { fontSize: 12, fontWeight: fontWeight.bold as any, color: '#d97706', marginTop: 6 },
-
   // States
   center: { alignItems: 'center', paddingVertical: 48, gap: 12 },
   loadingText: { fontSize: fontSize.sm, color: colors.textMuted },
@@ -518,23 +454,6 @@ const s = StyleSheet.create({
   emptyIcon:  { fontSize: 40, marginBottom: 4 },
   emptyTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold as any, color: colors.textPrimary, textAlign: 'center' },
   emptySub:   { fontSize: fontSize.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
-
-  // SS CTA
-  ssCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#fff',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-  },
-  ssCtaIcon:  { fontSize: 28 },
-  ssCtaBody:  { flex: 1 },
-  ssCtaTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.bold as any, color: colors.textPrimary },
-  ssCtaText:  { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-  ssCtaArrow: { fontSize: 18, color: colors.primary, fontWeight: fontWeight.bold as any },
 });
 
 // KPI card sub-styles

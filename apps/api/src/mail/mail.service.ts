@@ -1,18 +1,33 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { SUPPORT_EMAIL } from '@turnos/shared';
 
+/**
+ * Outgoing email. Nothing is sent unless MAIL_HOST and MAIL_USER are set —
+ * without them every email (accountant data, wage reminders, ops alerts) is
+ * only written to the log. GET /api/health reports which mode is live.
+ *
+ * Beta setup with the Gmail account: MAIL_HOST=smtp.gmail.com, MAIL_PORT=587,
+ * MAIL_USER=turnos.contact@gmail.com, MAIL_PASS=<Google app password>.
+ * Gmail rewrites any other From address to the account's own, so MAIL_FROM
+ * defaults to MAIL_USER.
+ */
 @Injectable()
 export class MailService {
   private transporter: nodemailer.Transporter | null = null;
   private readonly logger = new Logger(MailService.name);
   private readonly from: string;
 
+  /** Where internal alerts go (disputes, justifications, no-show reviews). */
+  readonly opsAddress: string;
+
   constructor(private readonly config: ConfigService) {
     const host = this.config.get<string>('MAIL_HOST', '');
     const user = this.config.get<string>('MAIL_USER', '');
     const pass = this.config.get<string>('MAIL_PASS', '');
-    this.from = this.config.get<string>('MAIL_FROM', 'noreply@turnos.pt');
+    this.from = this.config.get<string>('MAIL_FROM', user ? `Turnos <${user}>` : `Turnos <${SUPPORT_EMAIL}>`);
+    this.opsAddress = this.config.get<string>('OPS_EMAIL', SUPPORT_EMAIL);
 
     if (host && user) {
       this.transporter = nodemailer.createTransport({

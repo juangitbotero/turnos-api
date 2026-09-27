@@ -214,7 +214,7 @@ export class AttendanceService {
    * Idempotent — safe to call twice.
    *
    * Runs the full completion chain: attendance close, €3 fee, wage payment
-   * (Pay Link), Recibo Verde reminders, review prompts to both parties.
+   * (Pay Link), review prompts to both parties.
    */
   async completeShift(shiftId: string, trigger: 'AUTO' | 'SWEEP' = 'AUTO'): Promise<void> {
     const shift = await this.shiftRepo.findOne({
@@ -350,8 +350,8 @@ export class AttendanceService {
 
   /**
    * Everything that happens ONCE per job, when the last day has been worked:
-   * the €3 platform fee, the wage payment / Pay Link covering every day, the
-   * Recibo Verde reminders and the two-way review prompts.
+   * the €3 platform fee, the wage payment / Pay Link covering every day, and
+   * the two-way review prompts.
    * All steps are fire-and-forget — none may block or fail the completion.
    */
   private settleJob(
@@ -383,11 +383,6 @@ export class AttendanceService {
       shiftTitle:    settlement.title,
       shiftDate:     shift.date,
     }).catch(() => {});
-
-    // Schedule Recibo Verde push reminders (non-blocking, best-effort)
-    this.compliance.onShiftCompleted(shift, worker).catch(err => {
-      this.logger.warn(`[Attendance] Failed to schedule Recibo Verde reminders: ${(err as Error).message}`);
-    });
 
     // Two-way review prompts: immediate push to the worker + +8h follow-ups
     // to whichever side hasn't rated yet (handled by RatingsService).

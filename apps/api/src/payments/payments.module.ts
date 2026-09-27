@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { PaymentsService } from './payments.service';
 import { WagePaymentsService } from './wage-payments.service';
 import { WageReminderProcessor } from './processors/wage-reminder.processor';
+import { RetentionService } from './retention.service';
 import { PaymentsController } from './payments.controller';
 import { PaymentRecord } from './entities/payment-record.entity';
 import { WagePayment } from './entities/wage-payment.entity';
@@ -19,7 +20,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     NotificationsModule,
   ],
   controllers: [PaymentsController],
-  providers:   [PaymentsService, WagePaymentsService, WageReminderProcessor],
+  providers:   [PaymentsService, WagePaymentsService, WageReminderProcessor, RetentionService],
   exports:     [PaymentsService, WagePaymentsService],
 })
 export class PaymentsModule {}

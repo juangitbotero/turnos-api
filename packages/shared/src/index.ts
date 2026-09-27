@@ -435,7 +435,7 @@ export type WorkerCancelReason = keyof typeof WORKER_CANCEL_REASONS;
  *   - the €3 platform fee — charged once, on the final day
  *   - the wage payment / Pay Link — one payment for all days, at the end
  *   - the plan's concurrent-shift quota — a series counts as one job
- *   - review prompts and Recibo Verde reminders — once, at the end
+ *   - review prompts — once, at the end
  */
 export const MAX_SERIES_DAYS = 35; // aligned with MCD_LIMITS.MAX_DAYS_PER_CONTRACT
 
@@ -497,6 +497,83 @@ export function formatEUR(amount: number): string {
     style: 'currency',
     currency: 'EUR',
   }).format(amount);
+}
+
+// ─── Legal ────────────────────────────────────────────────────────────────────
+
+/**
+ * Version of the Terms of Use each side must have accepted. Bump the date
+ * when the text changes materially: every user whose recorded version differs
+ * is shown the acceptance screen again before they can continue.
+ * Worker terms: web-admin /termos · Company terms: web-admin /termos-empresas.
+ */
+export const TERMS_VERSIONS = {
+  WORKER:   '2026-09-27',
+  EMPLOYER: '2026-09-27',
+} as const;
+
+/**
+ * The one mailbox Turnos has. Used for support, privacy requests and
+ * reviews of automated decisions — every legal text points here, so a new
+ * address is a one-line change.
+ */
+export const SUPPORT_EMAIL = 'turnos.contact@gmail.com';
+
+// ─── Worker age ───────────────────────────────────────────────────────────────
+
+/**
+ * Turnos is for adults only — stated in the privacy policy and the terms.
+ * Enforced server-side when a worker applies to or accepts a shift, measured
+ * on the date of the shift, not on the day they signed up.
+ */
+export const MIN_WORKER_AGE = 18;
+
+/**
+ * Parses what a worker types ('DD/MM/AAAA') into ISO 'YYYY-MM-DD'.
+ * Returns null unless it is a real calendar date — '31/02/2000' is rejected
+ * rather than silently rolled over into March.
+ */
+export function parseBirthDateInput(input: string): string | null {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(input.trim());
+  if (!m) return null;
+  const [, dd, mm, yyyy] = m;
+  const iso = `${yyyy}-${mm}-${dd}`;
+  return isRealIsoDate(iso) ? iso : null;
+}
+
+/** Live input mask: keeps digits only and inserts the slashes — '0103' → '01/03'. */
+export function maskBirthDateInput(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 8);
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return `${d.slice(0, 2)}/${d.slice(2)}`;
+  return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`;
+}
+
+/** 'YYYY-MM-DD' → 'DD/MM/AAAA', the format the worker types it in. */
+export function formatBirthDateInput(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return y && m && d ? `${d}/${m}/${y}` : '';
+}
+
+/** True when an ISO 'YYYY-MM-DD' string names a date that exists. */
+export function isRealIsoDate(iso: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  const [y, m, d] = iso.split('-').map(Number) as [number, number, number];
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+/**
+ * Age in completed years on `onDate`. Both ISO 'YYYY-MM-DD'. Pure string
+ * arithmetic — no time zone can move a birthday across midnight.
+ */
+export function ageOn(dateOfBirth: string, onDate: string): number {
+  const [by, bm, bd] = dateOfBirth.slice(0, 10).split('-').map(Number) as [number, number, number];
+  const [oy, om, od] = onDate.slice(0, 10).split('-').map(Number) as [number, number, number];
+  let age = oy - by;
+  if (om < bm || (om === bm && od < bd)) age--;
+  return age;
 }
 
 // ─── Portugal Validation Utilities ───────────────────────────────────────────

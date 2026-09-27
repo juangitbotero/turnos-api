@@ -106,6 +106,15 @@ export default function VerifyScreen() {
       // Register Expo push token (non-blocking — runs in background)
       registerPushToken();
 
+      // Terms of Use first — a new worker, or anyone whose accepted version
+      // is out of date. The terms screen continues to intro/home itself.
+      // If /me fails, fall through: the launch check in _layout retries.
+      const me = await authApi.getMe().catch(() => null);
+      if (me && me.termsCurrent === false) {
+        router.replace('/terms' as any);
+        return;
+      }
+
       // First run on this install: the five-slide intro, then home. Gated on
       // the stored flag rather than `isNewUser` so someone who signed up but
       // closed the app mid-intro still sees it. Either way it lands on home —

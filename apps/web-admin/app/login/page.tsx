@@ -197,9 +197,9 @@ export default function AdminLogin() {
 
           <p style={s.legal}>
             {t('home.login.legalPrefix')}{' '}
-            <a href="#" style={s.legalLink}>{t('home.login.legalTerms')}</a>
+            <a href="/termos-empresas" style={s.legalLink}>{t('home.login.legalTerms')}</a>
             {' '}{t('home.login.legalAnd')}{' '}
-            <a href="#" style={s.legalLink}>{t('home.login.legalPrivacy')}</a>.
+            <a href="/privacidade" style={s.legalLink}>{t('home.login.legalPrivacy')}</a>.
           </p>
 
         </div>

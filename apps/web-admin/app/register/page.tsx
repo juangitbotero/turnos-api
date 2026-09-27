@@ -31,6 +31,9 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState<Partial<FormState>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState('');
+  // Unticked by default: acceptance has to be an act, and the API refuses
+  // registration without it (recorded with the version and date).
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const router = useRouter();
 
   const set = (key: keyof FormState, val: string) => {
@@ -85,6 +88,7 @@ export default function RegisterPage() {
           city: form.city,
           adminEmail: form.adminEmail,
           adminPassword: form.adminPassword,
+          acceptTerms,
         }),
       });
       const data = await res.json();
@@ -258,6 +262,19 @@ export default function RegisterPage() {
                   </div>
                 ))}
               </div>
+              <label htmlFor="reg-terms" style={s.termsRow}>
+                <input
+                  id="reg-terms" type="checkbox" checked={acceptTerms}
+                  onChange={e => setAcceptTerms(e.target.checked)}
+                  style={{ marginTop: 3, accentColor: 'var(--color-primary)' }}
+                />
+                <span>
+                  {t('home.register.termsPrefix')}{' '}
+                  <a href="/termos-empresas" target="_blank" rel="noreferrer" style={s.termsLink}>{t('home.register.termsLink')}</a>
+                  {' '}{t('home.register.termsAnd')}{' '}
+                  <a href="/privacidade" target="_blank" rel="noreferrer" style={s.termsLink}>{t('home.register.privacyLink')}</a>.
+                </span>
+              </label>
               {apiError && (
                 <div style={s.errorBanner} role="alert"><IconAlert size={15} /> {apiError}</div>
               )}
@@ -266,8 +283,8 @@ export default function RegisterPage() {
                 <button
                   id="reg-submit"
                   onClick={handleSubmit}
-                  disabled={isLoading}
-                  style={{...s.submitBtn, flex: 1, opacity: isLoading ? 0.7 : 1}}
+                  disabled={isLoading || !acceptTerms}
+                  style={{...s.submitBtn, flex: 1, opacity: isLoading || !acceptTerms ? 0.55 : 1}}
                 >
                   {isLoading ? t('home.register.submitting') : t('home.register.submit')}
                 </button>
@@ -363,6 +380,11 @@ const s: Record<string, React.CSSProperties> = {
   },
   reviewKey: { fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', flexShrink: 0 },
   reviewVal: { fontSize: 13, color: 'var(--color-text-primary)', fontWeight: 500, textAlign: 'right' },
+  termsRow: {
+    display: 'flex', gap: 10, alignItems: 'flex-start', margin: '16px 0 4px',
+    fontSize: 13, lineHeight: 1.55, color: 'var(--color-text-primary)', cursor: 'pointer',
+  },
+  termsLink: { color: 'var(--color-primary)', fontWeight: 600 },
   errorBanner: {
     display: 'flex', alignItems: 'center', gap: 8,
     background: 'var(--color-error-light)', border: '1px solid rgba(239,68,68,0.2)',

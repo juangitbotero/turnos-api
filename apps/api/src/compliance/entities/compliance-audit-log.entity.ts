@@ -10,6 +10,9 @@ export enum ComplianceEvent {
   DEPENDENCY_BLOCK_50             = 'DEPENDENCY_BLOCK_50',
   REST_PERIOD_VIOLATION_ATTEMPT   = 'REST_PERIOD_VIOLATION_ATTEMPT',
   MCD_LIMIT_ATTEMPT               = 'MCD_LIMIT_ATTEMPT',
+  // Legacy — no longer written (reminders removed 2026-09-27). Kept because the
+  // audit log is append-only and existing rows carry it; dropping the enum
+  // value would make `synchronize` fail against those rows.
   RECIBO_VERDE_REMINDER_SENT      = 'RECIBO_VERDE_REMINDER_SENT',
 }
 

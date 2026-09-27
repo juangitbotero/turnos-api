@@ -8,12 +8,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   colors, spacing, radius, fontSize, fontWeight, STORED_WEEKDAYS,
-  WorkerExperience, APP_LANGUAGES, APP_LANGUAGE_LABELS, AppLanguage,
+  WorkerExperience, APP_LANGUAGES, APP_LANGUAGE_LABELS, AppLanguage, SUPPORT_EMAIL,
 } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
 import { disconnectSocket } from '../lib/socket';
 import { useT, useLanguage } from '../lib/i18n';
+import { PRIVACY_URL } from '../lib/links';
 
 type WorkerProfile = {
   userId: string; role: string;
@@ -27,17 +28,48 @@ type WorkerProfile = {
   nif: string | null; iban: string | null;
   avgRating: number | null; totalRatings: number;
   noShowCount: number; badges: string[];
+  suspendedUntil?: string | null; isBlocked?: boolean;
+  restrictionReason?: string | null;
 };
 
-/** Colours only — the labels come from the catalogue via t('domain.workerStatus.*') */
 /**
- * Public site, for the privacy policy link. Derived from the API URL so a
- * single env var keeps working: the API lives at <host>/api, the site at the
- * web-admin host. Override with EXPO_PUBLIC_WEB_URL when they differ.
+ * Shown while the worker is suspended or blocked. The statement of reasons
+ * (facts, rule, consequence, how to ask for review) is the one the server
+ * stored and sent — the worker terms promise it stays readable here.
  */
-const WEB_URL =
-  process.env.EXPO_PUBLIC_WEB_URL ?? 'https://turnos-admin-production.up.railway.app';
+function RestrictionBanner({ profile }: { profile: WorkerProfile }) {
+  const { t, fNumericDate } = useT();
+  const [open, setOpen] = useState(false);
+  const suspended = !!profile.suspendedUntil && new Date(profile.suspendedUntil) > new Date();
+  if (!profile.isBlocked && !suspended) return null;
 
+  return (
+    <View style={s.restriction}>
+      <Text style={s.restrictionTitle}>
+        {profile.isBlocked
+          ? t('mobile.profile.restrictedBlocked')
+          : t('mobile.profile.restrictedSuspended', { date: fNumericDate(profile.suspendedUntil!) })}
+      </Text>
+      {profile.restrictionReason && (
+        open
+          ? <Text style={s.restrictionText}>{profile.restrictionReason}</Text>
+          : (
+            <TouchableOpacity onPress={() => setOpen(true)} activeOpacity={0.7}>
+              <Text style={s.restrictionLink}>{t('mobile.profile.restrictedWhy')}</Text>
+            </TouchableOpacity>
+          )
+      )}
+      <TouchableOpacity
+        onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Pedido de revisão')}`)}
+        activeOpacity={0.7}
+      >
+        <Text style={s.restrictionLink}>{t('mobile.profile.restrictedReview')} →</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+/** Colours only — the labels come from the catalogue via t('domain.workerStatus.*') */
 const STATUS_COLOURS: Record<string, { bg: string; text: string }> = {
   INCOMPLETE:     { bg: '#fef9c3', text: '#854d0e' },
   PENDING_REVIEW: { bg: '#dbeafe', text: '#1d4ed8' },
@@ -199,6 +231,9 @@ export default function ProfileScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+
+          {/* ── Active restriction — with the statement of reasons on record ── */}
+          {profile && <RestrictionBanner profile={profile} />}
 
           {/* ── Avatar + name + rating ── */}
           <View style={s.avatarSection}>
@@ -514,7 +549,7 @@ export default function ProfileScreen() {
               only from the store listing. */}
           <TouchableOpacity
             style={s.deleteAccountBtn}
-            onPress={() => Linking.openURL(`${WEB_URL}/privacidade`)}
+            onPress={() => Linking.openURL(PRIVACY_URL)}
             activeOpacity={0.7}
           >
             <Text style={s.deleteAccountText}>{t('mobile.profile.privacyCta')}</Text>
@@ -562,6 +597,15 @@ export default function ProfileScreen() {
 }
 
 const s = StyleSheet.create({
+  // Restriction banner
+  restriction: {
+    backgroundColor: '#fef2f2', borderColor: '#fecaca', borderWidth: 1,
+    borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md, gap: 8,
+  },
+  restrictionTitle: { fontSize: fontSize.body, fontWeight: fontWeight.bold as any, color: '#991b1b' },
+  restrictionText:  { fontSize: fontSize.caption, color: '#7f1d1d', lineHeight: 19 },
+  restrictionLink:  { fontSize: fontSize.caption, fontWeight: fontWeight.bold as any, color: '#b91c1c' },
+
   root: { flex: 1, backgroundColor: colors.secondary },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   errorText: { color: '#ef4444', fontSize: fontSize.body, textAlign: 'center', marginBottom: spacing.md },

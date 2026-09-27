@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { tokenStorage } from '../lib/storage';
+import { authApi } from '../lib/api';
 import { initI18n, LanguageProvider } from '../lib/i18n';
 import { colors, AppLanguage, DEFAULT_LANGUAGE } from '@turnos/shared';
 
@@ -46,24 +47,15 @@ export default function RootLayout() {
     // User tapped a notification — navigate to the relevant screen
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data as {
-        shiftId?:    string;
-        type?:       string;
-        shiftTitle?: string;
-        shiftDate?:  string;
-        grossAmount?: number;
+        shiftId?: string;
+        type?:    string;
       };
 
-      if (data?.type === 'recibo_verde' && data?.shiftId) {
-        // Deep-link to Recibo Verde screen with pre-filled values
-        router.push({
-          pathname: '/recibo-verde',
-          params: {
-            shiftId:     data.shiftId,
-            shiftTitle:  data.shiftTitle  ?? '',
-            shiftDate:   data.shiftDate   ?? '',
-            grossAmount: String(data.grossAmount ?? 0),
-          },
-        } as any);
+      // A 'recibo_verde' push still sitting on a device from before 2026-09-27
+      // has a shiftId, so it falls through to the shift detail below.
+      if (data?.type === 'account_restricted') {
+        // Suspension/block notice → profile, where the statement of reasons is shown
+        router.push('/profile' as any);
       } else if (data?.type === 'rate_employer' && data?.shiftId) {
         // Review prompt (at completion + the +8h follow-up) → rating screen
         router.push(`/rate/${data.shiftId}` as any);
@@ -91,9 +83,14 @@ export default function RootLayout() {
         if (!inAuthGroup) {
           router.replace('/login');
         }
-      } else if (tokenStorage.isTokenExpired(token)) {
-        // Expired — try refresh, handled in api.ts on next request
-        // Just let the user through; api.ts will refresh silently
+      } else {
+        // Expired tokens are refreshed silently by api.ts on this request.
+        // Signed in but the accepted Terms version is missing or outdated →
+        // the acceptance screen, before anything else. Fails open on network
+        // errors; verify.tsx and the next launch check again.
+        authApi.getMe()
+          .then(me => { if (me.termsCurrent === false) router.replace('/terms' as any); })
+          .catch(() => {});
       }
     } catch {
       router.replace('/login');

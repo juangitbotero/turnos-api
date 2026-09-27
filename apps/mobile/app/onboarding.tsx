@@ -10,7 +10,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import {
   colors, spacing, radius, fontSize, fontWeight,
   isValidNIF, isValidIBAN, calculateProfileQualityScore, SHIFT_CATEGORIES, ShiftCategory,
-  STORED_WEEKDAYS,
+  STORED_WEEKDAYS, MIN_WORKER_AGE, ageOn, maskBirthDateInput, parseBirthDateInput,
 } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
 import { useT } from '../lib/i18n';
@@ -26,6 +26,7 @@ export default function OnboardingScreen() {
 
   // Form state
   const [fullName,     setFullName]     = useState('');
+  const [birthDate,    setBirthDate]    = useState(''); // as typed: DD/MM/AAAA
   const [nif,          setNif]          = useState('');
   const [iban,         setIban]         = useState('');
   const [ibanShareConsent, setIbanShareConsent] = useState(false);
@@ -110,6 +111,18 @@ export default function OnboardingScreen() {
       Alert.alert(t('mobile.onboarding.nameRequiredTitle'), t('mobile.onboarding.nameRequiredBody'));
       return false;
     }
+    if (step === 0) {
+      // Turnos is 18+. The server re-checks this, and again against each shift date.
+      const iso = parseBirthDateInput(birthDate);
+      if (!iso) {
+        Alert.alert(t('mobile.onboarding.birthDateRequiredTitle'), t('mobile.onboarding.birthDateRequiredBody'));
+        return false;
+      }
+      if (ageOn(iso, new Date().toISOString().slice(0, 10)) < MIN_WORKER_AGE) {
+        Alert.alert(t('mobile.onboarding.underAgeTitle'), t('mobile.onboarding.underAgeBody'));
+        return false;
+      }
+    }
     if (step === 1) {
       let ok = true;
       // Only validate if the worker has entered something — both are optional
@@ -159,6 +172,7 @@ export default function OnboardingScreen() {
 
       await authApi.updateWorkerProfile({
         fullName,
+        dateOfBirth: parseBirthDateInput(birthDate) ?? undefined,
         nif,
         iban,
         ibanShareConsent: iban.trim() ? ibanShareConsent : false,
@@ -233,6 +247,22 @@ export default function OnboardingScreen() {
               autoCapitalize="words"
               returnKeyType="done"
             />
+
+            {/* Date of birth — required: Turnos is 18+ */}
+            <Text style={[s.sectionTitle, { marginTop: 24, fontSize: 16 }]}>{t('mobile.onboarding.birthDateTitle')}</Text>
+            <Text style={s.sectionSub}>{t('mobile.onboarding.birthDateSub')}</Text>
+            <TextInput
+              style={s.input}
+              placeholder="DD/MM/AAAA"
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="number-pad"
+              value={birthDate}
+              onChangeText={v => setBirthDate(maskBirthDateInput(v))}
+              maxLength={10}
+            />
+            {birthDate.length === 10 && !parseBirthDateInput(birthDate) && (
+              <Text style={s.errorText}>{t('mobile.onboarding.birthDateInvalid')}</Text>
+            )}
 
             {/* Photo picker */}
             <Text style={[s.sectionTitle, { marginTop: 24, fontSize: 16 }]}>{t('mobile.onboarding.photoTitle')}</Text>
@@ -427,6 +457,7 @@ export default function OnboardingScreen() {
             {/* Profile summary */}
             {[
               [t('mobile.onboarding.summaryName'), fullName],
+              [t('mobile.onboarding.summaryBirthDate'), birthDate],
               ['NIF', nif],
               ['IBAN', iban ? `${iban.slice(0, 8)}...${iban.slice(-4)}` : ''],
               [t('mobile.onboarding.summarySkills'), selectedSkills.slice(0, 3).map(tSkill).join(', ') + (selectedSkills.length > 3 ? ` +${selectedSkills.length - 3}` : '')],

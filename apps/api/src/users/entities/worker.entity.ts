@@ -27,6 +27,15 @@ export class Worker {
   @Column({ type: 'varchar', length: 255, nullable: true })
   fullName?: string;
 
+  /**
+   * 'YYYY-MM-DD'. Collected at onboarding because Turnos is 18+ only; checked
+   * against the shift date whenever the worker applies to or accepts a shift.
+   * Nullable because workers who signed up before it existed have none — they
+   * are asked for it the first time they try to apply.
+   */
+  @Column({ type: 'date', nullable: true })
+  dateOfBirth?: string | null;
+
   @Column({ type: 'varchar', length: 9, nullable: true })
   nif?: string;                     // Portuguese NIF (9 digits, validated)
 
@@ -139,6 +148,19 @@ export class Worker {
 
   @Column({ type: 'boolean', default: false })
   isBlocked: boolean;               // permanent block after 2nd no-show — cannot apply ever again
+
+  /**
+   * Statement of reasons for the most recent suspension or block: the facts,
+   * the rule applied, the consequence and how to ask for human review. Built
+   * by `restrictionNotice()`, sent to the worker by push (and email when they
+   * have one), and shown in the app for as long as the restriction lasts.
+   * Required by the worker terms (§11.2) and the DSA (art. 17).
+   */
+  @Column({ type: 'text', nullable: true })
+  restrictionReason: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  restrictedAt: Date | null;
 
   // ── Stripe Connect ────────────────────────────────────────────────────────
   @Column({ type: 'varchar', length: 255, nullable: true })

@@ -294,6 +294,10 @@ export interface EmployerProfile {
   subscriptionStatus?: string;
   logoUrl?: string | null;
   notificationPrefs?: { ratingReminders: boolean; wageReminders: boolean };
+  // Terms of Use — false until the current TERMS_VERSIONS.EMPLOYER is accepted
+  termsVersion?: string | null;
+  termsCurrentVersion?: string;
+  termsCurrent?: boolean;
 }
 
 export interface HiredWorker {
@@ -433,6 +437,12 @@ export const adminApi = {
 
   getMyProfile: () =>
     request<EmployerProfile>('/auth/me', { method: 'GET' }),
+
+  /** Record acceptance of the Terms for Companies version the modal showed. */
+  acceptTerms: (version: string) =>
+    request<{ termsVersion: string; termsAcceptedAt: string }>(
+      '/auth/terms/accept', { method: 'POST', body: JSON.stringify({ version }) },
+    ),
 
   /** Update the company's own details (settings). */
   updateEmployerProfile: (dto: {

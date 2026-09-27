@@ -246,6 +246,11 @@ export const pt = {
     },
 
     profile: {
+      // Restriction banner — shows the statement of reasons on record
+      restrictedSuspended: 'Candidaturas suspensas até {{date}}',
+      restrictedBlocked:   'Conta bloqueada',
+      restrictedWhy:       'Porquê?',
+      restrictedReview:    'Pedir revisão',
       title: 'O Meu Perfil',
       loadError: 'Não foi possível carregar o perfil.',
       noName: 'Nome não definido',
@@ -389,7 +394,7 @@ export const pt = {
       cancelAnyway:    'Cancelar mesmo assim',
       cancelYes:       'Sim, cancelar',
       reasonTitle:     'Tens um motivo válido?',
-      reasonBody:      'Doença, lesão ou emergência com comprovativo são avaliados pela Turnos — se aceites, o cancelamento tardio é removido do teu registo. Envia o comprovativo para suporte@turnos.pt.',
+      reasonBody:      'Doença, lesão ou emergência com comprovativo são avaliados pela Turnos — se aceites, o cancelamento tardio é removido do teu registo. Envia o comprovativo para turnos.contact@gmail.com.',
       reasonIllness:   '🤒 Doença / Lesão',
       reasonEmergency: '🚨 Emergência',
       reasonNone:      'Sem justificação',
@@ -398,7 +403,7 @@ export const pt = {
 
       support:         'Contactar suporte',
       seriesLockTitle: 'Compromisso de vários dias',
-      seriesLockBody:  'Aceitaste um trabalho de vários dias que já começou, por isso não podes cancelá-lo aqui. Se tiveres um imprevisto sério, fala com o suporte: suporte@turnos.pt',
+      seriesLockBody:  'Aceitaste um trabalho de vários dias que já começou, por isso não podes cancelá-lo aqui. Se tiveres um imprevisto sério, fala com o suporte: turnos.contact@gmail.com',
 
       // Trust loop de pagamento
       wageConfirmTitle:  'Confirmar pagamento',
@@ -434,7 +439,7 @@ export const pt = {
       payNetHour:   'Recebes/hora (sem taxas)',
       // TSU is Portugal's social-security contribution — informative only, the
       // worker settles it directly with the State.
-      tsuNote:      'ℹ️ SS Trabalhador (11%): €{{amount}}/hora — valor informativo, a entregar por ti ao Estado',
+      tsuNote:      'ℹ️ TSU do trabalhador (11%): €{{amount}}/hora — apenas referência; as tuas obrigações dependem da tua situação',
       payViaMethod: '💳 Pago pela empresa via {{method}}',
       payDirect:    '💳 Pago diretamente pela empresa',
 
@@ -509,6 +514,11 @@ export const pt = {
 
       nameTitle:       'NOME COMPLETO',
       namePlaceholder: 'O teu nome completo',
+
+      birthDateTitle:   'DATA DE NASCIMENTO',
+      birthDateSub:     'Necessária para te candidatares — a Turnos é exclusiva para maiores de 18 anos.',
+      birthDateInvalid: 'Data inválida — usa o formato DD/MM/AAAA.',
+      underAge:         'A Turnos é exclusiva para maiores de 18 anos.',
 
       bioTitle:       'INTRODUÇÃO',
       bioSub:         'Uma breve apresentação para os empregadores (máx. 200 caracteres)',
@@ -587,6 +597,14 @@ export const pt = {
       namePlaceholder: 'Ex: Carlos Manuel Silva',
       nameRequiredTitle: 'Nome obrigatório',
       nameRequiredBody:  'Por favor introduza o seu nome completo.',
+      birthDateTitle:    'Data de nascimento',
+      birthDateSub:      'A Turnos é exclusiva para maiores de 18 anos.',
+      birthDateRequiredTitle: 'Data de nascimento',
+      birthDateRequiredBody:  'Indique a sua data de nascimento no formato DD/MM/AAAA.',
+      birthDateInvalid:  'Data inválida — use o formato DD/MM/AAAA.',
+      underAgeTitle:     'Apenas para maiores de 18',
+      underAgeBody:      'A Turnos é exclusiva para maiores de 18 anos. Pode criar o seu perfil quando fizer 18.',
+      summaryBirthDate:  'Nascimento',
       photoTitle:      'Foto de perfil (+20 pts)',
       photoSub:        'Uma boa foto aumenta as suas hipóteses de aprovação.',
       photoAdd:        'Adicionar foto',
@@ -659,6 +677,25 @@ export const pt = {
       submitError:  'Não foi possível submeter o perfil.',
     },
 
+    // Terms of Use acceptance — first sign-in and after every change
+    terms: {
+      title:      'Termos de Utilização',
+      intro:      'Antes de continuar, lê e aceita os Termos de Utilização da Turnos e a Política de Privacidade.',
+      updated:    'Atualizámos os Termos de Utilização. Para continuares, lê e aceita a nova versão.',
+      points: {
+        p1: 'A empresa do turno é a tua entidade empregadora e paga-te diretamente o valor bruto. A Turnos não te cobra nada.',
+        p2: 'Cancelamentos a menos de 24 h e faltas têm consequências — suspensões e, à 2.ª falta, bloqueio.',
+        p3: 'Qualquer decisão automática pode ser revista por uma pessoa da equipa Turnos.',
+      },
+      readTerms:   'Ler os Termos de Utilização',
+      readPrivacy: 'Ler a Política de Privacidade',
+      checkbox:    'Li e aceito os Termos de Utilização e a Política de Privacidade.',
+      accept:      'Aceitar e continuar',
+      saving:      'A guardar…',
+      failed:      'Não foi possível registar a aceitação. Tenta novamente.',
+      logout:      'Sair',
+    },
+
     earnings: {
       title: 'Os Meus Ganhos',
       periods: {
@@ -683,25 +720,16 @@ export const pt = {
       payLinkActiveMbWay: 'A empresa pode pagar-te por cartão ou MB WAY. Recebes sempre o valor bruto completo — a taxa de processamento é suportada pela empresa.',
       payLinkActiveCard:  'A empresa paga por cartão. Recebes sempre o valor bruto completo — a taxa de processamento é suportada pela empresa.',
 
-      // Quarterly Segurança Social reminder
-      ssReminderTitle: 'Lembrete SS trimestral',
-      ssReminderBody:  '{{month}} é mês de declaração. Não te esqueças de submeter os teus rendimentos na Segurança Social antes do fim do mês.',
-      ssReminderLink:  'Abrir SS Direta →',
-      ssCtaTitle: 'Segurança Social Direta',
-      ssCtaText:  'Declara os teus rendimentos trimestralmente no portal SS.',
-      ssAlertBody: 'Será redireccionado para o portal da Segurança Social para submeter a tua declaração trimestral.',
-      ssAlertOpen: 'Abrir',
-
       kpiGross:    'Bruto',
       kpiShifts:   'Turnos',
 
       breakdownTitle: 'Simulador de TSU (se aplicável)',
       rowGross:   'Valor bruto (pago pela empresa)',
-      rowTsu:     'TSU a entregar ao Estado (11%)',
+      rowTsu:     'TSU do trabalhador (11%) — referência',
       rowAfterTsu:'Estimativa após TSU',
-      tsuNote:      '⚠️ Recebes o valor bruto por inteiro, diretamente da empresa — a Turnos não cobra qualquer taxa aos trabalhadores. Como trabalhador és responsável por declarar e pagar ',
-      tsuNoteBold:  '11% do teu valor bruto',
-      tsuNoteEnd:   ' à Segurança Social (valor informativo acima).',
+      tsuNote:      'Recebes o valor bruto por inteiro, diretamente da empresa — a Turnos não cobra qualquer taxa aos trabalhadores. ',
+      tsuNoteBold:  'Os valores acima são apenas uma simulação.',
+      tsuNoteEnd:   ' As tuas obrigações fiscais e de Segurança Social dependem da tua situação pessoal e são da tua responsabilidade — a Turnos não as calcula nem as paga por ti.',
 
       listTitle:  'Turnos concluídos — {{period}}',
       emptyTitle: 'Sem turnos pagos {{period}}',
@@ -743,46 +771,21 @@ export const pt = {
       },
     },
 
-    // Recibo Verde is the Portuguese self-employed invoice — never translated
-    reciboVerde: {
-      title:     'Recibo Verde',
-      headerSub: 'Turno concluído — submete o teu recibo ao Estado',
-      shiftFallback: 'Turno',
-
-      whatTitle: 'O que é o Recibo Verde?',
-      whatBody1: 'Como trabalhador independente em Contrato de Muito Curta Duração (MCD), tens de emitir um ',
-      whatBoldReceipt: 'Recibo Verde',
-      whatBody2: ' no Portal das Finanças para cada turno concluído.\n\nO prazo legal é de ',
-      whatBoldDeadline: '5 dias úteis',
-      whatBody3: ' após a conclusão do turno. Guardar o comprovativo é obrigatório para declaração de IRS.',
-
-      valuesTitle: 'Valores para o teu recibo',
-      valuesHint:  'Copia estes valores para o Portal das Finanças',
-      valueGross:  'Valor bruto do turno',
-      valueReceived: 'Valor que recebes da empresa',
-      valueTsu:    'ℹ️  SS Trabalhador (11% do bruto)',
-      tsuNote:     'Este valor é entregue por ti ao Estado via Segurança Social Direta — não é deduzido pela Turnos.',
-
-      howTitle: 'Como submeter',
-      steps: {
-        s1: 'Acede ao Portal das Finanças com o teu NIF e senha.',
-        s2: 'Vai a "Recibos Verdes" → "Emitir Recibo".',
-        s3: 'Seleciona "Prestação de Serviços" e preenche com o valor bruto do turno.',
-        s4: 'Indica o NIF do empregador (encontras na proposta do turno).',
-        s5: 'Emite o recibo e guarda o comprovativo em PDF.',
-      },
-
-      openPortal:   '🌐  Abrir Portal das Finanças',
-      portalError:  'Não foi possível abrir o Portal das Finanças. Acede em: irs.portaldasfinancas.gov.pt',
-      confirm:      'Já submeti o meu recibo',
-      confirmed:    '✅  Recibo já submetido',
-      confirmTitle: 'Recibo submetido! ✅',
-      confirmBody:  'Obrigado por confirmares. Ficamos à tua disposição caso precises de ajuda.',
-    },
   },
 
   /** Employer dashboard (web-admin). */
   admin: {
+    // Blocking modal when the company terms changed since the last acceptance
+    termsGate: {
+      title:   'Atualizámos os Termos para Empresas',
+      body:    'Para continuar a usar a Turnos, leia e aceite a versão atual dos Termos para Empresas.',
+      read:    'Ler os Termos para Empresas',
+      privacy: 'Política de Privacidade',
+      accept:  'Li e aceito',
+      saving:  'A guardar…',
+      failed:  'Não foi possível registar a aceitação. Tente novamente.',
+    },
+
     nav: {
       dashboard:     'Dashboard',
       workersSearch: 'Procurar Workers',
@@ -1832,6 +1835,10 @@ export const pt = {
       // Step 3 — review
       reviewTitle: 'Confirme os dados',
       reviewSub:   'Verifique antes de submeter o registo.',
+      termsPrefix: 'Li e aceito os',
+      termsLink:   'Termos para Empresas',
+      termsAnd:    'e a',
+      privacyLink: 'Política de Privacidade',
       rowCompany:  'Empresa',
       rowNipc:     'NIPC',
       rowSector:   'Sector',
@@ -1876,6 +1883,10 @@ export const pt = {
       emailTaken:         'Este email já está registado.',
       invalidCredentials: 'Credenciais inválidas.',
       ibanInvalid:        'IBAN inválido. Formato: PT50... (25 caracteres).',
+      birthDateInvalid:   'Data de nascimento inválida. Usa o formato DD/MM/AAAA.',
+      underAge:           'A Turnos é exclusiva para maiores de {{age}} anos.',
+      termsRequired:      'Para criar a conta tem de aceitar os Termos para Empresas.',
+      termsOutdated:      'Os Termos foram atualizados. Recarregue a página e aceite a versão atual.',
       verifyLinkInvalid:  'Token de verificação inválido ou expirado.',
       imagesOnly:         'Apenas imagens são permitidas.',
       noImage:            'Nenhuma imagem fornecida.',
@@ -1907,12 +1918,16 @@ export const pt = {
       notOpen:            'Este turno já não está aberto a candidaturas.',
       alreadyApplied:     'Já te candidataste a este turno.',
       accountBlocked:     'A tua conta foi bloqueada por faltas repetidas a turnos confirmados. Contacta o suporte Turnos.',
+      birthDateRequired:  'Indica a tua data de nascimento em Perfil → Editar perfil antes de te candidatares. A Turnos é exclusiva para maiores de 18 anos.',
+      underAge:           'Precisas de ter pelo menos {{age}} anos na data do turno para te candidatares.',
+      workerBirthDateMissing: 'Este trabalhador ainda não indicou a data de nascimento, por isso ainda não pode ser convidado.',
+      workerUnderAge:     'Este trabalhador ainda não terá {{age}} anos na data do turno.',
       accountSuspended:   'A tua conta está suspensa até {{date}} devido a cancelamentos tardios ou faltas.',
       profileIncomplete:  'O teu perfil está {{score}}% completo. Precisas de pelo menos 80% para te candidatares.',
 
       // Worker cancellation
       cancelOnlyConfirmed: 'Só podes cancelar turnos confirmados que ainda não começaram.',
-      seriesStarted:       'Este é um trabalho de vários dias que já começou. Ao aceitares, comprometeste-te com todos os dias — contacta o suporte (suporte@turnos.pt) se tiveres um imprevisto.',
+      seriesStarted:       'Este é um trabalho de vários dias que já começou. Ao aceitares, comprometeste-te com todos os dias — contacta o suporte (turnos.contact@gmail.com) se tiveres um imprevisto.',
       alreadyStarted:      'O turno já começou — cancela junto do empregador.',
       cancelledSuspended:  'Turno cancelado. Por teres 2 cancelamentos tardios em 30 dias, não podes candidatar-te a turnos durante 7 dias.',
       cancelledLate:       'Turno cancelado. Atenção: cancelar a menos de 24h do início afeta a tua fiabilidade na plataforma.',

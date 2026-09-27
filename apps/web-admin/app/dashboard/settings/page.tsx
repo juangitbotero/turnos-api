@@ -15,7 +15,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { EMPLOYER_SECTORS } from '@turnos/shared';
+import { EMPLOYER_SECTORS, SUPPORT_EMAIL } from '@turnos/shared';
 import { adminApi, EmployerProfile, ApiError } from '../../../lib/api';
 import { SIDEBAR_NAV } from '../../../lib/nav';
 import { useT } from '../../../lib/i18n';
@@ -26,7 +26,6 @@ import {
   IconImage, IconBell,
 } from '../../../components/icons';
 
-const SUPPORT_EMAIL = 'suporte@turnos.pt';
 const BENEFITS = ['1', '2', '3', '4', '5'] as const;
 
 export default function SettingsPage() {
@@ -404,8 +403,8 @@ export default function SettingsPage() {
               </div>
             </div>
             <div style={s.legalList}>
-              <a href="/" style={s.legalLink}>{t('admin.settings.legalTerms')}</a>
-              <a href="/" style={s.legalLink}>{t('admin.settings.legalPrivacy')}</a>
+              <a href="/termos-empresas" target="_blank" rel="noreferrer" style={s.legalLink}>{t('admin.settings.legalTerms')}</a>
+              <a href="/privacidade" target="_blank" rel="noreferrer" style={s.legalLink}>{t('admin.settings.legalPrivacy')}</a>
               <a href="/" style={s.legalLink}>{t('admin.settings.legalFaq')}</a>
               <a href={`mailto:${SUPPORT_EMAIL}?subject=RGPD`} style={s.legalLink}>{t('admin.settings.legalData')}</a>
               <a href={`mailto:${SUPPORT_EMAIL}?subject=RGPD`} style={s.legalLink}>{t('admin.settings.legalDelete')}</a>

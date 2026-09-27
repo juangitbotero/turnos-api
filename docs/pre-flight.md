@@ -150,7 +150,8 @@ No document in the repo covered this before 2026-09-09. Derived from
 
 | Blocker | State |
 |---|---|
-| Privacy policy | 🟠 Built at `/privacidade` (PT + EN). **Draft — not lawyer-reviewed, and the controller identity is still `[[PLACEHOLDER]]`** |
+| Privacy policy | 🟠 Built at `/privacidade` (PT + EN), revised 2026-09-27 and sent to the law firm with `docs/legal/brief-advogados.md`. **Draft — not lawyer-reviewed; controller identity and hosting region still `[[PLACEHOLDER]]`** |
+| Terms of use | 🟠 Provisional versions live at `/termos` (workers) and `/termos-empresas` (companies), linked everywhere and accepted with version + date. **Not lawyer-reviewed** — review copies in `docs/legal/`, Word pack in `docs/legal/pack-advogados/` |
 | In-app account deletion | 🟢 Built. Profile → Eliminar a minha conta → `/delete-account` |
 
 **Privacy policy** — `apps/web-admin/app/privacidade/`. Text lives in
@@ -184,9 +185,10 @@ account, and `Worker.deletedAt` plus the new enum value reach production through
 
 | Item | Detail |
 |---|---|
-| `RECORD_AUDIO` permission | Requested in `app.json`; nothing records audio. An `expo-camera` default. Both stores make you justify microphone access |
-| Location asks for "Always" | Only needed during the QR scan geofence. Apple scrutinises background location hard |
-| Permission strings mixed PT/EN | Photos and calendar PT, location EN. Shown to the user in the system dialog |
+| ~~`RECORD_AUDIO` permission~~ | 🟢 Fixed 2026-09-27 — removed, `recordAudioAndroid: false` on `expo-camera` |
+| ~~Location asks for "Always"~~ | 🟢 Fixed 2026-09-27 — when-in-use only, background disabled on both platforms |
+| ~~Permission strings mixed PT/EN~~ | 🟢 Fixed 2026-09-27 — camera and location strings now PT like the rest |
+| New EAS build needed | The `app.json` permission changes and the date-of-birth field only reach testers through a new preview build |
 | `version: "0.0.1"` | Ship as `1.0.0`; set `ios.buildNumber` or let EAS auto-increment |
 | Off-brand colours | Splash/adaptive `#0F172A`, notification `#6366F1`. Brand is `#6a79ff` on `#fafdff` |
 
@@ -219,7 +221,9 @@ false` is already set, which also clears export compliance.
 | `BYPASS_SUBSCRIPTION` | `payments.service.ts:205` returns early, which also skips the overdue-wage block. Delete the Railway variable |
 | Uploads on local disk | R2 is decided, wiring incomplete. `useStaticAssets('/uploads')` serves photos, CVs and payment proofs from a container filesystem that does not survive a Railway redeploy |
 | Dashboard unusable on a phone | 0 media queries, 843 inline style objects across 11 pages, a 240px sidebar duplicated in each, and an overlay telling sub-768px visitors to use a desktop. Cheapest large win: hoist the sidebar into a real `DashboardShell` |
-| Smaller defects | `createGoogleEmployer` creates a `User` but no `Employer` row · blanket 401 → logout masks real auth errors · `/dashboard/ratings` built but unlinked · pre-shift consequence reminder is policy but not scheduled in code |
+| Smaller defects | `createGoogleEmployer` creates a `User` but no `Employer` row · blanket 401 → logout masks real auth errors · `/dashboard/ratings` built but unlinked · pre-shift consequence reminder no longer in the policy (removed from v1.2 until built) |
+| ~~Needed before the legal documents go live~~ | 🟢 Built 2026-09-27 — terms acceptance with version + date, statements of reasons, nightly retention purge. Needs a test pass and one manual monthly step for the ops inbox: `docs/go-live-cleanup.md` section 15 |
+| **Email is not being sent** | 🔴 No SMTP configured — every email (accountant data, wage reminders, ops alerts) is logged and dropped. Setup with turnos.contact@gmail.com in `docs/go-live-cleanup.md` section 14. `GET /api/health` → `"mail"` shows the state |
 
 ### Capacity — measured 2026-09-13
 

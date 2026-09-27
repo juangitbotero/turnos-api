@@ -138,8 +138,8 @@ export default function WorkersPage() {
         <span style={s.footerTagline}>{t('home.footer.tagline')}</span>
         <div style={s.footerLinks}>
           <Link href="/" style={s.footerLink}>{t('home.nav.forCompanies')}</Link>
-          <a href="#" style={s.footerLink}>{t('home.footer.privacy')}</a>
-          <a href="#" style={s.footerLink}>{t('home.footer.terms')}</a>
+          <a href="/privacidade" style={s.footerLink}>{t('home.footer.privacy')}</a>
+          <a href="/termos" style={s.footerLink}>{t('home.footer.terms')}</a>
         </div>
       </footer>
     </div>

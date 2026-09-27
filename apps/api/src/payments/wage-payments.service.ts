@@ -331,7 +331,7 @@ export class WagePaymentsService {
     if (shortfall >= 0.01) {
       this.logger.warn(`[Wage] Shortfall €${shortfall} on ${wage.id} — worker under-paid`);
       this.mail.sendMail({
-        to: 'ops@turnos.pt',
+        to: this.mail.opsAddress,
         subject: `⚠️ Pay Link liquidou abaixo do salário — €${shortfall.toFixed(2)} em falta`,
         html: `<p>O trabalhador recebeu <strong>€${actual!.netEur.toFixed(2)}</strong> em vez de
                <strong>€${wageAmount.toFixed(2)}</strong> pelo turno <strong>${wage.shiftTitle}</strong>.</p>
@@ -520,7 +520,7 @@ export class WagePaymentsService {
     await this.wageRepo.save(wage);
 
     await this.mail.sendMail({
-      to: 'ops@turnos.pt',
+      to: this.mail.opsAddress,
       subject: `⚖️ Problema reportado no turno "${wage.shiftTitle}" — revisão necessária`,
       html: `<p>A empresa <strong>${employer.companyName}</strong> reportou um problema no turno
              <strong>${wage.shiftTitle}</strong> (${wage.shiftDate ?? '—'}).</p>
@@ -612,7 +612,7 @@ export class WagePaymentsService {
 
     // Internal flag — ops reviews non-payment disputes
     this.mail.sendMail({
-      to: 'ops@turnos.pt',
+      to: this.mail.opsAddress,
       subject: `🚩 Não-pagamento reportado — turno "${wage.shiftTitle}"`,
       html: `<p>O trabalhador reportou que <strong>não recebeu €${Number(wage.amount).toFixed(2)}</strong>
              pelo turno <strong>${wage.shiftTitle}</strong> (${wage.shiftDate ?? '—'}).</p>

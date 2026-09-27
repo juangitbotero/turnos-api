@@ -17,7 +17,7 @@ const APPROVED = {
   mobile: ['nav', 'login', 'verify', 'feed', 'profile',
     // Phase 1, approved 2026-08-05
     'calendar', 'schedule', 'myShifts', 'shiftDetail', 'editProfile',
-    'onboarding', 'earnings', 'scan', 'rate', 'reciboVerde'],
+    'onboarding', 'earnings', 'scan', 'rate'],
   admin: ['nav','chrome','mobileOverlay','home','workersSearch','workers','qrCodes','compliance','spending','billing','ratings','newShift','shifts'],
   // Phase 3, approved 2026-08-07
   home: ['nav','hero','heroCard','stats','howItWorks','features','trust','roadmap','cta','footer','login','register'],
@@ -44,7 +44,6 @@ const SECTION_TITLES = {
   earnings:    'mobile — earnings.tsx',
   scan:        'mobile — scan.tsx',
   rate:        'mobile — rate/[id].tsx',
-  reciboVerde: 'mobile — recibo-verde.tsx',
   },
 
   admin: {

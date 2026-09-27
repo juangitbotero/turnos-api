@@ -27,7 +27,6 @@
       "package": "com.turnos.app",
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.READ_CALENDAR",
@@ -40,7 +39,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-camera",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "A Turnos precisa da câmara para ler o QR code de check-in no local do turno.",
+          "recordAudioAndroid": false
+        }
+      ],
       "expo-secure-store",
       "expo-web-browser",
       [
@@ -52,7 +57,9 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Turnos needs location to verify you are at the shift location."
+          "locationWhenInUsePermission": "A Turnos usa a tua localização apenas no momento em que lês o QR code, para confirmar que estás no local do turno.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
         }
       ],
       [

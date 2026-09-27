@@ -18,6 +18,8 @@ import { Employer } from '../users/entities/employer.entity';
 import { Shift, ShiftStatus } from '../shifts/entities/shift.entity';
 import { User } from '../users/entities/user.entity';
 import { MailService } from '../mail/mail.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { restrictionNotice, statementToHtml } from '../users/restriction-notice';
 import { t } from '../i18n/request-language';
 import { notificationPrefsOf } from '../users/notification-prefs';
 import { BADGE_THRESHOLDS } from '@turnos/shared';
@@ -72,6 +74,8 @@ export class RatingsService {
     private readonly reminderQueue: Queue,
 
     private readonly mail: MailService,
+
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ── Submit rating ──────────────────────────────────────────────────────────
@@ -360,7 +364,34 @@ export class RatingsService {
     } else {
       offender.suspendedUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     }
+
+    // Statement of reasons (worker terms §11.2, DSA art. 17): stored on the
+    // worker and sent to them. Until 2026-09-27 a no-show suspended or
+    // blocked the account without telling the worker anything.
+    const notice = restrictionNotice(
+      offender.isBlocked ? 'NO_SHOW_BLOCK' : 'NO_SHOW_SUSPENSION',
+      {
+        shiftTitle:  shift.title,
+        shiftDate:   shift.date,
+        companyName: employer.companyName,
+        until:       offender.isBlocked ? null : offender.suspendedUntil,
+      },
+      offender.preferredLanguage,
+    );
+    offender.restrictionReason = notice.statement;
+    offender.restrictedAt      = new Date();
     await this.workerRepo.save(offender);
+
+    if (offender.expoPushToken) {
+      this.notifications.sendDirectPush(
+        [offender.expoPushToken], notice.pushTitle, notice.pushBody, { type: 'account_restricted' },
+      ).catch(() => {});
+    }
+    const offenderUser = await this.userRepo.findOne({ where: { workerProfile: { id: offender.id } } });
+    if (offenderUser?.email) {
+      this.mail.sendMail({ to: offenderUser.email, subject: notice.emailSubject, html: statementToHtml(notice.statement) })
+        .catch(() => {});
+    }
 
     // Automatic 1★ rating on the worker's profile, keyed on the employer under
     // the (shift, rater, direction) unique index — if the employer already
@@ -407,7 +438,7 @@ export class RatingsService {
     if (recentFlags >= BADGE_THRESHOLDS.NO_SHOW_REVIEW_THRESHOLD) {
       this.logger.warn(`[Ratings] Worker ${shift.assignedWorker.id} reached ${recentFlags} no-shows in 60 days — triggering admin review`);
       await this.mail.sendMail({
-        to: 'ops@turnos.pt',
+        to: this.mail.opsAddress,
         subject: `⚠️ Worker no-show review: ${shift.assignedWorker.fullName ?? shift.assignedWorker.id}`,
         html: `<p>O trabalhador <strong>${shift.assignedWorker.fullName ?? shift.assignedWorker.id}</strong>
                acumulou <strong>${recentFlags} faltas</strong> nos últimos 60 dias.</p>

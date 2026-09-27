@@ -39,6 +39,18 @@ export class User {
   })
   role: UserRole;
 
+  /**
+   * Which Terms of Use this user accepted, and when — `TERMS_VERSIONS[role]`
+   * at the time. A mismatch with the current version sends the user back to
+   * the acceptance screen. Both are kept (not a boolean) because acceptance
+   * has to be evidenced: what they agreed to, and on what date.
+   */
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  termsVersion?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  termsAcceptedAt?: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

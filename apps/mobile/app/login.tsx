@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, Alert, Pressable,
+  KeyboardAvoidingView, Platform, Alert, Pressable, Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -11,6 +11,7 @@ import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
 import { useT } from '../lib/i18n';
+import { TERMS_URL, PRIVACY_URL } from '../lib/links';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -216,9 +217,9 @@ export default function LoginScreen() {
         {/* Legal */}
         <Text style={s.legal}>
           {t('mobile.login.legalPrefix')}{' '}
-          <Text style={s.legalLink}>{t('mobile.login.legalTerms')}</Text>
+          <Text style={s.legalLink} onPress={() => Linking.openURL(TERMS_URL)}>{t('mobile.login.legalTerms')}</Text>
           {' '}{t('mobile.login.legalAnd')}{' '}
-          <Text style={s.legalLink}>{t('mobile.login.legalPrivacy')}</Text>
+          <Text style={s.legalLink} onPress={() => Linking.openURL(PRIVACY_URL)}>{t('mobile.login.legalPrivacy')}</Text>
           {' '}{t('mobile.login.legalSuffix')}
         </Text>
       </View>

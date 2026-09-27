@@ -22,6 +22,12 @@ export class HealthController {
        * indistinguishable except by which bug reproduced. Never again.
        */
       commit: (this.config.get<string>('RAILWAY_GIT_COMMIT_SHA') ?? 'unknown').slice(0, 7),
+      /**
+       * 'smtp' once MAIL_HOST + MAIL_USER are set; 'log-only' means every
+       * email — accountant data, wage reminders, ops alerts — is written to
+       * the log and never delivered. That state is silent from outside.
+       */
+      mail: this.config.get<string>('MAIL_HOST') && this.config.get<string>('MAIL_USER') ? 'smtp' : 'log-only',
       timestamp: new Date().toISOString(),
       uptime: Math.floor(process.uptime()),
     };

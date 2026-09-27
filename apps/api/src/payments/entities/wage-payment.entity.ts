@@ -80,6 +80,14 @@ export class WagePayment {
   @Column({ type: 'varchar', length: 200, nullable: true })
   paymentProofNote: string | null;   // Reason given when marking paid with no proof
 
+  /**
+   * Set by the nightly retention job when the proof file was deleted after the
+   * 24-month period the privacy policy states. Tells a later reader that the
+   * proof existed and was removed on purpose, not lost.
+   */
+  @Column({ type: 'timestamp', nullable: true })
+  paymentProofPurgedAt: Date | null;
+
   // ── Cancellation context ───────────────────────────────────────────────────
   @Column({ type: 'varchar', length: 40, nullable: true })
   cancellationReason: string | null; // Category selected by the employer at cancel time

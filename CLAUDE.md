@@ -25,7 +25,8 @@ docs/
   go-live-cleanup.md    Detail behind the launch blockers (SQL, greps, Railway vars)
   adr/                  Architecture Decision Records (all decisions locked)
   brand/                Design system and logo
-  legal/                Attorney briefs (Pay Link structure — unsigned)
+  legal/                Law-firm pack: brief-advogados.md (start here), draft terms
+                        for workers and companies, Pay Link brief — all unsigned
   competitive/          Competitor benchmarks
   faq-turnos.md         FAQ draft for site + app (59 Q, PT) — unpublished
 ```
@@ -215,6 +216,14 @@ Phases 1–3 of the ADR 007 pivot are in the codebase (see the ADR for the full 
   - **New native deps** — `expo-document-picker`, `expo-calendar` (+ `READ/WRITE_CALENDAR` and the calendar permission string in `app.json`): **CV upload and calendar sync need a new EAS preview build**; everything else runs on the current APK.
 - **€3 fee decision deferred (2026-07-14):** Juanes may replace the per-shift fee with quota-based tiers (N shifts included per plan) — decide after beta usage data; do NOT remove fee code; beta waiver flag is the likely first step
 - **Still pending (ops/config):** €45 Stripe price + `STRIPE_SUBSCRIPTION_PRICE_ID` update in Railway (Connect webhook + `STRIPE_CONNECT_WEBHOOK_SECRET` + `WEB_ADMIN_URL` done 2026-07-06); pre-shift consequence-reminder push (policy states it; not yet scheduled in code); mobile has 104 pre-existing tsc errors (LinearGradient/design-token typings — cosmetic, Metro unaffected)
+- **Legal coherence pass (2026-09-27)** — the company-registration law firm asked for Turnos's legal documents, so the old/new model mix was cleaned up. Everything the firm gets is in **`docs/legal/`**, starting with the one-page **`brief-advogados.md`**.
+  - **Recibo Verde + quarterly SS reminders removed** for every worker (API `recibo-verde` / `quarterly-ss` queues and processors, mobile `/recibo-verde` screen, earnings SS banner + SS Direta CTA, all i18n keys). They told employees to act as self-employed. Position now: the worker receives full gross and handles their own tax/SS; the company handles its employer duties; Turnos shows TSU **only as a labelled simulation** and never reminds, calculates or pays. `ComplianceEvent.RECIBO_VERDE_REMINDER_SENT` kept as a legacy enum value (append-only log has rows). Stale BullMQ keys for the two dead queues may sit in Redis — harmless, nothing consumes them. **The SS Direta email to the company's accountant is unchanged** — that is the company's duty, and what to send is a question for the lawyer.
+  - **Age 18+:** `Worker.dateOfBirth` (date, nullable), collected in the onboarding identity step and editable in edit-profile (DD/MM/AAAA masked input — no date-picker dependency). Shared `MIN_WORKER_AGE`, `ageOn()`, `parseBirthDateInput()`, `maskBirthDateInput()`, `formatBirthDateInput()`, `isRealIsoDate()`. Validated on write (`UsersService.applyDateOfBirth`) and **enforced against the shift date** in `apply()`, `workerConfirmShift()` and `inviteWorker()` (`ShiftsService.assertWorkerIsAdult`). Existing workers without a date are asked for it the first time they apply. Cleared on account deletion.
+  - **Worker PII leak to companies fixed:** `GET /shifts/:id/applications` returned the full `Worker` entity — NIF, IBAN (bypassing the sharing consent), `stripeAccountId`, declared income, reliability internals. Now `toApplicantWorker()` returns the same explicit field set as worker search; `approveApplication`, `inviteWorker` and `cancel` return the shift through the same mapper.
+  - **`app.json`:** location permission now **when-in-use only** (was "Always"), background location disabled, `RECORD_AUDIO` removed via `recordAudioAndroid: false` — so the privacy policy's "not tracked continuously" is true at the OS level. Needs a new EAS build, like the date-of-birth field.
+  - **Documents:** ADR 001 rewritten (company decides every term of the work; Turnos is not a party); privacy policy revised (date of birth, automated decisions + human review, health data in cancellation reasons, payment proofs, declared income, company-side data, full processor list, concrete retention, hosting region now a `[[REGIÃO DE ALOJAMENTO]]` placeholder rather than an unverified "EU" claim); cancellation policy **v1.2** (multi-day jobs, human review, and **removed four promises the code never kept**: pre-shift reminder push, late cancel blocking the RELIABLE badge, late cancel lowering notification priority, worker priority after a company cancels); first drafts of **`termos-trabalhadores.md`** and **`termos-empresas.md`** (+ Anexo A, art. 28.º RGPD); three FAQ answers corrected.
+  - **Legal gates, built the same day (2nd pass):** `TERMS_VERSIONS` + `User.termsVersion/termsAcceptedAt` + `POST /auth/terms/accept` (company checkbox at registration — API refuses without it; mobile `app/terms.tsx` after sign-in; dashboard `TermsGate` modal); provisional public pages `/termos` and `/termos-empresas` rendered by a shared `LegalDocPage` (text in each route's `content.ts`, PT only until final); **statements of reasons** — `users/restriction-notice.ts` writes `Worker.restrictionReason/restrictedAt` on late-cancel suspension and both no-show outcomes, sends push (`account_restricted` → profile) + email, profile shows a red banner (a no-show used to suspend/block without telling the worker anything); **retention** — `payments/retention.service.ts` nightly on the `wage-reminders` queue (proof files 24 months → `paymentProofPurgedAt`, company cancellation notes 6 months); worker justifications live only in the ops inbox → manual monthly deletion.
+  - **Email:** nothing has ever been sent — no SMTP configured, so `MailService` logs and drops everything. `SUPPORT_EMAIL = turnos.contact@gmail.com` in shared replaces the non-existent `suporte@turnos.pt` / `ops@turnos.pt`; `OPS_EMAIL` env var; `MAIL_FROM` defaults to `MAIL_USER`; `/api/health` reports `mail: smtp | log-only`. Gmail app-password setup in `docs/go-live-cleanup.md` §14.
 - **Parked by decision, not pending (2026-08-08):** attorney sign-off on the Pay Link brief (`docs/legal/pay-link-legal-brief.md`) — Juanes knows a law firm has to read and approve it; it is not happening on this stint and is **not** a tracked blocker. It keeps the two 🔵 FAQ answers held back, which is the intended state. Likewise **team members / multi-user companies: not being built** — one login per company is the product. Neither belongs in a "what's missing" list.
 
 ### Stint 8 — Phase 1 In Progress (as of 2026-06-09)
@@ -288,7 +297,7 @@ Phases 1–3 of the ADR 007 pivot are in the codebase (see the ADR for the full 
 - Local dev webhook: `stripe listen --api-key sk_test_... --forward-to localhost:3001/api/payments/webhook`; production uses Stripe Dashboard `whsec_`
 - Employer spending dashboard: `GET /payments/employer/spending?period=month|year` — KPI cards, per-shift table, CSV export, monthly bar chart
 - Worker earnings dashboard: `GET /payments/worker/earnings` — mobile `earnings.tsx` screen with period toggle, SS reminder banner in Mar/Jun/Sep/Dec
-- Quarterly SS reminder: BullMQ `quarterly-ss` queue, cron `0 9 1 3,6,9,12 *` — push to all ACTIVE workers
+- ~~Quarterly SS reminder~~ — **removed 2026-09-27** (see Stint 8, legal coherence pass)
 - Web-admin sidebar: `/dashboard/billing` and `/dashboard/spending` pages added
 - `"Ver Ganhos"` CTA added to mobile `profile.tsx` → navigates to `/earnings`
 - Stripe CLI skills installed: `stripe-best-practices`, `stripe-projects`, `upgrade-stripe`
@@ -304,7 +313,7 @@ Phases 1–3 of the ADR 007 pivot are in the codebase (see the ADR for the full 
 - Socket connect wired at `verify.tsx` OTP success; disconnect on logout (`profile.tsx`)
 - Web-admin `dashboard/layout.tsx` connects socket once for all dashboard routes
 - Foreground push handler in `_layout.tsx` — banner, sound, navigation on tap
-- Push tap routing: `new_shift` → `/shift/:id`, `recibo_verde` → `/recibo-verde`
+- Push tap routing: `new_shift` → `/shift/:id` (the `recibo_verde` route was removed 2026-09-27)
 
 **Stint 4 — Portugal Compliance Engine:**
 - MCD Contract auto-generated on shift approval (`onShiftApproved()`)
@@ -313,8 +322,7 @@ Phases 1–3 of the ADR 007 pivot are in the codebase (see the ADR for the full 
 - Economic dependency: 40% flag / 50% hard block per worker/employer pair
 - MCD 70-day annual limit hard block at application stage
 - Rest period 11h enforcement at application stage
-- Recibo Verde: BullMQ `recibo-verde` queue → Expo push reminders day+3 and day+5 post-checkout
-- Mobile `/recibo-verde` screen with pre-filled values + Portal das Finanças CTA
+- ~~Recibo Verde reminders + `/recibo-verde` screen~~ — **removed 2026-09-27**: they told employees on MCD contracts to issue self-employment invoices
 - `ComplianceAuditLog` immutable event trail (9 event types)
 - Web-admin `/dashboard/compliance` — TSU report, MCD contracts, ACT audit log tabs
 - **Adjusted from plan:** PDF generation + DocuSign deferred post-MVP; email-to-accountant is beta substitute
@@ -327,7 +335,7 @@ Phases 1–3 of the ADR 007 pivot are in the codebase (see the ADR for the full 
 - Shift → ACTIVE on check-in; COMPLETED on check-out; WebSocket push to both parties
 - Payment always calculated from `scheduledHours` (not scan timestamps)
 - Manual employer override (`manualConfirm`) with audit log
-- `onShiftCompleted()` wired to Recibo Verde BullMQ scheduler
+- ~~`onShiftCompleted()` wired to Recibo Verde BullMQ scheduler~~ — removed 2026-09-27
 
 ### Stint 2 — Complete (as of 2026-05-25)
 

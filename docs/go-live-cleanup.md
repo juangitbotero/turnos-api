@@ -9,6 +9,12 @@ these are load-bearing until the day they aren't.
 
 Ordered by **what happens if you forget it**, worst first.
 
+> **Status update 2026-09-27.** Items 2, 3, 5 and 6 are done (see
+> `docs/pre-flight.md`, which is the index). Three sections were added at the
+> end: **14 — email delivery** (nothing is being sent today), **15 — legal
+> gates** (terms acceptance, statements of reasons, retention) and
+> **16 — the law-firm pack**. Read those first; they are what is new.
+
 ---
 
 ## 🔴 Blockers — a real user is harmed or the platform is wide open
@@ -32,7 +38,7 @@ unset by accident.
 
 **Check:** `grep -rn "123456" apps/api/src/auth/`
 
-### 2. Demo seeding endpoint
+### 2. Demo seeding endpoint — 🟢 DONE 2026-09-23 (`001a99d`)
 
 - **Railway variable:** delete `DEMO_SEED_TOKEN` from the API service. With it
   unset every demo route 404s, so this alone closes the hole.
@@ -50,7 +56,7 @@ table names on failure. That is deliberate for a token-guarded debug endpoint
 and unacceptable on a public one — another reason to delete the module rather
 than just unset the variable.
 
-### 3. CORS open to every origin
+### 3. CORS open to every origin — 🟢 FIXED 2026-09-23 (`dbb95f3`)
 
 `apps/api/src/main.ts:22`
 
@@ -74,7 +80,14 @@ Swap for live keys, and re-point:
 The Connect webhook is easy to forget and its absence is silent: Pay Link
 payments simply never reconcile.
 
-### 5. Public shift search leaks every company's billing record
+### 5. Public shift search leaks every company's billing record — 🟢 FIXED 2026-09-23 (`dbb95f3`)
+
+> A second leak of the same kind was found and fixed on 2026-09-27: the
+> **applicant list** (`GET /shifts/:id/applications`) returned each worker's
+> full record — NIF, IBAN (ignoring their sharing consent), Stripe account id,
+> declared income — to every company they applied to. Now `toApplicantWorker()`
+> returns a fixed field set; `approveApplication`, `inviteWorker` and `cancel`
+> go through the same mapper.
 
 `GET /api/shifts/search` and `GET /api/shifts/:id` are public by design (Stint 2
 — workers browse before signing in). Both serialize the **full `employer`
@@ -118,7 +131,7 @@ should be a decision, not a leak.
 Delete in this order (children before parents), or use the demo endpoint for the
 first item while it still exists.
 
-### 6. Demo rows from the seeder
+### 6. Demo rows from the seeder — 🟢 DONE 2026-09-23 (demo worker's profile text still fiction, see item 7)
 
 Every row it wrote has an id starting `dede`. While `DEMO_SEED_TOKEN` is still
 set:
@@ -225,9 +238,9 @@ shift through publish → apply → approve → check-in → auto-complete and c
 
 ### 12. From `CLAUDE.md`
 
-- Attorney sign-off on the Pay Link structure (`docs/legal/pay-link-legal-brief.md`) — **still unsigned**
+- Attorney sign-off on the Pay Link structure (`docs/legal/pay-link-legal-brief.md`) — **still unsigned**; now part of the law-firm pack (section 16)
 - €45 Stripe price + `STRIPE_SUBSCRIPTION_PRICE_ID` in Railway
-- Pre-shift consequence-reminder push — policy states it, not scheduled in code
+- ~~Pre-shift consequence-reminder push~~ — removed from the policy (v1.2) until it is built
 - `createGoogleEmployer` creates a `User` but no `Employer` row
 - Frontend blanket 401 → logout masks real auth errors as "session expired"
 - Unused deps: `@reduxjs/toolkit`, `react-redux`, `react-query`, `expo-crypto`
@@ -245,6 +258,85 @@ Remove only if you want the dashboard to stay browser-only.
 
 ---
 
+## 🔴 14. Email delivery — nothing is being sent today
+
+Added 2026-09-27. **No outgoing email address has ever been connected.**
+`MailService` only sends when `MAIL_HOST` and `MAIL_USER` are set; without them
+every email is written to the log and dropped. That silently includes:
+
+- the hire data sent to each company's **accountant** for the Segurança Social
+  admission (`ss-direta` queue) — the company's legal duty depends on it;
+- the **unpaid-wage reminders** to companies (+8h / +24h / +48h / 72h block);
+- **ops alerts**: payment disputes, late-cancellation justifications, company
+  cancellation reviews, no-show reviews;
+- **suspension notices** to workers who gave an email (section 15);
+- company **email verification** at registration and the rating reminders.
+
+Until 2026-09-27 the ops alerts were also hard-coded to `ops@turnos.pt`, and
+the app told workers to write to `suporte@turnos.pt` — a domain Turnos does not
+have. Both now use **turnos.contact@gmail.com** (`SUPPORT_EMAIL` in
+`@turnos/shared`; `OPS_EMAIL` env var for alerts, defaulting to it).
+
+**To turn email on (beta — the Gmail account):**
+
+1. In the Google account turnos.contact@gmail.com: turn on 2-Step
+   Verification, then create an **App password** (Security → App passwords).
+   A normal Gmail password will not work over SMTP.
+2. Railway → API service → Variables:
+
+   | Variable | Value |
+   |---|---|
+   | `MAIL_HOST` | `smtp.gmail.com` |
+   | `MAIL_PORT` | `587` |
+   | `MAIL_USER` | `turnos.contact@gmail.com` |
+   | `MAIL_PASS` | the 16-character app password |
+   | `MAIL_FROM` | `Turnos <turnos.contact@gmail.com>` *(optional — this is the default)* |
+   | `OPS_EMAIL` | *(optional)* another inbox for internal alerts |
+
+3. Check `GET /api/health` → `"mail": "smtp"` (it says `"log-only"` until then).
+4. Register a test company with an email you can read and confirm the
+   verification email arrives.
+
+**Limits to know:** Gmail allows ~500 recipients/day and marks bulk mail from
+a personal account as suspicious. Fine for the Lisbon beta. Before launch, move
+to a transactional provider (Resend, Postmark, Brevo) on a domain Turnos owns
+(e.g. `turnos.pt`), with SPF/DKIM set — then only the Railway variables change.
+
+---
+
+## 🟠 15. Legal gates — built 2026-09-27, need a test pass
+
+Everything the new privacy policy and terms promise now exists in code. None
+of it has run against production data yet.
+
+| Promise | Where | Test it by |
+|---|---|---|
+| **Terms acceptance, with version + date** | `User.termsVersion` / `termsAcceptedAt`; `POST /auth/terms/accept`; `TERMS_VERSIONS` in shared. Companies tick a box at registration (API refuses without it); workers get `app/terms.tsx` after sign-in; existing companies get a blocking modal (`TermsGate`) in the dashboard | Sign in on the new APK → terms screen appears once, never again. Open the dashboard with an existing company → modal once |
+| **Statement of reasons on every restriction** | `users/restriction-notice.ts`; written to `Worker.restrictionReason`; push + email; red banner with "Porquê?" / "Pedir revisão" on the mobile profile | Report a no-show on a test shift → worker gets the push, profile shows the reason |
+| **Retention: payment proofs 24 months, cancellation notes 6 months** | `payments/retention.service.ts`, nightly 03:30 UTC on the `wage-reminders` queue | Nothing to see until 2028 — check the log line `[Retention] Nightly purge registered` after deploy |
+| **Worker justifications deleted after 6 months** | *Not in the database* — they only arrive by email to the ops inbox | **Manual, monthly:** in turnos.contact@gmail.com, search `subject:"Justificação de cancelamento tardio" older_than:6m` and delete, together with any attachments workers sent |
+| **18+** | `Worker.dateOfBirth`; checked on apply, accept and invite | Onboard with a birth date 17 years ago → refused |
+
+**Changing the terms later:** edit `apps/web-admin/app/termos*/content.ts` and
+the review copies in `docs/legal/`, then bump the date in `TERMS_VERSIONS`.
+Every user whose recorded version differs is asked to accept again — that is
+the whole mechanism, so never bump it for a typo.
+
+**Still placeholders on the public pages** (`/privacidade`, `/termos`,
+`/termos-empresas`): `[[RAZÃO SOCIAL]]`, `[[NIPC]]`, `[[MORADA]]` — fill once
+the company is registered — and `[[REGIÃO DE ALOJAMENTO]]` (Railway → project
+→ Settings → region). The contact email is filled.
+
+---
+
+## 16. The law-firm pack
+
+`docs/legal/pack-advogados/` — Word versions of everything the firm needs,
+brief first. The Markdown files in `docs/legal/` are the sources; regenerate
+the pack with `node scripts/legal-pack/build.js` after editing them.
+
+---
+
 ## Quick verification before launch
 
 ```bash
@@ -256,8 +348,16 @@ ls apps/api/src/demo/                                 # must not exist
 
 # item 5 — must return nothing (no billing fields on the public endpoint)
 curl -s "$API/api/shifts/search" | grep -o "stripeCustomerId\|accountantEmail"
+
+# item 14 — must say "smtp"
+curl -s "$API/api/health" | grep -o '"mail":"[a-z-]*"'
+
+# item 15 — no placeholder left on the public legal pages
+grep -rn "\[\[" apps/web-admin/app/privacidade apps/web-admin/app/termos apps/web-admin/app/termos-empresas
 ```
 
+Railway variables that must be **set** for email: `MAIL_HOST`, `MAIL_PORT`,
+`MAIL_USER`, `MAIL_PASS` (section 14).
 Railway variables that must be **gone**: `DEMO_SEED_TOKEN`, `BYPASS_SUBSCRIPTION`.
 Railway variables that must be **live-mode**: `STRIPE_SECRET_KEY`,
 `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`,

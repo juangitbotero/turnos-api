@@ -20,7 +20,8 @@ confirmation — pure support burden. For companies paying outside the Pay Link
 2. **Shifts auto-complete at exactly the scheduled end time.** A BullMQ job
    is scheduled at check-in; a 15-minute sweep completes any overdue ACTIVE
    shift as a safety net. Auto-completion runs the full former check-out
-   chain: €3 fee, WagePayment/Pay Link, Recibo Verde reminders, audit log
+   chain: €3 fee, WagePayment/Pay Link, audit log (Recibo Verde reminders were
+   part of this chain until they were removed on 2026-09-27 — see ADR 001)
    (`SHIFT_AUTO_COMPLETED`), WebSocket updates.
 3. **Two-way review prompts.** At completion: push to the worker ("Avalia a
    empresa") and review CTA in the employer's payment email. At **+8h**: a

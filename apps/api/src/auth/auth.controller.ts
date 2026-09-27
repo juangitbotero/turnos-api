@@ -50,6 +50,8 @@ export class AuthController {
     companyName: string; nipc: string; nif?: string; sector: string;
     address: string; postalCode: string; city: string;
     adminEmail: string; adminPassword: string;
+    /** Must be true — the company ticked "Aceito os Termos para Empresas" */
+    acceptTerms?: boolean;
   }) {
     const tokens = await this.authService.registerEmployer(body);
     return { message: 'Empresa registada. Verifique o seu email para ativar a conta.', ...tokens };
@@ -126,6 +128,7 @@ export class AuthController {
       skills: string[]; availableDays: string[];
       declaredExternalMonthlyIncome?: number;
       ibanShareConsent?: boolean;
+      dateOfBirth?: string;
     },
   ) {
     const result = await this.authService.updateWorkerProfile(req.user.userId, body);
@@ -156,6 +159,7 @@ export class AuthController {
       isAvailableForWork?: boolean;
       experiences?: WorkerExperience[];
       preferredLanguage?: string;
+      dateOfBirth?: string;
     },
   ) {
     const result = await this.authService.updateWorkerPartialProfile(req.user.userId, body);
@@ -229,6 +233,21 @@ export class AuthController {
   @Get('me')
   async getMe(@Request() req: { user: { userId: string; role: string } }) {
     return this.authService.getProfile(req.user.userId, req.user.role);
+  }
+
+  /**
+   * POST /auth/terms/accept — records acceptance of the Terms of Use version
+   * the client displayed. Used by the worker app (first sign-in and after
+   * any change) and by the dashboard when the company terms change.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('terms/accept')
+  @HttpCode(HttpStatus.OK)
+  async acceptTerms(
+    @Request() req: { user: { userId: string } },
+    @Body('version') version: string,
+  ) {
+    return this.authService.acceptTerms(req.user.userId, version);
   }
 
   // ─── Account deletion ─────────────────────────────────────────────────────

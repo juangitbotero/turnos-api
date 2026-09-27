@@ -107,6 +107,8 @@ export const authApi = {
     declaredExternalMonthlyIncome?: number;
     /** Consent to disclose name + IBAN to companies the worker did shifts for */
     ibanShareConsent?: boolean;
+    /** ISO 'YYYY-MM-DD' — Turnos is 18+, the server rejects anyone younger */
+    dateOfBirth?: string;
   }) =>
     api.post<{ profileQualityScore: number; status: string; missingItems: string[] }>(
       '/auth/worker/profile', dto,
@@ -148,6 +150,7 @@ export const authApi = {
   getMe: () => api.get<{
     userId: string; role: string;
     fullName?: string | null; photoUrl?: string | null;
+    dateOfBirth?: string | null;
     cvUrl?: string | null; cvFileName?: string | null;
     bio?: string | null; contactEmail?: string | null;
     skills?: string[]; languages?: string[]; availableDays?: string[];
@@ -158,7 +161,16 @@ export const authApi = {
     ibanShareConsent?: boolean;
     avgRating?: number | null; totalRatings?: number;
     noShowCount?: number; badges?: string[];
+    // Restrictions, with the statement of reasons on record
+    suspendedUntil?: string | null; isBlocked?: boolean;
+    restrictionReason?: string | null; restrictedAt?: string | null;
+    // Terms of Use — false until the current TERMS_VERSIONS.WORKER is accepted
+    termsVersion?: string | null; termsCurrentVersion?: string; termsCurrent?: boolean;
   }>('/auth/me'),
+
+  /** Record acceptance of the Terms of Use version the screen showed. */
+  acceptTerms: (version: string) =>
+    api.post<{ termsVersion: string; termsAcceptedAt: string }>('/auth/terms/accept', { version }),
 
   updateWorkerPartial: (dto: {
     fullName?: string;
@@ -176,6 +188,8 @@ export const authApi = {
     contactEmail?: string;
     /** Consent to disclose name + IBAN to companies the worker did shifts for */
     ibanShareConsent?: boolean;
+    /** ISO 'YYYY-MM-DD' */
+    dateOfBirth?: string;
   }) =>
     api.patch<{ profileQualityScore: number; message: string }>('/auth/worker/profile', dto),
 

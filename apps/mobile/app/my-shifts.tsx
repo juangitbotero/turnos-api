@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-  colors, spacing, radius, fontSize, fontWeight, PaymentMethod,
+  colors, spacing, radius, fontSize, fontWeight, PaymentMethod, SUPPORT_EMAIL,
 } from '@turnos/shared';
 import { shiftApi, ratingsApi, wagesApi, MyApplication, WagePayment, ApiError } from '../lib/api';
 import { getSocket, ShiftStatusChangedPayload, ShiftCancelledPayload } from '../lib/socket';
@@ -729,7 +729,7 @@ function ApplicationCard({
                 t('mobile.myShifts.seriesLockBody'),
                 [
                   { text: t('common.back'), style: 'cancel' },
-                  { text: t('mobile.myShifts.support'), onPress: () => Linking.openURL('mailto:suporte@turnos.pt') },
+                  { text: t('mobile.myShifts.support'), onPress: () => Linking.openURL(`mailto:${SUPPORT_EMAIL}`) },
                 ],
               )}
               activeOpacity={0.85}

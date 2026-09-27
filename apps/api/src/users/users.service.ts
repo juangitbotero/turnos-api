@@ -19,6 +19,10 @@ import {
   EXPERIENCE_LEVELS,
   APP_LANGUAGES,
   AppLanguage,
+  MIN_WORKER_AGE,
+  ageOn,
+  isRealIsoDate,
+  TERMS_VERSIONS,
 } from '@turnos/shared';
 
 @Injectable()
@@ -53,6 +57,24 @@ export class UsersService {
 
   findById(id: string): Promise<User | null> {
     return this.userRepo.findOne({ where: { id } });
+  }
+
+  /**
+   * Records that this user accepted the current Terms of Use for their role.
+   * The client sends the version it displayed; anything but the current one
+   * is refused, so a stale screen can never record consent to old text.
+   */
+  async recordTermsAcceptance(userId: string, version: string): Promise<{ termsVersion: string; termsAcceptedAt: Date }> {
+    const user = await this.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+    const current = user.role === 'EMPLOYER' ? TERMS_VERSIONS.EMPLOYER : TERMS_VERSIONS.WORKER;
+    if (version !== current) {
+      throw new BadRequestException(t('api.auth.termsOutdated'));
+    }
+    user.termsVersion    = current;
+    user.termsAcceptedAt = new Date();
+    await this.userRepo.save(user);
+    return { termsVersion: current, termsAcceptedAt: user.termsAcceptedAt };
   }
 
   findByGoogleId(googleId: string): Promise<User | null> {
@@ -207,6 +229,24 @@ export class UsersService {
     }
   }
 
+  /**
+   * Validates and stores a date of birth. Rejects impossible dates, future
+   * dates and anyone under MIN_WORKER_AGE today — the apply-time check then
+   * re-measures against the shift date. Undefined leaves the stored value alone.
+   */
+  private applyDateOfBirth(worker: Worker, dateOfBirth: string | undefined): void {
+    if (dateOfBirth === undefined) return;
+    const iso = dateOfBirth.slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    if (!isRealIsoDate(iso) || iso >= today || ageOn(iso, today) > 100) {
+      throw new BadRequestException(t('api.auth.birthDateInvalid'));
+    }
+    if (ageOn(iso, today) < MIN_WORKER_AGE) {
+      throw new BadRequestException(t('api.auth.underAge', { age: MIN_WORKER_AGE }));
+    }
+    worker.dateOfBirth = iso;
+  }
+
   async updateWorkerProfile(
     userId: string,
     dto: {
@@ -217,6 +257,7 @@ export class UsersService {
       availableDays: string[];
       declaredExternalMonthlyIncome?: number;
       ibanShareConsent?: boolean;
+      dateOfBirth?: string;
     },
   ): Promise<{ profileQualityScore: number; status: string; missingItems: string[] }> {
     const worker = await this.workerRepo.findOne({
@@ -231,6 +272,7 @@ export class UsersService {
     worker.skills        = normalizeSkills(dto.skills);
     worker.availableDays = dto.availableDays;
     this.applyIbanShareConsent(worker, dto.ibanShareConsent);
+    this.applyDateOfBirth(worker, dto.dateOfBirth);
     if (dto.declaredExternalMonthlyIncome !== undefined) {
       worker.declaredExternalMonthlyIncome = dto.declaredExternalMonthlyIncome;
     }
@@ -261,6 +303,7 @@ export class UsersService {
       isAvailableForWork?: boolean;
       experiences?: WorkerExperience[];
       preferredLanguage?: string;
+      dateOfBirth?: string;
     },
   ): Promise<{ profileQualityScore: number }> {
     const worker = await this.workerRepo.findOne({
@@ -311,6 +354,7 @@ export class UsersService {
     }
 
     this.applyIbanShareConsent(worker, dto.ibanShareConsent);
+    this.applyDateOfBirth(worker, dto.dateOfBirth);
 
     // Contact email — update on the linked User row
     if (dto.contactEmail !== undefined && worker.user) {
@@ -427,12 +471,16 @@ export class UsersService {
     city: string;
     emailVerificationToken: string;
   }): Promise<User> {
+    // Registration is refused without the terms checkbox (AuthService), so
+    // the account is born with its acceptance on record.
     const user = this.userRepo.create({
       email: dto.email,
       password: dto.password,
       role: 'EMPLOYER',
       emailVerified: false,
       emailVerificationToken: dto.emailVerificationToken,
+      termsVersion: TERMS_VERSIONS.EMPLOYER,
+      termsAcceptedAt: new Date(),
     });
     const savedUser = await this.userRepo.save(user);
 
@@ -548,6 +596,7 @@ export class UsersService {
     ]);
 
     worker.fullName           = undefined;
+    worker.dateOfBirth        = null;
     worker.nif                = undefined;
     worker.iban               = undefined;
     worker.ibanShareConsentAt = null;

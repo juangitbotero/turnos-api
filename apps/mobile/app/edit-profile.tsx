@@ -11,6 +11,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import {
   colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory,
   LANGUAGES, isValidIBAN, isValidNIF, STORED_WEEKDAYS,
+  MIN_WORKER_AGE, ageOn, maskBirthDateInput, parseBirthDateInput, formatBirthDateInput,
   JOB_TITLES, EXPERIENCE_LEVELS, ExperienceLevel, WorkerExperience,
 } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
@@ -232,6 +233,8 @@ export default function EditProfileScreen() {
   const [cvUrl, setCvUrl]                 = useState<string | null>(null);
   const [cvFileName, setCvFileName]       = useState<string | null>(null);
   const [uploadingCv, setUploadingCv]     = useState(false);
+  const [birthDate, setBirthDate]         = useState(''); // as typed: DD/MM/AAAA
+  const [birthDateError, setBirthDateError] = useState('');
   const [nif, setNif]                     = useState('');
   const [nifError, setNifError]           = useState('');
   const [iban, setIban]                   = useState('');
@@ -252,6 +255,7 @@ export default function EditProfileScreen() {
         [...new Set(arr.map(s => s.normalize('NFC')))];
 
       setFullName(data.fullName ?? '');
+      setBirthDate(formatBirthDateInput(data.dateOfBirth));
       setBio((data as any).bio ?? '');
       setSkills(normalise(data.skills ?? []));
       setLanguages(normalise((data as any).languages ?? []));
@@ -421,8 +425,23 @@ export default function EditProfileScreen() {
       }
       setIbanError('');
 
+      // Date of birth — optional to save, required to apply (18+)
+      const birthIso = birthDate ? parseBirthDateInput(birthDate) : null;
+      if (birthDate && !birthIso) {
+        setBirthDateError(t('mobile.editProfile.birthDateInvalid'));
+        setSaving(false);
+        return;
+      }
+      if (birthIso && ageOn(birthIso, new Date().toISOString().slice(0, 10)) < MIN_WORKER_AGE) {
+        setBirthDateError(t('mobile.editProfile.underAge'));
+        setSaving(false);
+        return;
+      }
+      setBirthDateError('');
+
       await authApi.updateWorkerPartial({
         fullName: fullName.trim(),
+        dateOfBirth: birthIso ?? undefined,
         bio: bio.trim(),
         skills,
         languages,
@@ -513,6 +532,25 @@ export default function EditProfileScreen() {
             autoCapitalize="words"
             returnKeyType="done"
           />
+        </View>
+
+        {/* ── Date of birth — required to apply (Turnos is 18+) ── */}
+        <View style={s.card}>
+          <View style={s.cardHeader}>
+            <Ionicons name="calendar-outline" size={16} color={colors.primary} />
+            <Text style={s.cardTitle}>{t('mobile.editProfile.birthDateTitle')}</Text>
+          </View>
+          <Text style={s.cardSub}>{t('mobile.editProfile.birthDateSub')}</Text>
+          <TextInput
+            style={[s.input, birthDateError ? s.inputError : {}]}
+            value={birthDate}
+            onChangeText={v => { setBirthDate(maskBirthDateInput(v)); setBirthDateError(''); }}
+            placeholder="DD/MM/AAAA"
+            placeholderTextColor={colors.textSecondary}
+            keyboardType="number-pad"
+            maxLength={10}
+          />
+          {birthDateError ? <Text style={s.errorText}>{birthDateError}</Text> : null}
         </View>
 
         {/* ── Bio / Introdução ── */}

@@ -194,8 +194,8 @@ export default function LandingPage() {
         <Logo height={20} />
         <span style={s.footerTagline}>{t('home.footer.tagline')}</span>
         <div style={s.footerLinks}>
-          <a href="#" style={s.footerLink}>{t('home.footer.privacy')}</a>
-          <a href="#" style={s.footerLink}>{t('home.footer.terms')}</a>
+          <a href="/privacidade" style={s.footerLink}>{t('home.footer.privacy')}</a>
+          <a href="/termos-empresas" style={s.footerLink}>{t('home.footer.terms')}</a>
           <Link href="/login"    style={s.footerLink}>{t('home.footer.login')}</Link>
           <Link href="/register" style={s.footerLink}>{t('home.footer.register')}</Link>
         </div>

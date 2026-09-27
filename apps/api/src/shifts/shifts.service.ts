@@ -11,7 +11,7 @@ import { Repository, In } from 'typeorm';
 import { randomUUID } from 'crypto';
 import {
   PAYMENT_METHOD_LABELS, COMPANY_CANCEL_REASONS, WORKER_CANCEL_REASONS,
-  MAX_SERIES_DAYS,
+  MAX_SERIES_DAYS, MIN_WORKER_AGE, ageOn,
 } from '@turnos/shared';
 import { Shift, ShiftStatus } from './entities/shift.entity';
 import { ShiftApplication, ApplicationStatus } from './entities/shift-application.entity';
@@ -25,6 +25,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { WagePaymentsService } from '../payments/wage-payments.service';
 import { MailService } from '../mail/mail.service';
 import { t, tNumericDate } from '../i18n/request-language';
+import { restrictionNotice, statementToHtml } from '../users/restriction-notice';
 
 // 5 hours in milliseconds — delay before re-notification job fires
 const RE_NOTIFY_DELAY_MS = 5 * 60 * 60 * 1000;
@@ -292,7 +293,7 @@ export class ShiftsService {
     userId: string,
     shiftId: string,
     reason?: { category?: string; note?: string },
-  ): Promise<Shift & { cancellationConsequence?: string }> {
+  ) {
     const employer = await this.resolveEmployer(userId);
     const shift = await this.shiftRepo.findOne({
       where: { id: shiftId },
@@ -349,7 +350,7 @@ export class ShiftsService {
         } else {
           // Justified exemption — ops reviews within 48h; no payment generated now
           this.mail.sendMail({
-            to: 'ops@turnos.pt',
+            to: this.mail.opsAddress,
             subject: `⚖️ Cancelamento <3h justificado — revisão necessária: ${shift.title}`,
             html: `<p>A empresa <strong>${employer.companyName}</strong> cancelou o turno
                    <strong>${shift.title}</strong> (${shift.date}) a menos de 3h do início.</p>
@@ -405,22 +406,65 @@ export class ShiftsService {
       });
     }
 
-    return cancellationConsequence ? { ...saved, cancellationConsequence } : saved;
+    const view = { ...saved, assignedWorker: this.toApplicantWorker(saved.assignedWorker) };
+    return cancellationConsequence ? { ...view, cancellationConsequence } : view;
   }
 
-  async getApplications(userId: string, shiftId: string): Promise<ShiftApplication[]> {
+  async getApplications(userId: string, shiftId: string) {
     const employer = await this.resolveEmployer(userId);
     const shift = await this.shiftRepo.findOne({ where: { id: shiftId }, relations: ['employer'] });
     if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
-    return this.applicationRepo.find({
+    const applications = await this.applicationRepo.find({
       where: { shift: { id: shiftId } },
       relations: ['worker'],
       order: { appliedAt: 'DESC' },
     });
+    return applications.map(app => ({ ...app, worker: this.toApplicantWorker(app.worker) }));
   }
 
-  async approveApplication(userId: string, shiftId: string, applicationId: string): Promise<Shift> {
+  /**
+   * What a company may see about someone who applied to its shift — the same
+   * fields as worker search, field by field. Returning the entity instead sent
+   * NIF, IBAN (ignoring the worker's sharing consent), Stripe account id, date
+   * of birth, declared income and the reliability internals to every company
+   * a worker applied to. The IBAN reaches a company only through
+   * WagePaymentsService.getEmployerPending, and only with recorded consent.
+   */
+  private toApplicantWorker(worker: Worker | null | undefined) {
+    if (!worker) return null;
+    return {
+      id:                  worker.id,
+      fullName:            worker.fullName ?? null,
+      photoUrl:            worker.photoUrl ?? null,
+      bio:                 worker.bio ?? null,
+      cvUrl:               worker.cvUrl ?? null,
+      cvFileName:          worker.cvFileName ?? null,
+      skills:              worker.skills ?? null,
+      languages:           worker.languages ?? null,
+      isAvailableForWork:  worker.isAvailableForWork,
+      availableDays:       worker.availableDays ?? null,
+      experiences:         worker.experiences ?? null,
+      status:              worker.status,
+      profileQualityScore: worker.profileQualityScore,
+      avgRating:           worker.avgRating,
+      totalRatings:        worker.totalRatings,
+      noShowCount:         worker.noShowCount,
+      badges:              worker.badges ?? [],
+    };
+  }
+
+  /** The shift as returned to its company — the assigned worker trimmed to what a company may see. */
+  private async employerShiftView(shiftId: string) {
+    const shift = await this.shiftRepo.findOne({
+      where: { id: shiftId },
+      relations: ['employer', 'assignedWorker'],
+    });
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
+    return { ...shift, assignedWorker: this.toApplicantWorker(shift.assignedWorker) };
+  }
+
+  async approveApplication(userId: string, shiftId: string, applicationId: string) {
     const employer = await this.resolveEmployer(userId);
     const shift = await this.shiftRepo.findOne({ where: { id: shiftId }, relations: ['employer'] });
     if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
@@ -481,10 +525,7 @@ export class ShiftsService {
       { delay: 2 * 60 * 60 * 1000 },
     );
 
-    return this.shiftRepo.findOne({
-      where: { id: shiftId },
-      relations: ['employer', 'assignedWorker'],
-    }) as Promise<Shift>;
+    return this.employerShiftView(shiftId);
   }
 
   // ── Worker confirms or declines pre-selection ─────────────────────────────
@@ -500,6 +541,8 @@ export class ShiftsService {
     if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.assignedWorker?.id !== worker.id) throw new UnauthorizedException('Not your shift');
     if (shift.status !== ShiftStatus.PENDING_ACCEPTANCE) throw new BadRequestException('Shift is not awaiting your confirmation');
+    // A direct invite skips apply(), so this is the first age check it meets
+    this.assertWorkerIsAdult(worker, shift.date, 'worker');
 
     // Confirming accepts the whole job — every day of the series at once
     const days = (await this.seriesShifts(shift))
@@ -604,7 +647,8 @@ export class ShiftsService {
     message: string;
     lateStrike: boolean;
   }> {
-    const worker = await this.workerRepo.findOne({ where: { user: { id: workerUserId } } });
+    // `user` for the email address a suspension notice goes to
+    const worker = await this.workerRepo.findOne({ where: { user: { id: workerUserId } }, relations: ['user'] });
     if (!worker) throw new UnauthorizedException('Worker not found');
 
     const shift = await this.shiftRepo.findOne({
@@ -652,23 +696,36 @@ export class ShiftsService {
       strikes.push(now.toISOString());
       worker.lateCancellations = strikes;
 
+      let notice: ReturnType<typeof restrictionNotice> | null = null;
       if (strikes.length >= 2) {
         worker.suspendedUntil = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        notice = restrictionNotice('LATE_CANCEL_SUSPENSION', {
+          shiftTitle:      shift.title,
+          shiftDate:       firstDay.date,
+          companyName:     shift.employer?.companyName,
+          until:           worker.suspendedUntil,
+          lateCancelDates: strikes,
+        }, worker.preferredLanguage);
+        worker.restrictionReason = notice.statement;
+        worker.restrictedAt      = now;
       }
       await this.workerRepo.save(worker);
+      if (notice) this.sendRestrictionNotice(worker, notice);
 
       // Justification (doença/lesão/emergência) → ops review; if accepted,
       // the strike is removed manually (48h SLA per policy v1.1)
       const category = justification?.category;
       if (category && Object.keys(WORKER_CANCEL_REASONS).includes(category)) {
         this.mail.sendMail({
-          to: 'ops@turnos.pt',
+          to: this.mail.opsAddress,
           subject: `⚖️ Justificação de cancelamento tardio — ${worker.fullName ?? worker.id}`,
           html: `<p>O trabalhador <strong>${worker.fullName ?? worker.id}</strong> cancelou o turno
                  <strong>${shift.title}</strong> (${shift.date}) a menos de 24h do início.</p>
                  <p>Motivo: <strong>${WORKER_CANCEL_REASONS[category as keyof typeof WORKER_CANCEL_REASONS]}</strong></p>
                  ${justification?.note ? `<p>Descrição: ${justification.note}</p>` : ''}
-                 <p>Se aceite, remover o strike (worker ${worker.id}, registado ${now.toISOString()}).</p>`,
+                 <p>Se aceite, remover o strike (worker ${worker.id}, registado ${now.toISOString()}).</p>
+                 <p><em>Pode conter dados de saúde. Apagar este email, e qualquer comprovativo recebido,
+                 6 meses após a decisão (Política de Privacidade, secção 8).</em></p>`,
         }).catch(() => {});
       }
     }
@@ -795,6 +852,8 @@ export class ShiftsService {
         t('api.shifts.accountSuspended', { date: tNumericDate(worker.suspendedUntil) }),
       );
     }
+
+    this.assertWorkerIsAdult(worker, shift.date, 'worker');
 
     // Profile gate — worker must have 80%+ profile to apply
     if (worker.profileQualityScore < 80) {
@@ -943,9 +1002,46 @@ export class ShiftsService {
     return [...workerMap.values()];
   }
 
+  /**
+   * Tells the worker why they were restricted: push always, email when they
+   * gave one. Fire-and-forget — the restriction is already saved, and the
+   * statement stays readable in the app even if both deliveries fail.
+   */
+  private sendRestrictionNotice(worker: Worker, notice: ReturnType<typeof restrictionNotice>): void {
+    if (worker.expoPushToken) {
+      this.notifications.sendDirectPush(
+        [worker.expoPushToken], notice.pushTitle, notice.pushBody, { type: 'account_restricted' },
+      ).catch(() => {});
+    }
+    const email = worker.user?.email;
+    if (email) {
+      this.mail.sendMail({ to: email, subject: notice.emailSubject, html: statementToHtml(notice.statement) })
+        .catch(() => {});
+    }
+  }
+
+  /**
+   * Turnos is 18+ (privacy policy §11, terms). Measured on the shift date, so
+   * someone turning 18 next month can sign up now but not work until then.
+   * `audience` picks the wording: the worker is told to add their date of
+   * birth; a company inviting them is told the worker isn't eligible yet.
+   */
+  private assertWorkerIsAdult(worker: Worker, shiftDate: string, audience: 'worker' | 'employer'): void {
+    if (!worker.dateOfBirth) {
+      throw new BadRequestException(
+        t(audience === 'worker' ? 'api.shifts.birthDateRequired' : 'api.shifts.workerBirthDateMissing'),
+      );
+    }
+    if (ageOn(worker.dateOfBirth, shiftDate) < MIN_WORKER_AGE) {
+      throw new BadRequestException(
+        t(audience === 'worker' ? 'api.shifts.underAge' : 'api.shifts.workerUnderAge', { age: MIN_WORKER_AGE }),
+      );
+    }
+  }
+
   // ── Employer directly invites a worker ────────────────────────────────────
 
-  async inviteWorker(employerUserId: string, shiftId: string, workerId: string): Promise<Shift> {
+  async inviteWorker(employerUserId: string, shiftId: string, workerId: string) {
     const employer = await this.resolveEmployer(employerUserId);
     const shift = await this.shiftRepo.findOne({
       where: { id: shiftId },
@@ -962,6 +1058,7 @@ export class ShiftsService {
       relations: ['user'],
     });
     if (!worker) throw new NotFoundException('Worker not found');
+    this.assertWorkerIsAdult(worker, shift.date, 'employer');
 
     // Create or reuse an application for this worker on this shift
     let application = await this.applicationRepo.findOne({
@@ -1011,10 +1108,7 @@ export class ShiftsService {
       { delay: 2 * 60 * 60 * 1000 },
     );
 
-    return this.shiftRepo.findOne({
-      where: { id: shiftId },
-      relations: ['employer', 'assignedWorker'],
-    }) as Promise<Shift>;
+    return this.employerShiftView(shiftId);
   }
 
   // ── Public worker search (for employers browsing talent) ──────────────────
