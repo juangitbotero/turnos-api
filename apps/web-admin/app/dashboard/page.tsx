@@ -51,7 +51,7 @@ export default function DashboardPage() {
       href: '/dashboard/shifts',
     },
     {
-      Icon: IconBolt, label: t('admin.home.kpiAwaiting'), color: '#d97706',
+      Icon: IconBolt, label: t('admin.home.kpiAwaiting'), color: 'var(--color-primary)',
       value: String(pendingApproval.length),
       sub: pendingApproval.length === 0
         ? t('admin.home.kpiAwaitingNone')
@@ -59,7 +59,7 @@ export default function DashboardPage() {
       href: '/dashboard/shifts',
     },
     {
-      Icon: IconUsers, label: t('admin.home.kpiApplicants'), color: 'var(--color-success)',
+      Icon: IconUsers, label: t('admin.home.kpiApplicants'), color: 'var(--color-primary)',
       value: String(openShifts.length),
       sub: openShifts.length === 0
         ? t('admin.home.kpiApplicantsNone')
@@ -67,7 +67,7 @@ export default function DashboardPage() {
       href: '/dashboard/shifts',
     },
     {
-      Icon: IconAlert, label: t('admin.home.kpiExpired'), color: '#ef4444',
+      Icon: IconAlert, label: t('admin.home.kpiExpired'), color: 'var(--color-primary)',
       value: String(expiredShifts.length),
       sub: expiredShifts.length === 0
         ? t('admin.home.kpiExpiredNone')
@@ -151,7 +151,7 @@ export default function DashboardPage() {
           {kpiCards.map(({ Icon, label, value, sub, color, href }) => (
             <Link key={label} href={href} style={{ textDecoration: 'none' }}>
               <div style={s.kpiCard}>
-                <div style={{ ...s.kpiIcon, background: `${color}18`, color }}><Icon size={19} /></div>
+                <div style={{ ...s.kpiIcon, color }}><Icon size={19} /></div>
                 <div>
                   <div style={s.kpiValue}>{value}</div>
                   <div style={s.kpiLabel}>{label}</div>
