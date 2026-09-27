@@ -332,8 +332,14 @@ the company is registered — and `[[REGIÃO DE ALOJAMENTO]]` (Railway → proje
 ## 16. The law-firm pack
 
 `docs/legal/pack-advogados/` — Word versions of everything the firm needs,
-brief first. The Markdown files in `docs/legal/` are the sources; regenerate
-the pack with `node scripts/legal-pack/build.js` after editing them.
+brief first (`00 - Nota para os advogados.docx`), then 01–05. The Markdown
+files in `docs/legal/` and `docs/policies/`, and the privacy page's
+`content.ts`, are the sources — never edit the .docx. Regenerate after any
+change:
+
+```bash
+cd scripts/legal-pack && npm install && npm run build
+```
 
 ---
 

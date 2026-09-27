@@ -1,6 +1,6 @@
 # Turnos — Nota para a sociedade de advogados
 
-**27 de setembro de 2026** · Juanes Botero, fundador · juanebotero@gmail.com
+**27 de setembro de 2026** · Juanes Botero, fundador · turnos.contact@gmail.com
 
 ## O que é a Turnos
 
@@ -15,13 +15,17 @@ nem agência de colocação.**
 
 ## Documentos anexos
 
-| Documento | Estado |
-|---|---|
-| `termos-trabalhadores.md` — Termos de Utilização, Trabalhadores | 1.ª versão, para redigir/validar |
-| `termos-empresas.md` — Termos para Empresas + Anexo A (art. 28.º RGPD) | 1.ª versão, para redigir/validar |
-| Política de Privacidade (`/privacidade`, PT + EN) | Revista a 27/09, para validar |
-| `cancellation-and-noshow-policy.md` — Política de Cancelamento e Faltas v1.2 | Para validar |
-| `pay-link-legal-brief.md` — Estrutura do Pay Link v2 | Perguntas próprias (1–8) |
+| Ficheiro | Documento | Estado |
+|---|---|---|
+| 01 | Termos de Utilização — Trabalhadores | 1.ª versão, para redigir/validar |
+| 02 | Termos de Utilização — Empresas + Anexo A (art. 28.º RGPD) | 1.ª versão, para redigir/validar |
+| 03 | Política de Privacidade | Revista a 27/09, para validar |
+| 04 | Política de Cancelamento e Faltas v1.2 | Para validar |
+| 05 | Turnos Pay Link — Brief Jurídico v2 | Perguntas próprias (1–8) |
+
+Os termos e a política de privacidade estão publicados como versão provisória
+em `/termos`, `/termos-empresas` e `/privacidade`. As notas ⚖️ nos ficheiros 01
+e 02 são perguntas nossas sobre a redação de cada cláusula.
 
 ## Perguntas, por prioridade
 

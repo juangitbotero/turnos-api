@@ -1,0 +1,7 @@
+{
+  "name": "legal-pack",
+  "private": true,
+  "description": "Builds the Word pack for the law firm from docs/legal and the web legal pages",
+  "scripts": { "build": "node build.js" },
+  "dependencies": { "docx": "^9.5.0" }
+}
