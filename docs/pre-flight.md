@@ -19,6 +19,40 @@ Last full reconciliation with the runbook and the live API: **2026-10-05**.
 Re-check before acting — some of these are load-bearing until the day they
 aren't.
 
+## Next session — start here
+
+1. **Look & feel fixes** Juanes noted during the 2026-10-05 end-to-end run —
+   he brings the list (Track 3, "Look & feel from the E2E").
+2. **Next EAS preview build** — three app changes are waiting for it (Track 2,
+   "New EAS build needed"): visible "✓ Recebi / Não recebi" buttons (to build),
+   completed-shifts count and "Taxa de conclusão" label (done).
+3. Pick from what is left and needs no external account: `synchronize` →
+   migrations, the undefined-id audit (Track 3, ratings row), the
+   `DashboardShell` for phones, R2 uploads (needs a Cloudflare key).
+
+**Blocked on outside events, not on code:** Twilio (#1) and live Stripe (#5)
+wait for the company's NIPC; the Pay Link end-to-end run waits for Stripe; the
+legal copy waits for the law firm.
+
+## Session log — 2026-10-05
+
+First production end-to-end run, plus the launch-blocker work around it.
+**Closed:** rate limiting (#6 — two proxy hops, 429s verified), email (#7 —
+Railway blocks SMTP, moved to Brevo's HTTPS API, first real email delivered).
+**Decided:** Turnos stops emailing the company's accountant — the company
+exports hire data from the new "Contratações" page (terms v0.2 without
+Annex A, law-firm pack regenerated); Twilio waits for the NIPC (OTP gate
+parked on branch `otp-prod-gate`); docs restructured (this file is the only
+tracker, go-live-cleanup is the runbook).
+**Bugs the run found, all fixed and deployed:** shift times read as UTC
+(every time an hour late), manual "Concluído" skipped the payment/fee/review
+chain, every ratings endpoint used the wrong user, completion rate never
+computed, contracts list leaked the full worker record, verification link
+404'd, no way to resend verification, `MAIL_USER` set an unverified sender.
+**Added:** bilingual PT + EN company emails, resend-verification card,
+completed-shifts count, RELIABLE badge on 20 completed shifts, "Contratações"
+in the menu.
+
 ---
 
 ## Track 1 — Launch blockers
@@ -289,15 +323,16 @@ false` is already set, which also clears export compliance.
 
 | Item | Detail |
 |---|---|
-| **No shift has ever completed in production** | `wage_payments` did not exist as a table until 2026-08-07. Publish → apply → approve → check-in → auto-complete → wage row → Pay Link has never run once. Highest-value thing to do; costs an afternoon |
+| First end-to-end run | 🟢 **Ran 2026-10-05** (Carolina Bakes + worker on the emulator, payment method Transferência): company terms gate → publish → apply (18+ check passed) → approve → worker accepts → "Dados SS" / Contratações → manual "Concluído" → wage payment row + payment-due email → "Marcar como pago" with proof → worker sees proof → ratings both ways → completion count. Found 6 bugs, all fixed (Session log). **Not covered, still to run:** the **QR scan** (emulator has no camera — Android Studio VirtualScene can show the QR image), hence the geofence, the corrected Lisbon check-in window and the **automatic completion at the scheduled end**; and the **Pay Link** path, which needs Stripe (#5) — rerun the whole flow with a Pay Link shift once Stripe is set up |
+| **Look & feel from the E2E** | Juanes noted several visual / UX issues during the run — list them here at the start of the next session and fix |
 | `synchronize: true` | `app.module.ts:86` rewrites the production schema from entities on every boot. Generate migrations before the first real payroll. Keep `autoLoadEntities` — it prevents the silently-unregistered-entity bug that killed the Pay Link flow once |
-| `BYPASS_SUBSCRIPTION` | `payments.service.ts:205` returns early, which also skips the overdue-wage block. Delete the Railway variable (after the first end-to-end run — the test company relies on it); consider gating the code on `NODE_ENV !== 'production'` |
+| `BYPASS_SUBSCRIPTION` | `payments.service.ts:205` returns early, which also skips the overdue-wage block. Delete the Railway variable after the Pay Link end-to-end run (the test company publishes through it; the transferência run was done 2026-10-05); consider gating the code on `NODE_ENV !== 'production'` |
 | **Test accounts** | Worker `+33767560422` (Juanes) and employer Carolina Bakes are real rows, not demo rows — no cleanup touches them. Decide per account: keep as internal test data or delete. The worker's bio, skills, languages and experiences are still seeder fiction — rewrite them if the account stays |
 | ~~`apps/api/.env` baked into the image~~ | 🟢 Not possible — `.env` is not in git and Railway builds from git (checked 2026-10-05). An image built locally *would* include it: the Dockerfile copies `apps/api/` and the only `.dockerignore` sits in `apps/api/`, outside the build context root |
 | Uploads on local disk | R2 is decided, wiring incomplete. `useStaticAssets('/uploads')` serves photos, CVs and payment proofs from a container filesystem that does not survive a Railway redeploy |
 | Dashboard unusable on a phone | 0 media queries, 843 inline style objects across 11 pages, a 240px sidebar duplicated in each, and an overlay telling sub-768px visitors to use a desktop. Cheapest large win: hoist the sidebar into a real `DashboardShell` |
 | Smaller defects | `createGoogleEmployer` creates a `User` but no `Employer` row · blanket 401 → logout masks real auth errors · `/dashboard/ratings` built but unlinked · pre-shift consequence reminder no longer in the policy (removed from v1.2 until built) · unused deps: `@reduxjs/toolkit`, `react-redux`, `react-query`, `expo-crypto` (mobile), `@stripe/react-stripe-js`, `@stripe/stripe-js` (web-admin) · mobile `tsc` noise (`TS2786`/`TS2339`, LinearGradient + design-token typings — Metro unaffected) |
-| **Legal gates — test pass** | 🟠 Built 2026-09-27 — terms acceptance with version + date, statements of reasons, nightly retention purge, 18+. None has run against production yet; fold into the end-to-end run. How: runbook §8 |
+| **Legal gates — test pass** | 🟠 Built 2026-09-27. **Tested 2026-10-05:** company terms modal after the version bump (accepted), 18+ check on apply (passed with a date of birth set). **Still untested:** worker terms screen on a fresh sign-in, statements of reasons (needs a reported no-show on a test shift), retention log line `[Retention] Nightly purge registered` in the Railway logs. How: runbook §8 |
 | ~~Email is not being sent~~ | Promoted to Track 1, blocker #7 |
 | ~~Shift times read as UTC~~ | 🟢 Fixed 2026-10-05, found preparing the first end-to-end run. The API runs in UTC on Railway and built shift instants with `new Date(\`${date}T${time}\`)`, so every Lisbon wall-clock time was an hour late in summer: check-in window, auto-completion, 11h rest check, company/worker cancellation thresholds, check-in "today" after 23:00. Now `common/lisbon-time.ts` (`lisbonDateTime`, `lisbonDate`, DST-tested); API messages format in Lisbon time. Not fixed via `TZ` — that would change how `pg` reads existing `timestamp` columns |
 | **Law firm has the v0.1 pack** | The accountant email and Annex A were removed on 2026-10-05 (Track 1, #7 notes). Send the regenerated pack, pointing at the "Alteração de 5 de outubro" box at the top of the brief |
