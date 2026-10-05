@@ -34,7 +34,7 @@ Five found on 2026-09-09; **three closed on 2026-09-23**. A sixth was found on
 | 3 | Demo seeding endpoint deployed | `apps/api/src/demo/` + `DEMO_SEED_TOKEN` | 🟢 **Done `001a99d`** — code deleted, rows cleaned, variable unset |
 | 4 | CORS open to every origin | `apps/api/src/main.ts` | 🟢 **Fixed `dbb95f3`** |
 | 5 | Stripe still in test mode | Railway variables | 🔴 Live |
-| 6 | **Rate limiting does not enforce** | `app.module.ts:45` ThrottlerModule | 🔴 Live — verified 2026-09-23 |
+| 6 | Rate limiting did not enforce | `main.ts` `trust proxy` | 🟢 **Fixed `d1501ca`** (2026-10-05) — 429s verified on prod |
 
 **1 — Mock OTP.** Activates whenever Twilio credentials are absent or still
 `replace_me`. Setting the Twilio variables is *not* sufficient — if one is ever
@@ -118,7 +118,23 @@ returns 200.
 webhook is the one that gets forgotten and its absence is silent — Pay Link
 payments simply never reconcile.
 
-**6 — Rate limiting does not enforce. Found 2026-09-13, re-verified 2026-09-23.**
+**6 — Rate limiting. FIXED 2026-10-05 (`d1501ca`).**
+
+Cause: the throttler keys on `req.ip`, and with `trust proxy` unset that was
+the Railway proxy that forwarded the request — a different one almost every
+time, so every request got a fresh bucket (`X-RateLimit-Remaining` stuck at
+59/58). The chain, read off production with a temporary echo route: client →
+Railway edge (appends itself to `X-Forwarded-For`) → internal proxy (the
+socket) → app. **Two hops**, so `app.set('trust proxy', 2)`; one hop still
+keyed on the rotating edge node. The edge discards client-sent
+`X-Forwarded-For` and overwrites `X-Real-IP`, so this is not spoofable.
+Override with `TRUST_PROXY_HOPS` if Railway's topology changes.
+
+Verified after deploy: sequential requests share one counter, a spoofed
+`X-Forwarded-For` does not escape it, and a 70-request burst returned 51 × 200
++ 19 × 429. The original finding is kept below for the record.
+
+*Found 2026-09-13, re-verified 2026-09-23:*
 
 `ThrottlerModule` is configured at 60 req/min and `ThrottlerGuard` is registered
 globally as an `APP_GUARD`, but it does not limit anything. Measured twice
@@ -137,7 +153,7 @@ Leading hypothesis, unconfirmed: Express sits behind Railway's edge proxy with
 value for every caller. That should make the limit *stricter*, not absent, so
 the hypothesis is incomplete. Reproduce locally before fixing.
 
-**Fix this before Twilio, not after.**
+~~**Fix this before Twilio, not after.**~~ Done — Twilio is unblocked.
 
 ---
 
