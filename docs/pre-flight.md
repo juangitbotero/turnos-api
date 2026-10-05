@@ -40,6 +40,18 @@ Five found on 2026-09-09; **three closed on 2026-09-23**. A sixth was found on
 `replace_me`. Setting the Twilio variables is *not* sufficient — if one is ever
 unset by accident the bypass returns.
 
+**Decision 2026-10-05: waiting on company registration.** Twilio's trial
+cannot create a Verify service (the code uses Verify) — it needs an upgrade
+with tax details, and Juanes is waiting until Turnos has its own NIPC rather
+than putting the account under a personal NIF. Until then: **no real worker
+data in production** — with the mock live, anyone can sign in as any number.
+The fix is ready on branch **`otp-prod-gate`** (`68f70cf`): mock disabled in
+production, fails closed with 503 if any Twilio variable is missing (before,
+a missing `TWILIO_VERIFY_SERVICE_SID` alone re-enabled the mock). To close:
+upgrade Twilio → create a Verify service → enable PT + FR in Geo permissions →
+set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` →
+test a real SMS sign-in → merge the branch.
+
 ⚠️ **Do not remove the mock until Twilio is actually signed up.** With no Twilio
 credentials it is the *only* way anyone can sign in — deleting it first locks
 out you, every tester and any demo in progress. That is why this blocker is
