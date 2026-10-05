@@ -10,6 +10,7 @@ import { Shift, ShiftStatus } from '../shifts/entities/shift.entity';
 import { Worker } from '../users/entities/worker.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { t, tDateTime } from '../i18n/request-language';
+import { lisbonDateTime, nextDay } from '../common/lisbon-time';
 
 // Statutory MCD limits
 const MCD_MAX_DAYS_PER_YEAR = 70;
@@ -284,8 +285,11 @@ export class ComplianceService {
 
     if (!lastConfirmed) return;
 
-    const lastEnd  = new Date(`${lastConfirmed.date}T${lastConfirmed.endTime.slice(0, 5)}:00`);
-    const newStart = new Date(`${newShift.date}T${newShift.startTime.slice(0, 5)}:00`);
+    // Lisbon wall-clock times (see common/lisbon-time.ts). An overnight shift
+    // ends on the following calendar day.
+    const lastOvernight = lastConfirmed.endTime.slice(0, 5) <= lastConfirmed.startTime.slice(0, 5);
+    const lastEnd  = lisbonDateTime(lastOvernight ? nextDay(lastConfirmed.date) : lastConfirmed.date, lastConfirmed.endTime);
+    const newStart = lisbonDateTime(newShift.date, newShift.startTime);
     const gapHours = (newStart.getTime() - lastEnd.getTime()) / 3_600_000;
 
     if (gapHours < REST_PERIOD_HOURS) {

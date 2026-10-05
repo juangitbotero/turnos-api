@@ -26,6 +26,7 @@ import { WagePaymentsService } from '../payments/wage-payments.service';
 import { MailService } from '../mail/mail.service';
 import { t, tNumericDate } from '../i18n/request-language';
 import { restrictionNotice, statementToHtml } from '../users/restriction-notice';
+import { lisbonDateTime } from '../common/lisbon-time';
 
 // 5 hours in milliseconds — delay before re-notification job fires
 const RE_NOTIFY_DELAY_MS = 5 * 60 * 60 * 1000;
@@ -310,7 +311,7 @@ export class ShiftsService {
     //   ERRO_EMPRESA → 2h-minimum Pay Link + €3 fee; justified → ops review.
     let cancellationConsequence: string | undefined;
     if (shift.status === ShiftStatus.FILLED && shift.assignedWorker) {
-      const shiftStart = new Date(`${shift.date}T${shift.startTime.slice(0, 5)}:00`);
+      const shiftStart = lisbonDateTime(shift.date, shift.startTime);
       const hoursUntil = (shiftStart.getTime() - Date.now()) / (1000 * 60 * 60);
       const worker = shift.assignedWorker;
 
@@ -680,7 +681,7 @@ export class ShiftsService {
       d => d.status === ShiftStatus.FILLED && d.assignedWorker?.id === worker.id,
     );
     const firstDay = filledDays[0] ?? shift;
-    const shiftStart = new Date(`${firstDay.date}T${firstDay.startTime.slice(0, 5)}:00`);
+    const shiftStart = lisbonDateTime(firstDay.date, firstDay.startTime);
     const hoursUntil = (shiftStart.getTime() - Date.now()) / (1000 * 60 * 60);
     if (hoursUntil <= 0) {
       throw new BadRequestException(t('api.shifts.alreadyStarted'));

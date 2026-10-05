@@ -29,6 +29,7 @@ import {
   formatNumericDate,
   formatTime,
 } from '@turnos/shared';
+import { BUSINESS_TIME_ZONE } from '../common/lisbon-time';
 
 const storage = new AsyncLocalStorage<AppLanguage>();
 
@@ -87,6 +88,8 @@ export function t(key: string, params?: Record<string, string | number>): string
 
 // Locale-aware formatters for values interpolated into those messages — the
 // API's counterpart to `fDateTime`/`fNumericDate`/`fTime` in the apps' useT().
-export const tDateTime    = (date: string | Date) => formatDateTime(date, currentLanguage());
-export const tNumericDate = (date: string | Date) => formatNumericDate(date, currentLanguage());
-export const tTime        = (date: string | Date) => formatTime(date, currentLanguage());
+// Always in Lisbon time: the server runs in UTC, and a check-in message saying
+// "from 12:30" for a 13:30 window is worse than no message.
+export const tDateTime    = (date: string | Date) => formatDateTime(date, currentLanguage(), BUSINESS_TIME_ZONE);
+export const tNumericDate = (date: string | Date) => formatNumericDate(date, currentLanguage(), BUSINESS_TIME_ZONE);
+export const tTime        = (date: string | Date) => formatTime(date, currentLanguage(), BUSINESS_TIME_ZONE);

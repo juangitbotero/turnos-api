@@ -34,8 +34,11 @@ export function formatWeekdayDate(date: string | Date, lang: AppLanguage): strin
 }
 
 /** "25/07/2026" */
-export function formatNumericDate(date: string | Date, lang: AppLanguage): string {
-  return new Date(date).toLocaleDateString(tag(lang));
+// The optional `timeZone` on the formatters below is for the API, which runs
+// in UTC but must print Lisbon clock times; the apps leave it unset and get the
+// device's zone.
+export function formatNumericDate(date: string | Date, lang: AppLanguage, timeZone?: string): string {
+  return new Date(date).toLocaleDateString(tag(lang), { timeZone });
 }
 
 /** "25 jul 2026, 14:30" — full audit-trail timestamp. */
@@ -47,14 +50,14 @@ export function formatTimestamp(date: string | Date, lang: AppLanguage): string 
 }
 
 /** "14:30" — clock time only (the API's check-in window messages). */
-export function formatTime(date: string | Date, lang: AppLanguage): string {
-  return new Date(date).toLocaleTimeString(tag(lang), { hour: '2-digit', minute: '2-digit' });
+export function formatTime(date: string | Date, lang: AppLanguage, timeZone?: string): string {
+  return new Date(date).toLocaleTimeString(tag(lang), { hour: '2-digit', minute: '2-digit', timeZone });
 }
 
 /** "25 jul, 14:30" — used for "applied at" style timestamps. */
-export function formatDateTime(date: string | Date, lang: AppLanguage): string {
+export function formatDateTime(date: string | Date, lang: AppLanguage, timeZone?: string): string {
   return new Date(date).toLocaleDateString(tag(lang), {
-    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone,
   });
 }
 

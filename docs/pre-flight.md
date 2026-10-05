@@ -43,7 +43,7 @@ you forget.
 | 4 | CORS open to every origin | `apps/api/src/main.ts` | 🟢 **Fixed `dbb95f3`** |
 | 5 | Stripe still in test mode | Railway variables | 🔴 Live |
 | 6 | Rate limiting did not enforce | `main.ts` `trust proxy` | 🟢 **Fixed `d1501ca`** (2026-10-05) — 429s verified on prod |
-| 7 | **No email is delivered** | `mail.service.ts`; Railway blocks SMTP below Pro | 🔴 Live — `/api/health` → `"mail":"smtp-error"`. Moving to an HTTPS email API, see below |
+| 7 | No email was delivered | `mail.service.ts`; Railway blocks SMTP below Pro | 🟡 **Brevo configured 2026-10-05** — `BREVO_API_KEY` set, `/api/health` → `"mail":"brevo"` (key accepted at boot). A real delivery is still to be seen — first one during the end-to-end run |
 
 **1 — Mock OTP.** Activates whenever Twilio credentials are absent or still
 `replace_me`. Setting the Twilio variables is *not* sufficient — if one is ever
@@ -299,6 +299,7 @@ false` is already set, which also clears export compliance.
 | Smaller defects | `createGoogleEmployer` creates a `User` but no `Employer` row · blanket 401 → logout masks real auth errors · `/dashboard/ratings` built but unlinked · pre-shift consequence reminder no longer in the policy (removed from v1.2 until built) · unused deps: `@reduxjs/toolkit`, `react-redux`, `react-query`, `expo-crypto` (mobile), `@stripe/react-stripe-js`, `@stripe/stripe-js` (web-admin) · mobile `tsc` noise (`TS2786`/`TS2339`, LinearGradient + design-token typings — Metro unaffected) |
 | **Legal gates — test pass** | 🟠 Built 2026-09-27 — terms acceptance with version + date, statements of reasons, nightly retention purge, 18+. None has run against production yet; fold into the end-to-end run. How: runbook §8 |
 | ~~Email is not being sent~~ | Promoted to Track 1, blocker #7 |
+| ~~Shift times read as UTC~~ | 🟢 Fixed 2026-10-05, found preparing the first end-to-end run. The API runs in UTC on Railway and built shift instants with `new Date(\`${date}T${time}\`)`, so every Lisbon wall-clock time was an hour late in summer: check-in window, auto-completion, 11h rest check, company/worker cancellation thresholds, check-in "today" after 23:00. Now `common/lisbon-time.ts` (`lisbonDateTime`, `lisbonDate`, DST-tested); API messages format in Lisbon time. Not fixed via `TZ` — that would change how `pg` reads existing `timestamp` columns |
 | **Law firm has the v0.1 pack** | The accountant email and Annex A were removed on 2026-10-05 (Track 1, #7 notes). Send the regenerated pack, pointing at the "Alteração de 5 de outubro" box at the top of the brief |
 | Stored accountant emails | No longer collected or used; clear what is stored — runbook §8 SQL |
 | **TSU tab says the worker pays their own 11%** | `admin.compliance.legalNote` (pt/en): "SS Trabalhador (11%) é entregue pelo próprio trabalhador via SS Direta". Likely wrong for an employee on an MCD — the employer withholds and remits. Same class of error as the Recibo Verde removal. Brief question A3 asks exactly this; fix the copy once answered, or neutralise it now |

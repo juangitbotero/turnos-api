@@ -27,6 +27,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, Not, IsNull } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
+import { lisbonDateTime, lisbonDate, nextDay } from '../common/lisbon-time';
 import * as crypto from 'crypto';
 import * as QRCode from 'qrcode';
 import { formatSeriesRange } from '@turnos/shared';
@@ -456,10 +457,8 @@ export class AttendanceService {
 
   /** Scheduled end datetime — handles overnight shifts (end < start ⇒ +1 day). */
   private scheduledEnd(shift: Shift): Date {
-    const end = new Date(`${shift.date}T${shift.endTime.slice(0, 5)}:00`);
-    const start = new Date(`${shift.date}T${shift.startTime.slice(0, 5)}:00`);
-    if (end <= start) end.setDate(end.getDate() + 1); // overnight
-    return end;
+    const overnight = shift.endTime.slice(0, 5) <= shift.startTime.slice(0, 5);
+    return lisbonDateTime(overnight ? nextDay(shift.date) : shift.date, shift.endTime);
   }
 
   // ── Manual override (employer) ────────────────────────────────────────────
@@ -558,8 +557,7 @@ export class AttendanceService {
     workerId: string,
     employerId: string,
   ): Promise<Shift> {
-    // Use UTC date — acceptable for Lisbon beta; proper TZ handling in v1.1
-    const today = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+    const today = lisbonDate(); // Lisbon calendar day, not UTC's
 
     const shift = await this.shiftRepo.findOne({
       where: {
@@ -618,7 +616,7 @@ export class AttendanceService {
 
   private assertCheckInWindow(shift: Shift): void {
     const [sh, sm] = shift.startTime.slice(0, 5).split(':').map(Number);
-    const scheduledStart = new Date(`${shift.date}T${String(sh!).padStart(2,'0')}:${String(sm!).padStart(2,'0')}:00`);
+    const scheduledStart = lisbonDateTime(shift.date, shift.startTime);
     const windowStart    = new Date(scheduledStart.getTime() - CHECKIN_WINDOW_BEFORE_MS);
     const windowEnd      = new Date(scheduledStart.getTime() + CHECKIN_WINDOW_AFTER_MS);
     const now            = new Date();
