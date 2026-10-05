@@ -25,8 +25,9 @@ aren't.
 
 Six found between 2026-09-09 and 2026-09-13; **four closed** (three on
 2026-09-23, rate limiting on 2026-10-05). Email (#7) was added 2026-10-05: it
-was in Track 3, but the accountant data for the Segurança Social admission
-depends on it, so it blocks launch. Ordered by what happens if you forget.
+was in Track 3, but unpaid-wage reminders, ops alerts and company email
+verification depend on it, so it blocks launch. Ordered by what happens if
+you forget.
 
 > Which build is serving is now answerable directly: `GET /api/health` returns
 > the short commit sha. Added after an afternoon where a failed Railway build
@@ -176,8 +177,9 @@ the hypothesis is incomplete. Reproduce locally before fixing.
 ~~**Fix this before Twilio, not after.**~~ Done — Twilio is unblocked.
 
 **7 — Email. Found 2026-09-27, cause found 2026-10-05.** Every email —
-accountant data for the SS admission, unpaid-wage reminders, ops alerts,
-suspension notices, company email verification — is dropped.
+unpaid-wage reminders, ops alerts, suspension notices, company email
+verification — is dropped. (The accountant email for the SS admission is no
+longer one of them: removed by decision on 2026-10-05, see below.)
 
 The Gmail SMTP variables were set on 2026-10-05 and still nothing could be
 sent: **Railway blocks outbound SMTP on every plan below Pro**
@@ -193,6 +195,22 @@ Flodesk (already paid for) was considered and rejected — it is a marketing
 tool whose API manages subscribers and workflows; it has no transactional
 send, and adding workers and accountants as marketing subscribers would be
 wrong under GDPR. Setup steps: `docs/go-live-cleanup.md` §3.
+
+**Decision 2026-10-05 — Turnos no longer emails the company's accountant.**
+The `ss-direta` queue sent each hire's data (worker name, NIF, role, date,
+hours, location, rate) to the company's accountant 24h before the shift. It
+predated the 2026-09-27 legal rewrite and contradicted it: Turnos was
+performing an employer duty on the company's behalf, which blurred who the
+employer is (ADR 001) and made Turnos a processor needing an art. 28 DPA
+(Annex A). Now the data is in the dashboard the moment the worker confirms —
+**Compliance → Contratações**, copy per hire or export the month to Excel
+(`;`-separated, UTF-8 BOM), with a "Dados SS" button on each confirmed shift
+and a reminder banner that the communication is the company's, before the
+shift. Annex A removed from the company terms (v0.2), terms version bumped to
+`2026-10-05` (every company re-accepts), privacy policy, FAQ, marketing copy
+and the lawyers' brief updated. Found while doing it: the contracts endpoint
+returned the full `Worker` entity (IBAN, Stripe id, declared income) — now an
+explicit field set. **Tell the law firm** — they are reviewing the v0.1 pack.
 
 ---
 
@@ -281,6 +299,9 @@ false` is already set, which also clears export compliance.
 | Smaller defects | `createGoogleEmployer` creates a `User` but no `Employer` row · blanket 401 → logout masks real auth errors · `/dashboard/ratings` built but unlinked · pre-shift consequence reminder no longer in the policy (removed from v1.2 until built) · unused deps: `@reduxjs/toolkit`, `react-redux`, `react-query`, `expo-crypto` (mobile), `@stripe/react-stripe-js`, `@stripe/stripe-js` (web-admin) · mobile `tsc` noise (`TS2786`/`TS2339`, LinearGradient + design-token typings — Metro unaffected) |
 | **Legal gates — test pass** | 🟠 Built 2026-09-27 — terms acceptance with version + date, statements of reasons, nightly retention purge, 18+. None has run against production yet; fold into the end-to-end run. How: runbook §8 |
 | ~~Email is not being sent~~ | Promoted to Track 1, blocker #7 |
+| **Law firm has the v0.1 pack** | The accountant email and Annex A were removed on 2026-10-05 (Track 1, #7 notes). Send the regenerated pack, pointing at the "Alteração de 5 de outubro" box at the top of the brief |
+| Stored accountant emails | No longer collected or used; clear what is stored — runbook §8 SQL |
+| **TSU tab says the worker pays their own 11%** | `admin.compliance.legalNote` (pt/en): "SS Trabalhador (11%) é entregue pelo próprio trabalhador via SS Direta". Likely wrong for an employee on an MCD — the employer withholds and remits. Same class of error as the Recibo Verde removal. Brief question A3 asks exactly this; fix the copy once answered, or neutralise it now |
 | Manual monthly step | Delete worker late-cancel justifications older than 6 months from the ops inbox — the privacy policy promises it and nothing automates it. How: runbook §8 |
 
 ### Capacity — measured 2026-09-13

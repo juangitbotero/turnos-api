@@ -509,7 +509,8 @@ export function formatEUR(amount: number): string {
  */
 export const TERMS_VERSIONS = {
   WORKER:   '2026-09-27',
-  EMPLOYER: '2026-09-27',
+  // 2026-10-05: accountant email and Annex A (art. 28 DPA) removed — material.
+  EMPLOYER: '2026-10-05',
 } as const;
 
 /**

@@ -66,7 +66,10 @@ export class McdContract {
   @Column({ type: 'varchar', length: 512 })
   address: string;
 
-  // ── SS Direta notification status ─────────────────────────────────────────
+  // ── LEGACY: accountant email (removed 2026-10-05) ─────────────────────────
+  // Turnos used to email this contract's data to the company's accountant.
+  // The company now downloads it from the dashboard. Columns kept so existing
+  // rows load; nothing writes them any more.
   @Column({ type: 'enum', enum: SsStatus, default: SsStatus.PENDING })
   ssStatus: SsStatus;
 

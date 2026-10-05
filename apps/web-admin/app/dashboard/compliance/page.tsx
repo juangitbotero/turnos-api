@@ -9,13 +9,29 @@ import { IconInbox, Spinner } from '../../../components/icons';
 
 type Tab = 'tsu' | 'mcd' | 'audit';
 
-/** Colours only — the label comes from `admin.compliance.ssStatus.*`. */
-const SS_STATUS_STYLE: Record<string, { color: string; bg: string }> = {
-  PENDING:    { color: '#92400e', bg: '#fef3c7' },
-  EMAIL_SENT: { color: '#1d4ed8', bg: '#dbeafe' },
-  SUBMITTED:  { color: '#166534', bg: '#dcfce7' },
-  FAILED:     { color: '#991b1b', bg: '#fee2e2' },
-};
+/**
+ * Semicolon-separated with a BOM: Excel in a Portuguese locale uses `;` as the
+ * list separator, so a comma CSV opens as one column, and without the BOM it
+ * misreads UTF-8 accents (Função, João).
+ */
+function downloadHiresCsv(rows: McdContract[], header: string, filename: string) {
+  const cell = (v: unknown) => {
+    const str = String(v ?? '');
+    return /[;"\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+  const lines = rows.map(c => [
+    c.workerName, c.workerNif, c.role ?? '', c.shiftDate, c.startTime, c.endTime,
+    Number(c.grossHourlyRate).toFixed(2).replace('.', ','), c.address,
+    c.employerName, c.employerNipc, c.shiftStatus ?? '',
+  ].map(cell).join(';'));
+  const blob = new Blob(['﻿' + [header, ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${filename}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 function formatEvent(event: string) {
   return event.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
@@ -36,6 +52,17 @@ export default function CompliancePage() {
   // MCD contracts state
   const [contracts, setContracts] = useState<McdContract[]>([]);
   const [contractsLoading, setContractsLoading] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Deep link from the shifts page: ?tab=mcd&month=YYYY-MM. Read from
+  // window rather than useSearchParams, which would need a Suspense boundary
+  // for the static build.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('tab') === 'mcd') setTab('mcd');
+    const m = q.get('month')?.match(/^(\d{4})-(\d{2})$/);
+    if (m) { setYear(Number(m[1])); setMonth(Number(m[2])); }
+  }, []);
 
   // Audit log state
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
@@ -60,6 +87,38 @@ export default function CompliancePage() {
       .catch(() => setContracts([]))
       .finally(() => setContractsLoading(false));
   }, [tab]);
+
+  const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+  const monthContracts = contracts.filter(c => c.shiftDate.startsWith(monthKey));
+
+  const copyContract = async (c: McdContract) => {
+    const text = t('admin.compliance.copyTemplate', {
+      worker: c.workerName, nif: c.workerNif, role: c.role || '—',
+      date: fMediumDate(c.shiftDate), start: c.startTime, end: c.endTime,
+      rate: Number(c.grossHourlyRate).toFixed(2), address: c.address,
+      company: c.employerName, nipc: c.employerNipc,
+    });
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(c.id);
+      setTimeout(() => setCopiedId(id => (id === c.id ? null : id)), 2000);
+    } catch { /* clipboard blocked — the row is still readable on screen */ }
+  };
+
+  const monthYearSelectors = (
+    <>
+      <select style={s.select} value={month} onChange={e => setMonth(Number(e.target.value))}>
+        {Array.from({ length: 12 }, (_, i) => (
+          <option key={i + 1} value={i + 1}>{fMonthName(i, year)}</option>
+        ))}
+      </select>
+      <select style={s.select} value={year} onChange={e => setYear(Number(e.target.value))}>
+        {[now.getFullYear() + 1, now.getFullYear(), now.getFullYear() - 1].map(y => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+      </select>
+    </>
+  );
 
   // Load audit log once when tab activated
   useEffect(() => {
@@ -185,12 +244,27 @@ export default function CompliancePage() {
       {/* ── MCD Contracts tab ───────────────────────────────────────────── */}
       {tab === 'mcd' && (
         <div>
+          <p style={s.hireNotice}>{t('admin.compliance.hireNotice')}</p>
+          <div style={s.filterRow}>
+            {monthYearSelectors}
+            <button
+              style={{ ...s.exportBtn, opacity: monthContracts.length ? 1 : 0.5 }}
+              disabled={!monthContracts.length}
+              onClick={() => downloadHiresCsv(
+                monthContracts,
+                t('admin.compliance.csvHeader'),
+                `${t('admin.compliance.csvFilename')}-${monthKey}`,
+              )}
+            >
+              {t('admin.compliance.exportCsv')}
+            </button>
+          </div>
           {contractsLoading ? (
             <div style={s.center}><Spinner size={15} style={{ verticalAlign: -2 }} /> {t('common.loading')}</div>
-          ) : contracts.length === 0 ? (
+          ) : monthContracts.length === 0 ? (
             <div style={s.emptyState}>
               <p style={s.emptyIcon}><IconInbox size={44} /></p>
-              <p style={s.emptyText}>{t('admin.compliance.emptyMcd')}</p>
+              <p style={s.emptyText}>{t('admin.compliance.emptyMcd', { month: fMonthName(month - 1, year), year })}</p>
             </div>
           ) : (
             <div style={s.tableWrap}>
@@ -200,13 +274,12 @@ export default function CompliancePage() {
                 <span>{t('admin.compliance.colSchedule')}</span>
                 <span>{t('admin.compliance.colRole')}</span>
                 <span>{t('admin.compliance.colRate')}</span>
-                <span>{t('admin.compliance.colSsDireta')}</span>
+                <span />
               </div>
-              {contracts.map(c => {
-                const st = SS_STATUS_STYLE[c.ssStatus] ?? { color: '#6b7280', bg: '#f3f4f6' };
-                const stLabel = t(`admin.compliance.ssStatus.${c.ssStatus}`, { defaultValue: c.ssStatus });
+              {monthContracts.map(c => {
+                const cancelled = c.shiftStatus === 'CANCELLED';
                 return (
-                  <div key={c.id} style={s.tableRow}>
+                  <div key={c.id} style={{ ...s.tableRow, opacity: cancelled ? 0.6 : 1 }}>
                     <div>
                       <p style={s.rowTitle}>{c.workerName}</p>
                       <p style={s.rowSub}>{c.workerNif}</p>
@@ -215,7 +288,13 @@ export default function CompliancePage() {
                     <span style={s.rowCell}>{c.startTime}–{c.endTime}</span>
                     <span style={s.rowCell}>{c.role || '—'}</span>
                     <span style={{ ...s.rowCell, fontWeight: 700 }}>€{Number(c.grossHourlyRate).toFixed(2)}/hr</span>
-                    <span style={{ ...s.badge, color: st.color, background: st.bg }}>{stLabel}</span>
+                    {cancelled ? (
+                      <span style={{ ...s.badge, color: '#991b1b', background: '#fee2e2' }}>{t('admin.compliance.cancelledTag')}</span>
+                    ) : (
+                      <button style={s.copyBtn} onClick={() => copyContract(c)}>
+                        {copiedId === c.id ? t('admin.compliance.copied') : t('admin.compliance.copyRow')}
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -343,6 +422,17 @@ const s: Record<string, React.CSSProperties> = {
   badge: {
     display: 'inline-block', padding: '3px 10px', borderRadius: 20,
     fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+  },
+
+  // Hires
+  hireNotice: { fontSize: 13, color: '#92400e', background: '#fffbeb', border: '1px solid rgba(217,119,6,0.25)', borderRadius: 8, padding: '10px 16px', marginBottom: 16 },
+  exportBtn: {
+    marginLeft: 'auto', padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(22,163,74,0.3)',
+    background: '#f0fdf4', color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+  },
+  copyBtn: {
+    justifySelf: 'start', padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(106,121,255,0.3)',
+    background: 'rgba(106,121,255,0.08)', color: '#6a79ff', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
   },
 
   // Audit

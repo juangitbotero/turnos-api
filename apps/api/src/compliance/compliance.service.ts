@@ -2,26 +2,20 @@ import {
   Injectable, BadRequestException, Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
 import { Repository, In, MoreThanOrEqual } from 'typeorm';
 import { calculateTSU } from '@turnos/shared';
-import { McdContract, SsStatus } from './entities/mcd-contract.entity';
+import { McdContract } from './entities/mcd-contract.entity';
 import { ComplianceAuditLog, ComplianceEvent } from './entities/compliance-audit-log.entity';
 import { Shift, ShiftStatus } from '../shifts/entities/shift.entity';
 import { Worker } from '../users/entities/worker.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { t, tDateTime } from '../i18n/request-language';
-import { SsDiretaJobData } from './processors/ss-direta.processor';
 
 // Statutory MCD limits
 const MCD_MAX_DAYS_PER_YEAR = 70;
 const REST_PERIOD_HOURS     = 11;
 const DEPENDENCY_FLAG_PCT   = 40;
 const DEPENDENCY_BLOCK_PCT  = 50;
-
-// SS notification fires this many ms before shift start (24h)
-const SS_NOTIFY_BEFORE_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class ComplianceService {
@@ -42,9 +36,6 @@ export class ComplianceService {
 
     @InjectRepository(Employer)
     private readonly employerRepo: Repository<Employer>,
-
-    @InjectQueue('ss-direta')
-    private readonly ssDiretaQueue: Queue,
   ) {}
 
   // ── Public helpers called by ShiftsService ────────────────────────────────
@@ -72,19 +63,23 @@ export class ComplianceService {
   }
 
   /**
-   * Called immediately after employer confirms a worker (shift → FILLED).
-   * Creates the MCD contract record and schedules SS Direta email notification.
+   * Called immediately after the worker confirms (shift → FILLED). Records the
+   * hire — the data the company needs to communicate the admission to the
+   * Segurança Social, which it downloads from the dashboard.
+   *
+   * Until 2026-10-05 this also queued an email of the same data to the
+   * company's accountant 24h before the shift. Removed: the admission is the
+   * company's duty, and Turnos sending worker NIFs to a third party on the
+   * company's behalf blurred who the employer is (ADR 001) and made Turnos a
+   * processor of that duty. The data is now available to the company the
+   * moment the hire is confirmed, rather than 24h before the shift.
    */
   async onShiftApproved(
     shift: Shift,
     worker: Worker,
     employer: Employer,
   ): Promise<void> {
-    // Load full employer record to get accountantEmail
-    const fullEmployer = await this.employerRepo.findOne({
-      where: { id: employer.id },
-      relations: ['user'],
-    });
+    const fullEmployer = await this.employerRepo.findOne({ where: { id: employer.id } });
     if (!fullEmployer) return;
 
     // Determine NIF / NIPC from stored profiles
@@ -106,8 +101,6 @@ export class ComplianceService {
       role:          shift.role ?? shift.subcategory ?? shift.title,
       grossHourlyRate: Number(shift.grossHourlyRate),
       address:       shift.address,
-      ssStatus:      SsStatus.PENDING,
-      ssAccountantEmail: fullEmployer.accountantEmail ?? fullEmployer.user?.email ?? null,
     });
     const saved = await this.contractRepo.save(contract);
 
@@ -125,33 +118,7 @@ export class ComplianceService {
       },
     });
 
-    // Schedule SS Direta email 24h before shift start
-    const shiftStart = new Date(`${shift.date}T${shift.startTime.slice(0, 5)}:00`);
-    const delay      = shiftStart.getTime() - Date.now() - SS_NOTIFY_BEFORE_MS;
-
-    const jobData: SsDiretaJobData = {
-      contractId:      saved.id,
-      workerName:      saved.workerName,
-      workerNif:       saved.workerNif,
-      employerName:    saved.employerName,
-      employerNipc:    saved.employerNipc,
-      shiftDate:       saved.shiftDate,
-      startTime:       saved.startTime,
-      endTime:         saved.endTime,
-      role:            saved.role ?? '',
-      grossHourlyRate: Number(saved.grossHourlyRate),
-      address:         saved.address,
-      accountantEmail: saved.ssAccountantEmail ?? '',
-    };
-
-    // If shift is already within 24h, fire immediately (delay=0)
-    await this.ssDiretaQueue.add('notify', jobData, {
-      delay:    Math.max(delay, 0),
-      attempts: 3,
-      backoff:  { type: 'exponential', delay: 30_000 },
-    });
-
-    this.logger.log(`[Compliance] MCD contract ${saved.id} created. SS notification scheduled in ${Math.max(delay, 0) / 3600000}h`);
+    this.logger.log(`[Compliance] Hire record ${saved.id} created for shift ${shift.id}`);
   }
 
   // Recibo Verde reminders to workers were removed on 2026-09-27. A worker on
@@ -227,11 +194,32 @@ export class ComplianceService {
     const employer = await this.employerRepo.findOne({ where: { user: { id: userId } } });
     if (!employer) throw new BadRequestException('Employer not found');
 
-    return this.contractRepo.find({
+    const contracts = await this.contractRepo.find({
       where:   { employer: { id: employer.id } },
-      order:   { createdAt: 'DESC' },
-      relations: ['worker', 'shift'],
+      order:   { shiftDate: 'DESC', startTime: 'DESC' },
+      relations: ['shift'],
     });
+
+    // Explicit field set. This used to return the joined Worker entity whole —
+    // IBAN (bypassing the sharing consent), stripeAccountId, declared income —
+    // the same leak fixed in the applicant list on 2026-09-27. Everything the
+    // company needs for the admission is already a column on the contract.
+    return contracts.map(c => ({
+      id:              c.id,
+      shiftId:         c.shift?.id ?? null,
+      shiftStatus:     c.shift?.status ?? null,
+      workerName:      c.workerName,
+      workerNif:       c.workerNif,
+      employerName:    c.employerName,
+      employerNipc:    c.employerNipc,
+      shiftDate:       c.shiftDate,
+      startTime:       c.startTime,
+      endTime:         c.endTime,
+      role:            c.role,
+      grossHourlyRate: Number(c.grossHourlyRate),
+      address:         c.address,
+      createdAt:       c.createdAt,
+    }));
   }
 
   async getAuditLog(userId: string) {

@@ -28,8 +28,8 @@ trabalhador.
 
 **Então quem é o empregador?** 🔵
 A sua empresa. É a sua empresa que contrata, que comunica a admissão à Segurança Social e que
-paga o salário. A Turnos envia ao seu contabilista os dados de cada contratação e verifica os
-limites legais (70 dias/ano, 11 h de descanso, 18+), mas a relação laboral e a
+paga o salário. A Turnos disponibiliza no seu painel os dados de cada contratação, prontos a
+exportar, e verifica os limites legais (70 dias/ano, 11 h de descanso, 18+), mas a relação laboral e a
 responsabilidade são suas.
 
 **A Turnos fica com uma parte do salário do trabalhador?**

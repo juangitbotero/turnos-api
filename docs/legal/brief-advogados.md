@@ -1,6 +1,6 @@
 # Turnos — Nota para a sociedade de advogados
 
-**27 de setembro de 2026** · Juanes Botero, fundador · turnos.contact@gmail.com
+**27 de setembro de 2026, atualizada a 5 de outubro** · Juanes Botero, fundador · turnos.contact@gmail.com
 
 ## O que é a Turnos
 
@@ -13,13 +13,23 @@ cobra só às empresas: subscrição (45 €/mês) + **taxa fixa de 3 €** por 
 concluído, independente do salário. **Não somos empresa de trabalho temporário
 nem agência de colocação.**
 
+> **Alteração de 5 de outubro.** A Turnos deixou de enviar ao contabilista da
+> empresa os dados de cada contratação. Esses dados (nome e NIF do
+> trabalhador, função, data, horário, local, valor/hora) ficam disponíveis no
+> painel da empresa logo que o trabalhador confirma, para copiar ou exportar,
+> com o aviso de que a comunicação da admissão à Segurança Social é obrigação
+> da empresa e deve ser feita antes do início. Objetivo: a Turnos não executar
+> nenhuma obrigação da empresa em nome dela. Em consequência, o **Anexo A**
+> (art. 28.º RGPD) foi retirado dos Termos para Empresas, e as perguntas 2 e 5
+> foram ajustadas.
+
 ## Documentos anexos
 
 | Ficheiro | Documento | Estado |
 |---|---|---|
 | 01 | Termos de Utilização — Trabalhadores | 1.ª versão, para redigir/validar |
-| 02 | Termos de Utilização — Empresas + Anexo A (art. 28.º RGPD) | 1.ª versão, para redigir/validar |
-| 03 | Política de Privacidade | Revista a 27/09, para validar |
+| 02 | Termos de Utilização — Empresas | v0.2 (5/10 — sem Anexo A), para redigir/validar |
+| 03 | Política de Privacidade | Revista a 5/10, para validar |
 | 04 | Política de Cancelamento e Faltas v1.2 | Para validar |
 | 05 | Turnos Pay Link — Brief Jurídico v2 | Perguntas próprias (1–8) |
 
@@ -40,8 +50,8 @@ e 02 são perguntas nossas sobre a redação de cada cláusula.
 2. **Forma do contrato.** O produto está construído à volta do MCD. O MCD é
    utilizável para qualquer turno curto ou só nas situações do art. 142.º? A
    Turnos deve ficar neutra e deixar a forma à empresa? Que dados temos de
-   enviar à empresa para ela cumprir (hoje: nome, NIF, função, data, horário,
-   local, valor/hora, ao contabilista, 24 h antes)?
+   disponibilizar à empresa para ela cumprir (hoje: nome, NIF, função, data,
+   horário, local, valor/hora, no painel, logo que o trabalhador confirma)?
 3. **Bruto vs. líquido.** O trabalhador recebe o bruto por inteiro; cada parte
    trata das suas obrigações fiscais e contributivas, e a Turnos só mostra uma
    simulação. Num contrato de trabalho, a retenção dos 11% e do IRS cabe à
@@ -52,8 +62,10 @@ e 02 são perguntas nossas sobre a redação de cada cláusula.
 
 **B. Dados pessoais**
 
-5. Qualificação: Turnos responsável pelo tratamento, e subcontratante só no
-   envio ao contabilista (Anexo A)? Ou responsabilidade conjunta?
+5. Qualificação: Turnos e empresa como responsáveis independentes, cada um
+   pelas suas finalidades (a Turnos já não trata dados por conta da empresa)?
+   Ou responsabilidade conjunta? Se for necessário algum acordo entre as
+   partes, qual?
 6. Dados de saúde (motivo "doença" num cancelamento): o consentimento explícito
    chega? Prazos propostos: comprovativos de pagamento 24 meses, justificações
    6 meses. Base legal para partilhar o IBAN (consentimento vs. contrato).
@@ -69,5 +81,4 @@ e 02 são perguntas nossas sobre a redação de cada cláusula.
 ## O que pedimos
 
 Parecer curto sobre **A1 a A4 primeiro** — as respostas mudam o texto dos
-termos. Depois, a redação final dos dois Termos, do Anexo A e da Política de
-Privacidade. O Pay Link tem brief próprio.
+termos. Depois, a redação final dos dois Termos e da Política de Privacidade. O Pay Link tem brief próprio.

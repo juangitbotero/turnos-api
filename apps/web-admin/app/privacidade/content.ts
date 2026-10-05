@@ -48,7 +48,7 @@ const REGION     = '[[REGIÃO DE ALOJAMENTO]]';
 const pt: PolicyDoc = {
   back: '← Voltar',
   title: 'Política de Privacidade',
-  updated: 'Última atualização: 27 de setembro de 2026',
+  updated: 'Última atualização: 5 de outubro de 2026',
   lede:
     'Esta política explica que dados a Turnos recolhe, porquê, com quem os partilha e que direitos tens. ' +
     'Está escrita para ser lida — se alguma coisa não for clara, escreve-nos.',
@@ -136,12 +136,11 @@ const pt: PolicyDoc = {
         head: ['Quem', 'O quê', 'Para quê'],
         rows: [
           ['Empresas a que te candidatas', 'Nome, foto, biografia, CV, competências, idiomas, experiência, disponibilidade, avaliações, selos e número de faltas. Nunca o NIF, a data de nascimento ou os rendimentos declarados', 'Avaliar a tua candidatura'],
-          ['A empresa do turno', 'O acima, mais o IBAN se consentires (secção 5)', 'Pagar-te e cumprir as obrigações de entidade empregadora'],
-          ['Contabilista da empresa', 'Nome, NIF, função, data, horário, local e valor/hora do turno', 'Comunicação da admissão à Segurança Social, que é obrigação da empresa'],
+          ['A empresa do turno', 'O acima, mais o IBAN se consentires (secção 5) e, quando confirmas o turno, o teu NIF e os dados do turno (função, data, horário, local e valor/hora)', 'Pagar-te e cumprir as obrigações de entidade empregadora, incluindo comunicar a tua admissão à Segurança Social'],
           ['Stripe', 'Identificação, dados bancários e verificação de identidade dos trabalhadores que ativem o Pay Link', 'Processar o pagamento direto da empresa para o trabalhador'],
           ['Twilio', 'Número de telemóvel', 'Envio do código SMS de início de sessão'],
           ['Expo', 'Token de notificação', 'Envio de notificações'],
-          ['Fornecedor de email', 'Endereço de email e conteúdo das mensagens', 'Envio de emails transacionais'],
+          ['Brevo (fornecedor de email)', 'Endereço de email e conteúdo das mensagens', 'Envio de emails transacionais'],
           ['Google', 'Dados da conta Google, se a usares para entrar', 'Início de sessão'],
           ['Cloudflare, Railway', 'Ficheiros e dados alojados', 'Alojamento e armazenamento da plataforma'],
           ['Autoridades', 'O que for legalmente exigido', 'ACT, Segurança Social, Autoridade Tributária, tribunais'],
@@ -171,8 +170,8 @@ const pt: PolicyDoc = {
     {
       heading: '10. Se representas uma empresa',
       paragraphs: [
-        'Recolhemos a denominação social, NIPC, NIF, morada, setor, logótipo, o email e o nome de quem gere a conta, e o email do contabilista. Servem para criar a conta, faturar a subscrição e as taxas, e enviar ao contabilista os dados de cada contratação. Os dados de cartão são recolhidos e guardados pela Stripe, não pela Turnos.',
-        'Quando a Turnos envia ao teu contabilista os dados de um trabalhador para cumprires as tuas obrigações de entidade empregadora, age por tua conta, nos termos do acordo de tratamento de dados que integra os Termos para Empresas.',
+        'Recolhemos a denominação social, NIPC, NIF, morada, setor, logótipo, o email e o nome de quem gere a conta. Servem para criar a conta e faturar a subscrição e as taxas. Os dados de cartão são recolhidos e guardados pela Stripe, não pela Turnos.',
+        'Os dados de cada contratação que consultas ou exportas no painel servem para cumprires as tuas obrigações de entidade empregadora. A Turnos não os envia a terceiros em teu nome; a partir do momento em que os recebes, tratas esses dados como responsável.',
       ],
     },
     {
@@ -207,7 +206,7 @@ const pt: PolicyDoc = {
 const en: PolicyDoc = {
   back: '← Back',
   title: 'Privacy Policy',
-  updated: 'Last updated: 27 September 2026',
+  updated: 'Last updated: 5 October 2026',
   lede:
     'This policy explains what data Turnos collects, why, who we share it with and what rights you have. ' +
     'It is written to be read — if anything is unclear, write to us.',
@@ -295,12 +294,11 @@ const en: PolicyDoc = {
         head: ['Who', 'What', 'Why'],
         rows: [
           ['Companies you apply to', 'Name, photo, bio, CV, skills, languages, experience, availability, ratings, badges and number of no-shows. Never your NIF, date of birth or declared income', 'Assess your application'],
-          ['The company running the shift', 'The above, plus your IBAN if you consent (section 5)', 'Pay you and meet its duties as employer'],
-          ['The company’s accountant', 'Name, NIF, role, date, hours, location and hourly rate of the shift', 'Notify Social Security of the hire, which is the company’s duty'],
+          ['The company running the shift', 'The above, plus your IBAN if you consent (section 5) and, once you confirm the shift, your NIF and the shift details (role, date, hours, location and hourly rate)', 'Pay you and meet its duties as employer, including notifying Social Security of your hire'],
           ['Stripe', 'Identity, bank details and identity verification of workers who activate the Pay Link', 'Process the direct payment from company to worker'],
           ['Twilio', 'Mobile number', 'Send the SMS sign-in code'],
           ['Expo', 'Notification token', 'Send notifications'],
-          ['Email provider', 'Email address and message content', 'Send transactional emails'],
+          ['Brevo (email provider)', 'Email address and message content', 'Send transactional emails'],
           ['Google', 'Google account details, if you use it to sign in', 'Sign-in'],
           ['Cloudflare, Railway', 'Hosted files and data', 'Platform hosting and storage'],
           ['Authorities', 'Whatever is legally required', 'ACT, Social Security, tax authority, courts'],
@@ -330,8 +328,8 @@ const en: PolicyDoc = {
     {
       heading: '10. If you represent a company',
       paragraphs: [
-        'We collect the company name, NIPC, NIF, address, sector, logo, the name and email of the person managing the account, and the accountant’s email. We use them to create the account, invoice the subscription and fees, and send the accountant the details of each hire. Card details are collected and stored by Stripe, not by Turnos.',
-        'When Turnos sends a worker’s details to your accountant so you can meet your duties as employer, it acts on your behalf, under the data processing agreement that forms part of the Terms for Companies.',
+        'We collect the company name, NIPC, NIF, address, sector, logo, the name and email of the person managing the account. We use them to create the account and invoice the subscription and fees. Card details are collected and stored by Stripe, not by Turnos.',
+        'The hire details you view or export in the dashboard are there so you can meet your duties as employer. Turnos does not send them to anyone on your behalf; once you receive them, you process them as controller.',
       ],
     },
     {

@@ -113,7 +113,6 @@ export class UsersService {
   async updateEmployerProfile(userId: string, dto: {
     companyName?: string; sector?: string; nif?: string;
     address?: string; postalCode?: string; city?: string;
-    accountantEmail?: string;
     notificationPrefs?: { ratingReminders?: boolean; wageReminders?: boolean };
     logoUrl?: string;
   }): Promise<void> {
@@ -121,7 +120,7 @@ export class UsersService {
     if (!employer) throw new NotFoundException('Employer profile not found');
 
     const patch: Partial<Employer> = {};
-    for (const key of ['companyName', 'sector', 'nif', 'address', 'postalCode', 'city', 'accountantEmail', 'logoUrl'] as const) {
+    for (const key of ['companyName', 'sector', 'nif', 'address', 'postalCode', 'city', 'logoUrl'] as const) {
       const value = dto[key];
       if (value !== undefined) (patch as Record<string, unknown>)[key] = value.trim() || null;
     }

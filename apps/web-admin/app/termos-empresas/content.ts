@@ -1,5 +1,6 @@
 /**
- * Terms of Use — Companies (with the data processing agreement as Annex A).
+ * Terms of Use — Companies. (Annex A, the art. 28 data processing agreement,
+ * was removed on 2026-10-05 together with the accountant email it covered.)
  * Published at /termos-empresas; accepted at registration and, after any
  * change, in the dashboard.
  *
@@ -46,7 +47,7 @@ const pt: LegalDoc = {
       heading: '3. Conta',
       bullets: [
         'A Empresa regista-se com denominação social, NIPC e NIF válidos, morada, e o email de quem gere a conta. Cada Empresa tem uma conta e um acesso.',
-        'A Empresa indica o email do seu contabilista, para onde a Turnos envia os dados de cada contratação (secção 7).',
+        'A Turnos não envia dados a terceiros em nome da Empresa. Os dados de cada contratação ficam disponíveis no painel da Empresa (secção 7).',
         'A Empresa é responsável pela exatidão destes dados e pelo que é feito com o seu acesso.',
       ],
     },
@@ -86,7 +87,7 @@ const pt: LegalDoc = {
       heading: '7. Obrigações de entidade empregadora',
       paragraphs: [
         'Todas as obrigações de entidade empregadora são da Empresa, incluindo: a forma do contrato de trabalho; a comunicação da admissão à Segurança Social antes do início do trabalho; as contribuições e retenções devidas; o seguro de acidentes de trabalho; a segurança e saúde no trabalho e o registo dos tempos de trabalho; e a verificação de que o trabalhador está autorizado a trabalhar em Portugal. As verificações da secção 6 são uma ajuda e não substituem o cumprimento pela Empresa.',
-        'Quando um trabalhador confirma um turno, a Turnos envia ao contabilista da Empresa, até 24 horas antes do início (ou de imediato, se faltar menos), os dados necessários à comunicação da admissão: nome e NIF do trabalhador, função, data, horário, local e valor/hora. A submissão é da responsabilidade da Empresa.',
+        'Quando um trabalhador confirma um turno, os dados necessários à comunicação da admissão — nome e NIF do trabalhador, função, data, horário, local e valor/hora — ficam de imediato disponíveis no painel da Empresa, para copiar ou exportar. A Turnos não comunica a admissão nem envia estes dados a terceiros. A comunicação é da responsabilidade da Empresa e deve ser feita antes do início do trabalho.',
       ],
     },
     {
@@ -129,7 +130,7 @@ const pt: LegalDoc = {
       heading: '11. Dados dos trabalhadores',
       bullets: [
         'A Empresa usa os dados dos trabalhadores apenas para escolher, contratar, gerir e pagar, e para cumprir as suas obrigações legais — finalidades para as quais é responsável pelo tratamento.',
-        'Quando envia dados ao contabilista da Empresa (secção 7), a Turnos age por conta da Empresa, nos termos do Anexo A.',
+        'Os dados de cada contratação que a Empresa consulta ou exporta no painel (secção 7) são-lhe disponibilizados para cumprir as suas obrigações de entidade empregadora; a partir daí, a Empresa trata-os como responsável.',
         'É proibido extrair em massa perfis de trabalhadores ou usá-los fora da Turnos para outros fins.',
       ],
     },
@@ -150,18 +151,6 @@ const pt: LegalDoc = {
       paragraphs: [
         'Estes termos vigoram enquanto a Empresa tiver conta. Alterações significativas são comunicadas com 30 dias de antecedência e aceites no dashboard; a Empresa pode cancelar antes de produzirem efeitos. Aplica-se a lei portuguesa.',
         `Contactos: ${SUPPORT_EMAIL}.`,
-      ],
-    },
-    {
-      heading: 'Anexo A — Acordo de tratamento de dados (art. 28.º RGPD)',
-      bullets: [
-        'Objeto: o tratamento que a Turnos faz por conta da Empresa — preparar e enviar ao contabilista da Empresa os dados de cada contratação (nome, NIF, função, data, horário, local e valor/hora do turno), para que a Empresa comunique a admissão à Segurança Social. Os restantes dados são tratados pela Turnos como responsável, nos termos da Política de Privacidade.',
-        'Instruções: a Turnos trata estes dados apenas para essa finalidade, segundo estes termos, que constituem as instruções documentadas da Empresa.',
-        'Confidencialidade e segurança: acesso limitado a quem precisa, tráfego cifrado, palavras-passe com hash, sessões de curta duração e registo de auditoria só de acréscimo.',
-        'Subcontratantes ulteriores: Railway (alojamento), Cloudflare (armazenamento) e o fornecedor de email. A Turnos avisa com 30 dias de antecedência de qualquer alteração, e a Empresa pode opor-se.',
-        'Assistência: a Turnos ajuda a Empresa a responder a pedidos de titulares e a cumprir os arts. 32.º a 36.º do RGPD.',
-        'Violações de dados: a Turnos notifica a Empresa sem demora injustificada e, sempre que possível, em 48 horas após tomar conhecimento.',
-        'Fim do tratamento: a Turnos elimina os dados tratados por conta da Empresa, exceto o que a lei a obrigue a conservar, e disponibiliza a informação necessária para demonstrar o cumprimento deste anexo.',
       ],
     },
   ],

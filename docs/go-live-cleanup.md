@@ -147,6 +147,19 @@ the review copies in `docs/legal/`, then bump the date in `TERMS_VERSIONS`.
 Everyone whose recorded version differs is asked to accept again — never bump
 it for a typo.
 
+**Stored accountant emails (removed feature, 2026-10-05).** Nothing collects
+or reads them any more; delete what is stored (data minimisation). Railway →
+Postgres → Data → Query:
+
+```sql
+WITH a AS (UPDATE employers SET "accountantEmail" = NULL WHERE "accountantEmail" IS NOT NULL RETURNING id),
+     b AS (UPDATE mcd_contracts SET "ssAccountantEmail" = NULL WHERE "ssAccountantEmail" IS NOT NULL RETURNING id)
+SELECT (SELECT count(*) FROM a) AS employers, (SELECT count(*) FROM b) AS contracts;
+```
+
+Check the table and column names against the database first — this has not
+been run yet.
+
 **Placeholders on `/privacidade`, `/termos`, `/termos-empresas`:**
 `[[RAZÃO SOCIAL]]`, `[[NIPC]]`, `[[MORADA]]` once the company is registered;
 `[[REGIÃO DE ALOJAMENTO]]` from Railway → project → Settings → region.

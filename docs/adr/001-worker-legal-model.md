@@ -49,8 +49,11 @@ The contract type the product is built around is the **MCD (Contrato de Muito
 Curta Duração)**, because it is the form Portuguese law provides for very short
 engagements. The product supports it by:
 
-- sending the company the data it needs for the Segurança Social admission
-  (via the company's accountant email, 24h before the shift);
+- making the data the company needs for the Segurança Social admission
+  available in its dashboard as soon as the worker confirms, to copy or export.
+  Until 2026-10-05 Turnos emailed it to the company's accountant 24h before
+  the shift; removed so that Turnos never performs an employer duty on the
+  company's behalf (and stops being a processor for it);
 - enforcing the statutory limits at application time — 70 days per year with
   the same company, 11h rest between shifts;
 - keeping an append-only audit trail of those checks.

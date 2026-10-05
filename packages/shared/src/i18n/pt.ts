@@ -996,14 +996,25 @@ export const pt = {
     // kept verbatim in both languages.
     compliance: {
       title: 'Conformidade Legal',
-      sub:   'TSU / SS Direta · Contratos MCD · Registo de auditoria ACT',
+      sub:   'Simulação TSU · Dados de contratação (MCD) · Registo de auditoria ACT',
 
       tabTsu:   'Relatório TSU',
-      tabMcd:   'Contratos MCD',
+      tabMcd:   'Contratações',
       tabAudit: 'Auditoria ACT',
 
       emptyTsu:    'Sem turnos concluídos em {{month}} {{year}}',
-      emptyMcd:    'Sem contratos MCD registados ainda',
+      emptyMcd:    'Sem contratações em {{month}} {{year}}',
+
+      // The company communicates the admission itself; Turnos only shows the
+      // data. Never phrase this as Turnos doing or guaranteeing it.
+      hireNotice:  'A comunicação da admissão à Segurança Social é uma obrigação da empresa e deve ser feita antes de o trabalhador começar. Aqui estão os dados de cada contratação, prontos a copiar ou exportar.',
+      exportCsv:   'Exportar para Excel',
+      copyRow:     'Copiar dados',
+      copied:      'Copiado ✓',
+      cancelledTag:'Turno cancelado',
+      csvHeader:   'Trabalhador;NIF;Função;Data;Início;Fim;Valor/hora (€);Local;Empresa;NIPC;Estado do turno',
+      csvFilename: 'contratacoes',
+      copyTemplate:'Trabalhador: {{worker}}\nNIF: {{nif}}\nFunção: {{role}}\nData: {{date}}\nHorário: {{start}}–{{end}}\nValor/hora: €{{rate}}\nLocal: {{address}}\nEmpresa: {{company}} (NIPC {{nipc}})',
       emptyAudit:  'Sem eventos de auditoria',
 
       kpiGross:       'Bruto Total',
@@ -1025,20 +1036,12 @@ export const pt = {
       colSchedule:  'Horário',
       colRole:      'Função',
       colRate:      'Valor/hora',
-      colSsDireta:  'SS Direta',
 
       auditNote:    'Registo imutável de todos os eventos de conformidade. Usado em inspeções da ACT.',
       colDateTime:  'Data/Hora',
       colEvent:     'Evento',
       colShiftShort:'Turno',
       colDetails:   'Detalhes',
-
-      ssStatus: {
-        PENDING:    'Pendente',
-        EMAIL_SENT: 'Email enviado',
-        SUBMITTED:  'Submetido',
-        FAILED:     'Falhou',
-      },
     },
 
     spending: {
@@ -1111,8 +1114,6 @@ export const pt = {
       labelCity:       'Cidade',
       labelAdminEmail: 'Email de acesso',
       adminEmailLocked:'É com este email que entras na Turnos. Contacta o suporte para o alterar.',
-      labelAccountant: 'Email do contabilista',
-      accountantHint:  'Para onde enviamos a notificação de Segurança Social antes de cada turno. Se ficar vazio, enviamos para o email de acesso.',
       save:            'Guardar alterações',
       saving:          'A guardar...',
       saved:           'Alterações guardadas.',
@@ -1140,7 +1141,7 @@ export const pt = {
       planManage:   'Gerir subscrição →',
       benefit1:     'Até 15 turnos abertos em simultâneo',
       benefit2:     'Pesquisa de trabalhadores e convites diretos',
-      benefit3:     'Dados de cada contratação enviados ao seu contabilista para a Segurança Social',
+      benefit3:     'Dados de cada contratação prontos a exportar para a comunicação à Segurança Social',
       benefit4:     'Check-in por QR e conclusão automática do turno',
       benefit5:     'Relatórios prontos para a contabilidade',
 
@@ -1201,7 +1202,7 @@ export const pt = {
         f2: 'Procurar e convidar trabalhadores por competência e idioma',
         f3: 'Gestão de candidaturas e aprovação de trabalhadores',
         f4: 'QR Check-in no local + conclusão automática do turno',
-        f5: 'Apoio à conformidade — limites legais verificados e dados para a Segurança Social enviados ao seu contabilista',
+        f5: 'Apoio à conformidade — limites legais verificados e dados de cada contratação prontos a exportar',
         f6: 'Relatório TSU mensal pronto para a contabilidade',
         f7: 'Notificações push em tempo real',
       },
@@ -1230,8 +1231,8 @@ export const pt = {
       rowQrVal:       'Incluído',
       rowTsu:         'Relatório TSU',
       rowTsuVal:      'Incluído (informativo)',
-      rowSs:          'SS Direta (MCD)',
-      rowSsVal:       'Automático',
+      rowSs:          'Dados para a Segurança Social',
+      rowSsVal:       'Prontos a exportar',
       rowFee:         'Taxa por turno concluído',
       rowFeeVal:      '3€ fixos — faturados 1×/mês',
       rowWage:        'Salário do trabalhador',
@@ -1453,6 +1454,10 @@ export const pt = {
       qrTip1:   'Tem turnos confirmados hoje. Certifique-se de que os ',
       qrTipLink:'códigos QR',
       qrTip2:   ' estão visíveis no seu local de trabalho.',
+      hireTip:     'Tem trabalhadores confirmados. A comunicação da admissão à Segurança Social é feita pela empresa, antes do início do turno — ',
+      hireTipLink: 'ver dados de contratação',
+      hireDataBtn:   'Dados SS',
+      hireDataTitle: 'Dados do trabalhador para a comunicação da admissão à Segurança Social',
 
       // Applicants modal
       appsTitle:   'Candidatos — {{shift}}',
@@ -1695,7 +1700,7 @@ export const pt = {
       q4: 'Em quanto tempo preencho um turno?',
       a4: 'Ao publicares, notificamos os trabalhadores cujas competências correspondem ao turno. Recebes candidaturas e escolhes. Se ninguém se candidatar em 5 horas, uma segunda vaga de notificações sai automaticamente.',
       q5: 'E a papelada legal?',
-      a5: 'És a entidade empregadora, por isso o contrato e a comunicação à Segurança Social são teus — a Turnos facilita: quando confirmas o trabalhador, enviamos ao teu contabilista os dados necessários para a comunicação, antes do turno. Também bloqueamos candidaturas que ultrapassem os limites legais — 70 dias/ano com o mesmo empregador, 11h de descanso entre turnos.',
+      a5: 'És a entidade empregadora, por isso o contrato e a comunicação à Segurança Social são teus — a Turnos facilita: quando o trabalhador confirma, os dados necessários para a comunicação ficam no teu painel, prontos a copiar ou exportar para Excel. Também bloqueamos candidaturas que ultrapassem os limites legais — 70 dias/ano com o mesmo empregador, 11h de descanso entre turnos.',
       q6: 'E se um trabalhador faltar?',
       a6: 'Podes registar a falta. O trabalhador recebe 1 estrela automática e fica suspenso 30 dias; à segunda falta, é bloqueado permanentemente. O turno volta a abrir e notificamos de novo.',
       q7: 'Posso cancelar um turno?',

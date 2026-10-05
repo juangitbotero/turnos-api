@@ -46,7 +46,7 @@ export class Employer {
 
   // ── Compliance ────────────────────────────────────────────────────────────
   @Column({ type: 'varchar', length: 255, nullable: true })
-  accountantEmail?: string;         // Email of employer's accountant for SS Direta notifications
+  accountantEmail?: string;         // LEGACY — no longer collected or used since 2026-10-05 (the accountant email was removed); clear with the runbook SQL
 
   /**
    * Which optional emails this company wants.

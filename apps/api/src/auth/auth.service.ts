@@ -410,7 +410,6 @@ export class AuthService {
         nif:                employer?.nif                ?? null,
         address:            employer?.address            ?? null,
         postalCode:         employer?.postalCode         ?? null,
-        accountantEmail:    employer?.accountantEmail    ?? null,
         adminEmail:         employer?.user?.email        ?? null,
         subscriptionStatus: employer?.subscriptionStatus ?? 'INACTIVE',
         logoUrl:            employer?.logoUrl            ?? null,
@@ -431,7 +430,6 @@ export class AuthService {
   async updateEmployerProfile(userId: string, dto: {
     companyName?: string; sector?: string; nif?: string;
     address?: string; postalCode?: string; city?: string;
-    accountantEmail?: string;
     notificationPrefs?: { ratingReminders?: boolean; wageReminders?: boolean };
   }): Promise<Record<string, unknown>> {
     if (dto.nif && !isValidNIF(dto.nif)) {
@@ -439,9 +437,6 @@ export class AuthService {
     }
     if (dto.postalCode && !isValidPostalCode(dto.postalCode)) {
       throw new BadRequestException(t('api.auth.postalCodeInvalid'));
-    }
-    if (dto.accountantEmail && !dto.accountantEmail.includes('@')) {
-      throw new BadRequestException(t('api.auth.emailInvalid'));
     }
     await this.usersService.updateEmployerProfile(userId, dto);
     return this.getProfile(userId, 'EMPLOYER');

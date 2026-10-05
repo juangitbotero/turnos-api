@@ -616,6 +616,20 @@ export default function ShiftsPage() {
         </div>
       )}
 
+      {/* Hire reminder — FILLED means a worker has just been confirmed and has
+          not started yet, which is exactly the window for the company to
+          communicate the admission. Informative only: Turnos does not do it. */}
+      {active.some(sh => sh.status === 'FILLED') && (
+        <div style={{ ...s.qrTipBanner, background: '#fffbeb', border: '1px solid rgba(217,119,6,0.25)' }}>
+          <span>
+            {t('admin.shifts.hireTip')}
+            <Link href="/dashboard/compliance?tab=mcd" style={{ color: '#b45309', fontWeight: 700 }}>
+              {t('admin.shifts.hireTipLink')}
+            </Link>
+          </span>
+        </div>
+      )}
+
       {!isLoading && shifts.length === 0 && !error && (
         <div style={s.empty}>
           <div style={s.emptyIcon}><IconClipboard size={44} /></div>
@@ -1217,6 +1231,15 @@ function ShiftRow({ shift, onCancel, onManualConfirm, cancelling, confirming, on
               <span style={s.newBadge}>{newAppCount}</span>
             )}
           </button>
+        )}
+        {['FILLED', 'ACTIVE'].includes(shift.status) && (
+          <Link
+            href={`/dashboard/compliance?tab=mcd&month=${shift.date.slice(0, 7)}`}
+            style={{ ...s.viewAppsBtn, textDecoration: 'none' }}
+            title={t('admin.shifts.hireDataTitle')}
+          >
+            {t('admin.shifts.hireDataBtn')}
+          </Link>
         )}
         {canManualConfirm && (
           <button

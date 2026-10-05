@@ -1,10 +1,13 @@
 # Termos de Utilização — Empresas
 
 > **PRIMEIRA VERSÃO PARA REVISÃO JURÍDICA — NÃO PUBLICAR.**
-> Versão 0.1 · 2026-09-27. Escrita a partir do funcionamento real da plataforma.
+> Versão 0.2 · 2026-10-05. Escrita a partir do funcionamento real da plataforma.
 > As notas `⚖️` são perguntas para o advogado e saem do texto final. Os campos
 > `[[…]]` são dados da sociedade ainda por preencher.
-> Inclui, como **Anexo A**, o acordo de tratamento de dados (art. 28.º RGPD).
+> **Alteração face à v0.1 (2026-09-27):** a Turnos deixou de enviar os dados de
+> cada contratação ao contabilista da Empresa. Esses dados ficam disponíveis no
+> painel da Empresa (secção 7.3). Com isso, desaparece o tratamento por conta
+> da Empresa, e o **Anexo A** (art. 28.º RGPD) foi retirado.
 
 ---
 
@@ -41,8 +44,8 @@ trabalhador (secção 4).
 3.1. A Empresa regista-se com denominação social, NIPC e NIF válidos, morada,
 e o email de quem gere a conta. Cada Empresa tem **uma conta e um acesso**.
 
-3.2. A Empresa indica o email do seu contabilista, para onde a Turnos envia os
-dados de cada contratação (secção 7.3).
+3.2. A Turnos não envia dados a terceiros em nome da Empresa. Os dados de cada
+contratação ficam disponíveis no painel da Empresa (secção 7.3).
 
 3.3. A Empresa é responsável pela exatidão destes dados e pelo que é feito com
 o seu acesso.
@@ -117,10 +120,11 @@ ainda não tenha 18 anos na data do turno.
 cumprimento pela Empresa.
 
 7.3. **Dados para a Segurança Social.** Quando um trabalhador confirma um
-turno, a Turnos envia ao contabilista da Empresa, até 24 horas antes do início,
-os dados necessários à comunicação da admissão (nome e NIF do trabalhador,
-função, data, horário, local, valor/hora). **A submissão é da responsabilidade
-da Empresa.**
+turno, os dados necessários à comunicação da admissão (nome e NIF do
+trabalhador, função, data, horário, local, valor/hora) ficam de imediato
+disponíveis no painel da Empresa, para copiar ou exportar. A Turnos não
+comunica a admissão nem envia estes dados a terceiros. **A comunicação é da
+responsabilidade da Empresa** e deve ser feita antes do início do trabalho.
 
 > ⚖️ O produto está construído à volta do contrato de muito curta duração
 > (MCD). (a) O MCD está disponível para qualquer turno curto, ou só nas
@@ -197,8 +201,13 @@ contratar, gerir e pagar, e para cumprir as suas obrigações legais.
 11.2. Para essas finalidades, **a Empresa é responsável pelo tratamento** dos
 dados que recebe.
 
-11.3. Quando envia dados ao contabilista da Empresa (secção 7.3), **a Turnos
-age por conta da Empresa**, nos termos do **Anexo A**.
+11.3. Os dados de cada contratação que a Empresa consulta ou exporta no painel
+(secção 7.3) são-lhe disponibilizados para cumprir as suas obrigações de
+entidade empregadora. A partir daí, a Empresa trata-os como responsável.
+
+> ⚖️ Confirmar a qualificação: Turnos e Empresa como responsáveis
+> independentes, cada um pelas suas finalidades. Há quem leia a pré-seleção e
+> as regras de fiabilidade como responsabilidade conjunta (art. 26.º).
 
 11.4. É proibido extrair em massa perfis de trabalhadores ou usá-los fora da
 Turnos para outros fins.
@@ -235,45 +244,3 @@ antecedência. A Empresa pode cancelar antes de produzirem efeitos.
 ## 15. Lei e foro
 
 Lei portuguesa. Foro da comarca de [[⚖️ Lisboa?]].
-
----
-
-## Anexo A — Acordo de Tratamento de Dados (art. 28.º RGPD)
-
-**A.1. Objeto.** Aplica-se ao tratamento que a Turnos faz por conta da Empresa:
-preparar e enviar ao contabilista da Empresa os dados de cada contratação, para
-que a Empresa comunique a admissão à Segurança Social. Os restantes dados que a
-Turnos trata (contas, perfis, reputação, faturação) são tratados pela Turnos
-como responsável, nos termos da Política de Privacidade.
-
-**A.2. Dados e titulares.** Trabalhadores contratados pela Empresa: nome, NIF,
-função, data, horário, local e valor/hora do turno.
-
-**A.3. Instruções.** A Turnos trata estes dados apenas para a finalidade de
-A.1, segundo estes termos, que constituem as instruções documentadas da
-Empresa.
-
-**A.4. Confidencialidade e segurança.** Acesso limitado a quem precisa; tráfego
-cifrado; palavras-passe com hash; tokens de sessão de curta duração; registo de
-auditoria só de acréscimo.
-
-**A.5. Subcontratantes ulteriores.** Railway (alojamento), Cloudflare
-(armazenamento de ficheiros), [[fornecedor de email]] (envio de emails). A
-Empresa autoriza-os; a Turnos avisa com 30 dias de antecedência de qualquer
-alteração, e a Empresa pode opor-se.
-
-**A.6. Assistência.** A Turnos ajuda a Empresa a responder a pedidos de
-titulares e a cumprir os arts. 32.º a 36.º.
-
-**A.7. Violações de dados.** A Turnos notifica a Empresa sem demora
-injustificada e, sempre que possível, em 48 horas após tomar conhecimento.
-
-**A.8. Fim do tratamento.** No fim da relação, a Turnos elimina os dados
-tratados por conta da Empresa, exceto o que a lei a obrigue a conservar.
-
-**A.9. Auditoria.** A Turnos disponibiliza a informação necessária para
-demonstrar o cumprimento deste anexo.
-
-> ⚖️ Confirmar a qualificação: a Turnos como subcontratante neste envio, e
-> responsável independente no resto. Há quem leia a pré-seleção e as regras
-> de fiabilidade como responsabilidade conjunta (art. 26.º).

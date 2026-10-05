@@ -4,9 +4,9 @@
  * Company settings.
  *
  * Until this page existed a company could change NOTHING after registering —
- * not its address, not its name, and not `accountantEmail`, which is where the
- * Segurança Social notification is sent before every shift. That last one was
- * silently falling back to the sign-in email.
+ * not its address, not its name. (It also held the accountant's email, used
+ * to send hire data to the Segurança Social; that send was removed on
+ * 2026-10-05 and the company now exports the data itself from Compliance.)
  *
  * Two fields are shown but locked: NIPC (the company's legal identifier, with a
  * unique constraint) and the sign-in email (it is the login). Both are support
@@ -35,7 +35,7 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<EmployerProfile | null>(null);
   const [form, setForm] = useState({
     companyName: '', sector: '', nif: '', address: '',
-    postalCode: '', city: '', accountantEmail: '',
+    postalCode: '', city: '',
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -60,7 +60,6 @@ export default function SettingsPage() {
           address: p.address ?? '',
           postalCode: p.postalCode ?? '',
           city: p.city ?? '',
-          accountantEmail: p.accountantEmail ?? '',
         });
       })
       .catch(() => {});
@@ -246,13 +245,6 @@ export default function SettingsPage() {
 
               <Field label={t('admin.settings.labelAdminEmail')} hint={t('admin.settings.adminEmailLocked')} full>
                 <input style={{ ...s.input, ...s.inputLocked }} value={profile?.adminEmail ?? ''} disabled />
-              </Field>
-
-              {/* The one field with real operational consequence on this page. */}
-              <Field label={t('admin.settings.labelAccountant')} hint={t('admin.settings.accountantHint')} full>
-                <input style={s.input} type="email" value={form.accountantEmail}
-                  placeholder={profile?.adminEmail ?? ''}
-                  onChange={e => set('accountantEmail', e.target.value)} />
               </Field>
 
               <div style={s.formFoot}>

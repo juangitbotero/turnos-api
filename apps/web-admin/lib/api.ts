@@ -175,17 +175,21 @@ export interface TsuReport {
   totalTurnosFees: number;
 }
 
+/** One hire — the data the company needs to communicate the admission to the SS. */
 export interface McdContract {
   id:              string;
+  shiftId:         string | null;
+  shiftStatus:     string | null;
   workerName:      string;
   workerNif:       string;
+  employerName:    string;
+  employerNipc:    string;
   shiftDate:       string;
   startTime:       string;
   endTime:         string;
-  role:            string;
+  role:            string | null;
   grossHourlyRate: number;
-  ssStatus:        string;
-  ssEmailSentAt:   string | null;
+  address:         string;
   createdAt:       string;
 }
 
@@ -289,7 +293,6 @@ export interface EmployerProfile {
   nif?: string | null;
   address?: string | null;
   postalCode?: string | null;
-  accountantEmail?: string | null;
   adminEmail?: string | null;
   subscriptionStatus?: string;
   logoUrl?: string | null;
@@ -447,7 +450,7 @@ export const adminApi = {
   /** Update the company's own details (settings). */
   updateEmployerProfile: (dto: {
     companyName?: string; sector?: string; nif?: string;
-    address?: string; postalCode?: string; city?: string; accountantEmail?: string;
+    address?: string; postalCode?: string; city?: string;
     notificationPrefs?: { ratingReminders?: boolean; wageReminders?: boolean };
   }) => request<EmployerProfile>('/auth/employer/profile', {
     method: 'PATCH', body: JSON.stringify(dto),

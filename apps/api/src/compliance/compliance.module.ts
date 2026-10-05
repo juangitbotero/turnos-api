@@ -1,16 +1,17 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { BullModule } from '@nestjs/bullmq';
 import { ComplianceService } from './compliance.service';
 import { ComplianceController } from './compliance.controller';
-import { SsDiretaProcessor } from './processors/ss-direta.processor';
 import { McdContract } from './entities/mcd-contract.entity';
 import { ComplianceAuditLog } from './entities/compliance-audit-log.entity';
 import { Shift } from '../shifts/entities/shift.entity';
 import { Worker } from '../users/entities/worker.entity';
 import { Employer } from '../users/entities/employer.entity';
-import { MailModule } from '../mail/mail.module';
 
+// The `ss-direta` queue and its processor — an email of each hire's data to
+// the company's accountant — were removed on 2026-10-05; the company now
+// downloads that data from the dashboard (see ComplianceService.onShiftApproved).
+// Delayed jobs left in Redis under bull:ss-direta:* are never consumed.
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -20,14 +21,9 @@ import { MailModule } from '../mail/mail.module';
       Worker,
       Employer,
     ]),
-
-    // BullMQ queue — SS Direta email notifications (fires 24h before each confirmed shift)
-    BullModule.registerQueue({ name: 'ss-direta' }),
-
-    MailModule,
   ],
   controllers: [ComplianceController],
-  providers:   [ComplianceService, SsDiretaProcessor],
+  providers:   [ComplianceService],
   exports:     [ComplianceService],
 })
 export class ComplianceModule {}

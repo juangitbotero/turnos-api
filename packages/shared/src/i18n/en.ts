@@ -990,14 +990,23 @@ export const en: Translated<TranslationCatalogue> = {
     // kept verbatim, glossed where first encountered.
     compliance: {
       title: 'Legal compliance',
-      sub:   'TSU / SS Direta · MCD contracts · ACT audit trail',
+      sub:   'TSU simulation · Hire data (MCD) · ACT audit trail',
 
       tabTsu:   'TSU report',
-      tabMcd:   'MCD contracts',
+      tabMcd:   'Hires',
       tabAudit: 'ACT audit',
 
       emptyTsu:    'No completed shifts in {{month}} {{year}}',
-      emptyMcd:    'No MCD contracts recorded yet',
+      emptyMcd:    'No hires in {{month}} {{year}}',
+
+      hireNotice:  'Notifying the Segurança Social of a new hire is the company’s obligation and must be done before the worker starts. Here is each hire’s data, ready to copy or export.',
+      exportCsv:   'Export to Excel',
+      copyRow:     'Copy data',
+      copied:      'Copied ✓',
+      cancelledTag:'Shift cancelled',
+      csvHeader:   'Worker;NIF;Role;Date;Start;End;Rate/hour (€);Location;Company;NIPC;Shift status',
+      csvFilename: 'hires',
+      copyTemplate:'Worker: {{worker}}\nNIF: {{nif}}\nRole: {{role}}\nDate: {{date}}\nHours: {{start}}–{{end}}\nRate/hour: €{{rate}}\nLocation: {{address}}\nCompany: {{company}} (NIPC {{nipc}})',
       emptyAudit:  'No audit events',
 
       kpiGross:       'Total gross',
@@ -1018,20 +1027,12 @@ export const en: Translated<TranslationCatalogue> = {
       colSchedule:  'Hours',
       colRole:      'Role',
       colRate:      'Rate/hour',
-      colSsDireta:  'SS Direta',
 
       auditNote:    'Immutable record of every compliance event. Used in ACT inspections.',
       colDateTime:  'Date/time',
       colEvent:     'Event',
       colShiftShort:'Shift',
       colDetails:   'Details',
-
-      ssStatus: {
-        PENDING:    'Pending',
-        EMAIL_SENT: 'Email sent',
-        SUBMITTED:  'Submitted',
-        FAILED:     'Failed',
-      },
     },
 
     spending: {
@@ -1103,8 +1104,6 @@ export const en: Translated<TranslationCatalogue> = {
       labelCity:       'City',
       labelAdminEmail: 'Sign-in email',
       adminEmailLocked:'This is the email you sign in with. Contact support to change it.',
-      labelAccountant: 'Accountant’s email',
-      accountantHint:  'Where we send the Segurança Social notification before each shift. Left empty, it goes to your sign-in email.',
       save:            'Save changes',
       saving:          'Saving...',
       saved:           'Changes saved.',
@@ -1130,7 +1129,7 @@ export const en: Translated<TranslationCatalogue> = {
       planManage:   'Manage subscription →',
       benefit1:     'Up to 15 shifts open at the same time',
       benefit2:     'Worker search and direct invitations',
-      benefit3:     'Hire details sent to your accountant for the Segurança Social notification',
+      benefit3:     'Each hire’s details ready to export for the Segurança Social notification',
       benefit4:     'QR check-in and automatic shift completion',
       benefit5:     'Accounting-ready reports',
 
@@ -1188,7 +1187,7 @@ export const en: Translated<TranslationCatalogue> = {
         f3: 'Application management and worker approval',
         f4: 'On-site QR check-in + automatic shift completion',
         // MCD and SS Direta are Portuguese legal instruments — kept verbatim
-        f5: 'Compliance support — legal limits checked, Segurança Social data sent to your accountant',
+        f5: 'Compliance support — legal limits checked, each hire’s details ready to export',
         f6: 'Monthly TSU report ready for your accountant',
         f7: 'Real-time push notifications',
       },
@@ -1216,8 +1215,8 @@ export const en: Translated<TranslationCatalogue> = {
       rowQrVal:       'Included',
       rowTsu:         'TSU report',
       rowTsuVal:      'Included (informative)',
-      rowSs:          'SS Direta (MCD)',
-      rowSsVal:       'Automatic',
+      rowSs:          'Segurança Social data',
+      rowSsVal:       'Ready to export',
       rowFee:         'Fee per completed shift',
       rowFeeVal:      '€3 flat — invoiced once a month',
       rowWage:        "Worker's wage",
@@ -1440,6 +1439,10 @@ export const en: Translated<TranslationCatalogue> = {
       qrTip1:   'You have confirmed shifts today. Make sure your ',
       qrTipLink:'QR codes',
       qrTip2:   ' are visible at your workplace.',
+      hireTip:     'You have confirmed workers. Notifying the Segurança Social of the hire is done by the company, before the shift starts — ',
+      hireTipLink: 'see hire data',
+      hireDataBtn:   'SS data',
+      hireDataTitle: 'Worker data for notifying the Segurança Social of the hire',
 
       // Applicants modal
       appsTitle:   'Applicants — {{shift}}',
@@ -1673,7 +1676,7 @@ export const en: Translated<TranslationCatalogue> = {
       q4: 'How fast does a shift get filled?',
       a4: 'When you post, we notify the workers whose skills match the shift. Applications come in and you choose. If nobody applies within 5 hours, a second wave of notifications goes out automatically.',
       q5: 'What about the legal paperwork?',
-      a5: 'You are the employer, so the contract and the Segurança Social notification are yours — Turnos makes them easier: when you confirm a worker, we send your accountant the details needed for the notification, before the shift. We also block applications that would break the legal limits — 70 days a year with the same employer, 11 hours of rest between shifts.',
+      a5: 'You are the employer, so the contract and the Segurança Social notification are yours — Turnos makes them easier: once the worker confirms, the details needed for the notification are in your dashboard, ready to copy or export to Excel. We also block applications that would break the legal limits — 70 days a year with the same employer, 11 hours of rest between shifts.',
       q6: 'What if a worker does not show up?',
       a6: 'You can report the no-show. The worker gets an automatic 1-star rating and a 30-day suspension; on a second no-show they are permanently blocked. The shift reopens and we notify again.',
       q7: 'Can I cancel a shift?',

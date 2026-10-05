@@ -289,8 +289,7 @@ export class AuthController {
 
   /**
    * Update the company's own details. Until this existed a company could not
-   * change anything after registering — including `accountantEmail`, which the
-   * SS Direta notification is sent to.
+   * change anything after registering.
    */
   @UseGuards(JwtAuthGuard)
   @Patch('employer/profile')
@@ -300,7 +299,6 @@ export class AuthController {
     @Body() body: {
       companyName?: string; sector?: string; nif?: string;
       address?: string; postalCode?: string; city?: string;
-      accountantEmail?: string;
     },
   ) {
     return this.authService.updateEmployerProfile(req.user.userId, body);
