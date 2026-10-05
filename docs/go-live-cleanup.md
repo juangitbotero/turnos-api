@@ -74,8 +74,14 @@ Sending *from* a gmail.com address through a third party can land in spam.
 Before launch, buy a domain (e.g. `turnos.pt`), authenticate it in Brevo
 (SPF/DKIM) and change `MAIL_FROM` — no code change.
 
-The `MAIL_HOST` / `MAIL_USER` / `MAIL_PASS` variables set for Gmail are unused
-while SMTP is blocked; delete them or leave them, they do no harm.
+**Delete `MAIL_HOST` / `MAIL_PORT` / `MAIL_USER` / `MAIL_PASS` from Railway** —
+they do harm. SMTP is blocked, but `MAIL_USER` still sets the default sender
+address. On 2026-10-05 it held `turnos-contact@gmail.com` (hyphen) while Brevo
+had verified `turnos.contact@gmail.com` (dot), and Brevo rejected every send
+with "sender is not valid". The API accepted the request first, so the
+dashboard showed "Enviado ✓" — the error is only visible in Brevo →
+Transactional → Logs. With no `MAIL_*` variables the sender defaults to
+`SUPPORT_EMAIL`, which is the verified address.
 
 ## 4. Test accounts · *pre-flight Track 3, "Test accounts"*
 
