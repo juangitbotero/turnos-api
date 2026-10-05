@@ -5,6 +5,7 @@
  *   node build.js                 everything
  *   node build.js quiet-signal    one direction
  *   node build.js drawn F         one direction, ids starting with "F"
+ *   node build.js reason          Direction 4, "Whatever your reason"
  *   node build.js graphics        just the motif library (PNG + SVG)
  *
  * Output goes to docs/brand/ad-campaign/. Rebuilding is always safe: every
@@ -17,6 +18,7 @@ const fs = require('fs');
 const L = require('./lib.js');
 const quiet = require('./directions/quiet-signal.js');
 const drawn = require('./directions/drawn.js');
+const reason = require('./directions/reason.js');
 
 const OUT = path.join(L.REPO, 'docs', 'brand', 'ad-campaign');
 const SIZES = [{ w: 1080, h: 1080 }, { w: 1080, h: 1350 }, { w: 1080, h: 1920 }];
@@ -40,6 +42,25 @@ async function buildQuiet(logos, filter) {
       n++;
     }
   }
+  return n;
+}
+
+// Direction 4 is feed + story only: it was briefed for Instagram, where the
+// square adds nothing the 4:5 does not do better.
+const REASON_SIZES = [{ w: 1080, h: 1350 }, { w: 1080, h: 1920 }];
+
+async function buildReason(logos, filter) {
+  const dir = path.join(OUT, '04-whatever-your-reason');
+  let n = 0;
+  for (const spec of reason.SPECS) {
+    if (filter && !spec.id.startsWith(filter)) continue;
+    const logo = spec.ground === 'ink' ? logos.light : logos.dark;
+    for (const s of REASON_SIZES) {
+      await L.render(reason.card({ W: s.w, H: s.h, logo, spec }), path.join(dir, `${spec.id}_${s.w}x${s.h}.png`), s.w, s.h);
+      n++;
+    }
+  }
+  if (!filter) await reason.contactSheet(dir, reason.SPECS.map((s) => s.id));
   return n;
 }
 
@@ -67,6 +88,7 @@ async function buildDrawn(logos, filter) {
   let total = 0;
   if (!which || which === 'quiet-signal') total += await buildQuiet(logos, filter);
   if (!which || which === 'drawn') total += await buildDrawn(logos, filter);
+  if (!which || which === 'reason') total += await buildReason(logos, filter);
   if (total) console.log(`${total} composition(s) written to ${path.relative(L.REPO, OUT)}`);
 
   // Direction 3 reads screenshots off disk and crops them, so it is its own

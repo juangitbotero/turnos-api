@@ -71,15 +71,3 @@ e 02 são perguntas nossas sobre a redação de cada cláusula.
 Parecer curto sobre **A1 a A4 primeiro** — as respostas mudam o texto dos
 termos. Depois, a redação final dos dois Termos, do Anexo A e da Política de
 Privacidade. O Pay Link tem brief próprio.
-
-## Já corrigido do nosso lado (27/09)
-
-Deixámos de enviar aos trabalhadores lembretes de recibo verde e de declaração
-trimestral à Segurança Social: não se aplicam a um contrato de trabalho, e não
-é papel da plataforma. Passámos a pedir a data de nascimento (18+, verificado
-na data de cada turno). O NIF, o IBAN e a data de nascimento do trabalhador
-deixaram de ser devolvidos às empresas na lista de candidatos. A aceitação dos
-termos passou a ficar registada (versão e data), cada suspensão ou bloqueio é
-fundamentada ao trabalhador, e os prazos de conservação são aplicados
-automaticamente. Os termos estão publicados como **versão provisória** durante
-os testes, e serão substituídos pela versão que validarem.

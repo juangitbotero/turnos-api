@@ -177,4 +177,4 @@ const SPECS = [
   },
 ];
 
-module.exports = { card, SPECS, GROUNDS };
+module.exports = { card, frame, assertFits, SPECS, GROUNDS };

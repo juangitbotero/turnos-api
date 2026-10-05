@@ -14,7 +14,7 @@ it is too generic. Rewrite until it is about the reader's actual evening.
 | Column | Meaning |
 |---|---|
 | **Motif** | Suggested icon from `ad-campaign/graphics/` |
-| **Dir** | 1 Quiet Signal · 2 Drawn · 3 In Hand |
+| **Dir** | 1 Quiet Signal · 2 Drawn · 3 In Hand · 4 Whatever your reason (§G) |
 | **Backed by** | What makes the claim safe to publish |
 
 ---
@@ -99,6 +99,54 @@ non-intermediary position · multi-day `seriesId` all-or-nothing apply.
 
 *Backed by:* `SHIFT_CATEGORIES` — eight categories · proximity sort.
 
+## G. Whatever your reason — who you are off shift
+
+The job stays the same; the person changes. Every line names a *specific* reason
+someone keeps their week flexible and pairs it with the shift. It passes the
+competitor test because it describes the reader's life, not the category. Built
+as Direction 4 (`ad-campaign/04-whatever-your-reason/`), and it is the static
+companion to the "Whatever your reason" Reel.
+
+**Series line:** *Whatever your reason.* Use it as the sign-off, never as the
+whole ad. On its own it says nothing; after a specific reason it says everything.
+
+| # | Headline | Supporting line | Persona · motif |
+|---|---|---|---|
+| 26 | **Surf at dawn. Bar at night.** | Train when the swell is up. Take a shift when it isn't. | Surfer · `surfboard` |
+| 27 | **Exams in May. Shifts in between.** | Work the weeks you can. Switch it off the weeks you can't. | Student · `book` |
+| 28 | **Paint all week. Pour on Friday.** | Shifts that fund the work without swallowing it. | Painter · `palette` |
+| 29 | **Gig on Saturday. Shift on Thursday.** | Keep the nights that matter. Fill the ones that don't. | Musician · `note` |
+| 30 | **Training comes first. The shift fits around it.** | Pick the hours that leave your sessions untouched. | Athlete · `dumbbell` |
+| 31 | **You moved to Lisbon for the sun. Keep it.** | Evening shifts near home, and your days stay yours. | Newcomer · `sun` |
+| 32 | **Laptop shut at five. Apron on at six.** | A second income, on the evenings you choose. | Remote worker · `laptop` |
+| 33 | **Shoot on weekdays. Serve on weekends.** | Short shifts between the jobs you actually want. | Photographer · `camera` |
+| 34 | **School run at three. Shift at seven.** | Pick your days. Companies only find you on the ones you choose. | Parent · `backpack` |
+| 35 | **Building something of your own? Fund it a shift at a time.** | Keep your days for the idea, and the full gross for yourself. | Founder · `bulb` |
+| 36 | **The trip is in August. The shifts are now.** | Save on your own schedule. We take no cut of your pay. | Saver · `plane` |
+| 37 | **A free Saturday is reason enough.** | No big plan needed. Just a shift that fits. | Free time · `sofa` |
+| 38 | **Retired from the job. Not from people.** | A few shifts a month, whenever you feel like it. | Retiree · `glasses` |
+| 39 | **Different lives. Same shift.** | Whatever brings you behind the bar, the pay is on the card before you apply. | All · converge |
+| 40 | **Five reasons. One bar. Friday at eight.** | Pick the shift, work it, keep the full gross. Free for workers, always. | All · converge |
+| 41 | **Whatever your reason.** | For the swell. For the exams. For the canvas. For the gig. For the trip. | All · list |
+| 42 | **Your reason is your business.** | Pick the shifts, keep the full gross, keep the rest of your week. | All · list |
+| 43 | **Surfer by morning. Student by day. Painter by night. Bartender on Friday.** | Whoever you are the rest of the week. | All · list |
+
+*Backed by:* `Worker.isAvailableForWork` + `availableDays` (pick your days,
+switch it off) · gross rate on every card · `TURNOS_FEE_FIXED_EUR` company-side
+only (full gross, no cut) · proximity sort ("near home") · MCD short contracts.
+
+⚠️ **Every persona must live in Portugal.** The tempting version of this set
+includes a tourist on the beach on a Tuesday. Don't use it. A visitor has no NIF
+or IBAN, cannot reach the 80-point activation gate, and cannot hold an MCD
+contract (`META_CAMPAIGN_PLAN.md` §0). That makes every tourist who signs up a
+paid lead who can never work a shift. "The newcomer" *moved* here, and that is
+the version to keep.
+
+⚠️ **The bar is the constant, not a promise.** These cards say the reasons end
+at *a* bar shift because that's the device. They do not claim bar shifts are
+available to everyone who applies, or that no experience is needed. Don't add
+"no experience needed" to any line in this set.
+
 ---
 
 ## Use with care
@@ -129,3 +177,5 @@ Recording these so they don't get reinvented.
 | "No CV needed" | CV upload exists and is worth 10 profile points. Reads as contradicting the app |
 | "We find you work" | Positions Turnos as an intermediary — the exact claim ADR 007 exists to avoid |
 | "Find flexible work near you" | Fails the competitor test. Any of them could run it unchanged |
+| "On holiday? Pick up a shift" / a tourist persona | Visitors can't be activated: no NIF or IBAN, and no MCD contract. See §G |
+| "Paying the rent while I paint" | Financial pressure again (see #25). "Saving to keep painting" / "fund the work" says the same thing without it |

@@ -125,6 +125,102 @@ const line = {
   /** Star. Reputation — the thing that gets you picked next time. */
   star: (c, sw) => `
     <path d="M50 12 L62 39 L91 42 L69 61 L76 89 L50 74 L24 89 L31 61 L9 42 L38 39 Z" ${S(c, sw)}/>`,
+
+  // ---- the reasons (Direction 4) — who the worker is when not on shift ----
+
+  /**
+   * Surfboard, tilted, over a swell. Training in the water every morning.
+   * Wide, parallel rails and a full-length stringer. Two earlier versions read
+   * as a leaf and then a quill — a tapered tail, or fins drawn as short
+   * strokes, both look like a stem at small sizes.
+   */
+  surfboard: (c, sw) => `
+    <g transform="rotate(20 50 44)">
+      <path d="M50 4 Q69 10 69 40 L69 70 Q69 84 50 86 Q31 84 31 70 L31 40 Q31 10 50 4 Z" ${S(c, sw)}/>
+      <path d="M50 10 L50 80" ${S(c, sw * 0.6)}/>
+    </g>
+    <path d="M6 92 Q17 84 28 92 Q39 100 50 92 Q61 84 72 92" ${S(c, sw * 0.85)}/>`,
+
+  /** Open book. Exams, a degree, the week that belongs to studying. */
+  book: (c, sw) => `
+    <path d="M50 28 Q34 18 12 22 L12 78 Q34 74 50 84 Q66 74 88 78 L88 22 Q66 18 50 28 Z" ${S(c, sw)}/>
+    <path d="M50 28 L50 84" ${S(c, sw)}/>
+    <path d="M22 38 Q32 36 40 40 M22 50 Q32 48 40 52 M60 40 Q68 36 78 38 M60 52 Q68 48 78 50" ${S(c, sw * 0.7)}/>`,
+
+  /** Painter's palette. The art the shifts are paying for. */
+  palette: (c, sw) => `
+    <path d="M50 14 Q86 14 88 46 Q90 66 72 66 Q62 66 64 76 Q66 88 50 88 Q14 88 12 52 Q12 14 50 14 Z" ${S(c, sw)}/>
+    <circle cx="30" cy="42" r="${r(sw * 1.5)}" fill="${c}"/>
+    <circle cx="46" cy="28" r="${r(sw * 1.5)}" fill="${c}"/>
+    <circle cx="66" cy="32" r="${r(sw * 1.5)}" fill="${c}"/>
+    <circle cx="36" cy="66" r="7" ${S(c, sw * 0.85)}/>`,
+
+  /** Two beamed notes. The gig on Saturday. */
+  note: (c, sw) => `
+    <path d="M36 74 L36 24 L78 14 L78 64" ${S(c, sw)}/>
+    <path d="M36 36 L78 26" ${S(c, sw)}/>
+    <ellipse cx="27" cy="75" rx="10" ry="7" transform="rotate(-18 27 75)" fill="${c}"/>
+    <ellipse cx="69" cy="65" rx="10" ry="7" transform="rotate(-18 69 65)" fill="${c}"/>`,
+
+  /** Dumbbell. Training for something that comes first. */
+  dumbbell: (c, sw) => `
+    <path d="M30 50 L70 50" ${S(c, sw)}/>
+    <rect x="12" y="32" width="10" height="36" rx="3" ${S(c, sw)}/>
+    <rect x="22" y="38" width="8" height="24" rx="2" ${S(c, sw)}/>
+    <rect x="78" y="32" width="10" height="36" rx="3" ${S(c, sw)}/>
+    <rect x="70" y="38" width="8" height="24" rx="2" ${S(c, sw)}/>`,
+
+  /** Sun over the water. Moved to Lisbon for the light. */
+  sun: (c, sw) => `
+    <circle cx="50" cy="42" r="15" ${S(c, sw)}/>
+    <path d="M50 12 L50 19 M50 65 L50 72 M20 42 L27 42 M73 42 L80 42 M29 21 L34 26 M66 58 L71 63 M71 21 L66 26 M34 58 L29 63" ${S(c, sw * 0.85)}/>
+    <path d="M10 84 Q20 78 30 84 Q40 90 50 84 Q60 78 70 84 Q80 90 90 84" ${S(c, sw)}/>`,
+
+  /** Laptop. The remote job that closes at five. */
+  laptop: (c, sw) => `
+    <rect x="20" y="22" width="60" height="42" rx="5" ${S(c, sw)}/>
+    <path d="M10 72 L90 72 L84 80 L16 80 Z" ${S(c, sw)}/>
+    <path d="M44 76 L56 76" ${S(c, sw * 0.7)}/>`,
+
+  /** Camera. Shoots on weekdays. */
+  camera: (c, sw) => `
+    <rect x="12" y="32" width="76" height="50" rx="8" ${S(c, sw)}/>
+    <path d="M34 32 L40 22 L60 22 L66 32" ${S(c, sw)}/>
+    <circle cx="50" cy="57" r="15" ${S(c, sw)}/>
+    <circle cx="50" cy="57" r="6" ${S(c, sw * 0.8)}/>
+    <circle cx="76" cy="42" r="${r(sw * 1.3)}" fill="${c}"/>`,
+
+  /** School backpack. The school run at three. */
+  backpack: (c, sw) => `
+    <path d="M42 22 Q42 12 50 12 Q58 12 58 22" ${S(c, sw)}/>
+    <path d="M24 40 Q24 22 50 22 Q76 22 76 40 L76 82 Q76 88 70 88 L30 88 Q24 88 24 82 Z" ${S(c, sw)}/>
+    <rect x="34" y="56" width="32" height="22" rx="4" ${S(c, sw * 0.9)}/>
+    <path d="M34 64 L66 64" ${S(c, sw * 0.8)}/>`,
+
+  /** Light bulb. Building something of your own. */
+  bulb: (c, sw) => `
+    <path d="M36 60 Q22 50 22 36 Q22 12 50 12 Q78 12 78 36 Q78 50 64 60 L64 68 L36 68 Z" ${S(c, sw)}/>
+    <path d="M38 77 L62 77 M42 86 L58 86" ${S(c, sw)}/>
+    <path d="M43 52 L50 38 L57 52" ${S(c, sw * 0.75)}/>`,
+
+  /** Plane, climbing. The trip in August. */
+  plane: (c, sw) => `
+    <g transform="rotate(45 50 50)">
+      <path d="M50 8 Q56 8 56 20 L56 40 L88 58 L88 66 L56 56 L56 76 L66 84 L66 90 L50 86 L34 90 L34 84 L44 76 L44 56 L12 66 L12 58 L44 40 L44 20 Q44 8 50 8 Z" ${S(c, sw)}/>
+    </g>`,
+
+  /** Sofa. Just a free Saturday — reason enough. */
+  sofa: (c, sw) => `
+    <path d="M20 48 L20 38 Q20 28 30 28 L70 28 Q80 28 80 38 L80 48" ${S(c, sw)}/>
+    <path d="M12 54 Q12 46 19 46 Q26 46 26 54 L26 60 L74 60 L74 54 Q74 46 81 46 Q88 46 88 54 L88 74 L12 74 Z" ${S(c, sw)}/>
+    <path d="M20 74 L20 82 M80 74 L80 82" ${S(c, sw)}/>`,
+
+  /** Reading glasses. Retired from the job, not from people. */
+  glasses: (c, sw) => `
+    <circle cx="30" cy="56" r="14" ${S(c, sw)}/>
+    <circle cx="70" cy="56" r="14" ${S(c, sw)}/>
+    <path d="M44 54 Q50 47 56 54" ${S(c, sw)}/>
+    <path d="M16 52 L8 38 M84 52 L92 38" ${S(c, sw)}/>`,
 };
 
 // -------------------------------------------------------------- signal family

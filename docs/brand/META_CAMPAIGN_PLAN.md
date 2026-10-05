@@ -17,9 +17,9 @@ Placements: Instagram Reels, Stories and Feed, plus Facebook.
 
 **Do not target tourists.** This is not a preference, it is arithmetic.
 
-`calculateProfileQualityScore()` awards **NIF 20 points** and **IBAN 20 points**,
+`calculateProfileQualityScore()` awards **NIF 30 points** and **IBAN 20 points**,
 and a worker must reach **≥80 of 100** to enter `PENDING_REVIEW`. Without a
-Portuguese NIF and IBAN the ceiling is 60 — **a tourist cannot be activated, no
+Portuguese NIF and IBAN the ceiling is 50 — **a tourist cannot be activated, no
 matter how motivated they are.** On top of that, MCD is a Portuguese employment
 contract requiring a Social Security number, and the compliance engine files an
 SS Direta notification before every shift.
@@ -93,6 +93,137 @@ not running it.
 | 3 | **A Lisbon-only check on the Kit form** | Someone in Porto signing up is not bad, but must be tagged separately or your launch signal is wrong |
 | 4 | **Decide the Special Ad Category answer** — see below | Wrong answer = rejected ads or a wasted targeting setup |
 | 5 | **UTM tags on every destination URL** | `utm_source=meta&utm_campaign=waitlist&utm_content={{ad.name}}` |
+
+### How the Kit form and Meta actually connect — they don't, directly
+
+A common and expensive misunderstanding. **A Meta Instant Form is not your Kit
+form.** They are two different destinations and you pick one:
+
+| `Destino` setting | What happens |
+|---|---|
+| **Formulario instantáneo** | Meta shows *its own* form inside the app. Leads land in Meta's Lead Center. Your Kit form is not involved |
+| **Sitio web** | Meta sends the click to your landing page, where your Kit form does the work as normal |
+
+You cannot embed a Kit form inside an Instant Form. With route C (Instant Form)
+the "connection" to Kit is a **one-way sync that runs after the lead is
+captured**, and it has to be built before launch.
+
+#### Building the form (`Crear formulario`)
+
+| Setting | Choose | Why |
+|---|---|---|
+| Form type | **Más volumen** | The qualifying questions do the filtering. `Más intención` adds a review step on top — hold it in reserve if lead quality disappoints |
+| Fields | **Email + full name only** | No phone. It measurably depresses completion and the app collects it at OTP signup anyway |
+| Custom question 1 | *"Do you have a Portuguese NIF?"* — Yes / Not yet | This is the activation gate (§0) asked up front |
+| Custom question 2 | *"Which best describes you?"* — Student · Working part-time · Between jobs · Freelancer/artist · Other | Segments the list and tells you which creative angle to lean into |
+| **Privacy policy URL** | **Required — Meta will not publish the form without one** | See the blocker below |
+| Completion screen | Thank-you + button to the landing page | Recovers the "read more" behaviour the Instant Form otherwise loses |
+
+⚠️ **Blocker: the privacy policy URL is mandatory.** Meta rejects any Instant
+Form without one, and collecting emails from EU residents needs it regardless of
+Meta. Confirm `turnos.systeme.io` has a reachable privacy policy that covers
+waiting-list email collection before building the form, or the campaign stops
+here.
+
+#### Getting the leads into Kit
+
+Three routes, in order of reliability:
+
+1. **Zapier or Make** — trigger *New Lead in Facebook Lead Ads*, action *Add
+   Subscriber in Kit*. The standard route and the one to plan for.
+2. **A native Kit integration**, if one exists for Meta Lead Ads in your plan —
+   check Kit's integrations page first, since it removes a moving part.
+3. **CSV export from Meta Lead Center** — works, but it is manual and nobody
+   does it consistently. Fallback only.
+
+Two things that have to happen for any of them:
+
+- **Grant Lead Access at the Page level.** Instant Forms belong to the Facebook
+  **Page**, not the ad account. In Business Suite → Page settings → *Lead
+  Access*, give the CRM/integration access. Missing this is the usual reason a
+  correctly-built Zap receives nothing.
+- **Turn the sync on BEFORE the ads go live.** Zapier only picks up leads
+  created *after* the Zap is switched on. Leads captured before it exists are
+  recoverable only by CSV.
+
+#### Runbook — connecting a campaign that is already running
+
+Order matters. Done in the wrong order you either send a broken first email to
+your whole early list, or send nothing at all.
+
+1. **Grant Lead Access** on the Page (above). Nothing works without it.
+2. **Build the sync.** Trigger *New Lead in Facebook Lead Ads* → action *Add
+   Subscriber* in Kit. Map email, name, and both custom answers.
+3. **Write and finish the email**, and build the Kit automation that sends it
+   (trigger: tag added). Finish this *before* anything can fire it.
+4. **Test with Meta's Lead Ads Testing Tool** — submit a fake lead and follow it
+   all the way to an email in your own inbox. Delete the test subscriber after.
+5. **Import ONE real lead** from the CSV backlog. Confirm the email arrives and
+   reads correctly.
+6. **Import the remaining backlog.** Only now.
+7. **Reconcile daily for the first week** — lead count in Meta against subscriber
+   count in Kit. Silent sync breakage is common and invisible.
+
+⚠️ Step 5 exists because an import into a live automation **sends immediately**.
+Importing the whole backlog before testing means any mistake in the email
+reaches every early lead at once, and those are the most valuable addresses on
+the list.
+
+#### The two ways an import silently sends nothing
+
+Both were hit in practice on 2026-09-05, and neither reports an error.
+
+1. **A form's confirmation email fires on form submission, not on import.** It
+   belongs to the opt-in flow. Importing a subscriber never submits a form, so
+   that email is simply not part of the path.
+2. **Visual Automations do not fire retroactively.** A "subscriber added to
+   tag" trigger fires on the *event* of the tag being applied. A subscriber who
+   already carries the tag from before the automation existed will never enter
+   it — so building the automation after importing reaches nobody already in.
+
+**Therefore the backlog and the flow need different mechanisms:**
+
+| For | Use | Why |
+|---|---|---|
+| Leads already sitting in Kit | **Broadcast**, filtered by tag | One-off send, fires on demand, gives open/click reporting |
+| Every lead from now on | **Visual Automation** on tag-added | Fires per subscriber as the sync creates them |
+
+Also confirm the imported subscribers show as **Confirmed / Active**, not
+*Unconfirmed*. Kit will not send a broadcast to unconfirmed addresses, which is
+a third way to send nothing without seeing an error.
+
+⚠️ **Kit's "Import subscribers from ActiveCampaign" is not this.** It migrates a
+list from ActiveCampaign, a rival email platform, and asks for *that* tool's API
+URL and key. Meta has no equivalent credential and nothing pasted there will
+work. Kit's importers are for moving between email platforms; Meta leads arrive
+by CSV or by an automation, never by an importer.
+
+#### Task volume — check the pricing tier before choosing
+
+Every lead consumes one task/operation. At ~10 leads/day that is roughly **300
+per month**, which exceeds Zapier's free tier (100 tasks). Make's free tier is
+considerably larger. Check current limits before committing — this is a
+recurring cost decision, not a one-off.
+
+#### Test it before you spend
+
+Meta's **Lead Ads Testing Tool** (`developers.facebook.com/tools/lead-ads-testing`)
+submits a fake lead against your live form. Use it to confirm the whole chain —
+form → sync → Kit subscriber, with the right tags — before a single euro of
+delivery. A broken sync discovered on day 3 costs you every lead from days 1–3.
+
+#### Tag on the way in
+
+Map both custom answers to Kit tags: `nif-yes` / `nif-not-yet`, and
+`student` / `part-time` / `between-jobs` / `freelancer`. The NIF tag is what
+makes the **"% leads with a NIF"** metric in §8 measurable — without it you have
+a subscriber count and no idea how much of it is real.
+
+#### Skip `Prueba de formulario` at launch
+
+The form A/B test compares up to five forms, and splitting an already-small
+volume across variants means none of them reaches significance. Revisit once you
+have a stable baseline CPL.
 
 ### ⚠️ Special Ad Category — check this in Ads Manager first
 
@@ -304,6 +435,72 @@ statistics, nothing positioning Turnos as an agency. §6 of
 ad copy exactly as it applies to the creative.
 
 ---
+
+## 6b. What happens after the lead — the confirmation email
+
+An Instant Form lead never left Instagram. They did not read the landing page,
+did not see the product, and gave you an address Meta pre-filled for them. The
+"thanks" screen inside the form is not a relationship. **Send a real email
+within minutes of signup**, for four reasons that are not about manners:
+
+1. **They will not remember signing up.** If the first email from Turnos arrives
+   at launch, weeks later, it reads as spam to the recipient — and gets marked
+   as such, which damages deliverability for everyone else on the list.
+2. **It validates the address.** Meta pre-fills, so typos and dead accounts get
+   through. Bounces surface immediately instead of at launch.
+3. **It is the moment of maximum intent.** Nothing you send later will be opened
+   at this rate. Spend it on something useful, not on "thanks".
+4. **Replies are the cheapest research you will ever get**, and they train the
+   inbox provider that Turnos is wanted mail.
+
+### Before writing the email: are the leads even reaching Kit?
+
+If the Zapier/Make sync was not switched on before the ads went live, the leads
+exist **only in Meta's Lead Center** and nothing downstream has them. Check
+first, then:
+
+- **Export the existing leads as CSV** from Lead Center and import to Kit,
+  tagging them to match what the sync will apply.
+- ⚠️ **Meta retains leads for 90 days.** After that they are gone from the Lead
+  Center. This is not a "get to it eventually" task.
+- Switch the sync on now so it is automatic from the next lead onward.
+
+### ⚠️ Two silent failure modes in Kit
+
+- **Double opt-in.** If the Kit form/sequence requires confirmation, imported
+  leads receive a "confirm your subscription" mail and **nothing else until they
+  click it**. Most will not. The Meta form already captured consent with a
+  privacy policy, so single opt-in is defensible here — but check the setting
+  rather than assume it, or the whole nurture silently does nothing.
+- **Domain authentication.** Sending from a fresh domain without SPF and DKIM
+  configured in Kit puts the mail in spam, where it will also never bounce
+  visibly. Authenticate before the first send.
+
+### What the email should do
+
+Confirm, set expectations, and **pre-qualify** — the NIF/IBAN requirement is the
+activation gate (§0), and telling people now is far cheaper than discovering at
+launch that a third of the list cannot work. Frame it as "what to have ready",
+never as a hurdle.
+
+Ask one question and invite a reply. At this stage the founder reading fifty
+replies is worth more than any dashboard.
+
+### Cadence between now and launch
+
+One email is not a nurture. A list that hears nothing for two months is a cold
+list at launch, regardless of how it was built.
+
+| When | Content |
+|---|---|
+| Immediately | Confirmation + what to have ready + one question |
+| ~Day 4 | The problem Turnos exists to fix — the chat-group chaos angle |
+| ~Day 14 | Progress note: how many people are on the list, which trades |
+| Monthly | Short update. Keep it honest; "still building" is fine |
+| Launch | Access link, sent to this list before anyone else |
+
+Reuse the campaign copy — [`COPY_BANK.md`](./COPY_BANK.md) angles map directly
+onto these emails, and the **41s video** belongs in one of the first two.
 
 ## 7. Retargeting (from week 2)
 

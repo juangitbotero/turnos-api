@@ -9,7 +9,8 @@ re-edited by hand.
 01-quiet-signal/   Direction 1 — typographic, abstract marks       5 concepts × 2 sizes
 02-drawn/          Direction 2 — line illustration, warm grounds  10 variants × 2 sizes
 03-in-hand/        Direction 3 — real app UI, detail callouts     12 variants × 2 sizes
-graphics/          The motif library, transparent PNG + SVG       17 motifs × colourways
+04-whatever-your-reason/  Direction 4 — who you are off shift     18 variants × feed + story
+graphics/          The motif library, transparent PNG + SVG       30 motifs × colourways
 screenshots/       Source screens for Direction 3                 drop new exports here
 ```
 
@@ -45,6 +46,30 @@ templates keep matching what the generator actually produces.
 **The generator lives in `scripts/ad-campaign/`.** Rebuild everything with
 `node build.js`, or one direction with `node build.js in-hand`. The mood and its
 rules are written down in [`../CAMPAIGN_SYSTEM.md`](../CAMPAIGN_SYSTEM.md).
+
+## Direction 4 — "Whatever your reason"
+
+The job never changes; the person does. Each card pairs the reason someone
+keeps their week flexible — the swell, the exams, the canvas, the school run —
+with the one shift they all end up taking: the bar. **The reason is drawn in
+ink, the shift in the accent** — the reason is theirs, the shift is Turnos. It
+is the static companion to the "Whatever your reason" Reel script.
+
+| Layout | Mark slot | Variants |
+|---|---|---|
+| `pair` | one reason → dashed connector → the cocktail, labelled under each | AB–AN (13 personas) |
+| `converge` | five reasons whose lines run into one cocktail | AO, AP |
+| `list` | reasons as quiet rows, then the headline | AQ, AR, AS |
+
+- **Feed `1080×1350` and Story `1080×1920` only** — briefed for Instagram, so no
+  square. `node build.js reason` rebuilds the set and its contact sheet.
+- **Every persona lives in Portugal.** The "newcomer" *moved* to Lisbon; nobody
+  is on holiday. A visitor cannot pass the 80-point activation gate (no NIF or
+  IBAN) or hold an MCD contract — `../META_CAMPAIGN_PLAN.md` §0. Keep it that
+  way when adding a persona.
+- **The label row carries the series.** Left: `WHATEVER YOUR REASON` on every
+  card. Right: the index (`01 · THE SURFER`). A grid of these reads as one set.
+- Copy and its backing are in [`../COPY_BANK.md`](../COPY_BANK.md) §G.
 
 ## Direction 3 — two things to check before running these
 
@@ -108,6 +133,7 @@ so one definition scales from a 40px chip to a 900px hero. Both formats ship:
 | Family | Motifs | Colourways |
 |---|---|---|
 | line | cup, cocktail, cloche, chefHat, tray, pin, clock, qr, calendar, coin, apron, phone, star | `blue` `ink` `white` |
+| line — reasons | surfboard, book, palette, note, dumbbell, sun, laptop, camera, backpack, bulb, plane, sofa, glasses | `blue` `ink` `white` |
 | signal | dot, radar, field, noise | `on-dark` `on-light` |
 
 `signal/dot` is the lit mark from concept A — the accent point with its rings

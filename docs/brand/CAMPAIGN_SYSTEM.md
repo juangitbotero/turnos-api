@@ -146,17 +146,22 @@ are easy to reach for and are now false.
 **Headline test:** could a competitor run this line unchanged? If yes, it is too
 generic. Rewrite until it is about the reader's actual evening.
 
-**24 approved headlines with supporting lines, grouped by angle, live in
+**42 approved headlines with supporting lines, grouped by angle, live in
 [`COPY_BANK.md`](./COPY_BANK.md)** — along with the lines that were rejected and
 why, so they do not get reinvented.
 
 ## 7. The motif library
 
-`docs/brand/ad-campaign/graphics/` — 17 marks, transparent PNG + SVG.
+`docs/brand/ad-campaign/graphics/` — 30 marks, transparent PNG + SVG.
 
 - **line** — drawn monoline illustration, 100×100 normalised, stroke-based so
   one definition scales from chip to hero: cup, cocktail, cloche, chefHat, tray,
   pin, clock, qr, calendar, coin, apron, phone, star
+- **line — reasons** (Direction 4), who the worker is off shift: surfboard, book,
+  palette, note, dumbbell, sun, laptop, camera, backpack, bulb, plane, sofa,
+  glasses. `surfboard` took three drafts, because a tapered tail or stroke fins
+  read as a leaf or a quill at small sizes. Check it on the specimen before
+  changing it.
 - **signal** — the abstract marks: dot (the lit point and its field), radar,
   field, noise
 
@@ -166,7 +171,7 @@ Two of the first batch failed there: `handshake` drew as two meaningless
 hexagons, and `bell` was pixel-for-pixel the same dome-and-line as `cloche`. Two
 motifs that render alike are one motif.
 
-## 8. The three directions
+## 8. The directions
 
 All three share §3–§5 exactly. They differ only in what occupies the mark slot.
 
@@ -175,6 +180,7 @@ All three share §3–§5 exactly. They differ only in what occupies the mark sl
 | **1 · Quiet Signal** | Abstract — the lit dot, the field | Restrained, technical | Brand, the opening statement |
 | **2 · Drawn** | Line illustration | Warm, editorial, human | The trade, the offer, the promise |
 | **3 · In Hand** | Real app UI, one detail magnified | Concrete, proof-led | "It exists and here is the screen" |
+| **4 · Whatever your reason** | A reason (ink) → the shift (accent) | Human, identity-led | "This is for people like me", feed + story only |
 
 Direction 3 magnifies a **real crop** of a screenshot and ties it back to its
 source on the device with a ring and a connector, so the reader can see exactly

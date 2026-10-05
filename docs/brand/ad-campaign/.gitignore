@@ -17,6 +17,7 @@
 01-quiet-signal/*.png
 02-drawn/*.png
 03-in-hand/*.png
+04-whatever-your-reason/*.png
 graphics/*.png
 
 # …except the contact sheets and the specimen. ~700 KB total, and they are the
@@ -24,6 +25,7 @@ graphics/*.png
 !01-quiet-signal/_contact-sheet.png
 !02-drawn/_contact-sheet.png
 !03-in-hand/_contact-sheet.png
+!04-whatever-your-reason/_contact-sheet.png
 !graphics/_specimen.png
 
 # Kept deliberately, and not covered by the rules above:
