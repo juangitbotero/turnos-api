@@ -781,6 +781,12 @@ export const en: Translated<TranslationCatalogue> = {
 
   admin: {
     // Blocking modal when the company terms changed since the last acceptance
+    verifyEmail: {
+      text:   'Your account email is not verified yet.',
+      resend: 'Resend verification email',
+      sent:   'Sent ✓ Check your inbox (and spam).',
+      failed: 'Could not send. Try again in a minute.',
+    },
     termsGate: {
       title:   'We have updated the Terms for Companies',
       body:    'To keep using Turnos, please read and accept the current Terms for Companies.',

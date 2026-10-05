@@ -350,7 +350,25 @@ export class AuthService {
       termsAcceptedAt:     user?.termsAcceptedAt ?? null,
       termsCurrentVersion: current,
       termsCurrent:        user?.termsVersion === current,
+      ...(role === 'EMPLOYER' ? { emailVerified: !!user?.emailVerified } : {}),
     };
+  }
+
+  /**
+   * Send the company a fresh verification link. Needed because no email was
+   * delivered at all until 2026-10-05 — every company registered before then
+   * never received the original one — and links can simply get lost.
+   * A new token replaces the old, so only the latest link works.
+   */
+  async resendEmployerVerification(userId: string): Promise<{ sent: boolean; alreadyVerified?: boolean }> {
+    const user = await this.usersService.findById(userId);
+    if (!user || user.role !== 'EMPLOYER' || !user.email) throw new NotFoundException();
+    if (user.emailVerified) return { sent: false, alreadyVerified: true };
+
+    const token = crypto.randomBytes(32).toString('hex');
+    await this.usersService.setEmailVerificationToken(userId, token);
+    await this.mail.sendEmployerVerification(user.email, token);
+    return { sent: true };
   }
 
   private async getRoleProfile(userId: string, role: string): Promise<Record<string, unknown>> {

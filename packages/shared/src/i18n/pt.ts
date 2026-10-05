@@ -784,6 +784,12 @@ export const pt = {
   /** Employer dashboard (web-admin). */
   admin: {
     // Blocking modal when the company terms changed since the last acceptance
+    verifyEmail: {
+      text:   'O email da sua conta ainda não está verificado.',
+      resend: 'Reenviar email de verificação',
+      sent:   'Enviado ✓ Veja a sua caixa de correio (e o spam).',
+      failed: 'Não foi possível enviar. Tente de novo dentro de um minuto.',
+    },
     termsGate: {
       title:   'Atualizámos os Termos para Empresas',
       body:    'Para continuar a usar a Turnos, leia e aceite a versão atual dos Termos para Empresas.',

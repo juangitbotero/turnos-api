@@ -81,6 +81,15 @@ export class AuthController {
     res.redirect(`${webUrl}/login?verified=1`);
   }
 
+  /** Send the signed-in company a fresh verification link. */
+  @UseGuards(JwtAuthGuard)
+  @Post('employer/resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  async resendVerification(@Request() req: { user: { userId: string } }) {
+    return this.authService.resendEmployerVerification(req.user.userId);
+  }
+
   // ─── Google OAuth (workers + employers) ──────────────────────────────────
 
   @Public()

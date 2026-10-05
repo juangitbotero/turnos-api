@@ -510,6 +510,10 @@ export class UsersService {
     return savedUser;
   }
 
+  async setEmailVerificationToken(userId: string, token: string): Promise<void> {
+    await this.userRepo.update({ id: userId }, { emailVerificationToken: token });
+  }
+
   async verifyEmail(token: string): Promise<boolean> {
     const user = await this.findByEmailVerificationToken(token);
     if (!user) return false;

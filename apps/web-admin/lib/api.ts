@@ -301,6 +301,7 @@ export interface EmployerProfile {
   termsVersion?: string | null;
   termsCurrentVersion?: string;
   termsCurrent?: boolean;
+  emailVerified?: boolean;
 }
 
 export interface HiredWorker {
@@ -440,6 +441,12 @@ export const adminApi = {
 
   getMyProfile: () =>
     request<EmployerProfile>('/auth/me', { method: 'GET' }),
+
+  /** Send a fresh email-verification link to the company's sign-in email. */
+  resendVerification: () =>
+    request<{ sent: boolean; alreadyVerified?: boolean }>(
+      '/auth/employer/resend-verification', { method: 'POST' },
+    ),
 
   /** Record acceptance of the Terms for Companies version the modal showed. */
   acceptTerms: (version: string) =>

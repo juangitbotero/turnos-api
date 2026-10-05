@@ -12,6 +12,7 @@
 import { useEffect } from 'react';
 import { connectSocket, disconnectSocket } from '../../lib/socket';
 import { TermsGate } from '../../components/TermsGate';
+import { VerifyEmailBanner } from '../../components/VerifyEmailBanner';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <>
       {children}
+      <VerifyEmailBanner />
       <TermsGate />
     </>
   );
