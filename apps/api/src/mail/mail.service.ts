@@ -3,28 +3,37 @@ import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { SUPPORT_EMAIL } from '@turnos/shared';
 
+const BREVO_API = 'https://api.brevo.com/v3';
+
 /**
- * Outgoing email. Nothing is sent unless MAIL_HOST and MAIL_USER are set —
- * without them every email (accountant data, wage reminders, ops alerts) is
- * only written to the log. GET /api/health reports which mode is live.
+ * Outgoing email — accountant data, wage reminders, ops alerts. Three modes,
+ * picked at boot and reported by GET /api/health:
  *
- * Beta setup with the Gmail account: MAIL_HOST=smtp.gmail.com, MAIL_PORT=587,
- * MAIL_USER=turnos.contact@gmail.com, MAIL_PASS=<Google app password>.
- * Gmail rewrites any other From address to the account's own, so MAIL_FROM
- * defaults to MAIL_USER.
+ * 1. **Brevo HTTPS API** when BREVO_API_KEY is set. The production path:
+ *    Railway blocks outbound SMTP below the Pro plan, so SMTP cannot work there
+ *    (found 2026-10-05 — the connection simply times out). The sender address
+ *    must be verified in Brevo (Senders & IPs).
+ * 2. **SMTP** when MAIL_HOST + MAIL_USER are set — local dev, or a host that
+ *    allows SMTP.
+ * 3. **Log only** otherwise: every email is written to the log and dropped.
+ *
+ * MAIL_FROM defaults to `Turnos <MAIL_USER>`, else `Turnos <SUPPORT_EMAIL>`.
  */
 @Injectable()
 export class MailService {
   private transporter: nodemailer.Transporter | null = null;
+  private readonly brevoKey: string;
   private readonly logger = new Logger(MailService.name);
   private readonly from: string;
 
   /**
-   * Reported by GET /api/health. 'log-only' = no SMTP configured;
-   * 'smtp-unverified' = configured, boot login not finished yet;
-   * 'smtp' = the server accepted our login; 'smtp-error' = it refused it.
+   * Reported by GET /api/health. `*-unverified` = configured, boot check not
+   * finished; `brevo` / `smtp` = the provider accepted our credentials;
+   * `*-error` = it refused them or could not be reached; `log-only` = nothing
+   * configured.
    */
-  status: 'log-only' | 'smtp-unverified' | 'smtp' | 'smtp-error' = 'log-only';
+  status: 'log-only' | 'smtp-unverified' | 'smtp' | 'smtp-error'
+    | 'brevo-unverified' | 'brevo' | 'brevo-error' = 'log-only';
 
   /** Where internal alerts go (disputes, justifications, no-show reviews). */
   readonly opsAddress: string;
@@ -33,10 +42,26 @@ export class MailService {
     const host = this.config.get<string>('MAIL_HOST', '');
     const user = this.config.get<string>('MAIL_USER', '');
     const pass = this.config.get<string>('MAIL_PASS', '');
+    this.brevoKey = this.config.get<string>('BREVO_API_KEY', '');
     this.from = this.config.get<string>('MAIL_FROM', user ? `Turnos <${user}>` : `Turnos <${SUPPORT_EMAIL}>`);
     this.opsAddress = this.config.get<string>('OPS_EMAIL', SUPPORT_EMAIL);
 
-    if (host && user) {
+    if (this.brevoKey) {
+      this.status = 'brevo-unverified';
+      this.logger.log('Mail via Brevo HTTPS API');
+      // Check the key once at boot, for the same reason as the SMTP login
+      // below: a bad key would otherwise surface only as lost emails.
+      fetch(`${BREVO_API}/account`, { headers: { 'api-key': this.brevoKey, accept: 'application/json' } })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          this.status = 'brevo';
+          this.logger.log('Brevo API key verified');
+        })
+        .catch((err: Error) => {
+          this.status = 'brevo-error';
+          this.logger.error(`Brevo API key check failed — no email will be delivered: ${err.message}`);
+        });
+    } else if (host && user) {
       this.status = 'smtp-unverified';
       this.transporter = nodemailer.createTransport({
         host,
@@ -103,11 +128,36 @@ export class MailService {
   }
 
   private async send(to: string, subject: string, html: string): Promise<void> {
+    if (this.brevoKey) {
+      const res = await fetch(`${BREVO_API}/smtp/email`, {
+        method: 'POST',
+        headers: { 'api-key': this.brevoKey, 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({
+          sender: MailService.parseAddress(this.from),
+          to: [{ email: to }],
+          subject,
+          htmlContent: html,
+        }),
+      });
+      if (!res.ok) {
+        // Thrown like a nodemailer failure, so callers' existing error
+        // handling applies unchanged.
+        throw new Error(`Brevo send failed (HTTP ${res.status}): ${await res.text()}`);
+      }
+      this.logger.log(`Email sent to ${to}: ${subject}`);
+      return;
+    }
     if (!this.transporter) {
       this.logger.debug(`[MOCK EMAIL] To: ${to} | Subject: ${subject}`);
       return;
     }
     await this.transporter.sendMail({ from: this.from, to, subject, html });
     this.logger.log(`Email sent to ${to}: ${subject}`);
+  }
+
+  /** `Turnos <a@b.pt>` → { name: 'Turnos', email: 'a@b.pt' }; a bare address passes through. */
+  private static parseAddress(from: string): { name?: string; email: string } {
+    const m = from.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+    return m ? { name: m[1] || undefined, email: m[2] } : { email: from.trim() };
   }
 }
