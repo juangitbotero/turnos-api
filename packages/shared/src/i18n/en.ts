@@ -501,6 +501,15 @@ export const en: Translated<TranslationCatalogue> = {
       savedBody:  'Your changes have been saved.',
       nameRequiredTitle: 'Name required',
       nameRequiredBody:  'Please enter your full name.',
+      skillsRequiredTitle: 'Skills',
+      skillsRequiredBody:  'Select at least 1 skill.',
+
+      // Profile score card — points per item come from PROFILE_POINTS in shared
+      scoreTitle:  'PROFILE SCORE',
+      scoreValue:  '{{score}}/100 points',
+      scoreReady:  'You can apply to shifts.',
+      scoreNeed:   'You need {{min}} points to apply to shifts — {{missing}} to go. Each section below shows what it is worth.',
+      pointsBadge: '+{{points}} pts',
 
       photoHint:       'Tap to change your photo',
       photoPermTitle:  'Permission needed',
@@ -522,7 +531,7 @@ export const en: Translated<TranslationCatalogue> = {
       bioPlaceholder: "E.g. I have 3 years of restaurant experience and I'm punctual and proactive...",
 
       cvTitle:      'CV',
-      cvSub:        'PDF or Word, up to 10 MB. Companies see it when choosing candidates. Worth +10pts on your profile.',
+      cvSub:        'PDF or Word, up to 10 MB. Companies see it when choosing candidates.',
       cvFallback:   'CV uploaded',
       cvView:       'View',
       cvReplace:    'Replace',
@@ -533,7 +542,7 @@ export const en: Translated<TranslationCatalogue> = {
       cvDoneBody:   'Your profile is now {{score}}% complete.',
       cvFailed:     "Couldn't upload your CV. Please try again.",
       cvRemoveTitle:'Remove CV',
-      cvRemoveBody: 'Are you sure? You will lose 10 profile points.',
+      cvRemoveBody: 'Are you sure? You will lose {{points}} profile points.',
       cvRemoveFailed:"Couldn't remove your CV.",
 
       experiencesTitle: 'MY EXPERIENCE',
@@ -544,7 +553,7 @@ export const en: Translated<TranslationCatalogue> = {
 
       legalTitle: 'LEGAL & BANK DETAILS',
       // MCD is Portugal's very-short-duration contract — kept, not translated
-      legalSub:   'Needed for MCD contracts and to receive payments. Each is worth +20pts on your profile.',
+      legalSub:   'Needed for MCD contracts and to receive payments.',
       nifValid:   '✓ Valid NIF',
       nifInvalid: 'Invalid NIF — it must be 9 valid digits.',
       nifHint:    'Portuguese tax number (NIF), 9 digits.',
@@ -556,7 +565,7 @@ export const en: Translated<TranslationCatalogue> = {
       ibanConsentWarn: 'Without this consent, companies can only pay you via Turnos Pay Link or MB WAY.',
 
       skillsTitle: 'SKILLS',
-      skillsSub:   'Tap a category to expand it and select',
+      skillsSub:   'Tap a category to expand it and select. At least 1 is required.',
       skillsCountOne:   '1 selected',
       skillsCountOther: '{{count}} selected',
 
@@ -602,7 +611,7 @@ export const en: Translated<TranslationCatalogue> = {
       underAgeTitle:     'Adults only',
       underAgeBody:      'Turnos is only for people aged 18 and over. You can create your profile once you turn 18.',
       summaryBirthDate:  'Born',
-      photoTitle:      'Profile photo (+20 pts)',
+      photoTitle:      'Profile photo (+{{points}} pts)',
       photoSub:        'A good photo improves your chances of being approved.',
       photoAdd:        'Add a photo',
       photoRemove:     'Remove photo',
@@ -1852,6 +1861,7 @@ export const en: Translated<TranslationCatalogue> = {
       nifInvalid:         'Invalid NIF (Portuguese tax number).',
       postalCodeInvalid:  'Invalid postal code. Format: XXXX-XXX',
       emailTaken:         'This email is already registered.',
+      contactEmailTaken:  'This email is already used by another Turnos account. Use a different email, or leave the field empty.',
       invalidCredentials: 'Invalid credentials.',
       ibanInvalid:        'Invalid IBAN. Format: PT50... (25 characters).',
       birthDateInvalid:   'Invalid date of birth. Use the DD/MM/YYYY format.',

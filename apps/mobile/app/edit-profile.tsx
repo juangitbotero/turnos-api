@@ -13,6 +13,7 @@ import {
   LANGUAGES, isValidIBAN, isValidNIF, STORED_WEEKDAYS,
   MIN_WORKER_AGE, ageOn, maskBirthDateInput, parseBirthDateInput, formatBirthDateInput,
   JOB_TITLES, EXPERIENCE_LEVELS, ExperienceLevel, WorkerExperience,
+  calculateProfileQualityScore, PROFILE_POINTS, PROFILE_MIN_SCORE_TO_APPLY,
 } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
@@ -370,7 +371,7 @@ export default function EditProfileScreen() {
   };
 
   const handleRemoveCv = () => {
-    Alert.alert(t('mobile.editProfile.cvRemoveTitle'), t('mobile.editProfile.cvRemoveBody'), [
+    Alert.alert(t('mobile.editProfile.cvRemoveTitle'), t('mobile.editProfile.cvRemoveBody', { points: PROFILE_POINTS.cv }), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.remove'), style: 'destructive',
@@ -401,9 +402,34 @@ export default function EditProfileScreen() {
 
   const ibanClean = iban.replace(/\s/g, '').toUpperCase();
 
+  // Live score from what is on screen, so the card moves as fields are filled
+  const liveScore = calculateProfileQualityScore({
+    hasPhoto:        !!photoUrl,
+    hasValidNif:     isValidNIF(nif),
+    hasValidIban:    isValidIBAN(ibanClean),
+    skillsCount:     skills.length,
+    hasFullName:     !!fullName.trim(),
+    hasAvailability: availableDays.length > 0,
+    hasCv:           !!cvUrl,
+  }).score;
+  const canApply = liveScore >= PROFILE_MIN_SCORE_TO_APPLY;
+
+  const pointsBadge = (points: number, earned: boolean) => (
+    <View style={[s.ptsBadge, earned && s.ptsBadgeEarned]}>
+      {earned && <Ionicons name="checkmark" size={11} color="#16a34a" />}
+      <Text style={[s.ptsText, earned && s.ptsTextEarned]}>
+        {t('mobile.editProfile.pointsBadge', { points })}
+      </Text>
+    </View>
+  );
+
   const handleSave = async () => {
     if (!fullName.trim()) {
       Alert.alert(t('mobile.editProfile.nameRequiredTitle'), t('mobile.editProfile.nameRequiredBody'));
+      return;
+    }
+    if (skills.length === 0) {
+      Alert.alert(t('mobile.editProfile.skillsRequiredTitle'), t('mobile.editProfile.skillsRequiredBody'));
       return;
     }
     setSaving(true);
@@ -457,8 +483,13 @@ export default function EditProfileScreen() {
       Alert.alert(t('mobile.editProfile.savedTitle'), t('mobile.editProfile.savedBody'), [
         { text: 'OK', onPress: () => router.back() },
       ]);
-    } catch {
-      Alert.alert(t('common.error'), t('mobile.editProfile.saveError'));
+    } catch (err) {
+      // 4xx messages are written for the user (e.g. email already in use);
+      // a 5xx or network failure keeps the generic text
+      const msg = err instanceof ApiError && err.status < 500
+        ? err.message
+        : t('mobile.editProfile.saveError');
+      Alert.alert(t('common.error'), msg);
     } finally {
       setSaving(false);
     }
@@ -515,6 +546,29 @@ export default function EditProfileScreen() {
             </View>
           </TouchableOpacity>
           <Text style={s.photoHint}>{t('mobile.editProfile.photoHint')}</Text>
+          {/* Shrink-wrapped so the badge's auto margin doesn't push it right */}
+          <View>{pointsBadge(PROFILE_POINTS.photo, !!photoUrl)}</View>
+        </View>
+
+        {/* ── Profile score — what it takes to apply ── */}
+        <View style={[s.card, canApply ? s.scoreCardReady : s.scoreCardPending]}>
+          <View style={s.cardHeader}>
+            <Ionicons name="speedometer-outline" size={16} color={colors.primary} />
+            <Text style={s.cardTitle}>{t('mobile.editProfile.scoreTitle')}</Text>
+            <Text style={s.scoreValue}>{t('mobile.editProfile.scoreValue', { score: liveScore })}</Text>
+          </View>
+          <View style={s.scoreTrack}>
+            <View style={[s.scoreFill, { width: `${liveScore}%` }, canApply && s.scoreFillReady]} />
+            <View style={[s.scoreGate, { left: `${PROFILE_MIN_SCORE_TO_APPLY}%` }]} />
+          </View>
+          <Text style={s.scoreNote}>
+            {canApply
+              ? t('mobile.editProfile.scoreReady')
+              : t('mobile.editProfile.scoreNeed', {
+                  min: PROFILE_MIN_SCORE_TO_APPLY,
+                  missing: PROFILE_MIN_SCORE_TO_APPLY - liveScore,
+                })}
+          </Text>
         </View>
 
         {/* ── Name ── */}
@@ -522,6 +576,7 @@ export default function EditProfileScreen() {
           <View style={s.cardHeader}>
             <Ionicons name="person-outline" size={16} color={colors.primary} />
             <Text style={s.cardTitle}>{t('mobile.editProfile.nameTitle')}</Text>
+            {pointsBadge(PROFILE_POINTS.fullName, !!fullName.trim())}
           </View>
           <TextInput
             style={s.input}
@@ -577,6 +632,7 @@ export default function EditProfileScreen() {
           <View style={s.cardHeader}>
             <Ionicons name="document-text-outline" size={16} color={colors.primary} />
             <Text style={s.cardTitle}>{t('mobile.editProfile.cvTitle')}</Text>
+            {pointsBadge(PROFILE_POINTS.cv, !!cvUrl)}
           </View>
           <Text style={s.cardSub}>{t('mobile.editProfile.cvSub')}</Text>
 
@@ -652,7 +708,10 @@ export default function EditProfileScreen() {
           <Text style={s.cardSub}>{t('mobile.editProfile.legalSub')}</Text>
 
           {/* NIF — editable */}
-          <Text style={[s.fieldLabel, { marginTop: 4 }]}>NIF <Text style={s.optText}>{t('common.optional')}</Text></Text>
+          <View style={[s.fieldLabelRow, { marginTop: 4 }]}>
+            <Text style={s.fieldLabel}>NIF</Text>
+            {pointsBadge(PROFILE_POINTS.nif, isValidNIF(nif))}
+          </View>
           <TextInput
             style={[s.input, nifError ? s.inputError : {}]}
             value={nif}
@@ -672,7 +731,10 @@ export default function EditProfileScreen() {
           <Text style={s.fieldHint}>{t('mobile.editProfile.nifHint')}</Text>
 
           {/* IBAN — editable */}
-          <Text style={[s.fieldLabel, { marginTop: 12 }]}>IBAN <Text style={s.optText}>{t('common.optional')}</Text></Text>
+          <View style={[s.fieldLabelRow, { marginTop: 12 }]}>
+            <Text style={s.fieldLabel}>IBAN</Text>
+            {pointsBadge(PROFILE_POINTS.iban, isValidIBAN(ibanClean))}
+          </View>
           <TextInput
             style={[s.input, ibanError ? s.inputError : {}]}
             value={iban}
@@ -720,6 +782,7 @@ export default function EditProfileScreen() {
           <View style={s.cardHeader}>
             <Ionicons name="construct-outline" size={16} color={colors.primary} />
             <Text style={s.cardTitle}>{t('mobile.editProfile.skillsTitle')}</Text>
+            {pointsBadge(PROFILE_POINTS.skills, skills.length > 0)}
           </View>
           <Text style={s.cardSub}>{t('mobile.editProfile.skillsSub')}</Text>
           {SKILL_CATEGORIES.map(cat => (
@@ -773,6 +836,7 @@ export default function EditProfileScreen() {
           <View style={s.cardHeader}>
             <Ionicons name="calendar-outline" size={16} color={colors.primary} />
             <Text style={s.cardTitle}>{t('mobile.editProfile.availabilityTitle')}</Text>
+            {pointsBadge(PROFILE_POINTS.availability, availableDays.length > 0)}
           </View>
 
           <View style={s.availSwitchRow}>
@@ -907,6 +971,25 @@ const s = StyleSheet.create({
   mutedNote: { fontSize: fontSize.caption, color: colors.textSecondary, lineHeight: 18, flex: 1 },
   mutedRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
   fieldLabel: { fontSize: 13, fontWeight: fontWeight.semibold as any, color: colors.textPrimary, marginBottom: 4 },
+  fieldLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+
+  /* Points badges + score card */
+  ptsBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3, marginLeft: 'auto',
+    paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.full,
+    backgroundColor: colors.primaryLight, borderWidth: 1, borderColor: '#d7dcff',
+  },
+  ptsBadgeEarned: { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
+  ptsText: { fontSize: 11, fontWeight: fontWeight.bold as any, color: colors.primary },
+  ptsTextEarned: { color: '#16a34a' },
+  scoreCardPending: { borderWidth: 1, borderColor: '#fde68a' },
+  scoreCardReady:   { borderWidth: 1, borderColor: '#bbf7d0' },
+  scoreValue: { marginLeft: 'auto', fontSize: fontSize.body, fontWeight: fontWeight.bold as any, color: colors.textPrimary },
+  scoreTrack: { height: 8, borderRadius: 4, backgroundColor: colors.neutral, overflow: 'hidden' },
+  scoreFill: { height: 8, backgroundColor: '#f59e0b' },
+  scoreFillReady: { backgroundColor: '#16a34a' },
+  scoreGate: { position: 'absolute', top: 0, bottom: 0, width: 2, backgroundColor: colors.textPrimary },
+  scoreNote: { fontSize: fontSize.caption, color: colors.textSecondary, lineHeight: 17 },
   optText: { fontWeight: fontWeight.regular as any, color: colors.textSecondary, fontSize: 12 },
   fieldHint: { fontSize: 11, color: colors.textSecondary, marginTop: 4 },
   validText: { fontSize: fontSize.caption, color: '#16a34a', fontWeight: fontWeight.bold as any, marginTop: 2 },

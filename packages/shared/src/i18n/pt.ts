@@ -504,6 +504,14 @@ export const pt = {
       savedBody:  'As tuas alterações foram guardadas com sucesso.',
       nameRequiredTitle: 'Nome obrigatório',
       nameRequiredBody:  'Por favor introduz o teu nome completo.',
+      skillsRequiredTitle: 'Competências',
+      skillsRequiredBody:  'Seleciona pelo menos 1 competência.',
+
+      scoreTitle:  'PONTUAÇÃO DO PERFIL',
+      scoreValue:  '{{score}}/100 pontos',
+      scoreReady:  'Já te podes candidatar a turnos.',
+      scoreNeed:   'Precisas de {{min}} pontos para te candidatares a turnos — faltam {{missing}}. Cada secção abaixo mostra quanto vale.',
+      pointsBadge: '+{{points}} pts',
 
       photoHint:       'Toca para alterar a foto',
       photoPermTitle:  'Permissão necessária',
@@ -525,7 +533,7 @@ export const pt = {
       bioPlaceholder: 'Ex: Tenho 3 anos de experiência em restauração e sou pontual e proativo...',
 
       cvTitle:      'CURRÍCULO (CV)',
-      cvSub:        'PDF ou Word, até 10 MB. As empresas veem-no quando escolhem candidatos. Vale +10pts no perfil.',
+      cvSub:        'PDF ou Word, até 10 MB. As empresas veem-no quando escolhem candidatos.',
       cvFallback:   'CV carregado',
       cvView:       'Ver',
       cvReplace:    'Substituir',
@@ -536,7 +544,7 @@ export const pt = {
       cvDoneBody:   'O teu perfil está agora {{score}}% completo.',
       cvFailed:     'Não foi possível carregar o CV. Tenta novamente.',
       cvRemoveTitle:'Remover CV',
-      cvRemoveBody: 'Tens a certeza? Vais perder 10 pontos no perfil.',
+      cvRemoveBody: 'Tens a certeza? Vais perder {{points}} pontos no perfil.',
       cvRemoveFailed:'Não foi possível remover o CV.',
 
       experiencesTitle: 'AS MINHAS EXPERIÊNCIAS',
@@ -547,7 +555,7 @@ export const pt = {
 
       legalTitle: 'DADOS LEGAIS & BANCÁRIOS',
       // MCD = Contrato de Muito Curta Duração, the Portuguese short-shift contract
-      legalSub:   'Necessários para contratos MCD e receber pagamentos. Valem +20pts cada no perfil.',
+      legalSub:   'Necessários para contratos MCD e receber pagamentos.',
       nifValid:   '✓ NIF válido',
       nifInvalid: 'NIF inválido — deve ter 9 dígitos válidos.',
       nifHint:    'Número de Identificação Fiscal português (9 dígitos).',
@@ -559,7 +567,7 @@ export const pt = {
       ibanConsentWarn: 'Sem esta autorização, as empresas só te podem pagar por Turnos Pay Link ou MB WAY.',
 
       skillsTitle: 'COMPETÊNCIAS',
-      skillsSub:   'Toca numa categoria para expandir e selecionar',
+      skillsSub:   'Toca numa categoria para expandir e selecionar. Pelo menos 1 é obrigatória.',
       skillsCountOne:   '1 selecionada',
       skillsCountOther: '{{count}} selecionadas',
 
@@ -605,7 +613,7 @@ export const pt = {
       underAgeTitle:     'Apenas para maiores de 18',
       underAgeBody:      'A Turnos é exclusiva para maiores de 18 anos. Pode criar o seu perfil quando fizer 18.',
       summaryBirthDate:  'Nascimento',
-      photoTitle:      'Foto de perfil (+20 pts)',
+      photoTitle:      'Foto de perfil (+{{points}} pts)',
       photoSub:        'Uma boa foto aumenta as suas hipóteses de aprovação.',
       photoAdd:        'Adicionar foto',
       photoRemove:     'Remover foto',
@@ -1881,6 +1889,7 @@ export const pt = {
       nifInvalid:         'NIF inválido.',
       postalCodeInvalid:  'Código postal inválido. Formato: XXXX-XXX',
       emailTaken:         'Este email já está registado.',
+      contactEmailTaken:  'Este email já está a ser usado noutra conta Turnos. Usa outro email ou deixa o campo vazio.',
       invalidCredentials: 'Credenciais inválidas.',
       ibanInvalid:        'IBAN inválido. Formato: PT50... (25 caracteres).',
       birthDateInvalid:   'Data de nascimento inválida. Usa o formato DD/MM/AAAA.',

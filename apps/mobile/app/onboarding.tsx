@@ -9,7 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import {
   colors, spacing, radius, fontSize, fontWeight,
-  isValidNIF, isValidIBAN, calculateProfileQualityScore, SHIFT_CATEGORIES, ShiftCategory,
+  isValidNIF, isValidIBAN, calculateProfileQualityScore, PROFILE_POINTS, SHIFT_CATEGORIES, ShiftCategory,
   STORED_WEEKDAYS, MIN_WORKER_AGE, ageOn, maskBirthDateInput, parseBirthDateInput,
 } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
@@ -265,7 +265,7 @@ export default function OnboardingScreen() {
             )}
 
             {/* Photo picker */}
-            <Text style={[s.sectionTitle, { marginTop: 24, fontSize: 16 }]}>{t('mobile.onboarding.photoTitle')}</Text>
+            <Text style={[s.sectionTitle, { marginTop: 24, fontSize: 16 }]}>{t('mobile.onboarding.photoTitle', { points: PROFILE_POINTS.photo })}</Text>
             <Text style={s.sectionSub}>{t('mobile.onboarding.photoSub')}</Text>
             <TouchableOpacity style={s.photoBtn} onPress={pickPhoto} activeOpacity={0.8}>
               {photoUri ? (

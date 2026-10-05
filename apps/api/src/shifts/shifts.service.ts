@@ -11,7 +11,7 @@ import { Repository, In } from 'typeorm';
 import { randomUUID } from 'crypto';
 import {
   PAYMENT_METHOD_LABELS, COMPANY_CANCEL_REASONS, WORKER_CANCEL_REASONS,
-  MAX_SERIES_DAYS, MIN_WORKER_AGE, ageOn,
+  MAX_SERIES_DAYS, MIN_WORKER_AGE, ageOn, PROFILE_MIN_SCORE_TO_APPLY,
 } from '@turnos/shared';
 import { Shift, ShiftStatus } from './entities/shift.entity';
 import { ShiftApplication, ApplicationStatus } from './entities/shift-application.entity';
@@ -856,7 +856,7 @@ export class ShiftsService {
     this.assertWorkerIsAdult(worker, shift.date, 'worker');
 
     // Profile gate — worker must have 80%+ profile to apply
-    if (worker.profileQualityScore < 80) {
+    if (worker.profileQualityScore < PROFILE_MIN_SCORE_TO_APPLY) {
       throw new BadRequestException(
         t('api.shifts.profileIncomplete', { score: worker.profileQualityScore }),
       );
@@ -1123,7 +1123,7 @@ export class ShiftsService {
     const qb = this.workerRepo
       .createQueryBuilder('w')
       .where('w.status = :status', { status: 'ACTIVE' })
-      .andWhere('w."profileQualityScore" >= 80')
+      .andWhere('w."profileQualityScore" >= :minScore', { minScore: PROFILE_MIN_SCORE_TO_APPLY })
       .select([
         'w.id', 'w.fullName', 'w.photoUrl', 'w.bio',
         'w.cvUrl', 'w.cvFileName',

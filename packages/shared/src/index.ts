@@ -660,22 +660,29 @@ export interface ProfileQualityResult {
 }
 
 /**
+ * Points each profile item is worth. Sums to 100. The UI reads these to label
+ * every section, so a re-weighting here is the only edit needed.
+ *
+ * NIF weighs most because no MCD contract can be issued without it: missing
+ * it alone drops a profile to 70, under the apply gate. Skills score on
+ * presence, not count — which skills to list is the worker's call.
+ */
+export const PROFILE_POINTS: Record<ProfileMissingKey, number> = {
+  nif:          30,
+  iban:         20,
+  photo:        10,
+  skills:       10,
+  fullName:     10,
+  availability: 10,
+  cv:           10,
+};
+
+/** Minimum profile score to apply to shifts (`ShiftsService.apply()`). */
+export const PROFILE_MIN_SCORE_TO_APPLY = 80;
+
+/**
  * Rule-based Profile Quality Score calculator.
- * Replaces the AI interview for the Lisbon beta.
- *
- * Scoring:
- *   Photo uploaded           → +15pts
- *   Valid NIF                → +20pts
- *   Valid IBAN               → +20pts
- *   ≥3 skills selected       → +15pts (partial: 1–2 skills → +8pts)
- *   Full name entered        → +10pts
- *   Availability set         → +10pts
- *   CV uploaded              → +10pts
- *
- * The CV is worth 10 and photo/skills each gave up 5 so the total stays 100.
- * A complete profile WITHOUT a CV still reaches 90 — deliberately, so adding
- * this criterion could never push an existing worker under the 80-point gate
- * that `ShiftsService.apply()` enforces.
+ * Replaces the AI interview for the Lisbon beta. Weights in `PROFILE_POINTS`.
  *
  * Thresholds:
  *   ≥80 → PENDING_REVIEW (auto-queue for team approval)
@@ -684,14 +691,15 @@ export interface ProfileQualityResult {
 export function calculateProfileQualityScore(
   input: ProfileQualityInput,
 ): ProfileQualityResult {
+  const p = PROFILE_POINTS;
   const breakdown: Record<string, number> = {
-    photo:        input.hasPhoto          ? 15 : 0,
-    nif:          input.hasValidNif       ? 20 : 0,
-    iban:         input.hasValidIban      ? 20 : 0,
-    skills:       input.skillsCount >= 3  ? 15 : input.skillsCount >= 1 ? 8 : 0,
-    fullName:     input.hasFullName       ? 10 : 0,
-    availability: input.hasAvailability   ? 10 : 0,
-    cv:           input.hasCv             ? 10 : 0,
+    photo:        input.hasPhoto          ? p.photo        : 0,
+    nif:          input.hasValidNif       ? p.nif          : 0,
+    iban:         input.hasValidIban      ? p.iban         : 0,
+    skills:       input.skillsCount >= 1  ? p.skills       : 0,
+    fullName:     input.hasFullName       ? p.fullName     : 0,
+    availability: input.hasAvailability   ? p.availability : 0,
+    cv:           input.hasCv             ? p.cv           : 0,
   };
 
   const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
@@ -712,7 +720,7 @@ export function calculateProfileQualityScore(
   if (!input.hasCv)            miss('cv',           'Currículo (CV)');
 
   const status: ProfileQualityResult['status'] =
-    score >= 80 ? 'PENDING_REVIEW' : 'INCOMPLETE';
+    score >= PROFILE_MIN_SCORE_TO_APPLY ? 'PENDING_REVIEW' : 'INCOMPLETE';
 
   return { score, status, breakdown, missingItems, missingKeys };
 }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -10,6 +10,7 @@ import { StorageService } from '../storage/storage.service';
 import { t } from '../i18n/request-language';
 import {
   calculateProfileQualityScore,
+  PROFILE_MIN_SCORE_TO_APPLY,
   normalizeSkills,
   isValidNIF,
   isValidIBAN,
@@ -212,9 +213,9 @@ export class UsersService {
     // DELETED is terminal — an anonymised account must never be re-activated
     // by a re-score, and `refreshWorkerScoreIfStale()` runs on every GET /me.
     if (worker.status === 'DELETED') return result;
-    if (result.score >= 80 && worker.status !== 'SUSPENDED' && worker.status !== 'REJECTED') {
+    if (result.score >= PROFILE_MIN_SCORE_TO_APPLY && worker.status !== 'SUSPENDED' && worker.status !== 'REJECTED') {
       worker.status = 'ACTIVE';
-    } else if (result.score < 80 && worker.status === 'ACTIVE') {
+    } else if (result.score < PROFILE_MIN_SCORE_TO_APPLY && worker.status === 'ACTIVE') {
       worker.status = 'INCOMPLETE'; // demote if profile degrades
     }
     return result;
@@ -359,6 +360,16 @@ export class UsersService {
     // Contact email — update on the linked User row
     if (dto.contactEmail !== undefined && worker.user) {
       const email = dto.contactEmail.trim().toLowerCase();
+      // users.email is unique across every role — without this check a clash
+      // (e.g. the same address on a company login) surfaces as a bare 500.
+      if (email) {
+        const clash = await this.userRepo
+          .createQueryBuilder('u')
+          .where('LOWER(u.email) = :email', { email })
+          .andWhere('u.id != :id', { id: worker.user.id })
+          .getExists();
+        if (clash) throw new ConflictException(t('api.auth.contactEmailTaken'));
+      }
       worker.user.email = email || undefined;
       await this.userRepo.save(worker.user);
     }
