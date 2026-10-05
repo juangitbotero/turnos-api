@@ -17,12 +17,13 @@ async function bootstrap() {
   // a fresh bucket and never returned a 429. Measured 2026-10-05:
   // X-RateLimit-Remaining stuck at 59/58 across 15 sequential requests.
   //
-  // Exactly one hop, not `true`: with `true` Express takes the LEFTMOST
-  // X-Forwarded-For entry, which the client writes — anyone could send a random
-  // value per request and get a new bucket each time. With 1 it takes the entry
-  // appended by the edge itself. Override with TRUST_PROXY_HOPS if Railway's
-  // topology ever changes (0 locally if you want req.ip to be the socket).
-  app.set('trust proxy', Number(process.env['TRUST_PROXY_HOPS'] ?? 1));
+  // Two hops, read off production: client → Railway edge (152.233.x.x, appends
+  // itself to X-Forwarded-For) → internal proxy (100.64.x.x, the socket) → app.
+  // The edge discards any X-Forwarded-For the client sends, so the first entry
+  // is the real client and cannot be spoofed. Not `true`: that would trust
+  // whatever leftmost value arrives if the topology ever changes. Override with
+  // TRUST_PROXY_HOPS if it does.
+  app.set('trust proxy', Number(process.env['TRUST_PROXY_HOPS'] ?? 2));
 
   // Global prefix for all routes
   app.setGlobalPrefix('api');
