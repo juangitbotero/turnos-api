@@ -1,6 +1,6 @@
 import {
   Injectable, UnauthorizedException, ConflictException,
-  BadRequestException, NotFoundException, Logger,
+  BadRequestException, NotFoundException, ServiceUnavailableException, Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -28,6 +28,7 @@ export class AuthService {
 
   /** In-memory mock OTP store for dev */
   private readonly mockOtpStore = new Map<string, string>();
+  private readonly mockOtpEnabled: boolean;
 
   constructor(
     private readonly usersService: UsersService,
@@ -48,9 +49,23 @@ export class AuthService {
     if (hasRealCredentials) {
       this.twilioClient = new Twilio(accountSid, authToken);
       this.logger.log('Twilio client initialized (real credentials)');
-    } else {
-      this.logger.warn('Twilio credentials absent — using Mock OTP (code: 123456)');
     }
+
+    // The mock accepts 123456 for ANY phone number, i.e. signs anyone in as
+    // anyone. It must never be reachable in production, whatever state the
+    // Twilio variables are in — a missing variable fails closed (no sign-in)
+    // rather than open. Before 2026-10-05 a missing TWILIO_VERIFY_SERVICE_SID
+    // alone was enough to fall through to the mock.
+    this.mockOtpEnabled = !this.twilioReady && this.configService.get('NODE_ENV') !== 'production';
+    if (this.mockOtpEnabled) {
+      this.logger.warn('Twilio not configured — using Mock OTP (code: 123456). Dev only.');
+    } else if (!this.twilioReady) {
+      this.logger.error('Twilio not configured in production — worker sign-in is unavailable until TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_VERIFY_SERVICE_SID are set.');
+    }
+  }
+
+  private get twilioReady(): boolean {
+    return !!(this.twilioClient && this.twilioServiceSid);
   }
 
   // ─── OTP Flow (Workers) ────────────────────────────────────────────────────
@@ -60,9 +75,9 @@ export class AuthService {
       throw new BadRequestException('Invalid phone number');
     }
 
-    if (this.twilioClient && this.twilioServiceSid) {
+    if (this.twilioReady) {
       try {
-        await this.twilioClient.verify.v2
+        await this.twilioClient!.verify.v2
           .services(this.twilioServiceSid)
           .verifications.create({ to: phone, channel: 'sms' });
         return true;
@@ -70,6 +85,10 @@ export class AuthService {
         this.logger.error(`Twilio OTP send failed: ${err.message}`);
         throw new BadRequestException('Failed to send OTP. Please try again.');
       }
+    }
+
+    if (!this.mockOtpEnabled) {
+      throw new ServiceUnavailableException('SMS sign-in is temporarily unavailable.');
     }
 
     // Mock OTP for dev
@@ -83,16 +102,16 @@ export class AuthService {
   }> {
     let isValid = false;
 
-    if (this.twilioClient && this.twilioServiceSid) {
+    if (this.twilioReady) {
       try {
-        const result = await this.twilioClient.verify.v2
+        const result = await this.twilioClient!.verify.v2
           .services(this.twilioServiceSid)
           .verificationChecks.create({ to: phone, code });
         isValid = result.status === 'approved';
       } catch (err: any) {
         this.logger.error(`Twilio OTP verify failed: ${err.message}`);
       }
-    } else {
+    } else if (this.mockOtpEnabled) {
       isValid = this.mockOtpStore.get(phone) === code;
       if (isValid) this.mockOtpStore.delete(phone);
     }
