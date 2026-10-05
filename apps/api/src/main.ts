@@ -11,6 +11,19 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   const logger = new Logger('Bootstrap');
 
+  // Railway's edge proxy sits in front of the app. Without this, req.ip is the
+  // address of whichever internal proxy forwarded the request — it changed on
+  // almost every request, so ThrottlerGuard (keyed on req.ip) gave each request
+  // a fresh bucket and never returned a 429. Measured 2026-10-05:
+  // X-RateLimit-Remaining stuck at 59/58 across 15 sequential requests.
+  //
+  // Exactly one hop, not `true`: with `true` Express takes the LEFTMOST
+  // X-Forwarded-For entry, which the client writes — anyone could send a random
+  // value per request and get a new bucket each time. With 1 it takes the entry
+  // appended by the edge itself. Override with TRUST_PROXY_HOPS if Railway's
+  // topology ever changes (0 locally if you want req.ip to be the socket).
+  app.set('trust proxy', Number(process.env['TRUST_PROXY_HOPS'] ?? 1));
+
   // Global prefix for all routes
   app.setGlobalPrefix('api');
 
