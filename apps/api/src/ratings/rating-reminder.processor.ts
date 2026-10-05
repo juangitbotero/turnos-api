@@ -31,22 +31,28 @@ export class RatingReminderProcessor extends WorkerHost {
     if (remindEmployer) {
       const webUrl = this.config.get<string>('WEB_ADMIN_URL', 'http://localhost:3000');
       try {
-        await this.mail.sendMail({
-          to: employerEmail,
-          subject: `Como correu o turno "${shiftTitle}"? Avalie o trabalhador 🌟`,
-          html: `
-            <p>Olá <strong>${employerName}</strong>,</p>
-            <p>O turno <strong>"${shiftTitle}"</strong> foi concluído há algumas horas e ainda não avaliou o trabalhador.</p>
-            <p>Deixe uma avaliação rápida para ajudar a construir a reputação do trabalhador
-               e melhorar o mercado de trabalho em Portugal.</p>
-            <p style="text-align:center;margin:24px 0">
-              <a href="${webUrl}/dashboard/ratings"
-                 style="background:#6a79ff;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
-                Avaliar trabalhador
-              </a>
-            </p>
-            <p style="color:#888;font-size:12px">Este email foi enviado automaticamente pela plataforma Turnos.</p>
-          `,
+        const button = (label: string) => `
+          <p style="text-align:center;margin:24px 0">
+            <a href="${webUrl}/dashboard/ratings"
+               style="background:#6a79ff;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
+              ${label}
+            </a>
+          </p>`;
+        await this.mail.sendBilingual(employerEmail, {
+          pt: {
+            subject: `Avalie o trabalhador do turno "${shiftTitle}" 🌟`,
+            html: `<p>Olá <strong>${employerName}</strong>,</p>
+              <p>O turno <strong>"${shiftTitle}"</strong> foi concluído e ainda não avaliou o trabalhador.</p>
+              <p>Uma avaliação rápida ajuda a construir a reputação do trabalhador.</p>
+              ${button('Avaliar trabalhador')}`,
+          },
+          en: {
+            subject: `Rate the worker from "${shiftTitle}" 🌟`,
+            html: `<p>Hello <strong>${employerName}</strong>,</p>
+              <p>The shift <strong>"${shiftTitle}"</strong> is complete and you have not rated the worker yet.</p>
+              <p>A quick rating helps build the worker's reputation.</p>
+              ${button('Rate the worker')}`,
+          },
         });
       } catch (err) {
         this.logger.error(`[RatingReminder] Failed to email ${employerEmail}: ${(err as Error).message}`);

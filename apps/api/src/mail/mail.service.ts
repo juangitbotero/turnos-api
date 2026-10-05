@@ -91,14 +91,22 @@ export class MailService {
     // (uploads are served from it at /uploads). Tolerate either form.
     const origin = this.config.get<string>('API_URL', 'http://localhost:3001').replace(/\/api\/?$/, '');
     const url = `${origin}/api/auth/verify-email/${token}`;
-    await this.send(
-      to,
-      'Verifique o seu email — Turnos',
-      `<p>Bem-vindo à Turnos!</p>
-       <p>Clique no link abaixo para verificar o seu endereço de email:</p>
-       <p><a href="${url}" style="color:#6a79ff;font-weight:bold;">Verificar email</a></p>
-       <p>O link expira em 24 horas.</p>`,
-    );
+    // No expiry line: the token does not expire (a new one replaces it when
+    // the company asks for a resend). The old copy promised 24 hours.
+    await this.sendBilingual(to, {
+      pt: {
+        subject: 'Verifique o seu email',
+        html: `<p>Bem-vindo à Turnos!</p>
+          <p>Clique no link abaixo para verificar o seu endereço de email:</p>
+          <p><a href="${url}" style="color:#6a79ff;font-weight:bold;">Verificar email</a></p>`,
+      },
+      en: {
+        subject: 'Verify your email',
+        html: `<p>Welcome to Turnos!</p>
+          <p>Click the link below to verify your email address:</p>
+          <p><a href="${url}" style="color:#6a79ff;font-weight:bold;">Verify email</a></p>`,
+      },
+    });
   }
 
   async sendWorkerApproved(to: string, name: string): Promise<void> {
@@ -120,6 +128,24 @@ export class MailService {
        <p>Motivo: ${reason}</p>
        <p>Por favor complete o seu perfil e submeta novamente.</p>`,
     );
+  }
+
+  /**
+   * One email carrying both languages: Portuguese first, then English under a
+   * divider; subject "PT · EN". Interim measure (2026-10-05) for emails to
+   * companies, whose language is not stored yet — the end state is sending
+   * each recipient only their own language. Internal ops alerts stay PT-only.
+   */
+  async sendBilingual(
+    to: string,
+    copy: { pt: { subject: string; html: string }; en: { subject: string; html: string } },
+  ): Promise<void> {
+    const html = `<div lang="pt">${copy.pt.html}</div>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:28px 0 20px">
+      <p style="color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:.5px;margin:0 0 8px">English</p>
+      <div lang="en">${copy.en.html}</div>
+      <p style="color:#9ca3af;font-size:12px;margin-top:28px">Turnos · ${SUPPORT_EMAIL}</p>`;
+    await this.send(to, `${copy.pt.subject} · ${copy.en.subject} — Turnos`, html);
   }
 
   /** Generic send — used by compliance and other modules */

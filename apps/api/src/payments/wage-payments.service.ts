@@ -28,6 +28,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
+import { paymentMethodLabel } from '@turnos/shared';
 import { WagePayment, WagePaymentStatus, WagePaymentType } from './entities/wage-payment.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { Worker } from '../users/entities/worker.entity';
@@ -732,26 +733,52 @@ export class WagePaymentsService {
     const isBlockStep    = data.step === 3; // +72h
 
     if (isBlockStep) {
-      await this.emailEmployer(wage,
-        '🔒 Publicação de turnos suspensa — pagamento em falta',
-        `<p>O pagamento de <strong>€${Number(wage.amount).toFixed(2)}</strong> ao trabalhador pelo turno
-         <strong>${wage.shiftTitle}</strong> continua em falta há mais de 72 horas.</p>
-         <p><strong>A publicação de novos turnos está suspensa</strong> até este pagamento ser regularizado.</p>
-         ${wage.payLinkUrl ? `<p><a href="${wage.payLinkUrl}">Pagar agora →</a></p>` : ''}`,
-      );
+      const owed = `€${Number(wage.amount).toFixed(2)}`;
+      await this.emailEmployer(wage, {
+        pt: {
+          subject: '🔒 Publicação de turnos suspensa — pagamento em falta',
+          html: `<p>O pagamento de <strong>${owed}</strong> ao trabalhador pelo turno
+            <strong>${wage.shiftTitle}</strong> continua em falta há mais de 72 horas.</p>
+            <p><strong>A publicação de novos turnos está suspensa</strong> até este pagamento ser regularizado.</p>
+            ${wage.payLinkUrl ? `<p><a href="${wage.payLinkUrl}">Pagar agora →</a></p>` : ''}`,
+        },
+        en: {
+          subject: '🔒 Shift posting suspended — payment outstanding',
+          html: `<p>The payment of <strong>${owed}</strong> to the worker for the shift
+            <strong>${wage.shiftTitle}</strong> has been outstanding for more than 72 hours.</p>
+            <p><strong>Posting new shifts is suspended</strong> until this payment is settled.</p>
+            ${wage.payLinkUrl ? `<p><a href="${wage.payLinkUrl}">Pay now →</a></p>` : ''}`,
+        },
+      });
       this.logger.warn(`[Wage] Employer ${wage.employerId} posting-blocked — wage ${wage.id} unpaid >72h`);
       return; // ladder complete
     }
 
-    await this.emailEmployer(wage,
-      isFinalWarning
-        ? `⚠️ Último aviso — pagamento pendente do turno "${wage.shiftTitle}"`
-        : `Lembrete — pagamento pendente do turno "${wage.shiftTitle}"`,
-      `<p>O pagamento de <strong>€${Number(wage.amount).toFixed(2)}</strong> ao trabalhador pelo turno
-       <strong>${wage.shiftTitle}</strong> (${wage.shiftDate ?? ''}) ainda está pendente.</p>
-       ${wage.payLinkUrl ? `<p><a href="${wage.payLinkUrl}">Pagar agora →</a></p>`
-                         : `<p>Método escolhido: ${wage.paymentMethod}. Depois de pagares, marca como pago no dashboard.</p>`}
-       ${isFinalWarning ? '<p><strong>Se o pagamento não for regularizado nas próximas 24 horas, a publicação de novos turnos será suspensa.</strong></p>' : ''}`,
+    const owed   = `€${Number(wage.amount).toFixed(2)}`;
+    const when   = wage.shiftDate ? ` (${wage.shiftDate})` : '';
+    const method = paymentMethodLabel(wage.paymentMethod);
+    await this.emailEmployer(wage, {
+      pt: {
+        subject: isFinalWarning
+          ? `⚠️ Último aviso — pagamento pendente do turno "${wage.shiftTitle}"`
+          : `Lembrete — pagamento pendente do turno "${wage.shiftTitle}"`,
+        html: `<p>O pagamento de <strong>${owed}</strong> ao trabalhador pelo turno
+          <strong>${wage.shiftTitle}</strong>${when} ainda está pendente.</p>
+          ${wage.payLinkUrl ? `<p><a href="${wage.payLinkUrl}">Pagar agora →</a></p>`
+                            : `<p>Método escolhido: ${method}. Depois de pagar, marque como pago no dashboard.</p>`}
+          ${isFinalWarning ? '<p><strong>Se o pagamento não for regularizado nas próximas 24 horas, a publicação de novos turnos será suspensa.</strong></p>' : ''}`,
+      },
+      en: {
+        subject: isFinalWarning
+          ? `⚠️ Final notice — payment pending for "${wage.shiftTitle}"`
+          : `Reminder — payment pending for "${wage.shiftTitle}"`,
+        html: `<p>The payment of <strong>${owed}</strong> to the worker for the shift
+          <strong>${wage.shiftTitle}</strong>${when} is still pending.</p>
+          ${wage.payLinkUrl ? `<p><a href="${wage.payLinkUrl}">Pay now →</a></p>`
+                            : `<p>Chosen method: ${method}. Once you have paid, mark it as paid in the dashboard.</p>`}
+          ${isFinalWarning ? '<p><strong>If the payment is not settled within the next 24 hours, posting new shifts will be suspended.</strong></p>' : ''}`,
+      },
+    },
       // The final warning ignores the notification preference — see emailEmployer.
       isFinalWarning,
     );
@@ -770,26 +797,53 @@ export class WagePaymentsService {
 
   private async emailEmployerPaymentDue(wage: WagePayment): Promise<void> {
     const isCancellation = wage.type === WagePaymentType.CANCELLATION_MINIMUM;
-    await this.emailEmployer(wage,
-      isCancellation
-        ? `Pagamento devido — mínimo de 2h por cancelamento tardio (${wage.shiftTitle})`
-        : `Turno concluído — pagar €${Number(wage.amount).toFixed(2)} ao trabalhador (${wage.shiftTitle})`,
-      `<p>${isCancellation
-          ? `Cancelaste o turno <strong>${wage.shiftTitle}</strong> a menos de 3 horas do início.
-             Conforme a política de cancelamento, deves pagar ao trabalhador o mínimo de 2 horas:`
-          : `O turno <strong>${wage.shiftTitle}</strong> (${wage.shiftDate ?? ''}) foi concluído.
-             Valor a pagar diretamente ao trabalhador:`}</p>
-       <p style="font-size:22px"><strong>€${Number(wage.amount).toFixed(2)}</strong>
-       ${wage.processingFee > 0 ? ` <small>(+ €${Number(wage.processingFee).toFixed(2)} taxa de processamento)</small>` : ''}</p>
-       ${wage.payLinkUrl
-          ? `<p><a href="${wage.payLinkUrl}" style="background:#6a79ff;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none">💳 Pagar agora com Turnos Pay Link</a></p>
-             <p><small>O pagamento vai diretamente para a conta bancária do trabalhador — a Turnos não recebe nem retém este valor.</small></p>`
-          : `<p>Método escolhido: <strong>${wage.paymentMethod}</strong>. Depois de pagares, marca como pago no dashboard Turnos para notificar o trabalhador.</p>`}
-       ${!isCancellation
-          ? `<p>⭐ Aproveita para <a href="${this.config.get<string>('WEB_ADMIN_URL', 'http://localhost:3000')}/dashboard/ratings">avaliar o trabalhador</a> — demora 10 segundos.</p>
-             <p><small>Correu algo mal (saída antecipada, problema no turno)? Ajusta as horas ou reporta o problema no dashboard antes de pagar.</small></p>`
-          : ''}`,
-    );
+    const amount  = `€${Number(wage.amount).toFixed(2)}`;
+    const fee     = wage.processingFee > 0 ? `€${Number(wage.processingFee).toFixed(2)}` : null;
+    const method  = paymentMethodLabel(wage.paymentMethod);
+    const rateUrl = `${this.config.get<string>('WEB_ADMIN_URL', 'http://localhost:3000')}/dashboard/ratings`;
+    const payBtn  = (label: string) =>
+      `<p><a href="${wage.payLinkUrl}" style="background:#6a79ff;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none">${label}</a></p>`;
+
+    await this.emailEmployer(wage, {
+      pt: {
+        subject: isCancellation
+          ? `Pagamento devido — mínimo de 2h por cancelamento tardio (${wage.shiftTitle})`
+          : `Turno concluído — pagar ${amount} ao trabalhador (${wage.shiftTitle})`,
+        html: `<p>${isCancellation
+            ? `Cancelou o turno <strong>${wage.shiftTitle}</strong> a menos de 3 horas do início.
+               Conforme a política de cancelamento, deve pagar ao trabalhador o mínimo de 2 horas:`
+            : `O turno <strong>${wage.shiftTitle}</strong> (${wage.shiftDate ?? ''}) foi concluído.
+               Valor a pagar diretamente ao trabalhador:`}</p>
+          <p style="font-size:22px"><strong>${amount}</strong>${fee ? ` <small>(+ ${fee} taxa de processamento)</small>` : ''}</p>
+          ${wage.payLinkUrl
+            ? `${payBtn('💳 Pagar agora com Turnos Pay Link')}
+               <p><small>O pagamento vai diretamente para a conta bancária do trabalhador — a Turnos não recebe nem retém este valor.</small></p>`
+            : `<p>Método escolhido: <strong>${method}</strong>. Depois de pagar, marque como pago no dashboard Turnos para notificar o trabalhador.</p>`}
+          ${!isCancellation
+            ? `<p>⭐ Aproveite para <a href="${rateUrl}">avaliar o trabalhador</a> — demora 10 segundos.</p>
+               <p><small>Correu algo mal (saída antecipada, problema no turno)? Ajuste as horas ou reporte o problema no dashboard antes de pagar.</small></p>`
+            : ''}`,
+      },
+      en: {
+        subject: isCancellation
+          ? `Payment due — 2-hour minimum for a late cancellation (${wage.shiftTitle})`
+          : `Shift complete — pay ${amount} to the worker (${wage.shiftTitle})`,
+        html: `<p>${isCancellation
+            ? `You cancelled the shift <strong>${wage.shiftTitle}</strong> less than 3 hours before it started.
+               Under the cancellation policy, you must pay the worker the 2-hour minimum:`
+            : `The shift <strong>${wage.shiftTitle}</strong> (${wage.shiftDate ?? ''}) is complete.
+               Amount to pay directly to the worker:`}</p>
+          <p style="font-size:22px"><strong>${amount}</strong>${fee ? ` <small>(+ ${fee} processing fee)</small>` : ''}</p>
+          ${wage.payLinkUrl
+            ? `${payBtn('💳 Pay now with Turnos Pay Link')}
+               <p><small>The payment goes straight to the worker's bank account — Turnos never receives or holds it.</small></p>`
+            : `<p>Chosen method: <strong>${method}</strong>. Once you have paid, mark it as paid in the Turnos dashboard so the worker is notified.</p>`}
+          ${!isCancellation
+            ? `<p>⭐ While you are here, <a href="${rateUrl}">rate the worker</a> — it takes 10 seconds.</p>
+               <p><small>Something went wrong (left early, a problem on the shift)? Adjust the hours or report the problem in the dashboard before paying.</small></p>`
+            : ''}`,
+      },
+    });
   }
 
   /**
@@ -799,7 +853,9 @@ export class WagePaymentsService {
    *   than an unwanted email.
    */
   private async emailEmployer(
-    wage: WagePayment, subject: string, html: string, alwaysSend = false,
+    wage: WagePayment,
+    copy: { pt: { subject: string; html: string }; en: { subject: string; html: string } },
+    alwaysSend = false,
   ): Promise<void> {
     const employer = await this.employerRepo.findOne({
       where: { id: wage.employerId },
@@ -811,6 +867,6 @@ export class WagePaymentsService {
       this.logger.log(`[Wage] Reminder suppressed by preference for employer ${wage.employerId}`);
       return;
     }
-    await this.mail.sendMail({ to, subject, html });
+    await this.mail.sendBilingual(to, copy);
   }
 }
