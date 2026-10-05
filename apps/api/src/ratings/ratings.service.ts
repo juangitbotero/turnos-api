@@ -206,10 +206,25 @@ export class RatingsService {
       worker.reputationScore = Math.round(Math.min(100, avg * 20)); // 5★ = 100, 1★ = 20
     }
 
+    worker.completionRate = await this.computeCompletionRate(worker);
     await this.recalculateBadges(worker);
     await this.workerRepo.save(worker);
 
     this.logger.log(`[Ratings] Worker ${workerId} reputation updated: avg=${worker.avgRating ?? '—'}, score=${worker.reputationScore}, badges=${worker.badges?.join(',') ?? '—'}`);
+  }
+
+  /**
+   * Share of the worker's confirmed shifts that were actually worked:
+   * completed ÷ (completed + no-shows), 0–1. Nothing wrote this column until
+   * 2026-10-05 — it sat at 0 for everyone, so the profile showed "0%" after
+   * any number of shifts and the RELIABLE badge (≥ 90%) could never be earned.
+   */
+  private async computeCompletionRate(worker: Worker): Promise<number> {
+    const completed = await this.shiftRepo.count({
+      where: { assignedWorker: { id: worker.id }, status: ShiftStatus.COMPLETED },
+    });
+    const denominator = completed + (worker.noShowCount ?? 0);
+    return denominator === 0 ? 0 : Math.round((completed / denominator) * 100) / 100;
   }
 
   private async recalculateBadges(worker: Worker): Promise<void> {
@@ -271,7 +286,8 @@ export class RatingsService {
       avgRating:      worker.avgRating,
       totalRatings:   worker.totalRatings,
       noShowCount:    worker.noShowCount,
-      completionRate: Number(worker.completionRate),
+      // Computed live so it is right even before the next recalculation runs.
+      completionRate: await this.computeCompletionRate(worker),
       badges:         worker.badges ?? [],
       recentRatings:  recent.map(r => ({
         score:     r.score,

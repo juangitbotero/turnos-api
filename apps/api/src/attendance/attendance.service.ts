@@ -399,6 +399,11 @@ export class AttendanceService {
       .catch(err => {
         this.logger.warn(`[Attendance] Failed to schedule review follow-ups: ${(err as Error).message}`);
       });
+    // Completion rate and badges change with every completed job, not only
+    // when a rating arrives.
+    this.ratings.recalculateWorkerReputation(worker.id).catch(err => {
+      this.logger.warn(`[Attendance] Reputation recalc failed for worker ${worker.id}: ${(err as Error).message}`);
+    });
   }
 
   /**
