@@ -806,6 +806,7 @@ export const pt = {
       workers:       'Quem já trabalhou',
       shifts:        'Turnos',
       qrCheckIn:     'QR Check-in',
+      hires:         'Contratações',
       compliance:    'Conformidade',
       spending:      'Gastos',
       billing:       'A minha subscrição',
@@ -1035,7 +1036,9 @@ export const pt = {
       colTurnosFee:  'Taxa Turnos',
       colEmployerTsu:'TSU Emp.',
       colWorkerNet:  'Líquido Trabalh.',
-      legalNote:     'SS Trabalhador (11%) é entregue pelo próprio trabalhador via SS Direta — não incluído acima. TSU Entidade (23.75%) deve ser pago mensalmente pelo empregador.',
+      // Neutral on who withholds the worker's 11% until the law firm answers
+      // question A3 of docs/legal/brief-advogados.md.
+      legalNote:     'Simulação informativa. As obrigações de retenção e de contribuição para a Segurança Social são da entidade empregadora — confirme os valores com o seu contabilista.',
 
       colWorkerNif: 'Trabalhador / NIF',
       colShiftDate: 'Data do Turno',

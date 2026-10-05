@@ -1,6 +1,6 @@
 import {
   IconHome, IconSearch, IconUsers, IconClipboard, IconQr,
-  IconEuro, IconCard, IconSettings,
+  IconEuro, IconCard, IconSettings, IconFile,
 } from '../components/icons';
 
 // Worker-search-first: finding and inviting the right worker is the core value
@@ -13,15 +13,17 @@ import {
 // the product and mixed emoji were the loudest thing making it look unlike the
 // mobile app. All icons inherit currentColor at one stroke weight.
 //
-// NOTE: the Compliance entry was removed — the company is the legal employer
-// and registers the work itself. The route and its data still exist at
-// /dashboard/compliance (MCD contracts, TSU report, ACT audit trail); only the
-// link is gone. Delete the page too if you decide that data belongs elsewhere.
+// "Contratações" opens /dashboard/compliance on its hires tab. The old
+// "Conformidade" entry was removed because the company registers the work
+// itself; since 2026-10-05 that page is exactly where the company gets the data
+// to do so (Turnos no longer emails its accountant), so it needs a way back.
+// Labelled for what it holds, not as compliance Turnos performs.
 export const SIDEBAR_NAV = [
   { Icon: IconHome,      key: 'dashboard',     href: '/dashboard',                soon: false },
   { Icon: IconSearch,    key: 'workersSearch', href: '/dashboard/workers-search', soon: false },
   { Icon: IconUsers,     key: 'workers',       href: '/dashboard/workers',        soon: false },
   { Icon: IconClipboard, key: 'shifts',        href: '/dashboard/shifts',         soon: false },
+  { Icon: IconFile,      key: 'hires',         href: '/dashboard/compliance?tab=mcd', soon: false },
   { Icon: IconQr,        key: 'qrCheckIn',     href: '/dashboard/qr-codes',       soon: false },
   { Icon: IconEuro,      key: 'spending',      href: '/dashboard/spending',       soon: false },
   { Icon: IconCard,      key: 'billing',       href: '/dashboard/billing',        soon: false },

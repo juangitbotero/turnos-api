@@ -441,7 +441,8 @@ export class AttendanceService {
       where: {
         shift:  { id: In(days.map(d => d.id)) },
         worker: { id: workerId },
-        status: AttendanceStatus.COMPLETED,
+        // MANUAL = a day the company closed by hand; it was worked and is paid.
+        status: In([AttendanceStatus.COMPLETED, AttendanceStatus.MANUAL]),
       },
     });
     const totalHours = worked.reduce((sum, a) => sum + Number(a.scheduledHours ?? 0), 0);
@@ -508,7 +509,23 @@ export class AttendanceService {
       details:    { action: 'MANUAL_OVERRIDE', note, scheduledHours },
     });
 
-    this.logger.log(`[Attendance] Manual confirm: shift ${shift.id} by employer ${employer.id}`);
+    // Run the same settlement as auto-completion — €3 fee, wage payment /
+    // Pay Link, review prompts. Until 2026-10-05 the manual path stopped at
+    // COMPLETED, so a shift the company closed by hand produced no wage
+    // payment row, no reminders and no fee (completeShift skips it too,
+    // because checkOutAt is already set). Found in the first end-to-end run.
+    const worker = shift.assignedWorker!;
+    const settlement = await this.resolveSeriesSettlement(shift, worker.id, scheduledHours);
+    if (settlement) this.settleJob(shift, worker, settlement);
+
+    this.gateway.notifyAttendance(worker.id, {
+      event:          'shift_completed',
+      shiftId:        shift.id,
+      shiftTitle:     shift.title,
+      scheduledHours,
+    });
+
+    this.logger.log(`[Attendance] Manual confirm: shift ${shift.id} by employer ${employer.id}${settlement ? '' : ' — settlement deferred to the final series day'}`);
     return saved;
   }
 

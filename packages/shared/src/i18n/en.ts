@@ -802,6 +802,7 @@ export const en: Translated<TranslationCatalogue> = {
       workersSearch: 'Find workers',
       workers:       'Who worked for us',
       shifts:        'Shifts',
+      hires:         'Hires',
       qrCheckIn:     'QR check-in',
       compliance:    'Compliance',
       spending:      'Spending',
@@ -1026,7 +1027,7 @@ export const en: Translated<TranslationCatalogue> = {
       colTurnosFee:  'Turnos fee',
       colEmployerTsu:'Employer TSU',
       colWorkerNet:  'Worker net',
-      legalNote:     'Worker SS (11%) is paid by the worker themselves via SS Direta — not included above. Employer TSU (23.75%) must be paid monthly by the employer.',
+      legalNote:     'Informative simulation. Withholding and Segurança Social contribution obligations belong to the employer — confirm the amounts with your accountant.',
 
       colWorkerNif: 'Worker / NIF',
       colShiftDate: 'Shift date',
