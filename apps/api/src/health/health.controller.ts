@@ -1,9 +1,24 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Req } from '@nestjs/common';
+import { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
 
 @Controller('health')
 export class HealthController {
   constructor(private readonly config: ConfigService) {}
+
+  // TEMPORARY (2026-10-05) — diagnosing the proxy chain for rate limiting.
+  // Returns only the caller's own address data. Remove once read.
+  @Get('ip')
+  ip(@Req() req: Request) {
+    return {
+      ip: req.ip,
+      ips: req.ips,
+      remote: req.socket?.remoteAddress,
+      xff: req.headers['x-forwarded-for'] ?? null,
+      xRealIp: req.headers['x-real-ip'] ?? null,
+      envoy: req.headers['x-envoy-external-address'] ?? null,
+    };
+  }
 
   @Get()
   check() {
