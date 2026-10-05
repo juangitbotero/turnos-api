@@ -16,7 +16,7 @@
  *
  * Audience rule: every persona must be someone who LIVES in Portugal. A
  * visitor cannot reach the 80-point activation gate (no NIF/IBAN) and cannot
- * hold an MCD contract — see META_CAMPAIGN_PLAN.md §0. So "the newcomer"
+ * hold an MCD contract. So "the newcomer"
  * moved here; nobody in this set is on holiday.
  */
 

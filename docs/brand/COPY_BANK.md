@@ -137,8 +137,8 @@ only (full gross, no cut) · proximity sort ("near home") · MCD short contracts
 
 ⚠️ **Every persona must live in Portugal.** The tempting version of this set
 includes a tourist on the beach on a Tuesday. Don't use it. A visitor has no NIF
-or IBAN, cannot reach the 80-point activation gate, and cannot hold an MCD
-contract (`META_CAMPAIGN_PLAN.md` §0). That makes every tourist who signs up a
+or IBAN — together worth 50 of the 80 points needed to activate — and cannot
+hold an MCD contract. That makes every tourist who signs up a
 paid lead who can never work a shift. "The newcomer" *moved* here, and that is
 the version to keep.
 

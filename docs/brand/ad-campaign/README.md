@@ -65,7 +65,7 @@ is the static companion to the "Whatever your reason" Reel script.
   square. `node build.js reason` rebuilds the set and its contact sheet.
 - **Every persona lives in Portugal.** The "newcomer" *moved* to Lisbon; nobody
   is on holiday. A visitor cannot pass the 80-point activation gate (no NIF or
-  IBAN) or hold an MCD contract — `../META_CAMPAIGN_PLAN.md` §0. Keep it that
+  IBAN) or hold an MCD contract. Keep it that
   way when adding a persona.
 - **The label row carries the series.** Left: `WHATEVER YOUR REASON` on every
   card. Right: the index (`01 · THE SURFER`). A grid of these reads as one set.
