@@ -43,7 +43,7 @@ you forget.
 | 4 | CORS open to every origin | `apps/api/src/main.ts` | 🟢 **Fixed `dbb95f3`** |
 | 5 | Stripe still in test mode | Railway variables | 🔴 Live |
 | 6 | Rate limiting did not enforce | `main.ts` `trust proxy` | 🟢 **Fixed `d1501ca`** (2026-10-05) — 429s verified on prod |
-| 7 | No email was delivered | `mail.service.ts`; Railway blocks SMTP below Pro | 🟡 **Brevo configured 2026-10-05** — `BREVO_API_KEY` set, `/api/health` → `"mail":"brevo"` (key accepted at boot). A real delivery is still to be seen — first one during the end-to-end run. Companies registered before 2026-10-05 never got their verification email; the dashboard now shows unverified companies a "Reenviar email de verificação" card (`POST /auth/employer/resend-verification`) |
+| 7 | No email was delivered | `mail.service.ts`; Railway blocks SMTP below Pro | 🟢 **Fixed 2026-10-05** — Brevo HTTPS API; first real email (company verification) delivered to Hotmail and the link verified the account. Gotcha on the way: a leftover `MAIL_USER` set the sender to an unverified address — runbook §3. Still sending from a gmail.com address (Brevo warns: DMARC) — move to an owned domain before launch. Companies registered before 2026-10-05 never got their verification email; the dashboard now shows unverified companies a "Reenviar email de verificação" card (`POST /auth/employer/resend-verification`) |
 
 **1 — Mock OTP.** Activates whenever Twilio credentials are absent or still
 `replace_me`. Setting the Twilio variables is *not* sufficient — if one is ever
