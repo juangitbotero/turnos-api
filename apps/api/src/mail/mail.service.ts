@@ -19,6 +19,13 @@ export class MailService {
   private readonly logger = new Logger(MailService.name);
   private readonly from: string;
 
+  /**
+   * Reported by GET /api/health. 'log-only' = no SMTP configured;
+   * 'smtp-unverified' = configured, boot login not finished yet;
+   * 'smtp' = the server accepted our login; 'smtp-error' = it refused it.
+   */
+  status: 'log-only' | 'smtp-unverified' | 'smtp' | 'smtp-error' = 'log-only';
+
   /** Where internal alerts go (disputes, justifications, no-show reviews). */
   readonly opsAddress: string;
 
@@ -30,6 +37,7 @@ export class MailService {
     this.opsAddress = this.config.get<string>('OPS_EMAIL', SUPPORT_EMAIL);
 
     if (host && user) {
+      this.status = 'smtp-unverified';
       this.transporter = nodemailer.createTransport({
         host,
         port: this.config.get<number>('MAIL_PORT', 587),
@@ -37,13 +45,27 @@ export class MailService {
         auth: { user, pass },
       });
       this.logger.log('Mail transporter initialized');
+      // Log in to the SMTP server once at boot. Without this a wrong app
+      // password is invisible until the first real email silently fails.
+      this.transporter.verify()
+        .then(() => {
+          this.status = 'smtp';
+          this.logger.log('SMTP login verified');
+        })
+        .catch((err: Error) => {
+          this.status = 'smtp-error';
+          this.logger.error(`SMTP login failed — no email will be delivered: ${err.message}`);
+        });
     } else {
       this.logger.warn('MAIL_HOST/MAIL_USER not set — emails will be logged to console only');
     }
   }
 
   async sendEmployerVerification(to: string, token: string): Promise<void> {
-    const url = `${this.config.get('API_URL', 'http://localhost:3001')}/auth/verify-email/${token}`;
+    // Routes live under the global /api prefix; API_URL is the bare origin
+    // (uploads are served from it at /uploads). Tolerate either form.
+    const origin = this.config.get<string>('API_URL', 'http://localhost:3001').replace(/\/api\/?$/, '');
+    const url = `${origin}/api/auth/verify-email/${token}`;
     await this.send(
       to,
       'Verifique o seu email — Turnos',

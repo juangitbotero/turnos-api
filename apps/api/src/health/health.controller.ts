@@ -1,9 +1,13 @@
 import { Controller, Get } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { MailService } from '../mail/mail.service';
 
 @Controller('health')
 export class HealthController {
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly mail: MailService,
+  ) {}
 
   @Get()
   check() {
@@ -23,11 +27,13 @@ export class HealthController {
        */
       commit: (this.config.get<string>('RAILWAY_GIT_COMMIT_SHA') ?? 'unknown').slice(0, 7),
       /**
-       * 'smtp' once MAIL_HOST + MAIL_USER are set; 'log-only' means every
-       * email — accountant data, wage reminders, ops alerts — is written to
-       * the log and never delivered. That state is silent from outside.
+       * 'smtp' only once the SMTP server has accepted our login at boot.
+       * 'smtp-error' = configured but refused (wrong app password);
+       * 'log-only' = not configured — every email (accountant data, wage
+       * reminders, ops alerts) is written to the log and never delivered.
+       * Both failure states are silent from outside without this field.
        */
-      mail: this.config.get<string>('MAIL_HOST') && this.config.get<string>('MAIL_USER') ? 'smtp' : 'log-only',
+      mail: this.mail.status,
       timestamp: new Date().toISOString(),
       uptime: Math.floor(process.uptime()),
     };
