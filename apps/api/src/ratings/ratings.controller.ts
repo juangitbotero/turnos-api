@@ -16,7 +16,10 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/decorators';
 
 interface AuthRequest {
-  user: { sub: string; role: string };
+  // Matches JwtStrategy.validate(), which returns { userId, role }. This said
+  // `sub` until 2026-10-05: every handler here got undefined, and TypeORM drops
+  // an undefined condition, so lookups matched the FIRST employer/worker row.
+  user: { userId: string; role: string };
 }
 
 @Controller('ratings')
@@ -30,7 +33,7 @@ export class RatingsController {
   @Roles('EMPLOYER')
   @HttpCode(HttpStatus.CREATED)
   createRating(@Request() req: AuthRequest, @Body() dto: CreateRatingDto) {
-    return this.ratings.createRating(req.user.sub, dto);
+    return this.ratings.createRating(req.user.userId, dto);
   }
 
   // ── Worker rating summary (any authenticated user) ────────────────────────
@@ -49,7 +52,7 @@ export class RatingsController {
   @Get('me')
   @Roles('WORKER')
   getMySummary(@Request() req: AuthRequest) {
-    return this.ratings.getMyRatingSummary(req.user.sub);
+    return this.ratings.getMyRatingSummary(req.user.userId);
   }
 
   // ── Worker rates employer (WORKER only, internal) ─────────────────────────
@@ -58,7 +61,7 @@ export class RatingsController {
   @Roles('WORKER')
   @HttpCode(HttpStatus.CREATED)
   createWorkerRating(@Request() req: AuthRequest, @Body() dto: CreateWorkerRatingDto) {
-    return this.ratings.createWorkerRating(req.user.sub, dto);
+    return this.ratings.createWorkerRating(req.user.userId, dto);
   }
 
   // ── Has-rated check ───────────────────────────────────────────────────────
@@ -66,7 +69,7 @@ export class RatingsController {
   @Get('shift/:shiftId/mine')
   hasRatedShift(@Request() req: AuthRequest, @Param('shiftId') shiftId: string) {
     const direction = req.user.role === 'WORKER' ? 'WORKER_TO_EMPLOYER' : 'EMPLOYER_TO_WORKER';
-    return this.ratings.hasRatedShift(req.user.sub, shiftId, direction as any);
+    return this.ratings.hasRatedShift(req.user.userId, shiftId, direction as any);
   }
 
   // ── No-show reporting (EMPLOYER only) ─────────────────────────────────────
@@ -78,7 +81,7 @@ export class RatingsController {
     @Param('shiftId') shiftId: string,
     @Body('note') note?: string,
   ) {
-    return this.ratings.reportNoShow(req.user.sub, shiftId, note);
+    return this.ratings.reportNoShow(req.user.userId, shiftId, note);
   }
 
   // ── Favourite Workers (EMPLOYER only) ────────────────────────────────────
@@ -86,19 +89,19 @@ export class RatingsController {
   @Get('favourites')
   @Roles('EMPLOYER')
   getFavourites(@Request() req: AuthRequest) {
-    return this.ratings.getFavourites(req.user.sub);
+    return this.ratings.getFavourites(req.user.userId);
   }
 
   @Post('favourites/:workerId')
   @Roles('EMPLOYER')
   @HttpCode(HttpStatus.OK)
   addFavourite(@Request() req: AuthRequest, @Param('workerId') workerId: string) {
-    return this.ratings.addFavourite(req.user.sub, workerId);
+    return this.ratings.addFavourite(req.user.userId, workerId);
   }
 
   @Delete('favourites/:workerId')
   @Roles('EMPLOYER')
   removeFavourite(@Request() req: AuthRequest, @Param('workerId') workerId: string) {
-    return this.ratings.removeFavourite(req.user.sub, workerId);
+    return this.ratings.removeFavourite(req.user.userId, workerId);
   }
 }
