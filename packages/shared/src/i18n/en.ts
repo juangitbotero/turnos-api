@@ -310,7 +310,8 @@ export const en: Translated<TranslationCatalogue> = {
 
       ratingsCount:   '{{count}} reviews',
       noRatingsYet:   'No reviews',
-      statCompletion: 'Shifts completed',
+      statCompletedCount: 'Shifts completed',
+      statCompletion: 'Completion rate',
       statNoShows:    'No-shows',
 
       tagsTitle: 'WHAT COMPANIES HIGHLIGHT',
@@ -915,6 +916,7 @@ export const en: Translated<TranslationCatalogue> = {
       availableOff: 'Not available right now',
       statNoShows: 'no-shows',
       statRatings: 'ratings',
+      statCompleted: 'shifts completed',
       statProfile: 'profile',
 
       inviteTitle:   'Invite to a shift',
@@ -1449,6 +1451,7 @@ export const en: Translated<TranslationCatalogue> = {
       hireTip:     'You have confirmed workers. Notifying the Segurança Social of the hire is done by the company, before the shift starts — ',
       hireTipLink: 'see hire data',
       hireDataBtn:   'SS data',
+      appCompleted:  '✓ {{count}} shifts completed',
       hireDataTitle: 'Worker data for notifying the Segurança Social of the hire',
 
       // Applicants modal

@@ -169,6 +169,11 @@ function WorkerDetailPanel({
 
           {/* Stats */}
           <div style={p.statsRow}>
+            {/* Completed shifts first — the Uber-style "trips" number a company reads first. */}
+            <div style={p.stat}>
+              <div style={p.statVal}>{worker.completedShifts ?? 0}</div>
+              <div style={p.statLabel}>{t('admin.workersSearch.statCompleted')}</div>
+            </div>
             <div style={p.stat}>
               <div style={p.statVal}>{worker.noShowCount}</div>
               <div style={p.statLabel}>{t('admin.workersSearch.statNoShows')}</div>

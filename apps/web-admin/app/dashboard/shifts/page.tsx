@@ -300,6 +300,11 @@ function ShiftApplicationsModal({
                               <span style={{ color: 'var(--color-text-secondary)', fontWeight: 400 }}> ({app.worker.totalRatings ?? 0})</span>
                             </span>
                           )}
+                          {(app.worker?.completedShifts ?? 0) > 0 && (
+                            <span style={{ marginLeft: 8, color: '#16a34a', fontWeight: 600 }}>
+                              {t('admin.shifts.appCompleted', { count: app.worker!.completedShifts! })}
+                            </span>
+                          )}
                         </p>
                         {matchLabel && (
                           <p style={{ ...s.appSkills, color: isFullMatch ? '#16a34a' : 'var(--color-text-secondary)' }}>

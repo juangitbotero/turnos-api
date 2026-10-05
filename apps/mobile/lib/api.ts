@@ -337,6 +337,7 @@ export interface WorkerRatingSummary {
   totalRatings:   number;
   noShowCount:    number;
   completionRate: number;
+  completedShifts?: number;
   badges:         string[];  // 'TOP_RATED' | 'RELIABLE' | 'VERIFIED'
   recentRatings:  RatingRecord[];
 }

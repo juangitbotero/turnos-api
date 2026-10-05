@@ -122,6 +122,11 @@ export default function ReviewsScreen() {
             <View style={s.heroDivider} />
 
             <View style={s.heroRight}>
+              {/* The count first — the Uber-style "trips" number. */}
+              <View style={s.statRow}>
+                <Text style={s.statValue}>{summary?.completedShifts ?? 0}</Text>
+                <Text style={s.statLabel}>{t('mobile.reviews.statCompletedCount')}</Text>
+              </View>
               <View style={s.statRow}>
                 {/* Number(): the same numeric-string guard the profile applies
                     to avgRating — Postgres decimals arrive as strings. */}

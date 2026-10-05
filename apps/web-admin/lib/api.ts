@@ -276,6 +276,7 @@ export interface Application {
     status: string;
     avgRating?: number | null;
     totalRatings?: number;
+    completedShifts?: number;
     badges?: string[];
   } | null;
 }
@@ -356,6 +357,7 @@ export interface WorkerSearchResult {
   avgRating: number | null;
   totalRatings: number;
   noShowCount: number;
+  completedShifts?: number;
   badges: string[];
   profileQualityScore: number;
 }

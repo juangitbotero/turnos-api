@@ -451,6 +451,7 @@ export class ShiftsService {
       avgRating:           worker.avgRating,
       totalRatings:        worker.totalRatings,
       noShowCount:         worker.noShowCount,
+      completedShifts:     worker.completedShifts ?? 0,
       badges:              worker.badges ?? [],
     };
   }
@@ -1130,7 +1131,7 @@ export class ShiftsService {
         'w.cvUrl', 'w.cvFileName',
         'w.skills', 'w.languages', 'w.availableDays',
         'w.isAvailableForWork', 'w.experiences',
-        'w.avgRating', 'w.totalRatings', 'w.noShowCount',
+        'w.avgRating', 'w.totalRatings', 'w.noShowCount', 'w.completedShifts',
         'w.badges', 'w.profileQualityScore',
       ]);
 

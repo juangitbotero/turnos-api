@@ -309,7 +309,8 @@ export const pt = {
 
       ratingsCount:   '{{count}} avaliações',
       noRatingsYet:   'Sem avaliações',
-      statCompletion: 'Turnos concluídos',
+      statCompletedCount: 'Turnos concluídos',
+      statCompletion: 'Taxa de conclusão',
       statNoShows:    'Faltas',
 
       tagsTitle: 'O QUE AS EMPRESAS DESTACAM',
@@ -920,6 +921,7 @@ export const pt = {
       availableOff: 'Não disponível de momento',
       statNoShows: 'faltas',
       statRatings: 'avaliações',
+      statCompleted: 'turnos concluídos',
       statProfile: 'perfil',
 
       inviteTitle:   'Convidar para um turno',
@@ -1466,6 +1468,7 @@ export const pt = {
       hireTip:     'Tem trabalhadores confirmados. A comunicação da admissão à Segurança Social é feita pela empresa, antes do início do turno — ',
       hireTipLink: 'ver dados de contratação',
       hireDataBtn:   'Dados SS',
+      appCompleted:  '✓ {{count}} turnos concluídos',
       hireDataTitle: 'Dados do trabalhador para a comunicação da admissão à Segurança Social',
 
       // Applicants modal

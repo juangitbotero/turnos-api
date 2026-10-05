@@ -206,7 +206,9 @@ export class RatingsService {
       worker.reputationScore = Math.round(Math.min(100, avg * 20)); // 5★ = 100, 1★ = 20
     }
 
-    worker.completionRate = await this.computeCompletionRate(worker);
+    const completion = await this.computeCompletion(worker);
+    worker.completedShifts = completion.completed;
+    worker.completionRate  = completion.rate;
     await this.recalculateBadges(worker);
     await this.workerRepo.save(worker);
 
@@ -219,12 +221,15 @@ export class RatingsService {
    * 2026-10-05 — it sat at 0 for everyone, so the profile showed "0%" after
    * any number of shifts and the RELIABLE badge (≥ 90%) could never be earned.
    */
-  private async computeCompletionRate(worker: Worker): Promise<number> {
+  private async computeCompletion(worker: Worker): Promise<{ completed: number; rate: number }> {
     const completed = await this.shiftRepo.count({
       where: { assignedWorker: { id: worker.id }, status: ShiftStatus.COMPLETED },
     });
     const denominator = completed + (worker.noShowCount ?? 0);
-    return denominator === 0 ? 0 : Math.round((completed / denominator) * 100) / 100;
+    return {
+      completed,
+      rate: denominator === 0 ? 0 : Math.round((completed / denominator) * 100) / 100,
+    };
   }
 
   private async recalculateBadges(worker: Worker): Promise<void> {
@@ -244,11 +249,12 @@ export class RatingsService {
       badges.push('TOP_RATED');
     }
 
-    // RELIABLE — zero no-shows + high completion rate over enough shifts
+    // RELIABLE — zero no-shows + high completion rate over enough COMPLETED
+    // shifts (it counted ratings until 2026-10-05 — see BADGE_THRESHOLDS)
     if (
       worker.noShowCount === 0 &&
       Number(worker.completionRate) >= BADGE_THRESHOLDS.RELIABLE_MIN_COMPLETION &&
-      worker.totalRatings >= BADGE_THRESHOLDS.RELIABLE_MIN_SHIFTS
+      worker.completedShifts >= BADGE_THRESHOLDS.RELIABLE_MIN_COMPLETED_SHIFTS
     ) {
       badges.push('RELIABLE');
     }
@@ -282,12 +288,22 @@ export class RatingsService {
       take: 10,
     });
 
+    // Computed live so the numbers are right even before the next
+    // recalculation runs; the stored copy (used by lists) is healed if stale.
+    const completion = await this.computeCompletion(worker);
+    if (completion.completed !== worker.completedShifts) {
+      await this.workerRepo.update(worker.id, {
+        completedShifts: completion.completed,
+        completionRate:  completion.rate,
+      });
+    }
+
     return {
-      avgRating:      worker.avgRating,
-      totalRatings:   worker.totalRatings,
-      noShowCount:    worker.noShowCount,
-      // Computed live so it is right even before the next recalculation runs.
-      completionRate: await this.computeCompletionRate(worker),
+      avgRating:       worker.avgRating,
+      totalRatings:    worker.totalRatings,
+      noShowCount:     worker.noShowCount,
+      completedShifts: completion.completed,
+      completionRate:  completion.rate,
       badges:         worker.badges ?? [],
       recentRatings:  recent.map(r => ({
         score:     r.score,

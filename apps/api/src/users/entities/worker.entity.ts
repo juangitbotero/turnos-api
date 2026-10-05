@@ -181,6 +181,10 @@ export class Worker {
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   completionRate: number;           // 0.00–1.00
 
+  /** Shifts (days) worked to completion — shown like Uber's trip count. Kept by RatingsService.recalculateWorkerReputation(). */
+  @Column({ type: 'int', default: 0 })
+  completedShifts: number;
+
   // ── Compliance — Economic Dependency ──────────────────────────────────────
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   declaredExternalMonthlyIncome: number; // Self-declared monthly income outside Turnos (€)

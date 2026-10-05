@@ -737,6 +737,7 @@ export interface WorkerRatingSummary {
   totalRatings: number;
   noShowCount: number;
   completionRate: number;         // 0–1
+  completedShifts: number;
   badges: WorkerBadge[];
   recentRatings: Array<{
     score: number;
@@ -759,9 +760,11 @@ export type WorkerRatingTagKey = typeof WORKER_RATING_TAGS[number]['key'];
 /** Thresholds for badge award and no-show review trigger */
 export const BADGE_THRESHOLDS = {
   TOP_RATED_MIN_AVG:        4.5,
-  TOP_RATED_MIN_SHIFTS:     10,
+  TOP_RATED_MIN_SHIFTS:     10,   // counts RATINGS received — an average needs enough of them
   RELIABLE_MIN_COMPLETION:  0.90,
-  RELIABLE_MIN_SHIFTS:      20,
+  // Completed shifts, not ratings (changed 2026-10-05): companies don't
+  // always rate, and reliability is about turning up, not about being reviewed.
+  RELIABLE_MIN_COMPLETED_SHIFTS: 20,
   NO_SHOW_REVIEW_THRESHOLD: 3,
   NO_SHOW_REVIEW_DAYS:      60,
 } as const;
