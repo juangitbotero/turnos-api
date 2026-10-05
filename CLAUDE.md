@@ -21,8 +21,9 @@ apps/
 packages/
   shared/        Types, DTOs, validation utils, design tokens — imported by all apps
 docs/
-  pre-flight.md         What's left before launch and the stores — status reference
-  go-live-cleanup.md    Detail behind the launch blockers (SQL, greps, Railway vars)
+  pre-flight.md         THE launch tracker — the only file that holds launch status
+  go-live-cleanup.md    Runbook: how to do each launch item (SQL, Railway vars,
+                        account setup). No status of its own
   adr/                  Architecture Decision Records (all decisions locked)
   brand/                Design system and logo
   legal/                Law-firm pack: brief-advogados.md (start here), draft terms
@@ -168,6 +169,13 @@ Always add new shared types here, never duplicate them in individual apps.
 Stints are 2–3 week development phases. What is **built** is below; what is
 **left before launch** is in `docs/pre-flight.md`.
 
+> **Launch-tracking rule (2026-10-05).** `docs/pre-flight.md` is the single
+> source of launch status. Whenever a change opens, closes or changes a launch
+> item — code, a Railway variable, an external account, a decision — update
+> its row in `pre-flight.md` **in the same commit**. `docs/go-live-cleanup.md`
+> is the how-to runbook and must never carry status; if a procedure in it turns
+> out wrong when run, fix it there too.
+
 > `docs/turnos_roadmap.md` was deleted on 2026-09-09. It had not been updated
 > since 2026-06-04 and still described the pre-pivot model (worker paying 10%,
 > T+1 payouts, check-out scan, €55/mo), all retired by ADR 007 and ADR 008.
@@ -223,7 +231,7 @@ Phases 1–3 of the ADR 007 pivot are in the codebase (see the ADR for the full 
   - **`app.json`:** location permission now **when-in-use only** (was "Always"), background location disabled, `RECORD_AUDIO` removed via `recordAudioAndroid: false` — so the privacy policy's "not tracked continuously" is true at the OS level. Needs a new EAS build, like the date-of-birth field.
   - **Documents:** ADR 001 rewritten (company decides every term of the work; Turnos is not a party); privacy policy revised (date of birth, automated decisions + human review, health data in cancellation reasons, payment proofs, declared income, company-side data, full processor list, concrete retention, hosting region now a `[[REGIÃO DE ALOJAMENTO]]` placeholder rather than an unverified "EU" claim); cancellation policy **v1.2** (multi-day jobs, human review, and **removed four promises the code never kept**: pre-shift reminder push, late cancel blocking the RELIABLE badge, late cancel lowering notification priority, worker priority after a company cancels); first drafts of **`termos-trabalhadores.md`** and **`termos-empresas.md`** (+ Anexo A, art. 28.º RGPD); three FAQ answers corrected.
   - **Legal gates, built the same day (2nd pass):** `TERMS_VERSIONS` + `User.termsVersion/termsAcceptedAt` + `POST /auth/terms/accept` (company checkbox at registration — API refuses without it; mobile `app/terms.tsx` after sign-in; dashboard `TermsGate` modal); provisional public pages `/termos` and `/termos-empresas` rendered by a shared `LegalDocPage` (text in each route's `content.ts`, PT only until final); **statements of reasons** — `users/restriction-notice.ts` writes `Worker.restrictionReason/restrictedAt` on late-cancel suspension and both no-show outcomes, sends push (`account_restricted` → profile) + email, profile shows a red banner (a no-show used to suspend/block without telling the worker anything); **retention** — `payments/retention.service.ts` nightly on the `wage-reminders` queue (proof files 24 months → `paymentProofPurgedAt`, company cancellation notes 6 months); worker justifications live only in the ops inbox → manual monthly deletion.
-  - **Email:** nothing has ever been sent — no SMTP configured, so `MailService` logs and drops everything. `SUPPORT_EMAIL = turnos.contact@gmail.com` in shared replaces the non-existent `suporte@turnos.pt` / `ops@turnos.pt`; `OPS_EMAIL` env var; `MAIL_FROM` defaults to `MAIL_USER`; `/api/health` reports `mail: smtp | log-only`. Gmail app-password setup in `docs/go-live-cleanup.md` §14.
+  - **Email:** nothing has ever been sent — no SMTP configured, so `MailService` logs and drops everything. `SUPPORT_EMAIL = turnos.contact@gmail.com` in shared replaces the non-existent `suporte@turnos.pt` / `ops@turnos.pt`; `OPS_EMAIL` env var; `MAIL_FROM` defaults to `MAIL_USER`; `/api/health` reports the mail state. **2026-10-05:** Gmail SMTP turned out to be impossible — Railway blocks outbound SMTP below the Pro plan — so email moves to Brevo's HTTPS API (`docs/go-live-cleanup.md` §3, pre-flight blocker #7).
 - **Profile score re-weighted (2026-10-05):** `PROFILE_POINTS` in shared — **NIF 30**, IBAN 20, photo 10, skills 10 (**any count ≥1**, and at least 1 is required to save), name 10, availability 10, CV 10. NIF is effectively mandatory: without it the ceiling is 70, under the 80 gate (`PROFILE_MIN_SCORE_TO_APPLY`). Edit-profile shows a live score card and a "+N pts" badge on every scored section. Saving a contact email that another account already uses now returns a 409 with a readable message (was a bare 500 from the `users.email` unique index), and the screen shows 4xx messages instead of a generic error.
 - **Parked by decision, not pending (2026-08-08):** attorney sign-off on the Pay Link brief (`docs/legal/pay-link-legal-brief.md`) — Juanes knows a law firm has to read and approve it; it is not happening on this stint and is **not** a tracked blocker. It keeps the two 🔵 FAQ answers held back, which is the intended state. Likewise **team members / multi-user companies: not being built** — one login per company is the product. Neither belongs in a "what's missing" list.
 

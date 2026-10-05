@@ -6,20 +6,27 @@ product (worker paying 10%, T+1 "Recebe amanhã" payouts, a check-out scan,
 €55/month) — all four retired by ADR 007 and ADR 008. A stale roadmap that
 contradicts the product is worse than no roadmap.
 
-For what has been **built**, read `CLAUDE.md`. For the detail behind Track 1,
-including the SQL for demo-row cleanup, read `docs/go-live-cleanup.md`. This
-file is the index.
+> **This is the only place that tracks launch status.** If an item is open,
+> it is here; if it is not here, it is not tracked.
+> - `docs/go-live-cleanup.md` is the **runbook** — *how* to do each item (SQL,
+>   Railway variables, account setup). It carries no status of its own.
+> - `CLAUDE.md` records what has been **built**.
+>
+> Rule for every session: when work opens or closes a launch item, update its
+> row here **in the same commit** as the change.
 
-Everything here was re-verified against the code and against the live Railway
-API on **2026-09-23**. Re-check before acting — some of these are load-bearing
-until the day they aren't.
+Last full reconciliation with the runbook and the live API: **2026-10-05**.
+Re-check before acting — some of these are load-bearing until the day they
+aren't.
 
 ---
 
 ## Track 1 — Launch blockers
 
-Five found on 2026-09-09; **three closed on 2026-09-23**. A sixth was found on
-2026-09-13 and is still open. Ordered by what happens if you forget.
+Six found between 2026-09-09 and 2026-09-13; **four closed** (three on
+2026-09-23, rate limiting on 2026-10-05). Email (#7) was added 2026-10-05: it
+was in Track 3, but the accountant data for the Segurança Social admission
+depends on it, so it blocks launch. Ordered by what happens if you forget.
 
 > Which build is serving is now answerable directly: `GET /api/health` returns
 > the short commit sha. Added after an afternoon where a failed Railway build
@@ -29,12 +36,13 @@ Five found on 2026-09-09; **three closed on 2026-09-23**. A sixth was found on
 
 | # | Blocker | Where | State |
 |---|---|---|---|
-| 1 | Mock OTP `123456` accepts any phone number | `apps/api/src/auth/auth.service.ts:76` | 🔴 Live |
-| 2 | Public endpoints leaked billing + worker PII | `GET /api/shifts/search`, `/shifts/:id` | 🟢 **Fixed `dbb95f3`** |
+| 1 | Mock OTP `123456` accepts any phone number | `apps/api/src/auth/auth.service.ts:76` | 🔴 Live — **waiting on company registration** (fix ready on branch `otp-prod-gate`) |
+| 2 | Public endpoints leaked billing + worker PII | `GET /api/shifts/search`, `/shifts/:id` | 🟢 **Fixed `dbb95f3`**; applicant list (`/shifts/:id/applications`) leak fixed 2026-09-27 |
 | 3 | Demo seeding endpoint deployed | `apps/api/src/demo/` + `DEMO_SEED_TOKEN` | 🟢 **Done `001a99d`** — code deleted, rows cleaned, variable unset |
 | 4 | CORS open to every origin | `apps/api/src/main.ts` | 🟢 **Fixed `dbb95f3`** |
 | 5 | Stripe still in test mode | Railway variables | 🔴 Live |
 | 6 | Rate limiting did not enforce | `main.ts` `trust proxy` | 🟢 **Fixed `d1501ca`** (2026-10-05) — 429s verified on prod |
+| 7 | **No email is delivered** | `mail.service.ts`; Railway blocks SMTP below Pro | 🔴 Live — `/api/health` → `"mail":"smtp-error"`. Moving to an HTTPS email API, see below |
 
 **1 — Mock OTP.** Activates whenever Twilio credentials are absent or still
 `replace_me`. Setting the Twilio variables is *not* sufficient — if one is ever
@@ -167,6 +175,25 @@ the hypothesis is incomplete. Reproduce locally before fixing.
 
 ~~**Fix this before Twilio, not after.**~~ Done — Twilio is unblocked.
 
+**7 — Email. Found 2026-09-27, cause found 2026-10-05.** Every email —
+accountant data for the SS admission, unpaid-wage reminders, ops alerts,
+suspension notices, company email verification — is dropped.
+
+The Gmail SMTP variables were set on 2026-10-05 and still nothing could be
+sent: **Railway blocks outbound SMTP on every plan below Pro**
+([docs](https://docs.railway.com/networking/outbound-networking)). The
+connection times out after ~2 min — the credentials are never even tested.
+Until that day `/health` would have reported `"mail":"smtp"` regardless; it
+now logs in at boot and reports `smtp` / `smtp-error` / `smtp-unverified` /
+`log-only` (`f15a2b1`). Same commit fixed the company verification link, which
+lacked the `/api` prefix and would have 404'd.
+
+Decision 2026-10-05: send through an **HTTPS email API** (Brevo), not SMTP.
+Flodesk (already paid for) was considered and rejected — it is a marketing
+tool whose API manages subscribers and workflows; it has no transactional
+send, and adding workers and accountants as marketing subscribers would be
+wrong under GDPR. Setup steps: `docs/go-live-cleanup.md` §3.
+
 ---
 
 ## Track 2 — App Store & Play Store
@@ -218,7 +245,7 @@ account, and `Worker.deletedAt` plus the new enum value reach production through
 | ~~Permission strings mixed PT/EN~~ | 🟢 Fixed 2026-09-27 — camera and location strings now PT like the rest |
 | New EAS build needed | The `app.json` permission changes and the date-of-birth field only reach testers through a new preview build |
 | `version: "0.0.1"` | Ship as `1.0.0`; set `ios.buildNumber` or let EAS auto-increment |
-| Off-brand colours | Splash/adaptive `#0F172A`, notification `#6366F1`. Brand is `#6a79ff` on `#fafdff` |
+| ~~Off-brand colours~~ | 🟢 Already fixed — `app.json` uses `#6a79ff` / `#fafdff` (confirmed 2026-10-05) |
 
 ### Account lead times — start before any code
 
@@ -246,12 +273,15 @@ false` is already set, which also clears export compliance.
 |---|---|
 | **No shift has ever completed in production** | `wage_payments` did not exist as a table until 2026-08-07. Publish → apply → approve → check-in → auto-complete → wage row → Pay Link has never run once. Highest-value thing to do; costs an afternoon |
 | `synchronize: true` | `app.module.ts:86` rewrites the production schema from entities on every boot. Generate migrations before the first real payroll. Keep `autoLoadEntities` — it prevents the silently-unregistered-entity bug that killed the Pay Link flow once |
-| `BYPASS_SUBSCRIPTION` | `payments.service.ts:205` returns early, which also skips the overdue-wage block. Delete the Railway variable |
+| `BYPASS_SUBSCRIPTION` | `payments.service.ts:205` returns early, which also skips the overdue-wage block. Delete the Railway variable (after the first end-to-end run — the test company relies on it); consider gating the code on `NODE_ENV !== 'production'` |
+| **Test accounts** | Worker `+33767560422` (Juanes) and employer Carolina Bakes are real rows, not demo rows — no cleanup touches them. Decide per account: keep as internal test data or delete. The worker's bio, skills, languages and experiences are still seeder fiction — rewrite them if the account stays |
+| ~~`apps/api/.env` baked into the image~~ | 🟢 Not possible — `.env` is not in git and Railway builds from git (checked 2026-10-05). An image built locally *would* include it: the Dockerfile copies `apps/api/` and the only `.dockerignore` sits in `apps/api/`, outside the build context root |
 | Uploads on local disk | R2 is decided, wiring incomplete. `useStaticAssets('/uploads')` serves photos, CVs and payment proofs from a container filesystem that does not survive a Railway redeploy |
 | Dashboard unusable on a phone | 0 media queries, 843 inline style objects across 11 pages, a 240px sidebar duplicated in each, and an overlay telling sub-768px visitors to use a desktop. Cheapest large win: hoist the sidebar into a real `DashboardShell` |
-| Smaller defects | `createGoogleEmployer` creates a `User` but no `Employer` row · blanket 401 → logout masks real auth errors · `/dashboard/ratings` built but unlinked · pre-shift consequence reminder no longer in the policy (removed from v1.2 until built) |
-| ~~Needed before the legal documents go live~~ | 🟢 Built 2026-09-27 — terms acceptance with version + date, statements of reasons, nightly retention purge. Needs a test pass and one manual monthly step for the ops inbox: `docs/go-live-cleanup.md` section 15 |
-| **Email is not being sent** | 🔴 No SMTP configured — every email (accountant data, wage reminders, ops alerts) is logged and dropped. Setup with turnos.contact@gmail.com in `docs/go-live-cleanup.md` section 14. `GET /api/health` → `"mail"` shows the state |
+| Smaller defects | `createGoogleEmployer` creates a `User` but no `Employer` row · blanket 401 → logout masks real auth errors · `/dashboard/ratings` built but unlinked · pre-shift consequence reminder no longer in the policy (removed from v1.2 until built) · unused deps: `@reduxjs/toolkit`, `react-redux`, `react-query`, `expo-crypto` (mobile), `@stripe/react-stripe-js`, `@stripe/stripe-js` (web-admin) · mobile `tsc` noise (`TS2786`/`TS2339`, LinearGradient + design-token typings — Metro unaffected) |
+| **Legal gates — test pass** | 🟠 Built 2026-09-27 — terms acceptance with version + date, statements of reasons, nightly retention purge, 18+. None has run against production yet; fold into the end-to-end run. How: runbook §8 |
+| ~~Email is not being sent~~ | Promoted to Track 1, blocker #7 |
+| Manual monthly step | Delete worker late-cancel justifications older than 6 months from the ops inbox — the privacy policy promises it and nothing automates it. How: runbook §8 |
 
 ### Capacity — measured 2026-09-13
 
