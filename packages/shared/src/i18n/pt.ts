@@ -1323,6 +1323,8 @@ export const pt = {
       statNoShowOther: 'faltas',
       statProfile:  'perfil',
       rateBtn:      'Avaliar',
+      rateBtnCount: 'Avaliar ({{count}})',
+      allReviewed:  '✓ Trabalhos avaliados',
       noShowBtn:    'Reportar falta',
 
       // Rating modal
@@ -1972,6 +1974,7 @@ export const pt = {
 
     common: {
       shiftNotFound: 'Turno não encontrado.',
+      noShowNotStarted: 'Só podes registar uma falta num turno confirmado que já começou e sem check-in deste trabalhador.',
     },
 
     auth: {

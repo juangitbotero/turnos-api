@@ -59,6 +59,9 @@ export interface PublicEmployer {
   logoUrl: string | null;
 }
 
+/** A shift as the "who worked with us" cards need it. */
+export interface WorkerJobRef { shiftId: string; title: string; date: string }
+
 export type PublicShift = Omit<Shift, 'employer' | 'assignedWorker' | 'applications'> & {
   employer: PublicEmployer | null;
   seriesDates?: string[];
@@ -1209,6 +1212,7 @@ export class ShiftsService {
     lastShiftDate: string | null;
     avgRating: number | null; totalRatings: number;
     noShowCount: number; badges: string[];
+    pendingReviews: WorkerJobRef[]; noShowShifts: WorkerJobRef[];
   }>> {
     const employer = await this.resolveEmployer(userId);
     const apps = await this.applicationRepo.find({
@@ -1227,6 +1231,7 @@ export class ShiftsService {
       lastShiftDate: string | null;
       avgRating: number | null; totalRatings: number;
       noShowCount: number; badges: string[];
+      pendingReviews: WorkerJobRef[]; noShowShifts: WorkerJobRef[];
     }>();
 
     for (const app of apps) {
@@ -1247,10 +1252,63 @@ export class ShiftsService {
           totalRatings:        w.totalRatings        ?? 0,
           noShowCount:         w.noShowCount         ?? 0,
           badges:              w.badges              ?? [],
+          pendingReviews:      [],
+          noShowShifts:        [],
         });
       }
       workerMap.get(w.id)!.shiftsWorked += 1;
     }
+
+    // Per worker, only THEIR shifts. Until 2026-10-11 the dashboard offered
+    // every completed shift of the company under every worker's "Rate", and
+    // every filled/open shift under "Report no-show" — while the server acts
+    // on whoever actually worked the chosen shift, so reporting from one
+    // worker's card could sanction another.
+    //
+    // Reviews: one per JOB (a multi-day series counts once, rated on its last
+    // completed day — the day the review prompt fires), and only jobs this
+    // company hasn't reviewed yet. Working again for the same company = a new
+    // job = a new review.
+    const toReview: Array<{ id: string; title: string; date: string; seriesId: string | null; workerId: string }> =
+      await this.shiftRepo.createQueryBuilder('s')
+        .select(['s.id AS id', 's.title AS title', `to_char(s.date, 'YYYY-MM-DD') AS date`, 's."seriesId" AS "seriesId"', 's."assignedWorkerId" AS "workerId"'])
+        .where('s."employerId" = :eid', { eid: employer.id })
+        .andWhere('s.status = :completed', { completed: ShiftStatus.COMPLETED })
+        .andWhere('s."assignedWorkerId" IS NOT NULL')
+        .andWhere(`NOT EXISTS (
+          SELECT 1 FROM ratings r JOIN shifts rs ON rs.id = r."shiftId"
+          WHERE r.direction = 'EMPLOYER_TO_WORKER'
+            AND (rs.id = s.id OR (s."seriesId" IS NOT NULL AND rs."seriesId" = s."seriesId"))
+        )`)
+        .orderBy('s.date', 'DESC')
+        .getRawMany();
+    const seenSeries = new Set<string>();
+    for (const row of toReview) {
+      if (row.seriesId) {
+        if (seenSeries.has(row.seriesId)) continue; // DESC → first row is the last day
+        seenSeries.add(row.seriesId);
+      }
+      workerMap.get(row.workerId)?.pendingReviews.push({ shiftId: row.id, title: row.title, date: row.date });
+    }
+
+    // No-show: a confirmed shift of this worker that has already started and
+    // was never checked in (it would be ACTIVE otherwise, then COMPLETED).
+    const started: Array<{ id: string; title: string; date: string; startTime: string; workerId: string }> =
+      await this.shiftRepo.createQueryBuilder('s')
+        .select(['s.id AS id', 's.title AS title', `to_char(s.date, 'YYYY-MM-DD') AS date`, 's."startTime" AS "startTime"', 's."assignedWorkerId" AS "workerId"'])
+        .where('s."employerId" = :eid', { eid: employer.id })
+        .andWhere('s.status = :filled', { filled: ShiftStatus.FILLED })
+        .andWhere('s."assignedWorkerId" IS NOT NULL')
+        .andWhere('s.date <= :today', { today: lisbonDate() })
+        .orderBy('s.date', 'DESC')
+        .getRawMany();
+    const now = Date.now();
+    for (const row of started) {
+      // date comes back as 'YYYY-MM-DD' (to_char) — raw rows would give a JS Date
+      if (lisbonDateTime(row.date, row.startTime).getTime() > now) continue;
+      workerMap.get(row.workerId)?.noShowShifts.push({ shiftId: row.id, title: row.title, date: row.date });
+    }
+
     return [...workerMap.values()];
   }
 

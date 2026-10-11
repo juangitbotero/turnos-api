@@ -1305,6 +1305,8 @@ export const en: Translated<TranslationCatalogue> = {
       statNoShowOther: 'no-shows',
       statProfile:  'profile',
       rateBtn:      'Rate',
+      rateBtnCount: 'Rate ({{count}})',
+      allReviewed:  '✓ All jobs reviewed',
       noShowBtn:    'Report no-show',
 
       // Rating modal
@@ -1934,6 +1936,7 @@ export const en: Translated<TranslationCatalogue> = {
 
     common: {
       shiftNotFound: 'Shift not found.',
+      noShowNotStarted: 'You can only report a no-show on a confirmed shift that has started, where this worker never checked in.',
     },
 
     auth: {

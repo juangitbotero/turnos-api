@@ -6,6 +6,7 @@ import { adminApi, ApiError, Shift, Application, WagePayment } from '../../../li
 import { connectSocket, getSocket, NewApplicationPayload } from '../../../lib/socket';
 import { COMPANY_CANCEL_REASONS, paymentMethodLabel } from '@turnos/shared';
 import { useT } from '../../../lib/i18n';
+import { ui, STATUS_DOT, NEUTRAL_DOT } from '../../../lib/ui';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 import { ApplicantList, WorkerProfilePanel } from '../../../components/Applicants';
 import { CANDIDATES_CHANGED_EVENT } from '../../../components/DashboardShell';
@@ -14,16 +15,6 @@ import { IconAlert, IconBriefcase, IconFile, IconTarget, IconChat, IconQr, IconC
 /** A shift row that stands for a multi-day job rather than a single day. */
 const isMultiDay = (shift: Shift): boolean => (shift.seriesDates?.length ?? 0) > 1;
 
-/** Colours only — the label comes from `domain.shiftStatus.*`. */
-const STATUS_STYLE: Record<string, { color: string; bg: string }> = {
-  DRAFT:              { color: '#6b7280', bg: '#f3f4f6' },
-  OPEN:               { color: '#16a34a', bg: '#dcfce7' },
-  PENDING_ACCEPTANCE: { color: '#d97706', bg: '#fef3c7' },
-  FILLED:             { color: '#7c3aed', bg: '#ede9fe' },
-  ACTIVE:             { color: '#2563eb', bg: '#dbeafe' },
-  COMPLETED:          { color: '#0891b2', bg: '#cffafe' },
-  CANCELLED:          { color: '#dc2626', bg: '#fee2e2' },
-};
 
 // ── Applicants Modal ──────────────────────────────────────────────────────────
 
@@ -430,7 +421,7 @@ export default function ShiftsPage() {
           not started yet, which is exactly the window for the company to
           communicate the admission. Informative only: Turnos does not do it. */}
       {active.some(sh => sh.status === 'FILLED') && (
-        <div style={{ ...s.qrTipBanner, background: '#fffbeb', border: '1px solid rgba(217,119,6,0.25)' }}>
+        <div style={{ ...s.qrTipBanner, ...ui.bannerAction }}>
           <span>
             {t('admin.shifts.hireTip')}
             <Link href="/dashboard/compliance?tab=mcd" style={{ color: '#b45309', fontWeight: 700 }}>
@@ -551,7 +542,7 @@ export default function ShiftsPage() {
                   <span style={s.rowCell}>{fMediumDate(shift.date)}</span>
                   <span style={s.rowCell}>{shift.startTime.slice(0,5)}–{shift.endTime.slice(0,5)}</span>
                   <span style={s.rowCell}>€{Number(shift.grossHourlyRate).toFixed(2)}/hr</span>
-                  <span style={{ ...s.badge, background: '#fee2e2', border: '1px solid #fecaca', color: '#dc2626' }}>{t('admin.shifts.expiredPill')}</span>
+                  <span style={s.badge}><span style={{ ...ui.dot, background: NEUTRAL_DOT }} />{t('admin.shifts.expiredPill')}</span>
                   <div style={s.rowActions}>
                     <button
                       style={s.repostBtn}
@@ -1056,7 +1047,7 @@ function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancellin
   newAppCount: number;
 }) {
   const { t, tSkill, tCategory, fMediumDate, fDateRange } = useT();
-  const st = STATUS_STYLE[shift.status] ?? { color: '#6b7280', bg: '#f3f4f6' };
+  const dot = STATUS_DOT[shift.status] ?? NEUTRAL_DOT;
   const statusLabel = t(`domain.shiftStatus.${shift.status}`, { defaultValue: shift.status });
   // PENDING_ACCEPTANCE had no action at all before 2026-10-11 — a shift could
   // sit on "A aguardar trabalhador" with nothing the company could do.
@@ -1081,7 +1072,7 @@ function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancellin
       </span>
       <span style={s.rowCell}>{shift.startTime.slice(0, 5)}–{shift.endTime.slice(0, 5)}</span>
       <span style={{ ...s.rowCell, fontWeight: 700 }}>€{Number(shift.grossHourlyRate).toFixed(2)}/hr</span>
-      <span style={{ ...s.badge, color: st.color, background: st.bg }}>{statusLabel}</span>
+      <span style={s.badge}><span style={{ ...ui.dot, background: dot }} />{statusLabel}</span>
       <div style={s.rowActions}>
         {['OPEN', 'FILLED'].includes(shift.status) && (
           <button style={s.viewAppsBtn} onClick={onViewApps}>
@@ -1142,24 +1133,10 @@ const s: Record<string, React.CSSProperties> = {
   title: { fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.5px', marginBottom: 4 },
   sub: { fontSize: 14, color: 'var(--color-text-secondary)' },
   headerActions: { display: 'flex', gap: 10, alignItems: 'center' },
-  refreshBtn: {
-    padding: '8px 16px', background: 'var(--color-primary-light)', border: '1px solid rgba(106,121,255,0.3)',
-    borderRadius: 8, color: 'var(--color-primary)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-  },
-  qrCodesBtn: {
-    padding: '8px 16px', background: '#f0fdf4', border: '1px solid rgba(22,163,74,0.3)',
-    borderRadius: 8, color: '#16a34a', fontWeight: 700, fontSize: 13, textDecoration: 'none', display: 'inline-block',
-  },
-  newBtn: {
-    padding: '10px 20px', background: 'linear-gradient(135deg, var(--color-primary), #9b6dff)',
-    borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 14, textDecoration: 'none', display: 'inline-block',
-  },
-  qrTipBanner: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    background: '#faf5ff', border: '1px solid rgba(124,58,237,0.2)',
-    borderRadius: 8, padding: '10px 14px', fontSize: 13,
-    color: 'var(--color-text-primary)', marginBottom: 24,
-  },
+  refreshBtn: ui.btnLg,
+  qrCodesBtn: ui.btnLg,
+  newBtn: ui.primary,
+  qrTipBanner: { ...ui.banner, marginBottom: 24 },
   errorBanner: {
     background: '#fee2e2', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8,
     padding: '12px 16px', fontSize: 13, color: '#ef4444', marginBottom: 24,
@@ -1190,34 +1167,19 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: 'center', gap: 12, fontSize: 13,
   },
   rowTitle: { fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 2 },
-  multiDayTag: {
-    display: 'inline-flex', alignItems: 'center', margin: '5px 0 1px',
-    padding: '2px 8px', borderRadius: 20,
-    fontSize: 11, fontWeight: 700, color: '#1d4ed8',
-    background: '#dbeafe', border: '1px solid #bfdbfe',
-  },
+  multiDayTag: { ...ui.pill, margin: '5px 0 1px' },
   rowSub: { fontSize: 12, color: 'var(--color-text-secondary)' },
   rowCell: { color: 'var(--color-text-primary)' },
-  badge: { display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: '#fef9c3', border: '1px solid #fde68a', color: '#92400e' },
+  badge: ui.pill,
   rowActions: { display: 'flex', gap: 6, flexWrap: 'wrap' },
-  viewAppsBtn: {
-    display: 'inline-flex', alignItems: 'center', gap: 6,
-    padding: '6px 10px', background: 'var(--color-primary-light)', border: '1px solid rgba(106,121,255,0.3)',
-    borderRadius: 6, color: 'var(--color-primary)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
-  },
+  viewAppsBtn: ui.btn,
   newBadge: {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     minWidth: 18, height: 18, borderRadius: 9, background: '#ef4444',
     color: '#fff', fontSize: 11, fontWeight: 700, padding: '0 4px',
   },
-  confirmBtn: {
-    padding: '6px 10px', background: '#f0fdf4', border: '1px solid #86efac',
-    borderRadius: 6, color: '#16a34a', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
-  },
-  cancelBtn: {
-    padding: '6px 10px', background: '#fee2e2', border: '1px solid #fca5a5',
-    borderRadius: 6, color: '#dc2626', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
-  },
+  confirmBtn: ui.btn,
+  cancelBtn: { ...ui.btn, ...ui.danger },
 
   // Modal
   overlay: {
@@ -1248,9 +1210,9 @@ const s: Record<string, React.CSSProperties> = {
   // Caducados section
   expiredToggle: {
     display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-    background: '#fff7ed', border: '1px solid #fed7aa',
+    background: '#fff', border: '1px solid #e5e7eb',
     borderRadius: 10, padding: '12px 16px',
-    cursor: 'pointer', fontFamily: 'inherit', color: '#92400e',
+    cursor: 'pointer', fontFamily: 'inherit', color: 'var(--color-text-primary)',
     fontSize: 14, fontWeight: 600,
   },
   expiredToggleIcon: { display: 'inline-flex' },
@@ -1263,21 +1225,8 @@ const s: Record<string, React.CSSProperties> = {
     display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer',
     fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)',
   },
-  deleteAllBtn: {
-    padding: '6px 14px', background: '#dc2626', border: '1px solid #dc2626', borderRadius: 8,
-    color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
-  },
+  deleteAllBtn: { ...ui.btn, ...ui.danger },
   expiredRowMain: { display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' },
-  repostBtn: {
-    padding: '6px 12px', background: 'var(--color-primary-light)',
-    border: '1px solid rgba(106,121,255,0.3)', borderRadius: 8,
-    color: 'var(--color-primary)', fontWeight: 600, fontSize: 12,
-    cursor: 'pointer', fontFamily: 'inherit',
-  },
-  deleteBtn: {
-    padding: '6px 12px', background: '#fee2e2',
-    border: '1px solid #fca5a5', borderRadius: 8,
-    color: '#dc2626', fontWeight: 600, fontSize: 12,
-    cursor: 'pointer', fontFamily: 'inherit',
-  },
+  repostBtn: ui.btn,
+  deleteBtn: { ...ui.btn, ...ui.danger },
 };

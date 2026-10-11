@@ -333,7 +333,13 @@ export interface HiredWorker {
   totalRatings: number;
   noShowCount: number;
   badges: string[];
+  /** This worker's completed jobs the company hasn't reviewed (one per job, multi-day counted once) */
+  pendingReviews: WorkerJobRef[];
+  /** This worker's confirmed shifts that started with no check-in — the only ones a no-show can be reported on */
+  noShowShifts: WorkerJobRef[];
 }
+
+export interface WorkerJobRef { shiftId: string; title: string; date: string }
 
 // ── Ratings types ─────────────────────────────────────────────────────────────
 

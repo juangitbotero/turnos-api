@@ -7,14 +7,20 @@
  * which is where the rate-the-worker emails land.
  *
  * Shows all workers hired by this employer with their rating summary,
- * badges, no-show count, and an inline rating modal for completed shifts.
+ * badges and no-show count. "Avaliar" appears only while the worker has a
+ * job this company hasn't reviewed — one review per job, so working together
+ * again means a new review. "Reportar falta" appears only for that worker's
+ * started shifts with no check-in. Both lists come from the server per worker
+ * (until 2026-10-11 the modals listed every shift of the company, and the
+ * server acts on whoever worked the chosen shift).
  *
  * Stint 7: employer rates worker (one-way).
  * Stint 8 TODO: two-way ratings + dispute resolution.
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { adminApi, ApiError, HiredWorker, Shift } from '../lib/api';
+import { adminApi, ApiError, HiredWorker, WorkerJobRef } from '../lib/api';
+import { ui } from '../lib/ui';
 import { WORKER_RATING_TAGS } from '@turnos/shared';
 import { useT } from '../lib/i18n';
 import { IconAlert, IconStar, Stars } from './icons';
@@ -23,43 +29,20 @@ import { IconAlert, IconStar, Stars } from './icons';
 
 interface RatingModalProps {
   worker: HiredWorker;
-  shifts: Shift[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
-function RatingModal({ worker, shifts, onClose, onSuccess }: RatingModalProps) {
+function RatingModal({ worker, onClose, onSuccess }: RatingModalProps) {
   const { t, fMediumDate } = useT();
-  // Only COMPLETED shifts that haven't been rated yet
-  const [unratedShifts, setUnratedShifts] = useState<Shift[]>([]);
-  const [selectedShiftId, setSelectedShiftId] = useState('');
+  // This worker's jobs not yet reviewed — already filtered by the server
+  const unratedShifts: WorkerJobRef[] = worker.pendingReviews;
+  const [selectedShiftId, setSelectedShiftId] = useState(unratedShifts[0]?.shiftId ?? '');
   const [score, setScore]                     = useState(0);
   const [selectedTags, setSelectedTags]       = useState<string[]>([]);
   const [review, setReview]                   = useState('');  // Written review visible to other employers
   const [submitting, setSubmitting]           = useState(false);
   const [error, setError]                     = useState('');
-  const [loadingShifts, setLoadingShifts]     = useState(true);
-
-  // Filter to completed shifts for this worker and check which are unrated
-  useEffect(() => {
-    const completedWithWorker = shifts.filter(s => s.status === 'COMPLETED');
-    if (completedWithWorker.length === 0) {
-      setUnratedShifts([]);
-      setLoadingShifts(false);
-      return;
-    }
-    Promise.allSettled(
-      completedWithWorker.map(s =>
-        adminApi.hasRatedShift(s.id).then(r => ({ shift: s, hasRated: r.hasRated })),
-      ),
-    ).then(results => {
-      const unrated = results
-        .filter(r => r.status === 'fulfilled' && !r.value.hasRated)
-        .map(r => (r as PromiseFulfilledResult<{ shift: Shift; hasRated: boolean }>).value.shift);
-      setUnratedShifts(unrated);
-      if (unrated.length > 0) setSelectedShiftId(unrated[0]!.id);
-    }).finally(() => setLoadingShifts(false));
-  }, [shifts]);
 
   const toggleTag = (key: string) => {
     setSelectedTags(prev =>
@@ -97,11 +80,7 @@ function RatingModal({ worker, shifts, onClose, onSuccess }: RatingModalProps) {
           <button style={m.closeBtn} onClick={onClose}>✕</button>
         </div>
 
-        {loadingShifts ? (
-          <p style={{ padding: 24, textAlign: 'center', color: 'var(--color-text-secondary)' }}>
-            {t('admin.ratings.rateLoading')}
-          </p>
-        ) : unratedShifts.length === 0 ? (
+        {unratedShifts.length === 0 ? (
           <div style={m.noShifts}>
             <p style={m.noShiftsIcon}>✓</p>
             <p style={m.noShiftsTitle}>{t('admin.ratings.rateAllDone')}</p>
@@ -120,7 +99,7 @@ function RatingModal({ worker, shifts, onClose, onSuccess }: RatingModalProps) {
                   onChange={e => setSelectedShiftId(e.target.value)}
                 >
                   {unratedShifts.map(s => (
-                    <option key={s.id} value={s.id}>
+                    <option key={s.shiftId} value={s.shiftId}>
                       {s.title} — {fMediumDate(s.date)}
                     </option>
                   ))}
@@ -207,17 +186,15 @@ function RatingModal({ worker, shifts, onClose, onSuccess }: RatingModalProps) {
 
 interface NoShowModalProps {
   worker: HiredWorker;
-  shifts: Shift[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
-function NoShowModal({ worker, shifts, onClose, onSuccess }: NoShowModalProps) {
+function NoShowModal({ worker, onClose, onSuccess }: NoShowModalProps) {
   const { t, fShortDate } = useT();
-  const filledShifts = shifts.filter(s =>
-    ['FILLED', 'ACTIVE', 'OPEN'].includes(s.status),
-  );
-  const [selectedShiftId, setSelectedShiftId] = useState(filledShifts[0]?.id ?? '');
+  // This worker's started shifts with no check-in — from the server
+  const filledShifts: WorkerJobRef[] = worker.noShowShifts;
+  const [selectedShiftId, setSelectedShiftId] = useState(filledShifts[0]?.shiftId ?? '');
   const [note, setNote]         = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]       = useState('');
@@ -264,7 +241,7 @@ function NoShowModal({ worker, shifts, onClose, onSuccess }: NoShowModalProps) {
                     onChange={e => setSelectedShiftId(e.target.value)}
                   >
                     {filledShifts.map(s => (
-                      <option key={s.id} value={s.id}>
+                      <option key={s.shiftId} value={s.shiftId}>
                         {s.title} — {fShortDate(s.date)}
                       </option>
                     ))}
@@ -305,7 +282,6 @@ function NoShowModal({ worker, shifts, onClose, onSuccess }: NoShowModalProps) {
 export function RatingsPanel() {
   const { t } = useT();
   const [workers, setWorkers]       = useState<HiredWorker[]>([]);
-  const [shifts, setShifts]         = useState<Shift[]>([]);
   const [isLoading, setIsLoading]   = useState(true);
   const [error, setError]           = useState('');
   const [search, setSearch]         = useState('');
@@ -316,12 +292,7 @@ export function RatingsPanel() {
     setIsLoading(true);
     setError('');
     try {
-      const [w, s] = await Promise.all([
-        adminApi.getMyWorkers(),
-        adminApi.getMyShifts(),
-      ]);
-      setWorkers(w);
-      setShifts(s);
+      setWorkers(await adminApi.getMyWorkers());
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('admin.ratings.loadError'));
     } finally {
@@ -334,12 +305,6 @@ export function RatingsPanel() {
   const filtered = workers.filter(w =>
     !search || (w.fullName ?? '').toLowerCase().includes(search.toLowerCase()),
   );
-
-  /** Returns COMPLETED shifts that were assigned to the given worker.
-   *  We approximate by matching shifts where status === COMPLETED (employer only
-   *  has their own shifts). Fine for this page's purpose. */
-  const shiftsForWorker = (worker: HiredWorker): Shift[] =>
-    shifts.filter(s => s.status === 'COMPLETED');
 
   return (
     <div style={s.page}>
@@ -375,7 +340,8 @@ export function RatingsPanel() {
       <div style={s.grid}>
         {filtered.map(worker => {
           const avgR = worker.avgRating != null ? Number(worker.avgRating) : null;
-          const noShowColor = worker.noShowCount === 0 ? '#16a34a' : worker.noShowCount >= 3 ? '#dc2626' : '#d97706';
+          // Colour only when there is something to notice
+          const noShowColor = worker.noShowCount > 0 ? '#b91c1c' : 'var(--color-text-primary)';
 
           return (
             <div key={worker.id} style={s.card}>
@@ -412,7 +378,7 @@ export function RatingsPanel() {
                         <span style={s.badge}>{t('admin.workersSearch.badgeReliable')}</span>
                       )}
                       {worker.badges.includes('VERIFIED') && (
-                        <span style={{ ...s.badge, background: '#dbeafe', color: '#1d4ed8', borderColor: '#bfdbfe' }}>
+                        <span style={s.badge}>
                           {t('admin.workersSearch.badgeVerified')}
                         </span>
                       )}
@@ -455,18 +421,20 @@ export function RatingsPanel() {
 
               {/* Action buttons */}
               <div style={s.actions}>
-                <button
-                  style={s.rateBtn}
-                  onClick={() => setRatingTarget(worker)}
-                >
-                  {t('admin.ratings.rateBtn')}
-                </button>
-                <button
-                  style={s.noShowBtn}
-                  onClick={() => setNoShowTarget(worker)}
-                >
-                  {t('admin.ratings.noShowBtn')}
-                </button>
+                {worker.pendingReviews.length > 0 ? (
+                  <button style={s.rateBtn} onClick={() => setRatingTarget(worker)}>
+                    {worker.pendingReviews.length > 1
+                      ? t('admin.ratings.rateBtnCount', { count: worker.pendingReviews.length })
+                      : t('admin.ratings.rateBtn')}
+                  </button>
+                ) : (
+                  <span style={s.reviewedNote}>{t('admin.ratings.allReviewed')}</span>
+                )}
+                {worker.noShowShifts.length > 0 && (
+                  <button style={s.noShowBtn} onClick={() => setNoShowTarget(worker)}>
+                    {t('admin.ratings.noShowBtn')}
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -477,7 +445,6 @@ export function RatingsPanel() {
       {ratingTarget && (
         <RatingModal
           worker={ratingTarget}
-          shifts={shiftsForWorker(ratingTarget)}
           onClose={() => setRatingTarget(null)}
           onSuccess={() => { setRatingTarget(null); load(); }}
         />
@@ -485,7 +452,6 @@ export function RatingsPanel() {
       {noShowTarget && (
         <NoShowModal
           worker={noShowTarget}
-          shifts={shiftsForWorker(noShowTarget)}
           onClose={() => setNoShowTarget(null)}
           onSuccess={() => { setNoShowTarget(null); load(); }}
         />
@@ -509,11 +475,7 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
     background: '#fff', color: 'var(--color-text-primary)', outline: 'none', width: 220,
   },
-  refreshBtn: {
-    padding: '8px 16px', background: 'var(--color-primary-light)', border: '1px solid rgba(106,121,255,0.3)',
-    borderRadius: 8, color: 'var(--color-primary)', fontWeight: 600, fontSize: 13,
-    cursor: 'pointer', fontFamily: 'inherit',
-  },
+  refreshBtn: ui.btnLg,
   errorBanner: {
     background: '#fee2e2', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8,
     padding: '12px 16px', fontSize: 13, color: '#ef4444', marginBottom: 24,
@@ -548,11 +510,7 @@ const s: Record<string, React.CSSProperties> = {
   avgVal: { fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)' },
   totalRatings: { fontSize: 12, color: 'var(--color-text-secondary)' },
   badgeRow: { display: 'flex', flexWrap: 'wrap', gap: 4 },
-  badge: {
-    fontSize: 10, fontWeight: 700, padding: '2px 7px',
-    background: '#fef9c3', color: '#92400e',
-    borderRadius: 10, border: '1px solid #fde68a',
-  },
+  badge: { ...ui.pill, fontSize: 10, padding: '2px 8px' },
   statsRow: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-around',
     background: 'var(--color-secondary)', borderRadius: 8, padding: '10px 0',
@@ -562,19 +520,15 @@ const s: Record<string, React.CSSProperties> = {
   statLabel: { fontSize: 10, color: 'var(--color-text-secondary)', fontWeight: 600, textTransform: 'uppercase' },
   statDivider: { width: 1, height: 28, background: 'var(--color-border)' },
   completionBar: { height: 5, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' },
-  completionFill: { height: '100%', borderRadius: 3, background: 'linear-gradient(90deg, #16a34a, #4ade80)' },
+  completionFill: { height: '100%', borderRadius: 3, background: 'var(--color-primary)' },
   actions: { display: 'flex', gap: 8 },
-  rateBtn: {
-    flex: 1, padding: '8px 0', background: 'var(--color-primary-light)',
-    border: '1px solid rgba(106,121,255,0.3)', borderRadius: 8,
-    color: 'var(--color-primary)', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-    fontFamily: 'inherit',
-  },
-  noShowBtn: {
-    flex: 1, padding: '8px 0', background: '#fff5f5',
-    border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8,
-    color: '#dc2626', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-    fontFamily: 'inherit',
+  // "Avaliar" is the card's call to action while a review is owed — the one
+  // place the brand colour is used here
+  rateBtn: { ...ui.btnLg, flex: 1, color: 'var(--color-primary)', borderColor: 'rgba(106,121,255,0.45)' },
+  noShowBtn: { ...ui.btnLg, ...ui.danger, flex: 1 },
+  reviewedNote: {
+    flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    padding: '8px 0', fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)',
   },
 };
 

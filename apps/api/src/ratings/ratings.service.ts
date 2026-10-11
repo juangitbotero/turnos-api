@@ -24,6 +24,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { restrictionNotice, statementToHtml } from '../users/restriction-notice';
 import { t } from '../i18n/request-language';
 import { notificationPrefsOf } from '../users/notification-prefs';
+import { lisbonDateTime } from '../common/lisbon-time';
 import { BADGE_THRESHOLDS } from '@turnos/shared';
 
 export interface CreateRatingDto {
@@ -377,6 +378,14 @@ export class RatingsService {
     }
     if (!shift.assignedWorker) {
       throw new BadRequestException('Shift has no assigned worker');
+    }
+    // A no-show is a confirmed shift that has started with no check-in:
+    // ACTIVE/COMPLETED mean the worker scanned in, and before the start
+    // nobody can have failed to turn up. The sanction is automatic, so the
+    // server checks this rather than trusting the dashboard's list.
+    if (shift.status !== ShiftStatus.FILLED
+        || lisbonDateTime(shift.date, shift.startTime).getTime() > Date.now()) {
+      throw new BadRequestException(t('api.common.noShowNotStarted'));
     }
 
     // Check for duplicate no-show flag for this shift
