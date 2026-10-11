@@ -22,27 +22,44 @@ aren't.
 
 ## Next session — start here
 
-1. **Check the 2026-10-11 deploy on a device** with APK `versionCode` 11: the
-   26 Sept application shows in History as Caducado (not Pendente); a new
-   worker's onboarding has no income question; a push to an EN worker arrives
-   in English. Railway API log: no `Eviction policy is allkeys-lru` line.
-2. **Test APK `versionCode` 12** (EAS `9af718d1`) — "✓ Recebi / Não recebi"
-   buttons and the language sync (Track 2, "EAS preview build").
+1. **Test on a device with APK `versionCode` 12** (EAS `9af718d1`): "✓ Recebi /
+   🚩 Não recebi" buttons on a completed shift; a push to a worker on an
+   English phone arrives in English without touching the language switch;
+   plus the `versionCode` 11 checks still open (26 Sept application in
+   History as Caducado, onboarding without the income question).
+2. **Test the dashboard on production:** Shifts page in the neutral style;
+   Reviews tab shows "Avaliar (n)" only for unreviewed jobs.
 3. Pick from what is left and needs no external account: make
    `DashboardShell` collapse on phones, R2 uploads (needs a Cloudflare key),
-   app version `1.0.0`, smaller defects (Track 3). Wanted
-   improvements that are not blockers: Track 5.
+   app version `1.0.0`, smaller defects, move the other dashboard pages to
+   `lib/ui.ts` (Track 3). Wanted improvements that are not blockers: Track 5.
 
-**Deploy the 2026-10-11 security fix (`fix(auth)` commit) as soon as possible** —
-an empty OTP request signed in as the first user while the mock is live
-(Track 3, "Undefined-id audit").
+**Blocked on outside events, not on code:** Twilio (#1), live Stripe (#5),
+Apple + Google accounts, an owned email domain and the privacy-page
+placeholders all wait for the company's registration (the law firm is on
+it); the Pay Link end-to-end run waits for Stripe. The legal pack was
+**regenerated 2026-10-11** with Juanes's trims and is ready to send
+(`docs/legal/pack-advogados/`).
 
-**Blocked on outside events, not on code:** Twilio (#1) and live Stripe (#5)
-wait for the company's NIPC; the Pay Link end-to-end run waits for Stripe; the
-legal copy waits for the law firm. The pack was **regenerated 2026-10-11** with
-Juanes's trims and is ready to send (`docs/legal/pack-advogados/`).
+## Session log — 2026-10-11 (afternoon)
 
-## Session log — 2026-10-11
+**Legal:** Juanes's edits applied to the pack sources (his copies of three
+files were the 27/09 version — re-applied, not copied, so the accountant email
+and Annex A stay out); privacy policy covers the notifications inbox; pack
+rebuilt. **App (APK 12):** visible Recebi / Não recebi buttons; worker language
+synced at sign-in and launch. **API:** ops emails rebuilt on one template with
+reference, contacts, proof link and next steps (+ 72h unpaid alert, no-show
+alert on every no-show). **Security — undefined-id audit found two live bugs,
+fixed and verified on production:** an empty OTP request signed in as the
+first user while the mock is live; every socket client joined the first
+company's room. **Schema:** `synchronize` off, migrations at boot (baseline
+verified locally and deployed). **Dashboard:** neutral UI kit on Shifts +
+Reviews; Reviews/no-show modals listed every shift of the company — now only
+that worker's, and the server refuses a no-show on a shift that hasn't
+started. **Decided (Juanes):** test accounts are kept; Brevo needs no change.
+Deferred to another session: app version 1.0.0, smaller defects.
+
+## Session log — 2026-10-11 (morning)
 
 Look & feel list from the 10-05 run, done in five batches, plus what testing
 turned up. All deployed to Railway (API + dashboard) and in APK `versionCode` 11.
