@@ -1,11 +1,11 @@
 import {
   IconHome, IconSearch, IconUsers, IconClipboard, IconQr,
-  IconEuro, IconSettings, IconFile,
+  IconEuro, IconSettings, IconFile, IconUserCheck,
 } from '../components/icons';
 
 // Two groups, rendered by DashboardShell — the only sidebar in the dashboard.
 // Operational is the daily loop (post → candidates → find → rehire); Admin is
-// the paperwork around it.
+// the paperwork around it. "Candidatos" carries a live badge (DashboardShell).
 //
 // `key` indexes `admin.nav.*` in the shared catalogue — render it with
 // t(`admin.nav.${key}`), never a hardcoded label.
@@ -37,6 +37,7 @@ export const SIDEBAR_GROUPS: readonly { key: 'groupOperational' | 'groupAdmin'; 
     items: [
       { Icon: IconHome,      key: 'dashboard',     href: '/dashboard' },
       { Icon: IconClipboard, key: 'shifts',        href: '/dashboard/shifts', also: ['/dashboard/new-shift'] },
+      { Icon: IconUserCheck, key: 'candidates',    href: '/dashboard/candidates' },
       { Icon: IconSearch,    key: 'workersSearch', href: '/dashboard/workers-search' },
       { Icon: IconUsers,     key: 'workers',       href: '/dashboard/workers', also: ['/dashboard/ratings'] },
     ],

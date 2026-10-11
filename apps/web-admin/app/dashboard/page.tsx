@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { adminApi, Shift, EmployerProfile } from '../../lib/api';
+import { adminApi, Shift, EmployerProfile, CandidateCounts } from '../../lib/api';
 import { useT } from '../../lib/i18n';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import { IconClipboard, IconBolt, IconUsers, IconAlert, IconSearch, IconQr } from '../../components/icons';
@@ -13,10 +13,12 @@ export default function DashboardPage() {
   const { t, fWeekdayDate } = useT();
   const [shifts, setShifts]   = useState<Shift[]>([]);
   const [profile, setProfile] = useState<EmployerProfile | null>(null);
+  const [candidates, setCandidates] = useState<CandidateCounts>({ pending: 0, unseen: 0 });
 
   useEffect(() => {
     adminApi.getMyShifts().then(setShifts).catch(() => {});
     adminApi.getMyProfile().then(setProfile).catch(() => {});
+    adminApi.getCandidateCounts().then(setCandidates).catch(() => {});
   }, []);
 
   // Client-side expiry detection (same logic as backend cron)
@@ -57,12 +59,17 @@ export default function DashboardPage() {
       href: '/dashboard/shifts',
     },
     {
-      Icon: IconUsers, label: t('admin.home.kpiApplicants'), color: 'var(--color-primary)',
-      value: String(openShifts.length),
-      sub: openShifts.length === 0
-        ? t('admin.home.kpiApplicantsNone')
-        : t('admin.home.kpiApplicantsSome'),
-      href: '/dashboard/shifts',
+      // Real candidates waiting for an answer — this card used to show the
+      // number of open shifts under a "pending applicants" label.
+      Icon: IconUsers, label: t('admin.home.kpiApplicants'),
+      color: candidates.unseen > 0 ? '#dc2626' : 'var(--color-primary)',
+      value: String(candidates.pending),
+      sub: candidates.unseen > 0
+        ? t('admin.home.kpiApplicantsNew', { count: candidates.unseen })
+        : candidates.pending > 0
+          ? t('admin.home.kpiApplicantsSome')
+          : t('admin.home.kpiApplicantsNone'),
+      href: '/dashboard/candidates',
     },
     {
       Icon: IconAlert, label: t('admin.home.kpiExpired'), color: 'var(--color-primary)',

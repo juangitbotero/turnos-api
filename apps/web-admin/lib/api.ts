@@ -221,6 +221,7 @@ export interface Shift {
   grossHourlyRate: number;
   address: string;
   skillsRequired: string[] | null;
+  languagesRequired?: string[] | null;
   hasDressCode?: boolean;
   dressCode?: string | null;
   status: ShiftStatus;
@@ -281,6 +282,19 @@ export interface Application {
   } | null;
 }
 
+/** One job with candidates waiting for an answer — GET /shifts/employer/candidates. */
+export interface CandidateGroup {
+  shift: Shift;
+  applications: Array<Application & { isNew: boolean }>;
+}
+
+export interface CandidateCounts {
+  /** Candidates waiting for an answer (one per worker per job). */
+  pending: number;
+  /** Of those, not yet seen by the company. */
+  unseen: number;
+}
+
 export interface EmployerProfile {
   userId: string;
   role: 'EMPLOYER';
@@ -297,7 +311,7 @@ export interface EmployerProfile {
   adminEmail?: string | null;
   subscriptionStatus?: string;
   logoUrl?: string | null;
-  notificationPrefs?: { ratingReminders: boolean; wageReminders: boolean };
+  notificationPrefs?: { ratingReminders: boolean; wageReminders: boolean; newCandidates: boolean };
   // Terms of Use — false until the current TERMS_VERSIONS.EMPLOYER is accepted
   termsVersion?: string | null;
   termsCurrentVersion?: string;
@@ -460,7 +474,7 @@ export const adminApi = {
   updateEmployerProfile: (dto: {
     companyName?: string; sector?: string; nif?: string;
     address?: string; postalCode?: string; city?: string;
-    notificationPrefs?: { ratingReminders?: boolean; wageReminders?: boolean };
+    notificationPrefs?: { ratingReminders?: boolean; wageReminders?: boolean; newCandidates?: boolean };
   }) => request<EmployerProfile>('/auth/employer/profile', {
     method: 'PATCH', body: JSON.stringify(dto),
   }),
@@ -558,6 +572,15 @@ export const adminApi = {
 
   approveApplication: (shiftId: string, appId: string) =>
     request<Shift>(`/shifts/${shiftId}/applications/${appId}/approve`, { method: 'POST' }),
+
+  getCandidates: () =>
+    request<CandidateGroup[]>('/shifts/employer/candidates', { method: 'GET' }),
+
+  getCandidateCounts: () =>
+    request<CandidateCounts>('/shifts/employer/candidates/count', { method: 'GET' }),
+
+  markCandidatesSeen: () =>
+    request<{ ok: true }>('/shifts/employer/candidates/seen', { method: 'POST' }),
 
   /** Search active workers (80%+ profile) for employer talent browsing */
   searchWorkers: (params?: {

@@ -11,18 +11,29 @@
  * The company block at the bottom opens a menu (Definições, A minha subscrição,
  * Sair). It reads the profile once; pages that change the name or logo fire
  * PROFILE_CHANGED_EVENT so it refreshes without a reload.
+ *
+ * Candidates (2026-10-11): before this a company only learnt someone applied by
+ * opening each shift's applicants. The shell now keeps the "Candidatos" badge
+ * (candidates waiting for an answer; filled when some are unseen) live from the
+ * `shift:new_application` socket event, and shows a toast on whatever page the
+ * company is on. Pages that change what is pending or seen fire
+ * CANDIDATES_CHANGED_EVENT.
  */
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { adminApi, EmployerProfile } from '../lib/api';
+import { adminApi, CandidateCounts, EmployerProfile } from '../lib/api';
+import { connectSocket, getSocket, NewApplicationPayload } from '../lib/socket';
 import { SIDEBAR_GROUPS, isNavActive } from '../lib/nav';
 import { useT } from '../lib/i18n';
 import { Logo } from './Logo';
 import { useOpenTab } from './PageNav';
-import { IconBuilding, IconCard, IconChevron, IconLogout, IconSettings } from './icons';
+import { IconBuilding, IconCard, IconChevron, IconClose, IconLogout, IconSettings, IconUserCheck } from './icons';
 
 export const PROFILE_CHANGED_EVENT = 'turnos:profile-changed';
+export const CANDIDATES_CHANGED_EVENT = 'turnos:candidates-changed';
+
+const TOAST_MS = 8000;
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? '';
@@ -32,6 +43,28 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const openTab = useOpenTab();
+  const [counts, setCounts] = useState<CandidateCounts>({ pending: 0, unseen: 0 });
+  const [toasts, setToasts] = useState<Array<NewApplicationPayload & { key: number }>>([]);
+
+  useEffect(() => {
+    const load = () => adminApi.getCandidateCounts().then(setCounts).catch(() => {});
+    load();
+    window.addEventListener(CANDIDATES_CHANGED_EVENT, load);
+
+    const token = localStorage.getItem('accessToken');
+    const socket = token ? connectSocket(token) : getSocket();
+    const onNew = (payload: NewApplicationPayload) => {
+      load();
+      const key = Date.now() + Math.random();
+      setToasts(prev => [...prev.slice(-2), { ...payload, key }]);
+      setTimeout(() => setToasts(prev => prev.filter(x => x.key !== key)), TOAST_MS);
+    };
+    socket?.on('shift:new_application', onNew);
+    return () => {
+      window.removeEventListener(CANDIDATES_CHANGED_EVENT, load);
+      socket?.off('shift:new_application', onNew);
+    };
+  }, []);
 
   // Links to the page already on screen (e.g. Settings → ?tab=subscription)
   // only change the query; Next does not remount the page, so tell it instead.
@@ -79,6 +112,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   <Link key={item.key} href={item.href} onClick={sameRoute(item.href)} style={{ ...s.item, ...(active ? s.itemActive : {}) }}>
                     <span style={s.icon}><Icon size={17} /></span>
                     <span>{t(`admin.nav.${item.key}`)}</span>
+                    {item.key === 'candidates' && counts.pending > 0 && (
+                      <span
+                        style={{ ...s.badge, ...(counts.unseen > 0 ? s.badgeNew : {}) }}
+                        aria-label={t('admin.candidates.subCount', { count: counts.pending })}
+                      >
+                        {counts.pending > 99 ? '99+' : counts.pending}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
@@ -125,6 +166,37 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main style={s.main}>{children}</main>
+
+      {toasts.length > 0 && (
+        <div style={s.toastStack} role="status" aria-live="polite">
+          {toasts.map(toast => (
+            <div key={toast.key} style={s.toast}>
+              <span style={s.toastIcon}><IconUserCheck size={18} /></span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={s.toastTitle}>
+                  {t('admin.chrome.toastNewCandidate', { name: toast.workerName ?? t('admin.shifts.noName') })}
+                </div>
+                <div style={s.toastSub}>{t('admin.chrome.toastFor', { shift: toast.shiftTitle })}</div>
+              </div>
+              <Link
+                href="/dashboard/candidates"
+                style={s.toastBtn}
+                onClick={() => setToasts(prev => prev.filter(x => x.key !== toast.key))}
+              >
+                {t('admin.chrome.toastSee')}
+              </Link>
+              <button
+                type="button"
+                style={s.toastClose}
+                aria-label="✕"
+                onClick={() => setToasts(prev => prev.filter(x => x.key !== toast.key))}
+              >
+                <IconClose size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -198,5 +270,43 @@ const s: Record<string, React.CSSProperties> = {
   },
   menuDivider: { height: 1, background: 'var(--color-border)', margin: '4px 2px' },
 
+  badge: {
+    marginLeft: 'auto', minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 11, fontWeight: 800, background: 'var(--color-border)', color: 'var(--color-text-secondary)',
+  },
+  badgeNew: { background: '#dc2626', color: '#fff' },
+
   main: { flex: 1, minWidth: 0 },
+
+  toastStack: {
+    // Bottom-left of the content area: the bottom-right corner belongs to the
+    // VerifyEmailBanner, and a toast must not cover it.
+    position: 'fixed', left: 260, bottom: 20, zIndex: 300,
+    display: 'flex', flexDirection: 'column', gap: 10, width: 360, maxWidth: 'calc(100vw - 32px)',
+  },
+  toast: {
+    display: 'flex', alignItems: 'center', gap: 12, padding: '12px 12px 12px 14px',
+    background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+    borderLeft: '4px solid var(--color-primary)', borderRadius: 'var(--radius-md)',
+    boxShadow: '0 10px 30px rgba(15,15,35,0.16)',
+  },
+  toastIcon: {
+    width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    background: 'var(--color-primary-light)', color: 'var(--color-primary)',
+  },
+  toastTitle: { fontSize: 13.5, fontWeight: 700, color: 'var(--color-text-primary)' },
+  toastSub: {
+    fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 1,
+    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+  },
+  toastBtn: {
+    padding: '7px 14px', borderRadius: 'var(--radius-full)', background: 'var(--color-primary)',
+    color: '#fff', fontSize: 12.5, fontWeight: 700, textDecoration: 'none', flexShrink: 0,
+  },
+  toastClose: {
+    background: 'none', border: 'none', cursor: 'pointer', padding: 4,
+    color: 'var(--color-text-muted)', display: 'inline-flex',
+  },
 };

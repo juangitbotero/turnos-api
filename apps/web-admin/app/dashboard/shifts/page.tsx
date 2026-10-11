@@ -7,7 +7,8 @@ import { connectSocket, getSocket, NewApplicationPayload } from '../../../lib/so
 import { COMPANY_CANCEL_REASONS, paymentMethodLabel } from '@turnos/shared';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
-import { WorkerReviews } from '../../../components/WorkerReviews';
+import { ApplicantList, WorkerProfilePanel } from '../../../components/Applicants';
+import { CANDIDATES_CHANGED_EVENT } from '../../../components/DashboardShell';
 import { IconAlert, IconBriefcase, IconFile, IconTarget, IconChat, IconQr, IconClipboard, Stars } from '../../../components/icons';
 
 /** A shift row that stands for a multi-day job rather than a single day. */
@@ -26,159 +27,6 @@ const STATUS_STYLE: Record<string, { color: string; bg: string }> = {
 
 // ── Applicants Modal ──────────────────────────────────────────────────────────
 
-function WorkerProfilePanel({ app, onBack }: { app: Application; onBack: () => void }) {
-  const { t, tSkill, tWorkerLanguage, tWeekday } = useT();
-  const w = app.worker;
-  const score = w?.profileQualityScore ?? 0;
-  const scoreColor = score >= 80 ? '#16a34a' : score >= 50 ? '#d97706' : '#dc2626';
-  const avgR = w?.avgRating != null ? Number(w.avgRating) : null;
-  return (
-    <div style={s.profilePanel}>
-      <button style={s.backInPanel} onClick={onBack}>{t('admin.shifts.backToList')}</button>
-
-      {/* Header: photo + name + status + rating */}
-      <div style={s.profileTop}>
-        {w?.photoUrl
-          ? <img src={w.photoUrl} alt={w.fullName ?? ''} style={s.profilePhoto} />
-          : <div style={s.profileAvatar}>{(w?.fullName?.[0] ?? '?').toUpperCase()}</div>
-        }
-        <div style={{ flex: 1 }}>
-          <p style={s.profileName}>{w?.fullName ?? t('admin.shifts.noName')}</p>
-          <span style={{
-            ...s.profileStatusBadge,
-            background: w?.status === 'ACTIVE' ? '#dcfce7' : '#fef9c3',
-            color:      w?.status === 'ACTIVE' ? '#166534' : '#854d0e',
-          }}>
-            {w?.status ? t(`domain.workerStatus.${w.status}`, { defaultValue: w.status }) : '—'}
-          </span>
-          {avgR != null && (
-            <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Stars value={avgR ?? 0} size={14} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b' }}>{avgR.toFixed(1)}</span>
-              <span style={{ fontSize: 12, color: '#6b7280' }}>{t('admin.shifts.ratingsCount', { count: w?.totalRatings ?? 0 })}</span>
-            </div>
-          )}
-          {w?.badges && w.badges.length > 0 && (
-            <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' as const }}>
-              {w.badges.includes('TOP_RATED') && <span style={s.badge}>{t('admin.workersSearch.badgeTop')}</span>}
-              {w.badges.includes('RELIABLE')  && <span style={s.badge}>{t('admin.workersSearch.badgeReliable')}</span>}
-              {w.badges.includes('VERIFIED')  && <span style={s.badge}>{t('admin.workersSearch.badgeVerified')}</span>}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Cover note from worker */}
-      {app.coverNote && (
-        <div style={s.coverNoteBox}>
-          <p style={s.profileSectionTitle}>{t('admin.shifts.coverNoteTitle')}</p>
-          <p style={s.coverNoteText}>"{app.coverNote}"</p>
-        </div>
-      )}
-
-      {/* Bio */}
-      {w?.bio && (
-        <div style={s.profileSection}>
-          <p style={s.profileSectionTitle}>{t('admin.shifts.panelBio')}</p>
-          <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.5, margin: 0 }}>{w.bio}</p>
-        </div>
-      )}
-
-      {/* What other companies wrote — the applicant list is the other place an
-          employer chooses between people, so it needs the same evidence as the
-          talent search panel. */}
-      {w?.id && <WorkerReviews workerId={w.id} />}
-
-      {/* Score bar */}
-      <div style={s.scoreSection}>
-        <div style={s.scoreHeader}>
-          <span style={s.scoreLabel}>{t('admin.shifts.panelScore')}</span>
-          <span style={{ ...s.scoreValue, color: scoreColor }}>{score}%</span>
-        </div>
-        <div style={s.scoreBarBg}>
-          <div style={{ ...s.scoreBarFill, width: `${score}%`, background: scoreColor }} />
-        </div>
-      </div>
-
-      {/* Skills */}
-      {w?.skills && w.skills.length > 0 && (
-        <div style={s.profileSection}>
-          <p style={s.profileSectionTitle}>{t('admin.shifts.panelSkills')}</p>
-          <div style={s.skillTags}>
-            {w.skills.map(sk => <span key={sk} style={s.skillTag}>{tSkill(sk)}</span>)}
-          </div>
-        </div>
-      )}
-
-      {/* Experience — the strongest signal when choosing between candidates */}
-      {w?.experiences && w.experiences.length > 0 && (
-        <div style={s.profileSection}>
-          <p style={s.profileSectionTitle}>{t('admin.shifts.panelExperience')}</p>
-          <div style={s.skillTags}>
-            {w.experiences.map(exp => (
-              <span key={exp.jobTitle} style={{ ...s.skillTag, background: '#fef3c7', color: '#92400e' }}>
-                <IconBriefcase size={12} /> {tSkill(exp.jobTitle)} · {t(`domain.experienceLevels.${exp.level}`)}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* CV */}
-      {w?.cvUrl && (
-        <div style={s.profileSection}>
-          <p style={s.profileSectionTitle}>{t('admin.shifts.panelCv')}</p>
-          <a href={w.cvUrl} target="_blank" rel="noopener noreferrer" style={s.cvLink}>
-            <IconFile size={12} /> {w.cvFileName ?? t('admin.shifts.panelCvFallback')}
-          </a>
-        </div>
-      )}
-
-      {/* Languages */}
-      {w?.languages && w.languages.length > 0 && (
-        <div style={s.profileSection}>
-          <p style={s.profileSectionTitle}>{t('admin.shifts.panelLanguages')}</p>
-          <div style={s.skillTags}>
-            {w.languages.map(lang => (
-              <span key={lang} style={{ ...s.skillTag, background: '#f0fdf4', color: '#15803d' }}>{tWorkerLanguage(lang)}</span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Availability — master switch, then the days it covers */}
-      <div style={s.profileSection}>
-        <p style={s.profileSectionTitle}>{t('admin.shifts.panelAvailability')}</p>
-        <div style={s.skillTags}>
-          <span style={{
-            ...s.skillTag,
-            background: w?.isAvailableForWork ? '#f0fdf4' : '#f3f4f6',
-            color:      w?.isAvailableForWork ? '#166534' : '#6b7280',
-          }}>
-            {w?.isAvailableForWork ? t('admin.shifts.availableOn') : t('admin.shifts.availableOff')}
-          </span>
-          {w?.availableDays?.map(d => (
-            <span key={d} style={{ ...s.skillTag, background: '#dbeafe', color: '#1d4ed8' }}>{tWeekday(d)}</span>
-          ))}
-        </div>
-      </div>
-
-      {!w?.bio && (!w?.skills || w.skills.length === 0) && (!w?.availableDays || w.availableDays.length === 0) && (
-        <p style={s.emptyApps}>{t('admin.shifts.profileIncomplete')}</p>
-      )}
-    </div>
-  );
-}
-
-type SortMode = 'rating' | 'score' | 'date';
-
-function skillMatch(app: Application, shift: Shift): number {
-  const required = shift.skillsRequired ?? [];
-  if (required.length === 0) return -1; // no requirement — don't show indicator
-  const workerSkills = app.worker?.skills ?? [];
-  return required.filter(r => workerSkills.includes(r)).length;
-}
-
 function ShiftApplicationsModal({
   shift, onClose,
 }: {
@@ -190,10 +38,16 @@ function ShiftApplicationsModal({
   const [loading, setLoading]       = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
   const [viewingProfile, setViewingProfile] = useState<Application | null>(null);
-  const [sortMode, setSortMode]     = useState<SortMode>('rating');
 
   useEffect(() => {
-    adminApi.getShiftApplications(shift.id).then(setApps).catch(() => {}).finally(() => setLoading(false));
+    adminApi.getShiftApplications(shift.id)
+      .then(list => {
+        setApps(list);
+        // Opening the list marks these candidates seen — refresh the sidebar badge.
+        window.dispatchEvent(new Event(CANDIDATES_CHANGED_EVENT));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [shift.id]);
 
   const handleApprove = async (appId: string) => {
@@ -204,25 +58,13 @@ function ShiftApplicationsModal({
         a.id === appId ? { ...a, status: 'APPROVED' as const } : { ...a, status: 'REJECTED' as const },
       ));
       setViewingProfile(null);
+      window.dispatchEvent(new Event(CANDIDATES_CHANGED_EVENT));
     } catch (err) {
       alert(err instanceof ApiError ? err.message : t('admin.shifts.approveError'));
     } finally {
       setProcessing(null);
     }
   };
-
-  const sorted = [...apps].sort((a, b) => {
-    if (sortMode === 'rating') {
-      return Number(b.worker?.avgRating ?? 0) - Number(a.worker?.avgRating ?? 0);
-    }
-    if (sortMode === 'score') {
-      return (b.worker?.profileQualityScore ?? 0) - (a.worker?.profileQualityScore ?? 0);
-    }
-    // date — earliest first (most committed)
-    return new Date(a.appliedAt).getTime() - new Date(b.appliedAt).getTime();
-  });
-
-  const requiredCount = shift.skillsRequired?.length ?? 0;
 
   return (
     <div style={s.overlay}>
@@ -247,96 +89,24 @@ function ShiftApplicationsModal({
         </div>
 
         {viewingProfile ? (
-          <WorkerProfilePanel app={viewingProfile} onBack={() => setViewingProfile(null)} />
+          <WorkerProfilePanel
+            app={viewingProfile}
+            onBack={() => setViewingProfile(null)}
+            onApprove={app => handleApprove(app.id)}
+            processing={processing}
+          />
         ) : loading ? (
           <p style={s.loadingText}>{t('admin.shifts.appsLoading')}</p>
         ) : apps.length === 0 ? (
           <p style={s.emptyApps}>{t('admin.shifts.appsEmpty')}</p>
         ) : (
-          <>
-            {/* Sort bar */}
-            <div style={s.sortBar}>
-              <span style={s.sortLabel}>{t('admin.shifts.sortLabel')}</span>
-              {([
-                ['rating', t('admin.shifts.sortRating')],
-                ['score',  t('admin.shifts.sortScore')],
-                ['date',   t('admin.shifts.sortDate')],
-              ] as [SortMode, string][]).map(([mode, label]) => (
-                <button
-                  key={mode}
-                  style={{ ...s.sortBtn, ...(sortMode === mode ? s.sortBtnActive : {}) }}
-                  onClick={() => setSortMode(mode)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <div style={s.appList}>
-              {sorted.map(app => {
-                const match = skillMatch(app, shift);
-                const matchLabel = requiredCount > 0
-                  ? t('admin.shifts.matchCount', { matched: match, total: requiredCount })
-                  : null;
-                const isFullMatch = match === requiredCount && requiredCount > 0;
-
-                return (
-                  <div key={app.id} style={s.appCard}>
-                    <div style={s.appLeft}>
-                      {app.worker?.photoUrl
-                        ? <img src={app.worker.photoUrl} alt={app.worker.fullName ?? ''} style={{ ...s.appAvatar, objectFit: 'cover' } as React.CSSProperties} />
-                        : <div style={s.appAvatar}>{(app.worker?.fullName?.[0] ?? '?').toUpperCase()}</div>
-                      }
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <p style={s.appName}>{app.worker?.fullName ?? t('admin.shifts.noName')}</p>
-                          {isFullMatch && <span style={s.matchBadge}>{t('admin.shifts.matchBadge')}</span>}
-                        </div>
-                        <p style={s.appScore}>{t('admin.shifts.appProfile', { score: app.worker?.profileQualityScore ?? '—' })}
-                          {app.worker?.avgRating != null && (
-                            <span style={{ marginLeft: 8, color: '#fbbf24' }}>
-                              ★ {Number(app.worker.avgRating).toFixed(1)}
-                              <span style={{ color: 'var(--color-text-secondary)', fontWeight: 400 }}> ({app.worker.totalRatings ?? 0})</span>
-                            </span>
-                          )}
-                          {(app.worker?.completedShifts ?? 0) > 0 && (
-                            <span style={{ marginLeft: 8, color: '#16a34a', fontWeight: 600 }}>
-                              {t('admin.shifts.appCompleted', { count: app.worker!.completedShifts! })}
-                            </span>
-                          )}
-                        </p>
-                        {matchLabel && (
-                          <p style={{ ...s.appSkills, color: isFullMatch ? '#16a34a' : 'var(--color-text-secondary)' }}>
-                            <IconTarget size={12} /> {matchLabel}
-                          </p>
-                        )}
-                        {app.worker?.skills && app.worker.skills.length > 0 && (
-                          <p style={s.appSkills}>{app.worker.skills.slice(0, 3).map(tSkill).join(', ')}{app.worker.skills.length > 3 ? ` +${app.worker.skills.length - 3}` : ''}</p>
-                        )}
-                        {app.coverNote && (
-                          <p style={s.coverNote}><IconChat size={12} /> "{app.coverNote}"</p>
-                        )}
-                      </div>
-                    </div>
-                    <div style={{ ...s.appRight, gap: 8 }}>
-                      <button style={s.viewProfileBtn} onClick={() => setViewingProfile(app)}>{t('admin.shifts.viewProfile')}</button>
-                      {app.status === 'APPROVED' && <span style={{ ...s.statusBadge, ...s.statusApproved }}>{t('admin.shifts.approved')}</span>}
-                      {app.status === 'REJECTED' && <span style={{ ...s.statusBadge, ...s.statusRejected }}>{t('admin.shifts.rejected')}</span>}
-                      {app.status === 'PENDING' && (
-                        <button
-                          style={{ ...s.approveBtn, opacity: processing === app.id ? 0.6 : 1 }}
-                          onClick={() => handleApprove(app.id)}
-                          disabled={!!processing}
-                        >
-                          {processing === app.id ? '...' : t('admin.shifts.select')}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
+          <ApplicantList
+            shift={shift}
+            apps={apps}
+            processing={processing}
+            onApprove={app => handleApprove(app.id)}
+            onViewProfile={setViewingProfile}
+          />
         )}
       </div>
     </div>
@@ -1272,11 +1042,6 @@ function ShiftRow({ shift, onCancel, onManualConfirm, cancelling, confirming, on
 const s: Record<string, React.CSSProperties> = {
   page: { padding: 32, maxWidth: 1200, margin: '0 auto' },
   header: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20 },
-  backBtn: {
-    display: 'inline-block', background: 'none', border: 'none', padding: 0,
-    fontSize: 13, color: 'var(--color-text-secondary)', cursor: 'pointer',
-    fontFamily: 'inherit', marginBottom: 6,
-  },
   title: { fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.5px', marginBottom: 4 },
   sub: { fontSize: 14, color: 'var(--color-text-secondary)' },
   headerActions: { display: 'flex', gap: 10, alignItems: 'center' },
@@ -1376,108 +1141,12 @@ const s: Record<string, React.CSSProperties> = {
   },
   loadingText: { fontSize: 14, color: 'var(--color-text-secondary)', textAlign: 'center', padding: '24px 0' },
   emptyApps: { fontSize: 14, color: 'var(--color-text-secondary)', textAlign: 'center', padding: '24px 0' },
-  appList: { display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' },
-  appCard: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '12px 16px', borderRadius: 10, border: '1px solid var(--color-border)', background: 'var(--color-secondary)',
-  },
-  appLeft: { display: 'flex', gap: 12, alignItems: 'center' },
-  appAvatar: {
-    width: 44, height: 44, borderRadius: 22, background: 'var(--color-primary-light)',
-    color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 18, fontWeight: 800, flexShrink: 0,
-  },
-  appName: { fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 2 },
-  appScore: { fontSize: 12, color: 'var(--color-text-secondary)' },
-  appSkills: { fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2 },
-  appRight: { display: 'flex', alignItems: 'center', flexDirection: 'column' as const },
-  statusBadge: { padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
-  statusApproved: { background: '#dcfce7', color: '#16a34a' },
-  statusRejected: { background: '#fee2e2', color: '#dc2626' },
-  viewProfileBtn: {
-    padding: '5px 10px', background: 'none', border: '1px solid var(--color-border)',
-    borderRadius: 6, color: 'var(--color-text-secondary)', fontWeight: 600, fontSize: 11,
-    cursor: 'pointer', fontFamily: 'inherit', marginBottom: 4,
-  },
-  approveBtn: {
-    padding: '8px 16px', background: '#dcfce7', border: '1px solid #86efac',
-    borderRadius: 8, color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-  },
 
   // Worker profile panel (inside modal)
-  profilePanel: { display: 'flex', flexDirection: 'column' as const, gap: 16, overflowY: 'auto' as const },
-  backInPanel: {
-    background: 'none', border: 'none', padding: 0, fontSize: 13,
-    color: 'var(--color-text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
-    textAlign: 'left' as const, marginBottom: 4,
-  },
-  profileTop: { display: 'flex', gap: 14, alignItems: 'center' },
-  profilePhoto: { width: 64, height: 64, borderRadius: 32, objectFit: 'cover' as const, flexShrink: 0 },
-  profileAvatar: {
-    width: 64, height: 64, borderRadius: 32, background: 'var(--color-primary-light)',
-    color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 24, fontWeight: 800, flexShrink: 0,
-  },
-  profileName: { fontSize: 18, fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: 6 },
-  profileStatusBadge: { display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
-  scoreSection: { display: 'flex', flexDirection: 'column' as const, gap: 6 },
-  scoreHeader: { display: 'flex', justifyContent: 'space-between' },
-  scoreLabel: { fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)' },
-  scoreValue: { fontSize: 14, fontWeight: 800 },
-  scoreBarBg: { height: 8, background: '#e5e7eb', borderRadius: 4, overflow: 'hidden' },
-  scoreBarFill: { height: '100%', borderRadius: 4, transition: 'width 0.3s ease' },
-  profileSection: { display: 'flex', flexDirection: 'column' as const, gap: 8 },
-  profileSectionTitle: { fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.5px' },
-  skillTags: { display: 'flex', flexWrap: 'wrap' as const, gap: 6 },
-  skillTag: {
-    padding: '4px 10px', background: 'var(--color-primary-light)', borderRadius: 20,
-    fontSize: 12, fontWeight: 600, color: 'var(--color-primary)',
-    border: '1px solid rgba(106,121,255,0.2)',
-  },
-  cvLink: {
-    display: 'inline-flex', alignItems: 'center', gap: 6,
-    fontSize: 13, fontWeight: 700, color: 'var(--color-primary)',
-    textDecoration: 'none', padding: '8px 12px', borderRadius: 8,
-    background: 'var(--color-primary-light)', border: '1px solid rgba(106,121,255,0.2)',
-  },
-  coverNoteBox: {
-    background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10,
-    padding: '12px 14px', display: 'flex', flexDirection: 'column' as const, gap: 6,
-  },
-  coverNoteText: {
-    fontSize: 13, color: '#374151', lineHeight: 1.5, margin: 0,
-    fontStyle: 'italic' as const,
-  },
 
   // Sort bar
-  sortBar: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    padding: '10px 0', borderBottom: '1px solid var(--color-border)', marginBottom: 4,
-  },
-  sortLabel: { fontSize: 12, fontWeight: 600, color: 'var(--color-text-secondary)', flexShrink: 0 },
-  sortBtn: {
-    padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-    borderWidth: '1.5px', borderStyle: 'solid', borderColor: 'var(--color-border)',
-    background: 'none',
-    color: 'var(--color-text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
-    transition: 'all 0.15s',
-  },
-  sortBtnActive: {
-    background: 'var(--color-primary-light)', borderColor: 'rgba(106,121,255,0.4)',
-    color: 'var(--color-primary)',
-  },
 
   // Skill match
-  matchBadge: {
-    fontSize: 10, fontWeight: 700, color: '#16a34a',
-    background: '#dcfce7', border: '1px solid #86efac',
-    borderRadius: 20, padding: '2px 7px',
-  },
-  coverNote: {
-    fontSize: 12, color: '#6b7280', fontStyle: 'italic' as const,
-    marginTop: 2, maxWidth: 260,
-    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const,
-  },
 
   // Caducados section
   expiredToggle: {

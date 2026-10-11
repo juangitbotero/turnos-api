@@ -8,6 +8,7 @@ import { Shift, ShiftStatus } from '../shifts/entities/shift.entity';
 import { WagePayment, WagePaymentStatus } from '../payments/entities/wage-payment.entity';
 import { StorageService } from '../storage/storage.service';
 import { t } from '../i18n/request-language';
+import { NOTIFICATION_PREF_KEYS } from './notification-prefs';
 import {
   calculateProfileQualityScore,
   PROFILE_MIN_SCORE_TO_APPLY,
@@ -113,7 +114,7 @@ export class UsersService {
   async updateEmployerProfile(userId: string, dto: {
     companyName?: string; sector?: string; nif?: string;
     address?: string; postalCode?: string; city?: string;
-    notificationPrefs?: { ratingReminders?: boolean; wageReminders?: boolean };
+    notificationPrefs?: { ratingReminders?: boolean; wageReminders?: boolean; newCandidates?: boolean };
     logoUrl?: string;
   }): Promise<void> {
     const employer = await this.employerRepo.findOne({ where: { user: { id: userId } } });
@@ -126,8 +127,14 @@ export class UsersService {
     }
     // Merged, not replaced: a client sending only one switch must not blank the
     // other back to its default.
+    // Only known switches, only booleans — the body is otherwise free-form.
     if (dto.notificationPrefs !== undefined) {
-      patch.notificationPrefs = { ...(employer.notificationPrefs ?? {}), ...dto.notificationPrefs };
+      const incoming: Record<string, boolean> = {};
+      for (const key of NOTIFICATION_PREF_KEYS) {
+        const v = (dto.notificationPrefs as Record<string, unknown>)?.[key];
+        if (typeof v === 'boolean') incoming[key] = v;
+      }
+      patch.notificationPrefs = { ...(employer.notificationPrefs ?? {}), ...incoming };
     }
     if (Object.keys(patch).length === 0) return;
 

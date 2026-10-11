@@ -8,6 +8,12 @@
       "port": 3000
     },
     {
+      "name": "api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "@turnos/api"],
+      "port": 3001
+    },
+    {
       "name": "web-admin-only",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "-w", "@turnos/web-admin"],

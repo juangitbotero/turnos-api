@@ -283,6 +283,80 @@ export function experienceLevelLabel(level: string | null | undefined): string {
   return EXPERIENCE_LEVELS[level as ExperienceLevel] ?? level;
 }
 
+// ─── Skill match ──────────────────────────────────────────────────────────────
+
+/** Points per declared experience level for the shift's role (max 20). */
+const EXPERIENCE_POINTS: Record<ExperienceLevel, number> = {
+  NONE: 0, ZERO_ONE: 7, ONE_FIVE: 14, FIVE_PLUS: 20,
+};
+
+export interface SkillMatch {
+  /** 0–100: points earned over points the shift makes possible. */
+  score: number;
+  /** Worker lists the shift's role among their skills. */
+  hasRole: boolean;
+  /** Declared experience level in the shift's role, if any. */
+  experience: ExperienceLevel | null;
+  /** Extra required skills the worker has, out of how many the shift asks for. */
+  skills: { matched: string[]; total: number };
+  /** Required languages the worker speaks, out of how many the shift asks for. */
+  languages: { matched: string[]; total: number };
+}
+
+/**
+ * How well a worker fits a shift, from what both sides declared.
+ *
+ * A transparent rule, not a model: the role as a skill (40), experience in the
+ * role (up to 20), extra required skills (20) and required languages (20).
+ * Parts the shift doesn't ask for are left out of the denominator, so a shift
+ * with no language requirement doesn't cap everyone at 80. The breakdown is
+ * returned so every screen can show WHY someone matched — candidate ranking is
+ * algorithmic management, and the reason has to be visible.
+ */
+export function skillMatch(
+  worker: { skills?: string[] | null; experiences?: WorkerExperience[] | null; languages?: string[] | null },
+  shift: { subcategory?: string | null; skillsRequired?: string[] | null; languagesRequired?: string[] | null },
+): SkillMatch {
+  const role = shift.subcategory ? normalizeSkill(shift.subcategory) : null;
+  const workerSkills = new Set(normalizeSkills(worker.skills));
+  const workerLangs = new Set(worker.languages ?? []);
+
+  let earned = 0;
+  let possible = 0;
+
+  const hasRole = !!role && workerSkills.has(role);
+  const exp = role
+    ? (worker.experiences ?? []).find(e => normalizeSkill(e.jobTitle) === role)?.level ?? null
+    : null;
+  if (role) {
+    possible += 60;
+    if (hasRole) earned += 40;
+    if (exp) earned += EXPERIENCE_POINTS[exp] ?? 0;
+  }
+
+  const required = normalizeSkills(shift.skillsRequired).filter(s => s !== role);
+  const matchedSkills = required.filter(s => workerSkills.has(s));
+  if (required.length) {
+    possible += 20;
+    earned += 20 * (matchedSkills.length / required.length);
+  }
+
+  const langs = shift.languagesRequired ?? [];
+  const matchedLangs = langs.filter(l => workerLangs.has(l));
+  if (langs.length) {
+    possible += 20;
+    earned += 20 * (matchedLangs.length / langs.length);
+  }
+
+  return {
+    score: possible ? Math.round((earned / possible) * 100) : 0,
+    hasRole,
+    experience: exp,
+    skills: { matched: matchedSkills, total: required.length },
+    languages: { matched: matchedLangs, total: langs.length },
+  };
+}
+
 /** Languages workers can speak / employers can require */
 export const LANGUAGES = [
   'Português',

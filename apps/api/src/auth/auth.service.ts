@@ -448,7 +448,7 @@ export class AuthService {
   async updateEmployerProfile(userId: string, dto: {
     companyName?: string; sector?: string; nif?: string;
     address?: string; postalCode?: string; city?: string;
-    notificationPrefs?: { ratingReminders?: boolean; wageReminders?: boolean };
+    notificationPrefs?: { ratingReminders?: boolean; wageReminders?: boolean; newCandidates?: boolean };
   }): Promise<Record<string, unknown>> {
     if (dto.nif && !isValidNIF(dto.nif)) {
       throw new BadRequestException(t('api.auth.nifInvalid'));

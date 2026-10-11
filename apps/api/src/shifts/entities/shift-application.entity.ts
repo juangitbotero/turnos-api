@@ -43,6 +43,14 @@ export class ShiftApplication {
   @Column({ type: 'varchar', length: 200, nullable: true })
   coverNote?: string;
 
+  /**
+   * When the company first saw this application (Candidates page or the
+   * applicants modal). Null = new — drives the "new" label and the sidebar
+   * badge colour. Visibility only: it never changes what the company can do.
+   */
+  @Column({ type: 'timestamp', nullable: true })
+  employerSeenAt: Date | null;
+
   @CreateDateColumn()
   appliedAt: Date;
 

@@ -60,7 +60,7 @@ export class Employer {
    * Absent (legacy rows) means "everything on" — see notificationPrefsOf().
    */
   @Column({ type: 'jsonb', nullable: true })
-  notificationPrefs?: { ratingReminders?: boolean; wageReminders?: boolean } | null;
+  notificationPrefs?: { ratingReminders?: boolean; wageReminders?: boolean; newCandidates?: boolean } | null;
 
   // ── Billing & Subscription ────────────────────────────────────────────────
   @Column({

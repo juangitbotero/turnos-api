@@ -32,6 +32,24 @@ export class ShiftsController {
     return this.shiftsService.findEmployerWorkers(req.user.userId);
   }
 
+  @Get('employer/candidates')
+  @Roles('EMPLOYER')
+  getCandidates(@Request() req: any) {
+    return this.shiftsService.getCandidates(req.user.userId);
+  }
+
+  @Get('employer/candidates/count')
+  @Roles('EMPLOYER')
+  getCandidateCounts(@Request() req: any) {
+    return this.shiftsService.getCandidateCounts(req.user.userId);
+  }
+
+  @Post('employer/candidates/seen')
+  @Roles('EMPLOYER')
+  markCandidatesSeen(@Request() req: any) {
+    return this.shiftsService.markCandidatesSeen(req.user.userId);
+  }
+
   @Patch(':id')
   @Roles('EMPLOYER')
   update(@Request() req: any, @Param('id') id: string, @Body() body: any) {

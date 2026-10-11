@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   UnauthorizedException,
@@ -26,7 +27,8 @@ import { WagePaymentsService } from '../payments/wage-payments.service';
 import { MailService } from '../mail/mail.service';
 import { t, tNumericDate } from '../i18n/request-language';
 import { restrictionNotice, statementToHtml } from '../users/restriction-notice';
-import { lisbonDateTime } from '../common/lisbon-time';
+import { lisbonDate, lisbonDateTime } from '../common/lisbon-time';
+import { notificationPrefsOf } from '../users/notification-prefs';
 
 // 5 hours in milliseconds — delay before re-notification job fires
 const RE_NOTIFY_DELAY_MS = 5 * 60 * 60 * 1000;
@@ -60,6 +62,8 @@ export type PublicShift = Omit<Shift, 'employer' | 'assignedWorker' | 'applicati
 
 @Injectable()
 export class ShiftsService {
+  private readonly logger = new Logger(ShiftsService.name);
+
   constructor(
     @InjectRepository(Shift)
     private shiftRepo: Repository<Shift>,
@@ -421,7 +425,146 @@ export class ShiftsService {
       relations: ['worker'],
       order: { appliedAt: 'DESC' },
     });
+    // Opening the applicants list is seeing them — clears the "new" state for
+    // the whole job (every day of a series carries its own application rows).
+    const days = await this.seriesShifts(shift);
+    await this.markSeen(days.map(d => d.id));
     return applications.map(app => ({ ...app, worker: this.toApplicantWorker(app.worker) }));
+  }
+
+  /**
+   * Candidates page: every job still open to applications that has someone
+   * waiting for an answer, with those applicants.
+   *
+   * A series is one job — its applications exist once per day, so only the
+   * rows on the job's first open day are returned (the same day the dashboard
+   * shows for the series, and the day approve expects). Jobs whose date has
+   * passed are left out: they are in "Expired" on the shifts page.
+   */
+  async getCandidates(userId: string) {
+    const employer = await this.resolveEmployer(userId);
+    const apps = await this.pendingApplications(employer.id);
+
+    const firstDay = new Map<string, string>();   // job key → earliest open date
+    for (const a of apps) {
+      const key = a.shift.seriesId ?? a.shift.id;
+      const d = firstDay.get(key);
+      if (!d || a.shift.date < d) firstDay.set(key, a.shift.date);
+    }
+
+    const jobs = new Map<string, { shift: Shift; applications: ShiftApplication[] }>();
+    for (const a of apps) {
+      const key = a.shift.seriesId ?? a.shift.id;
+      if (a.shift.date !== firstDay.get(key)) continue;
+      const job = jobs.get(key) ?? { shift: a.shift, applications: [] };
+      job.applications.push(a);
+      jobs.set(key, job);
+    }
+
+    const result = [];
+    for (const { shift, applications } of jobs.values()) {
+      const { applications: _apps, ...plain } = await this.withSeriesInfo(shift);
+      result.push({
+        shift: plain,
+        applications: applications
+          .sort((a, b) => b.appliedAt.getTime() - a.appliedAt.getTime())
+          .map(a => ({
+            id:         a.id,
+            status:     a.status,
+            coverNote:  a.coverNote ?? null,
+            appliedAt:  a.appliedAt,
+            isNew:      !a.employerSeenAt,
+            worker:     this.toApplicantWorker(a.worker),
+          })),
+      });
+    }
+    // Soonest job first — that is the one whose answer is most urgent.
+    return result.sort((a, b) =>
+      `${a.shift.date}${a.shift.startTime}`.localeCompare(`${b.shift.date}${b.shift.startTime}`));
+  }
+
+  /** Sidebar badge: candidates waiting for an answer, and how many are unseen. One per worker per job. */
+  async getCandidateCounts(userId: string): Promise<{ pending: number; unseen: number }> {
+    const employer = await this.resolveEmployer(userId);
+    const apps = await this.pendingApplications(employer.id);
+    const pending = new Set<string>();
+    const unseen = new Set<string>();
+    for (const a of apps) {
+      const key = `${a.shift.seriesId ?? a.shift.id}:${a.worker.id}`;
+      pending.add(key);
+      if (!a.employerSeenAt) unseen.add(key);
+    }
+    return { pending: pending.size, unseen: unseen.size };
+  }
+
+  /** The Candidates page marks what it has shown as seen (it keeps showing "new" until reopened). */
+  async markCandidatesSeen(userId: string): Promise<{ ok: true }> {
+    const employer = await this.resolveEmployer(userId);
+    const apps = await this.pendingApplications(employer.id);
+    await this.markSeen([...new Set(apps.map(a => a.shift.id))]);
+    return { ok: true };
+  }
+
+  private pendingApplications(employerId: string): Promise<ShiftApplication[]> {
+    return this.applicationRepo.createQueryBuilder('a')
+      .innerJoinAndSelect('a.shift', 's')
+      .innerJoinAndSelect('a.worker', 'w')
+      .where('s."employerId" = :employerId', { employerId })
+      .andWhere('a.status = :pending', { pending: ApplicationStatus.PENDING })
+      .andWhere('s.status = :open', { open: ShiftStatus.OPEN })
+      .andWhere('s.date >= :today', { today: lisbonDate() })
+      .getMany();
+  }
+
+  private async markSeen(shiftIds: string[]): Promise<void> {
+    if (shiftIds.length === 0) return;
+    await this.applicationRepo.createQueryBuilder()
+      .update(ShiftApplication)
+      .set({ employerSeenAt: () => 'NOW()' })
+      .where('"shiftId" IN (:...shiftIds)', { shiftIds })
+      .andWhere('"employerSeenAt" IS NULL')
+      .execute();
+  }
+
+  /**
+   * One email when a job gets its first candidate — the company is often not
+   * on the dashboard, where the badge and toast would tell it. Later
+   * candidates do not email (the Track 5 "waiting more than 6h" reminder is the
+   * follow-up). First name, rating and shift count only: no contact details.
+   */
+  private async emailFirstCandidate(shift: Shift, worker: Worker): Promise<void> {
+    const employer = await this.employerRepo.findOne({ where: { id: shift.employer.id }, relations: ['user'] });
+    const to = employer?.user?.email;
+    if (!to || !notificationPrefsOf(employer).newCandidates) return;
+
+    const webUrl = process.env.WEB_ADMIN_URL ?? 'http://localhost:3000';
+    const link = `${webUrl}/dashboard/candidates`;
+    const firstName = (worker.fullName ?? '').trim().split(/\s+/)[0] || '—';
+    const rating = Number(worker.avgRating ?? 0) > 0 ? `★ ${Number(worker.avgRating).toFixed(1)}` : '';
+    const done = worker.completedShifts ?? 0;
+    const role = shift.title || shift.subcategory;
+    const [y, m, d] = shift.date.split('-');
+    const date = `${d}/${m}/${y}`;
+    const time = shift.startTime.slice(0, 5);
+    const button = (label: string) =>
+      `<p><a href="${link}" style="display:inline-block;background:#6a79ff;color:#fff;padding:10px 20px;border-radius:999px;text-decoration:none;font-weight:bold;">${label}</a></p>`;
+
+    await this.mail.sendBilingual(to, {
+      pt: {
+        subject: `Primeiro candidato: ${role}`,
+        html: `<p>O seu turno <strong>${role}</strong> (${date}, ${time}) tem o primeiro candidato:</p>
+          <p><strong>${firstName}</strong> ${rating} · ${done} turno(s) concluído(s)</p>
+          ${button('Ver candidatos')}
+          <p style="color:#6b7280;font-size:13px">Só enviamos este email para o primeiro candidato de cada turno. Pode desligá-lo em Definições → Notificações.</p>`,
+      },
+      en: {
+        subject: `First candidate: ${role}`,
+        html: `<p>Your shift <strong>${role}</strong> (${date}, ${time}) has its first candidate:</p>
+          <p><strong>${firstName}</strong> ${rating} · ${done} completed shift(s)</p>
+          ${button('See candidates')}
+          <p style="color:#6b7280;font-size:13px">We only send this for the first candidate of each shift. You can turn it off in Settings → Notifications.</p>`,
+      },
+    });
   }
 
   /**
@@ -884,6 +1027,12 @@ export class ShiftsService {
     }
     const warning = warnings[0];
 
+    // Counted before saving: any earlier row (even withdrawn) means the
+    // first-candidate email already went out for this job.
+    const isFirstCandidate = (await this.applicationRepo.count({
+      where: { shift: { id: In(days.map(d => d.id)) } },
+    })) === 0;
+
     const saved = (await this.applicationRepo.save(
       days.map(day => this.applicationRepo.create({
         shift:     { id: day.id } as any,
@@ -902,6 +1051,11 @@ export class ShiftsService {
         workerName:    worker.fullName ?? null,
         workerScore:   worker.profileQualityScore,
       });
+    }
+
+    if (isFirstCandidate) {
+      this.emailFirstCandidate(shift, worker).catch((err: Error) =>
+        this.logger.warn(`[Candidates] First-candidate email failed for shift ${shift.id}: ${err.message}`));
     }
 
     return warning ? { ...saved, warning } : saved;

@@ -24,7 +24,10 @@ const SOCKET_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/ap
 let socket: Socket | null = null;
 
 export function connectSocket(accessToken: string): Socket {
-  if (socket?.connected) return socket;
+  // Return the existing socket even while it is still connecting: several
+  // components call this on mount, and a second io() here used to open a
+  // duplicate connection that the first caller's listeners never saw.
+  if (socket) return socket;
 
   socket = io(SOCKET_URL, {
     auth: { token: accessToken },

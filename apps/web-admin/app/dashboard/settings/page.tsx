@@ -121,7 +121,7 @@ export default function SettingsPage() {
    * Preferences save on toggle — no separate save button for a switch.
    * Optimistic, and reverted from the server response if the call fails.
    */
-  const savePrefs = async (patch: { ratingReminders?: boolean; wageReminders?: boolean }) => {
+  const savePrefs = async (patch: { ratingReminders?: boolean; wageReminders?: boolean; newCandidates?: boolean }) => {
     const previous = profile;
     setProfile(p => (p ? { ...p, notificationPrefs: { ...prefs, ...patch } } : p));
     try {
@@ -135,6 +135,7 @@ export default function SettingsPage() {
   const prefs = {
     ratingReminders: profile?.notificationPrefs?.ratingReminders ?? true,
     wageReminders:   profile?.notificationPrefs?.wageReminders   ?? true,
+    newCandidates:   profile?.notificationPrefs?.newCandidates   ?? true,
   };
 
   return (
@@ -296,6 +297,12 @@ export default function SettingsPage() {
                 <p style={s.cardSub}>{t('admin.settings.notifSub')}</p>
               </div>
             </div>
+            <Toggle
+              on={prefs.newCandidates}
+              onChange={v => savePrefs({ newCandidates: v })}
+              title={t('admin.settings.notifCandidates')}
+              sub={t('admin.settings.notifCandidatesSub')}
+            />
             <Toggle
               on={prefs.ratingReminders}
               onChange={v => savePrefs({ ratingReminders: v })}
