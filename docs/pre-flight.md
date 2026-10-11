@@ -26,8 +26,8 @@ aren't.
    26 Sept application shows in History as Caducado (not Pendente); a new
    worker's onboarding has no income question; a push to an EN worker arrives
    in English. Railway API log: no `Eviction policy is allkeys-lru` line.
-2. **Build APK `versionCode` 12** — "✓ Recebi / Não recebi" buttons and the
-   language sync are in code (Track 2, "EAS preview build").
+2. **Test APK `versionCode` 12** (EAS `9af718d1`) — "✓ Recebi / Não recebi"
+   buttons and the language sync (Track 2, "EAS preview build").
 3. Pick from what is left and needs no external account: make
    `DashboardShell` collapse on phones, R2 uploads (needs a Cloudflare key),
    app version `1.0.0`, smaller defects (Track 3). Wanted
@@ -328,7 +328,7 @@ account, and `Worker.deletedAt` plus the new enum value reach production through
 | ~~`RECORD_AUDIO` permission~~ | 🟢 Fixed 2026-09-27 — removed, `recordAudioAndroid: false` on `expo-camera` |
 | ~~Location asks for "Always"~~ | 🟢 Fixed 2026-09-27 — when-in-use only, background disabled on both platforms |
 | ~~Permission strings mixed PT/EN~~ | 🟢 Fixed 2026-09-27 — camera and location strings now PT like the rest |
-| EAS preview build | 🟢 **Current: `versionCode` 11** (built 2026-10-11, EAS `6fd6854d`) — completed-shifts count + "Taxa de conclusão", notifications inbox + bell + offer countdown, offer pushes open My shifts, closed applications in History as Caducado/Cancelado, onboarding without the outside-income question. Tested on a device 2026-10-11 by Juanes (inbox, countdown, candidates flow). Earlier `app.json` permission changes and the date-of-birth field were in the 10-05 build. **Built 2026-10-11, in the next APK (`versionCode` 12, not yet built):** visible **"✓ Recebi" / "🚩 Não recebi" buttons** on the completed-shift card (was a tappable sentence opening a dialog, missed in the first E2E run) — "Recebi" acts at once, "Não recebi" asks first because it opens a case; the app now writes `preferredLanguage` at sign-in and on every launch when it differs from the language shown (`syncPreferredLanguage()` in `lib/api.ts`), not only on a manual switch. Bump `versionCode` in `app.json` for every build (`appVersionSource: local`) |
+| EAS preview build | 🟢 **Current: `versionCode` 11** (built 2026-10-11, EAS `6fd6854d`) — completed-shifts count + "Taxa de conclusão", notifications inbox + bell + offer countdown, offer pushes open My shifts, closed applications in History as Caducado/Cancelado, onboarding without the outside-income question. Tested on a device 2026-10-11 by Juanes (inbox, countdown, candidates flow). Earlier `app.json` permission changes and the date-of-birth field were in the 10-05 build. **Built 2026-10-11, in APK `versionCode` 12 (EAS `9af718d1`, queued 2026-10-11 — test on a device):** visible **"✓ Recebi" / "🚩 Não recebi" buttons** on the completed-shift card (was a tappable sentence opening a dialog, missed in the first E2E run) — "Recebi" acts at once, "Não recebi" asks first because it opens a case; the app now writes `preferredLanguage` at sign-in and on every launch when it differs from the language shown (`syncPreferredLanguage()` in `lib/api.ts`), not only on a manual switch. Bump `versionCode` in `app.json` for every build (`appVersionSource: local`) |
 | `version: "0.0.1"` | Ship as `1.0.0`; set `ios.buildNumber` or let EAS auto-increment |
 | ~~Off-brand colours~~ | 🟢 Already fixed — `app.json` uses `#6a79ff` / `#fafdff` (confirmed 2026-10-05) |
 
