@@ -1946,6 +1946,27 @@ export const pt = {
    * translated either — locked decision.
    */
   api: {
+    /**
+     * Worker notifications — push AND inbox (2026-10-11). Sent in the worker's
+     * preferredLanguage; the inbox re-renders each entry in the app's current
+     * language from the stored key + params. Params: shift, company, date,
+     * amount, before, after, hours, support.
+     */
+    push: {
+      completedRate:     { title: 'Turno concluído! 🎉', body: 'Como correu o turno "{{shift}}"? Avalia a empresa — demora 10 segundos.' },
+      rateReminder:      { title: 'Ainda não avaliaste a empresa ⭐', body: 'Como correu o turno "{{shift}}"? A tua avaliação demora 10 segundos.' },
+      preSelected:       { title: '🎉 Foste selecionado!', body: 'Tens {{hours}}h para aceitar o turno "{{shift}}". Abre a app para confirmar.' },
+      invited:           { title: '🎉 Tens um convite de turno!', body: 'A empresa {{company}} convidou-te para "{{shift}}". Tens {{hours}}h para aceitar.' },
+      offerWithdrawn:    { title: 'Oferta retirada', body: 'A empresa retirou a oferta para "{{shift}}". Não precisas de fazer nada.' },
+      acceptanceTimeout: { title: 'Tempo esgotado ⏰', body: 'Não respondeste a tempo — o turno voltou à lista de disponíveis.' },
+      shiftCancelled:    { title: 'Turno cancelado pela empresa 😔', body: 'O turno "{{shift}}" ({{date}}) foi cancelado. Pedimos desculpa.' },
+      offerCancelled:    { title: 'Turno cancelado pela empresa', body: 'A empresa cancelou "{{shift}}" antes de responderes. Não precisas de fazer nada.' },
+      wagePaid:          { title: 'Pagamento recebido ✅', body: 'A empresa pagou €{{amount}} pelo turno "{{shift}}" através do Pay Link.' },
+      wageAdjusted:      { title: 'A empresa ajustou as horas do turno', body: '"{{shift}}": €{{before}} → €{{after}} ({{hours}}h). Se não concordas, contesta na app ou escreve para {{support}}.' },
+      wageMarkedPaid:    { title: 'A empresa marcou o teu pagamento como feito 💶', body: '€{{amount}} pelo turno "{{shift}}". Confirma na app se já recebeste.' },
+      wageMarkedPaidProof: { title: 'A empresa marcou o teu pagamento como feito 💶', body: '€{{amount}} pelo turno "{{shift}}". Anexou comprovativo. Confirma na app se já recebeste.' },
+    },
+
     common: {
       shiftNotFound: 'Turno não encontrado.',
     },

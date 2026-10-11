@@ -99,8 +99,7 @@ export class ReNotificationProcessor extends WorkerHost {
     );
     if (!released) return;
     this.logger.log(`[AcceptanceTimeout] Shift ${shiftId} back to OPEN — no answer in 2h (${why})`);
-    this.notificationsService.notifyWorker(released.worker, 'Tempo esgotado ⏰',
-      'Não respondeste a tempo — o turno voltou à lista de disponíveis.',
+    this.notificationsService.notifyWorker(released.worker, { key: 'acceptanceTimeout' },
       { type: 'acceptance_timeout', shiftId }).catch(() => {});
   }
 

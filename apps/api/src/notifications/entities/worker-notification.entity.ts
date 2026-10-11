@@ -32,6 +32,19 @@ export class WorkerNotification {
   @Column({ type: 'varchar', length: 40 })
   type: string;
 
+  /**
+   * Catalogue key under `api.push.*` + its params. When set, the inbox renders
+   * the entry in the app's CURRENT language, so switching language translates
+   * history too. Null for texts built elsewhere (restriction notices, already
+   * in the worker's language) and for rows written before 2026-10-11.
+   */
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  messageKey: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  params: Record<string, string | number> | null;
+
+  /** Rendered as sent (worker's language at the time) — the fallback when there is no key. */
   @Column({ type: 'varchar', length: 160 })
   title: string;
 

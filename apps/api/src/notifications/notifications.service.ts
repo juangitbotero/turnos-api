@@ -6,6 +6,16 @@ import { Worker } from '../users/entities/worker.entity';
 import { FavouriteWorker } from '../ratings/entities/favourite-worker.entity';
 import { RedisService } from '../redis/redis.service';
 import { WorkerNotification } from './entities/worker-notification.entity';
+import { runWithLanguage, t } from '../i18n/request-language';
+import { APP_LANGUAGES, AppLanguage, DEFAULT_LANGUAGE } from '@turnos/shared';
+
+/**
+ * What to tell the worker: a catalogue key under `api.push.*` (preferred — sent
+ * in their language, re-rendered in the inbox) or text built elsewhere.
+ */
+export type WorkerMessage =
+  | { key: string; params?: Record<string, string | number> }
+  | { title: string; body: string };
 
 /** Inbox page size — the app shows the latest; older entries are rarely useful. */
 const INBOX_LIMIT = 50;
@@ -155,16 +165,26 @@ export class NotificationsService {
    * (`if (worker.expoPushToken) …`). Deleted accounts get nothing.
    */
   async notifyWorker(
-    worker: Pick<Worker, 'id' | 'expoPushToken'> & { deletedAt?: Date | null } | null | undefined,
-    title: string,
-    body: string,
+    worker: Pick<Worker, 'id' | 'expoPushToken'> & { deletedAt?: Date | null; preferredLanguage?: string | null } | null | undefined,
+    message: WorkerMessage,
     data: Record<string, unknown> & { type: string },
   ): Promise<void> {
     if (!worker?.id || worker.deletedAt) return;
+    // The push goes out in the language the worker chose in the app (saved to
+    // preferredLanguage on every switch) — not the language of whoever's
+    // request triggered it (a company on the dashboard, a background job).
+    const lang: AppLanguage = APP_LANGUAGES.includes(worker.preferredLanguage as AppLanguage)
+      ? worker.preferredLanguage as AppLanguage
+      : DEFAULT_LANGUAGE;
+    const { title, body } = 'key' in message
+      ? runWithLanguage(lang, () => this.render(message.key, message.params))
+      : message;
     try {
       await this.inboxRepo.save(this.inboxRepo.create({
         worker: { id: worker.id } as Worker,
         type: String(data.type).slice(0, 40),
+        messageKey: 'key' in message ? message.key : null,
+        params: 'key' in message ? message.params ?? null : null,
         title: title.slice(0, 160),
         body,
         data,
@@ -180,7 +200,7 @@ export class NotificationsService {
   async getInbox(userId: string): Promise<{ items: WorkerNotification[]; unread: number }> {
     const worker = await this.workerForUser(userId);
     if (!worker) return { items: [], unread: 0 };
-    const [items, unread] = await Promise.all([
+    const [rows, unread] = await Promise.all([
       this.inboxRepo.find({
         where: { worker: { id: worker.id } },
         order: { createdAt: 'DESC' },
@@ -188,7 +208,14 @@ export class NotificationsService {
       }),
       this.inboxRepo.count({ where: { worker: { id: worker.id }, readAt: IsNull() } }),
     ]);
+    // Keyed entries in the language of THIS request (the app sends its current
+    // language as Accept-Language), so the whole history follows a switch.
+    const items = rows.map(r => (r.messageKey ? { ...r, ...this.render(r.messageKey, r.params ?? undefined) } : r));
     return { items, unread };
+  }
+
+  private render(key: string, params?: Record<string, string | number>): { title: string; body: string } {
+    return { title: t(`api.push.${key}.title`, params), body: t(`api.push.${key}.body`, params) };
   }
 
   async getUnreadCount(userId: string): Promise<{ unread: number }> {

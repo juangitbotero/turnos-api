@@ -414,7 +414,8 @@ export class RatingsService {
     offender.restrictedAt      = new Date();
     await this.workerRepo.save(offender);
 
-    this.notifications.notifyWorker(offender, notice.pushTitle, notice.pushBody, { type: 'account_restricted' }).catch(() => {});
+    // Already written in the worker's language by restrictionNotice()
+    this.notifications.notifyWorker(offender, { title: notice.pushTitle, body: notice.pushBody }, { type: 'account_restricted' }).catch(() => {});
     const offenderUser = await this.userRepo.findOne({ where: { workerProfile: { id: offender.id } } });
     if (offenderUser?.email) {
       this.mail.sendMail({ to: offenderUser.email, subject: notice.emailSubject, html: statementToHtml(notice.statement) })

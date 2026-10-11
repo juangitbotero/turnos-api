@@ -387,8 +387,8 @@ export class AttendanceService {
 
     // Two-way review prompts: immediate push to the worker + +8h follow-ups
     // to whichever side hasn't rated yet (handled by RatingsService).
-    this.notifications.notifyWorker(worker, 'Turno concluído! 🎉',
-      `Como correu o turno "${shift.title}"? Avalia a empresa — demora 10 segundos.`,
+    this.notifications.notifyWorker(worker,
+      { key: 'completedRate', params: { shift: shift.title || shift.subcategory } },
       { type: 'rate_employer', shiftId: shift.id }).catch(() => {});
     this.ratings.scheduleReviewFollowUps(shift.id, shift.title, shift.employer.id, worker.id)
       .catch(err => {

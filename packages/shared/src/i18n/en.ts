@@ -1914,6 +1914,21 @@ export const en: Translated<TranslationCatalogue> = {
    * on its own, with no earlier sentence to have introduced the term.
    */
   api: {
+    push: {
+      completedRate:     { title: 'Shift complete! 🎉', body: 'How did "{{shift}}" go? Rate the company — it takes 10 seconds.' },
+      rateReminder:      { title: "You haven't rated the company yet ⭐", body: 'How did "{{shift}}" go? Rating takes 10 seconds.' },
+      preSelected:       { title: '🎉 You were selected!', body: 'You have {{hours}}h to accept "{{shift}}". Open the app to confirm.' },
+      invited:           { title: '🎉 You have a shift invitation!', body: '{{company}} invited you to "{{shift}}". You have {{hours}}h to accept.' },
+      offerWithdrawn:    { title: 'Offer withdrawn', body: 'The company withdrew the offer for "{{shift}}". You don\'t need to do anything.' },
+      acceptanceTimeout: { title: "Time's up ⏰", body: "You didn't answer in time — the shift is open to others again." },
+      shiftCancelled:    { title: 'Shift cancelled by the company 😔', body: '"{{shift}}" ({{date}}) was cancelled. We are sorry.' },
+      offerCancelled:    { title: 'Shift cancelled by the company', body: 'The company cancelled "{{shift}}" before you answered. You don\'t need to do anything.' },
+      wagePaid:          { title: 'Payment received ✅', body: 'The company paid €{{amount}} for "{{shift}}" via Pay Link.' },
+      wageAdjusted:      { title: 'The company adjusted the shift hours', body: '"{{shift}}": €{{before}} → €{{after}} ({{hours}}h). If you disagree, dispute it in the app or write to {{support}}.' },
+      wageMarkedPaid:    { title: 'The company marked your payment as made 💶', body: '€{{amount}} for "{{shift}}". Confirm in the app once you have received it.' },
+      wageMarkedPaidProof: { title: 'The company marked your payment as made 💶', body: '€{{amount}} for "{{shift}}". They attached proof. Confirm in the app once you have received it.' },
+    },
+
     common: {
       shiftNotFound: 'Shift not found.',
     },

@@ -61,8 +61,8 @@ export class RatingReminderProcessor extends WorkerHost {
     }
 
     if (workerToNudge) {
-      await this.notifications.notifyWorker(workerToNudge, 'Ainda não avaliaste a empresa ⭐',
-        `Como correu o turno "${shiftTitle}"? A tua avaliação demora 10 segundos.`,
+      await this.notifications.notifyWorker(workerToNudge,
+        { key: 'rateReminder', params: { shift: shiftTitle } },
         { type: 'rate_employer', shiftId }).catch(() => {});
     }
 

@@ -345,8 +345,9 @@ export class WagePaymentsService {
 
     // Push to the worker: money is on its way to their IBAN
     const worker = await this.workerRepo.findOne({ where: { id: wage.workerId } });
-    this.notifications.notifyWorker(worker, 'Pagamento recebido ✅',
-      `A empresa pagou €${wageAmount.toFixed(2)} pelo turno "${wage.shiftTitle}". O valor chega à tua conta em 1–2 dias úteis.`,
+    // No arrival-time promise: when Stripe pays out is not Turnos's to state.
+    this.notifications.notifyWorker(worker,
+      { key: 'wagePaid', params: { amount: wageAmount.toFixed(2), shift: wage.shiftTitle } },
       { type: 'wage_paid', shiftId: wage.shiftId }).catch(() => {});
   }
 
@@ -475,9 +476,13 @@ export class WagePaymentsService {
 
     // The worker must know — and can contest via "Não recebi" / support
     const worker = await this.workerRepo.findOne({ where: { id: wage.workerId } });
-    this.notifications.notifyWorker(worker, 'A empresa ajustou as horas do turno',
-      `"${wage.shiftTitle}": €${previousAmount.toFixed(2)} → €${newAmount.toFixed(2)} (${clamped}h). Se não concordas, contesta na app ou escreve para ${SUPPORT_EMAIL}.`,
-      { type: 'wage_adjusted', shiftId: wage.shiftId }).catch(() => {});
+    this.notifications.notifyWorker(worker, {
+      key: 'wageAdjusted',
+      params: {
+        shift: wage.shiftTitle, before: previousAmount.toFixed(2), after: newAmount.toFixed(2),
+        hours: clamped, support: SUPPORT_EMAIL,
+      },
+    }, { type: 'wage_adjusted', shiftId: wage.shiftId }).catch(() => {});
 
     this.logger.log(`[Wage] Hours adjusted on ${wage.id}: €${previousAmount} → €${newAmount} (${clamped}h)`);
     return wage;
@@ -570,10 +575,10 @@ export class WagePaymentsService {
 
     // Ask the worker to confirm
     const worker = await this.workerRepo.findOne({ where: { id: wage.workerId } });
-    this.notifications.notifyWorker(worker, 'A empresa marcou o teu pagamento como feito 💶',
-      `€${Number(wage.amount).toFixed(2)} pelo turno "${wage.shiftTitle}".` +
-      `${wage.paymentProofUrl ? ' Anexou comprovativo.' : ''} Confirma na app se já recebeste.`,
-      { type: 'wage_marked_paid', shiftId: wage.shiftId }).catch(() => {});
+    this.notifications.notifyWorker(worker, {
+      key: wage.paymentProofUrl ? 'wageMarkedPaidProof' : 'wageMarkedPaid',
+      params: { amount: Number(wage.amount).toFixed(2), shift: wage.shiftTitle },
+    }, { type: 'wage_marked_paid', shiftId: wage.shiftId }).catch(() => {});
 
     this.logger.log(`[Wage] ${wage.id} marked paid by employer (${wage.paymentProofUrl ? 'with' : 'without'} proof)`);
     return wage;
