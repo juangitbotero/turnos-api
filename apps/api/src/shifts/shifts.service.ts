@@ -8,7 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { Repository, In } from 'typeorm';
+import { Repository, In, IsNull } from 'typeorm';
 import { randomUUID } from 'crypto';
 import {
   PAYMENT_METHOD_LABELS, COMPANY_CANCEL_REASONS, WORKER_CANCEL_REASONS,
@@ -246,7 +246,8 @@ export class ShiftsService {
   async findByEmployer(userId: string): Promise<Array<Shift & { seriesDates?: string[] }>> {
     const employer = await this.resolveEmployer(userId);
     const rows = await this.shiftRepo.find({
-      where: { employer: { id: employer.id } },
+      // Archived = expired shifts the company removed from its dashboard
+      where: { employer: { id: employer.id }, archivedAt: IsNull() },
       order: { createdAt: 'DESC' },
     });
 
@@ -1359,24 +1360,54 @@ export class ShiftsService {
 
   // ── Repost an expired shift (duplicate with same data, date reset) ─────────
 
+  /** "Eliminar" on one expired shift — see deleteExpiredShifts. */
   async deleteExpiredShift(employerUserId: string, shiftId: string): Promise<{ message: string }> {
-    const employer = await this.resolveEmployer(employerUserId);
-    const shift = await this.shiftRepo.findOne({ where: { id: shiftId }, relations: ['employer'] });
-    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
-    if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
-    // The dashboard lists a shift as expired the moment its end passes; the
-    // nightly job only sets EXPIRED at 02:00 UTC. Accept both, or "Eliminar"
-    // fails for up to a day on a shift the company is looking at as expired.
-    const endedUnfilled = [ShiftStatus.OPEN, ShiftStatus.PENDING_ACCEPTANCE].includes(shift.status)
-      && lisbonDateTime(shift.date, shift.endTime) < new Date();
-    if (shift.status !== ShiftStatus.EXPIRED && !endedUnfilled) {
-      throw new BadRequestException('Only EXPIRED shifts can be deleted this way');
-    }
-    shift.status = ShiftStatus.CANCELLED;
-    await this.shiftRepo.save(shift);
-    // It ended unfilled — to applicants it expired, whatever the company does with it now
-    await closeApplications(this.applicationRepo, [shift.id], ApplicationStatus.EXPIRED);
+    const { deleted } = await this.deleteExpiredShifts(employerUserId, [shiftId]);
+    if (deleted === 0) throw new BadRequestException('Only EXPIRED shifts can be deleted this way');
     return { message: t('api.shifts.deleted') };
+  }
+
+  /**
+   * Remove expired shifts from the company's dashboard — the given ones, or
+   * all of them when `ids` is empty ("Eliminar todos"). Without this the
+   * "Turnos caducados" count only ever grew.
+   *
+   * A shift counts as expired once its end has passed unfilled, even before
+   * the expiry job has marked it (the dashboard shows it as expired already).
+   * Selecting one day of a multi-day job removes the whole job, as the
+   * dashboard shows the job as one row. Rows are archived (status EXPIRED +
+   * archivedAt), never deleted: the audit trail keeps them.
+   */
+  async deleteExpiredShifts(employerUserId: string, ids?: string[]): Promise<{ deleted: number }> {
+    const employer = await this.resolveEmployer(employerUserId);
+    const now = new Date();
+    const candidates = await this.shiftRepo.find({
+      where: {
+        employer: { id: employer.id },
+        archivedAt: IsNull(),
+        status: In([ShiftStatus.EXPIRED, ShiftStatus.OPEN, ShiftStatus.PENDING_ACCEPTANCE]),
+      },
+    });
+    const ended = candidates.filter(sh =>
+      sh.status === ShiftStatus.EXPIRED || lisbonDateTime(sh.date, sh.endTime) < now);
+
+    let target = ended;
+    if (ids?.length) {
+      const picked = new Set(ids);
+      const series = new Set(ended.filter(sh => picked.has(sh.id) && sh.seriesId).map(sh => sh.seriesId!));
+      target = ended.filter(sh => picked.has(sh.id) || (sh.seriesId && series.has(sh.seriesId)));
+    }
+    if (target.length === 0) return { deleted: 0 };
+
+    const targetIds = target.map(sh => sh.id);
+    await this.shiftRepo.update(
+      { id: In(targetIds) },
+      { status: ShiftStatus.EXPIRED, archivedAt: now, assignedWorker: null as any, offeredAt: null },
+    );
+    // Ended unfilled — to applicants it expired, whatever the company does with it now
+    await closeApplications(this.applicationRepo, targetIds, ApplicationStatus.EXPIRED);
+    // Count jobs, not days, so the number matches the rows the company selected
+    return { deleted: new Set(target.map(sh => sh.seriesId ?? sh.id)).size };
   }
 
   // ── Shared ────────────────────────────────────────────────────────────────

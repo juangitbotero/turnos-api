@@ -135,7 +135,6 @@ export class AuthController {
     @Body() body: {
       fullName: string; nif: string; iban: string;
       skills: string[]; availableDays: string[];
-      declaredExternalMonthlyIncome?: number;
       ibanShareConsent?: boolean;
       dateOfBirth?: string;
     },

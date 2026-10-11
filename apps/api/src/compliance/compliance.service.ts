@@ -15,8 +15,6 @@ import { lisbonDateTime, nextDay } from '../common/lisbon-time';
 // Statutory MCD limits
 const MCD_MAX_DAYS_PER_YEAR = 70;
 const REST_PERIOD_HOURS     = 11;
-const DEPENDENCY_FLAG_PCT   = 40;
-const DEPENDENCY_BLOCK_PCT  = 50;
 
 @Injectable()
 export class ComplianceService {
@@ -59,8 +57,10 @@ export class ComplianceService {
   ): Promise<{ warning?: string }> {
     await this.assertRestPeriod(worker, shift);
     await this.checkMcdAnnualLimit(worker, shift, daysBeingAdded);
-    const warning = await this.checkEconomicDependency(worker, shift.employer);
-    return warning ? { warning } : {};
+    // No economic-dependency check (removed 2026-10-11, product decision):
+    // Turnos does the matching and does not ask workers about income outside
+    // the platform — that is between the worker and the companies.
+    return {};
   }
 
   /**
@@ -233,45 +233,6 @@ export class ComplianceService {
     });
   }
 
-  async getWorkerDependencies(userId: string) {
-    const worker = await this.workerRepo.findOne({ where: { user: { id: userId } } });
-    if (!worker) throw new BadRequestException('Worker not found');
-
-    const { earningsByEmployer, platformTotal } = await this.calcEarnings(worker);
-    const monthsPassed    = new Date().getMonth() + 1;
-    const externalProrated = Number(worker.declaredExternalMonthlyIncome ?? 0) * monthsPassed;
-    const totalEarnings   = platformTotal + externalProrated;
-
-    const employers = await this.employerRepo.findByIds(Object.keys(earningsByEmployer));
-    const breakdown = employers.map(emp => {
-      const earned = earningsByEmployer[emp.id] ?? 0;
-      const pct    = totalEarnings > 0 ? (earned / totalEarnings) * 100 : 0;
-      return {
-        employerId:   emp.id,
-        employerName: emp.companyName,
-        earnedOnPlatform: Math.round(earned * 100) / 100,
-        dependencyPct:    Math.round(pct * 10) / 10,
-        flag:             pct >= DEPENDENCY_BLOCK_PCT ? 'BLOCKED' : pct >= DEPENDENCY_FLAG_PCT ? 'WARNING' : 'OK',
-      };
-    });
-
-    return {
-      declaredExternalMonthlyIncome: Number(worker.declaredExternalMonthlyIncome ?? 0),
-      platformEarningsYTD:  Math.round(platformTotal * 100) / 100,
-      externalEarningsYTD:  Math.round(externalProrated * 100) / 100,
-      totalEarningsYTD:     Math.round(totalEarnings * 100) / 100,
-      breakdown,
-    };
-  }
-
-  /** Update worker's self-declared external monthly income */
-  async updateWorkerExternalIncome(userId: string, amount: number): Promise<void> {
-    const worker = await this.workerRepo.findOne({ where: { user: { id: userId } } });
-    if (!worker) throw new BadRequestException('Worker not found');
-    worker.declaredExternalMonthlyIncome = amount;
-    await this.workerRepo.save(worker);
-  }
-
   // ── Private compliance checks ─────────────────────────────────────────────
 
   /**
@@ -390,84 +351,6 @@ export class ComplianceService {
         ),
       );
     }
-  }
-
-  private async checkEconomicDependency(
-    worker: Worker,
-    employer: Employer,
-  ): Promise<string | null> {
-    const { earningsByEmployer, platformTotal } = await this.calcEarnings(worker);
-
-    const monthsPassed     = new Date().getMonth() + 1;
-    const externalProrated = Number(worker.declaredExternalMonthlyIncome ?? 0) * monthsPassed;
-    const totalEarnings    = platformTotal + externalProrated;
-
-    if (totalEarnings === 0) return null;
-
-    const employerEarnings = earningsByEmployer[employer.id] ?? 0;
-    const dependencyPct    = (employerEarnings / totalEarnings) * 100;
-
-    if (dependencyPct >= DEPENDENCY_BLOCK_PCT) {
-      await this.log({
-        event:      ComplianceEvent.DEPENDENCY_BLOCK_50,
-        workerId:   worker.id,
-        employerId: employer.id,
-        details:    { dependencyPct: Math.round(dependencyPct * 10) / 10, totalEarnings, employerEarnings },
-      });
-      throw new BadRequestException(
-        t('api.compliance.dependencyBlock', {
-          percent: dependencyPct.toFixed(0),
-          limit:   DEPENDENCY_BLOCK_PCT,
-        }),
-      );
-    }
-
-    if (dependencyPct >= DEPENDENCY_FLAG_PCT) {
-      await this.log({
-        event:      ComplianceEvent.DEPENDENCY_FLAG_40,
-        workerId:   worker.id,
-        employerId: employer.id,
-        details:    { dependencyPct: Math.round(dependencyPct * 10) / 10 },
-      });
-      return t('api.compliance.dependencyWarning', {
-        percent: dependencyPct.toFixed(0),
-        limit:   DEPENDENCY_BLOCK_PCT,
-      });
-    }
-
-    return null;
-  }
-
-  // ── Private helpers ───────────────────────────────────────────────────────
-
-  /** Calculate gross earnings per employer for current calendar year */
-  private async calcEarnings(
-    worker: Worker,
-  ): Promise<{ earningsByEmployer: Record<string, number>; platformTotal: number }> {
-    const yearStart = `${new Date().getFullYear()}-01-01`;
-
-    const shifts = await this.shiftRepo.find({
-      where: {
-        assignedWorker: { id: worker.id },
-        status:         In([ShiftStatus.FILLED, ShiftStatus.ACTIVE, ShiftStatus.COMPLETED]),
-        date:           MoreThanOrEqual(yearStart),
-      },
-      relations: ['employer'],
-    });
-
-    const earningsByEmployer: Record<string, number> = {};
-    let platformTotal = 0;
-
-    for (const s of shifts) {
-      const hours  = this.calcHours(s.startTime, s.endTime);
-      const gross  = Number(s.grossHourlyRate) * hours;
-      const empId  = s.employer?.id;
-      if (!empId) continue;
-      earningsByEmployer[empId] = (earningsByEmployer[empId] ?? 0) + gross;
-      platformTotal += gross;
-    }
-
-    return { earningsByEmployer, platformTotal };
   }
 
   /** Duration in decimal hours between two HH:mm[:ss] strings */

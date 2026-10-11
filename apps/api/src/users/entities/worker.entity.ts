@@ -185,9 +185,9 @@ export class Worker {
   @Column({ type: 'int', default: 0 })
   completedShifts: number;
 
-  // ── Compliance — Economic Dependency ──────────────────────────────────────
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  declaredExternalMonthlyIncome: number; // Self-declared monthly income outside Turnos (€)
+  // `declaredExternalMonthlyIncome` was removed 2026-10-11 (no economic-
+  // dependency check, no income questions); synchronize drops the column and
+  // the values stored in it.
 
   @CreateDateColumn()
   createdAt: Date;

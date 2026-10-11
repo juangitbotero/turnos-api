@@ -104,7 +104,6 @@ export const authApi = {
   updateWorkerProfile: (dto: {
     fullName: string; nif: string; iban: string;
     skills: string[]; availableDays: string[];
-    declaredExternalMonthlyIncome?: number;
     /** Consent to disclose name + IBAN to companies the worker did shifts for */
     ibanShareConsent?: boolean;
     /** ISO 'YYYY-MM-DD' — Turnos is 18+, the server rejects anyone younger */

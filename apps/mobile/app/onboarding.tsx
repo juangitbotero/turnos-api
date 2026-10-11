@@ -37,7 +37,6 @@ export default function OnboardingScreen() {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   // CV is picked here but uploaded on submit, alongside the photo
   const [cvAsset, setCvAsset] = useState<{ uri: string; name: string; mimeType: string } | null>(null);
-  const [externalMonthlyIncome, setExternalMonthlyIncome] = useState('');
 
   // Validation errors
   const [nifError,  setNifError]  = useState('');
@@ -178,9 +177,6 @@ export default function OnboardingScreen() {
         ibanShareConsent: iban.trim() ? ibanShareConsent : false,
         skills: selectedSkills,
         availableDays: selectedDays,
-        declaredExternalMonthlyIncome: externalMonthlyIncome
-          ? parseFloat(externalMonthlyIncome)
-          : 0,
       });
 
       router.replace('/');
@@ -343,21 +339,6 @@ export default function OnboardingScreen() {
                   )}
                 </>
               )}
-            </View>
-
-            <View style={s.fieldGroup}>
-              <Text style={s.fieldLabel}>{t('mobile.onboarding.incomeLabel')}</Text>
-              <TextInput
-                style={s.input}
-                placeholder={t('mobile.onboarding.incomePlaceholder')}
-                placeholderTextColor={colors.textSecondary}
-                keyboardType="decimal-pad"
-                value={externalMonthlyIncome}
-                onChangeText={v => setExternalMonthlyIncome(v.replace(/[^0-9.]/g, ''))}
-              />
-              <View style={s.infoBox}>
-                <Text style={s.infoBoxText}>{t('mobile.onboarding.incomeInfo')}</Text>
-              </View>
             </View>
           </View>
         )}

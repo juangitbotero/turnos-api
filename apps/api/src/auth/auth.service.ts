@@ -244,7 +244,6 @@ export class AuthService {
   async updateWorkerProfile(userId: string, dto: {
     fullName: string; nif: string; iban: string;
     skills: string[]; availableDays: string[];
-    declaredExternalMonthlyIncome?: number;
     ibanShareConsent?: boolean;
     dateOfBirth?: string;
   }): Promise<{ profileQualityScore: number; status: string; missingItems: string[] }> {

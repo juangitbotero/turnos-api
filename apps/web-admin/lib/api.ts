@@ -559,6 +559,10 @@ export const adminApi = {
       method: 'POST', body: JSON.stringify({ category, note }),
     }),
 
+  /** Archive expired shifts — the given ones, or all when `ids` is omitted. */
+  deleteExpiredShifts: (ids?: string[]) =>
+    request<{ deleted: number }>('/shifts/employer/expired/delete', { method: 'POST', body: JSON.stringify({ ids }) }),
+
   /** Take back an offer the worker has not answered (PENDING_ACCEPTANCE → OPEN). */
   withdrawOffer: (id: string) =>
     request<Shift>(`/shifts/${id}/withdraw-offer`, { method: 'POST' }),

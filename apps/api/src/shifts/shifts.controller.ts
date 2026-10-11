@@ -165,6 +165,14 @@ export class ShiftsController {
   }
 
   /** Delete an expired shift (marks as CANCELLED) */
+  /** Body `{ ids?: string[] }` — no ids removes every expired shift. */
+  @Post('employer/expired/delete')
+  @Roles('EMPLOYER')
+  deleteExpiredBulk(@Request() req: any, @Body() body: { ids?: string[] }) {
+    const ids = Array.isArray(body?.ids) ? body.ids.filter((x): x is string => typeof x === 'string') : undefined;
+    return this.shiftsService.deleteExpiredShifts(req.user.userId, ids);
+  }
+
   @Delete(':id/expired')
   @Roles('EMPLOYER')
   deleteExpired(@Request() req: any, @Param('id') id: string) {

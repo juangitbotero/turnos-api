@@ -644,10 +644,7 @@ export const en: Translated<TranslationCatalogue> = {
       ibanHint:   'The company pays you the full gross amount directly. If they pay by bank transfer, they need your IBAN.',
       ibanConsent:'I allow my name and IBAN to be shared with the companies I have worked shifts for, so they can pay me by bank transfer. I can withdraw this consent in my profile at any time.',
       ibanConsentWarn: 'Without this consent, companies can only pay you via Turnos Pay Link or MB WAY.',
-      incomeLabel:       'Other monthly income (optional)',
-      incomePlaceholder: 'E.g. 800 (€ per month)',
       // Agenda do Trabalho Digno (Lei 13/2023) is Portuguese labour law — named verbatim
-      incomeInfo: '💡 Include income from employment, freelance work or any other source outside Turnos. Leave it blank if you have no other income.\n\nWe use this to calculate your economic dependency on each employer, as required by the Agenda do Trabalho Digno (Lei 13/2023). It is never shared with employers.',
 
       // Step 2 — skills, availability, CV
       skillsTitle:   'Skills',
@@ -1469,6 +1466,10 @@ export const en: Translated<TranslationCatalogue> = {
       repost:         'Re-post',
       deleteExpired:  'Delete',
       deleteConfirm:  'Delete this expired shift?',
+      deleteManyConfirm: 'Delete {{count}} expired shift(s)? They will no longer appear on the dashboard.',
+      deleteSelected: 'Delete selected ({{count}})',
+      deleteAll:      'Delete all ({{count}})',
+      selectAll:      'Select all',
       deleteError:    "Couldn't delete it.",
 
       colShift:  'Shift',
@@ -2017,8 +2018,6 @@ export const en: Translated<TranslationCatalogue> = {
       restPeriodEmployer:'This worker would not have the mandatory {{hours}}h rest between shifts with these hours — they already have another confirmed shift too close.',
       mcdLimitSeries:    'MCD (Muito Curta Duração) limit: you already have {{used}}/{{limit}} days with this employer in {{year}} and this job is {{days}} days — that goes over the legal cap. Lei 93/2019 allows no more than {{limit}} days a year with the same employer.',
       mcdLimitReached:   'MCD (Muito Curta Duração) limit reached: {{used}}/{{limit}} days with this employer in {{year}}. Portuguese law (Lei 93/2019) allows no more than {{limit}} days a year with the same employer.',
-      dependencyBlock:   'Economic dependency limit reached: {{percent}}% of your declared annual income comes from this employer. The Agenda do Trabalho Digno (Lei 13/2023) caps dependency on a single employer at {{limit}}%.',
-      dependencyWarning: 'Heads-up: {{percent}}% of your declared annual income comes from this employer. The legal limit is {{limit}}%. Consider spreading your work more widely.',
     },
 
     payments: {

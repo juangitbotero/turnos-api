@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Patch, Body, Query, Request, UseGuards,
+  Controller, Get, Query, Request, UseGuards,
 } from '@nestjs/common';
 import { ComplianceService } from './compliance.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -51,33 +51,5 @@ export class ComplianceController {
   @Roles('EMPLOYER')
   getAuditLog(@Request() req: any) {
     return this.complianceService.getAuditLog(req.user.userId);
-  }
-
-  // ── Worker endpoints ──────────────────────────────────────────────────────
-
-  /**
-   * GET /compliance/worker/dependency
-   * Worker's economic dependency breakdown per employer (current year).
-   * Includes platform earnings + declared external income in calculation.
-   */
-  @Get('worker/dependency')
-  @Roles('WORKER')
-  getWorkerDependency(@Request() req: any) {
-    return this.complianceService.getWorkerDependencies(req.user.userId);
-  }
-
-  /**
-   * PATCH /compliance/worker/external-income
-   * Update worker's self-declared monthly income from outside Turnos.
-   * Used in economic dependency calculation (Agenda do Trabalho Digno).
-   * Body: { amount: number } — monthly amount in EUR
-   */
-  @Patch('worker/external-income')
-  @Roles('WORKER')
-  updateExternalIncome(
-    @Request() req: any,
-    @Body('amount') amount: number,
-  ) {
-    return this.complianceService.updateWorkerExternalIncome(req.user.userId, amount);
   }
 }

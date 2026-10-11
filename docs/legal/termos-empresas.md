@@ -99,7 +99,7 @@ Empresa.** O trabalhador tem 2 horas para aceitar.
 
 6.2. A Empresa vê do trabalhador: nome, foto, biografia, CV, competências,
 idiomas, experiência, disponibilidade, avaliações, selos e número de faltas.
-**Não vê** o NIF, a data de nascimento nem os rendimentos declarados; o IBAN só
+**Não vê** o NIF nem a data de nascimento; o IBAN só
 com autorização do trabalhador (secção 8.4).
 
 6.3. A plataforma não deixa aceitar uma candidatura que ultrapasse 70 dias por

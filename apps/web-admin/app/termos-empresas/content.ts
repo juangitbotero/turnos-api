@@ -79,7 +79,7 @@ const pt: LegalDoc = {
       heading: '6. Escolher trabalhadores',
       bullets: [
         'A Empresa vê as candidaturas e escolhe; pode também convidar diretamente trabalhadores que encontre na pesquisa. A decisão de contratar é sempre da Empresa. O trabalhador tem 2 horas para aceitar.',
-        'A Empresa vê do trabalhador: nome, foto, biografia, CV, competências, idiomas, experiência, disponibilidade, avaliações, selos e número de faltas. Não vê o NIF, a data de nascimento nem os rendimentos declarados; o IBAN só com autorização do trabalhador.',
+        'A Empresa vê do trabalhador: nome, foto, biografia, CV, competências, idiomas, experiência, disponibilidade, avaliações, selos e número de faltas. Não vê o NIF nem a data de nascimento; o IBAN só com autorização do trabalhador.',
         'A plataforma não deixa aceitar candidaturas que ultrapassem 70 dias por ano com a mesma Empresa, que não respeitem 11 horas de descanso, ou de quem ainda não tenha 18 anos na data do turno.',
       ],
     },

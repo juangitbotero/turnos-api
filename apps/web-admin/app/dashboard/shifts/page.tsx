@@ -124,6 +124,8 @@ export default function ShiftsPage() {
   const [confirming, setConfirming]     = useState<string | null>(null);
   const [deletingExpired, setDeleting]  = useState<string | null>(null);
   const [showExpired, setShowExpired]   = useState(false);
+  const [selectedExpired, setSelectedExpired] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [viewingApps, setViewingApps] = useState<Shift | null>(null);
   const [newAppCounts, setNewAppCounts] = useState<Record<string, number>>({});
   const [cancelTarget, setCancelTarget] = useState<Shift | null>(null);
@@ -214,6 +216,26 @@ export default function ShiftsPage() {
       alert(err instanceof ApiError ? err.message : t('admin.shifts.withdrawOfferError'));
     } finally {
       setCancelling(null);
+    }
+  };
+
+  /**
+   * "Eliminar selecionados" / "Eliminar todos" — archives expired shifts so they
+   * leave the dashboard (and the Início count). No ids = every expired shift.
+   */
+  const deleteExpiredBulk = async (ids?: string[]) => {
+    const count = ids?.length ?? expired.length;
+    if (!confirm(t('admin.shifts.deleteManyConfirm', { count }))) return;
+    setBulkDeleting(true);
+    try {
+      await adminApi.deleteExpiredShifts(ids);
+      const gone = new Set(ids ?? expired.map(sh => sh.id));
+      setShifts(prev => prev.filter(sh => !gone.has(sh.id)));
+      setSelectedExpired(new Set());
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : t('admin.shifts.deleteError'));
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -472,6 +494,37 @@ export default function ShiftsPage() {
           </button>
 
           {showExpired && (
+            <div style={s.bulkBar}>
+              <label style={s.bulkSelectAll}>
+                <input
+                  type="checkbox"
+                  checked={selectedExpired.size > 0 && selectedExpired.size === expired.length}
+                  onChange={e => setSelectedExpired(e.target.checked ? new Set(expired.map(sh => sh.id)) : new Set())}
+                />
+                {t('admin.shifts.selectAll')}
+              </label>
+              <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+                {selectedExpired.size > 0 && (
+                  <button
+                    style={{ ...s.deleteBtn, opacity: bulkDeleting ? 0.5 : 1 }}
+                    disabled={bulkDeleting}
+                    onClick={() => void deleteExpiredBulk([...selectedExpired])}
+                  >
+                    {t('admin.shifts.deleteSelected', { count: selectedExpired.size })}
+                  </button>
+                )}
+                <button
+                  style={{ ...s.deleteAllBtn, opacity: bulkDeleting ? 0.5 : 1 }}
+                  disabled={bulkDeleting}
+                  onClick={() => void deleteExpiredBulk()}
+                >
+                  {bulkDeleting ? '...' : t('admin.shifts.deleteAll', { count: expired.length })}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {showExpired && (
             <div style={s.table}>
               <div style={s.tableHead}>
                 <span>{t('admin.shifts.colShift')}</span><span>{t('admin.shifts.colDate')}</span><span>{t('admin.shifts.colTime')}</span>
@@ -479,10 +532,22 @@ export default function ShiftsPage() {
               </div>
               {expired.map(shift => (
                 <div key={shift.id} style={s.tableRow}>
-                  <div>
-                    <p style={s.rowTitle}>{shift.title || tSkill(shift.subcategory)}</p>
-                    <p style={s.rowSub}>{shift.address.split(',')[0]}</p>
-                  </div>
+                  <label style={s.expiredRowMain}>
+                    <input
+                      type="checkbox"
+                      style={{ marginTop: 3 }}
+                      checked={selectedExpired.has(shift.id)}
+                      onChange={e => setSelectedExpired(prev => {
+                        const next = new Set(prev);
+                        if (e.target.checked) next.add(shift.id); else next.delete(shift.id);
+                        return next;
+                      })}
+                    />
+                    <span>
+                      <p style={s.rowTitle}>{shift.title || tSkill(shift.subcategory)}</p>
+                      <p style={s.rowSub}>{shift.address.split(',')[0]}</p>
+                    </span>
+                  </label>
                   <span style={s.rowCell}>{fMediumDate(shift.date)}</span>
                   <span style={s.rowCell}>{shift.startTime.slice(0,5)}–{shift.endTime.slice(0,5)}</span>
                   <span style={s.rowCell}>€{Number(shift.grossHourlyRate).toFixed(2)}/hr</span>
@@ -1190,6 +1255,19 @@ const s: Record<string, React.CSSProperties> = {
   },
   expiredToggleIcon: { display: 'inline-flex' },
   expiredToggleTitle: { flex: 1, textAlign: 'left' as const },
+  bulkBar: {
+    display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+    padding: '10px 4px', marginTop: 8,
+  },
+  bulkSelectAll: {
+    display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+    fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)',
+  },
+  deleteAllBtn: {
+    padding: '6px 14px', background: '#dc2626', border: '1px solid #dc2626', borderRadius: 8,
+    color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+  },
+  expiredRowMain: { display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' },
   repostBtn: {
     padding: '6px 12px', background: 'var(--color-primary-light)',
     border: '1px solid rgba(106,121,255,0.3)', borderRadius: 8,

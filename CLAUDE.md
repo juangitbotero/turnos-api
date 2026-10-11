@@ -334,7 +334,7 @@ Phases 1–3 of the ADR 007 pivot are in the codebase (see the ADR for the full 
 - MCD Contract auto-generated on shift approval (`onShiftApproved()`)
 - ~~SS Direta: BullMQ `ss-direta` queue → email to accountant 24h before shift~~ — **removed 2026-10-05**; hire data is exported from the dashboard instead
 - `calculateTSU()` from shared — employer 23.75% + Turnos 10% fee + worker 11% SS breakdown
-- Economic dependency: 40% flag / 50% hard block per worker/employer pair
+- ~~Economic dependency: 40% flag / 50% hard block per worker/employer pair~~ — removed 2026-10-11 (see Portugal Compliance)
 - MCD 70-day annual limit hard block at application stage
 - Rest period 11h enforcement at application stage
 - ~~Recibo Verde reminders + `/recibo-verde` screen~~ — **removed 2026-09-27**: they told employees on MCD contracts to issue self-employment invoices
@@ -417,7 +417,7 @@ These are non-negotiable and must be correct before launch:
 - **TSU rates:** Employer 23.75% / Worker 11% of gross — **informative only** since the 2026-07 pivot: Turnos calculates and displays these values but never withholds or routes them; the company settles wages and SS directly. Always use `calculateTSU()` from shared. Never use language like "processamos/garantimos o pagamento".
 - **Turnos fee:** fixed €3 per completed shift, charged to the **company** (Stripe InvoiceItem → monthly invoice). Workers pay nothing. See `TURNOS_FEE_FIXED_EUR` in shared.
 - **Rest periods:** Minimum 11h between shifts for same worker (EU Working Time Directive).
-- **False Recibos Verdes:** Monitor economic dependency per worker. Flag at 40%, block at 50%.
+- ~~**False Recibos Verdes:** economic dependency 40% flag / 50% block~~ — **removed 2026-10-11 by product decision.** Turnos does the matching; it does not ask workers about income outside the platform and does not limit how often a worker works for the same company. The `declaredExternalMonthlyIncome` column, the onboarding question and the `/compliance/worker/dependency` + `/external-income` endpoints are gone. `ComplianceEvent.DEPENDENCY_*` stay as legacy enum values (append-only log).
 - **Gross Hourly Value** must be displayed on every shift card (Agenda do Trabalho Digno requirement).
 
 ---

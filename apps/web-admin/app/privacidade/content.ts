@@ -75,7 +75,6 @@ const pt: PolicyDoc = {
         rows: [
           ['Identificação', 'Nome, número de telemóvel, fotografia de perfil, data de nascimento', 'Criar a conta, autenticar por SMS, identificar-te perante a empresa do turno e confirmar que tens pelo menos 18 anos'],
           ['Fiscais e bancários', 'NIF, IBAN', 'O NIF é necessário para a empresa cumprir as suas obrigações de entidade empregadora; o IBAN serve para a empresa te pagar (ver secção 5)'],
-          ['Rendimentos declarados', 'Rendimento mensal fora da Turnos, se o indicares (opcional)', 'Calcular o peso de cada empresa nos teus rendimentos, para prevenir situações de dependência económica'],
           ['Perfil profissional', 'Competências, idiomas, experiência, biografia, CV, disponibilidade', 'Mostrar-te turnos relevantes e permitir que a empresa avalie a tua candidatura'],
           ['Atividade', 'Candidaturas, turnos realizados, check-ins, avaliações, cancelamentos, faltas, suspensões', 'Fazer funcionar o mercado, calcular a tua reputação e aplicar as regras de fiabilidade (secção 6)'],
           ['Justificações', 'Motivo de um cancelamento tardio (doença, lesão, emergência, outro), a descrição que escreveres e, se o enviares ao suporte, um comprovativo', 'Avaliar se o cancelamento é justificado e, se for, retirá-lo do teu registo. Indicar doença ou lesão é um dado de saúde — ver secção 4'],
@@ -93,7 +92,7 @@ const pt: PolicyDoc = {
       bullets: [
         'Execução do contrato (art. 6.º/1/b RGPD) — criar a conta, apresentar turnos, gerir candidaturas, registar a assiduidade e aplicar as regras de fiabilidade dos Termos de Utilização.',
         'Obrigação legal (art. 6.º/1/c RGPD) — limites legais de dias de trabalho e de descanso, idade mínima, e o registo de auditoria destas verificações.',
-        'Consentimento (art. 6.º/1/a RGPD) — partilha do teu IBAN com a empresa para a qual trabalhaste, rendimentos declarados fora da Turnos, e notificações. Podes retirar o consentimento a qualquer momento.',
+        'Consentimento (art. 6.º/1/a RGPD) — partilha do teu IBAN com a empresa para a qual trabalhaste, e notificações. Podes retirar o consentimento a qualquer momento.',
         'Consentimento explícito (art. 9.º/2/a RGPD) — se indicares doença ou lesão como motivo de um cancelamento, ou nos enviares um comprovativo médico. Justificar é sempre opcional; sem justificação, o cancelamento conta como tardio.',
         'Interesse legítimo (art. 6.º/1/f RGPD) — prevenção de fraude na leitura do QR code, e segurança da plataforma.',
       ],
@@ -135,7 +134,7 @@ const pt: PolicyDoc = {
       table: {
         head: ['Quem', 'O quê', 'Para quê'],
         rows: [
-          ['Empresas a que te candidatas', 'Nome, foto, biografia, CV, competências, idiomas, experiência, disponibilidade, avaliações, selos e número de faltas. Nunca o NIF, a data de nascimento ou os rendimentos declarados', 'Avaliar a tua candidatura'],
+          ['Empresas a que te candidatas', 'Nome, foto, biografia, CV, competências, idiomas, experiência, disponibilidade, avaliações, selos e número de faltas. Nunca o NIF nem a data de nascimento', 'Avaliar a tua candidatura'],
           ['A empresa do turno', 'O acima, mais o IBAN se consentires (secção 5) e, quando confirmas o turno, o teu NIF e os dados do turno (função, data, horário, local e valor/hora)', 'Pagar-te e cumprir as obrigações de entidade empregadora, incluindo comunicar a tua admissão à Segurança Social'],
           ['Stripe', 'Identificação, dados bancários e verificação de identidade dos trabalhadores que ativem o Pay Link', 'Processar o pagamento direto da empresa para o trabalhador'],
           ['Twilio', 'Número de telemóvel', 'Envio do código SMS de início de sessão'],
@@ -233,7 +232,6 @@ const en: PolicyDoc = {
         rows: [
           ['Identity', 'Name, mobile number, profile photo, date of birth', 'Create your account, authenticate by SMS, identify you to the company running the shift, and confirm you are at least 18'],
           ['Tax and banking', 'NIF, IBAN', 'The NIF is needed for the company to meet its duties as employer; the IBAN is how the company pays you (see section 5)'],
-          ['Declared income', 'Monthly income outside Turnos, if you choose to give it (optional)', 'Work out each company’s share of your income, to prevent economic dependency'],
           ['Professional profile', 'Skills, languages, experience, bio, CV, availability', 'Show you relevant shifts and let a company assess your application'],
           ['Activity', 'Applications, completed shifts, check-ins, ratings, cancellations, no-shows, suspensions', 'Run the marketplace, calculate your reputation and apply the reliability rules (section 6)'],
           ['Justifications', 'Reason for a late cancellation (illness, injury, emergency, other), the description you write and, if you send it to support, a supporting document', 'Decide whether the cancellation is justified and, if so, remove it from your record. Stating illness or injury is health data — see section 4'],
@@ -251,7 +249,7 @@ const en: PolicyDoc = {
       bullets: [
         'Performance of a contract (GDPR Art. 6(1)(b)) — creating your account, showing shifts, handling applications, recording attendance and applying the reliability rules in the Terms of Use.',
         'Legal obligation (Art. 6(1)(c)) — statutory limits on working days and rest, the minimum age, and the audit trail of those checks.',
-        'Consent (Art. 6(1)(a)) — sharing your IBAN with a company you worked for, declared outside income, and notifications. You can withdraw consent at any time.',
+        'Consent (Art. 6(1)(a)) — sharing your IBAN with a company you worked for, and notifications. You can withdraw consent at any time.',
         'Explicit consent (Art. 9(2)(a)) — if you give illness or injury as the reason for a cancellation, or send us a medical document. Justifying is always optional; without a justification the cancellation counts as late.',
         'Legitimate interest (Art. 6(1)(f)) — fraud prevention on QR check-in, and platform security.',
       ],
@@ -293,7 +291,7 @@ const en: PolicyDoc = {
       table: {
         head: ['Who', 'What', 'Why'],
         rows: [
-          ['Companies you apply to', 'Name, photo, bio, CV, skills, languages, experience, availability, ratings, badges and number of no-shows. Never your NIF, date of birth or declared income', 'Assess your application'],
+          ['Companies you apply to', 'Name, photo, bio, CV, skills, languages, experience, availability, ratings, badges and number of no-shows. Never your NIF or date of birth', 'Assess your application'],
           ['The company running the shift', 'The above, plus your IBAN if you consent (section 5) and, once you confirm the shift, your NIF and the shift details (role, date, hours, location and hourly rate)', 'Pay you and meet its duties as employer, including notifying Social Security of your hire'],
           ['Stripe', 'Identity, bank details and identity verification of workers who activate the Pay Link', 'Process the direct payment from company to worker'],
           ['Twilio', 'Mobile number', 'Send the SMS sign-in code'],

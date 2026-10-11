@@ -107,6 +107,15 @@ export class Shift {
   @Column({ type: 'timestamptz', nullable: true })
   offeredAt: Date | null;
 
+  /**
+   * The company removed this expired shift from its dashboard ("Eliminar" /
+   * "Eliminar todos"). The row keeps status EXPIRED — it is archived, not
+   * cancelled: before 2026-10-11 "Eliminar" set CANCELLED, which only moved
+   * the clutter into Histórico labelled as a cancellation that never happened.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  archivedAt: Date | null;
+
   @Column({ type: 'simple-array', nullable: true })
   skillsRequired: string[];
 

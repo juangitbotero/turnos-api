@@ -197,11 +197,6 @@ seus turnos.
 Sim: 11 horas de descanso mínimo entre turnos do mesmo trabalhador, conforme a diretiva
 europeia. Também é bloqueante na candidatura.
 
-**O que é o alerta de dependência económica?**
-Se uma parte demasiado grande do rendimento de um trabalhador vier da sua empresa, sinalizamos
-aos 40% e bloqueamos novas candidaturas aos 50%. Serve para evitar situações que possam ser
-requalificadas como contrato de trabalho encoberto — é uma proteção para si.
-
 ---
 
 ## Para trabalhadores

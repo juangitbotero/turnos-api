@@ -66,6 +66,8 @@ is restructured so that **Turnos never holds or routes wages**.
    TSU calculations, payslip data, and accounting exports are guidance the
    company uses to pay the worker and the State directly. Hard blocks (70-day
    MCD, 11h rest, 50% economic dependency) remain at application stage.
+   *(2026-10-11: the economic-dependency check was removed by product decision —
+   Turnos does not ask about outside income. MCD and 11h rest remain.)*
    Language discipline: never "processamos/garantimos o pagamento".
 
 ## Consequences

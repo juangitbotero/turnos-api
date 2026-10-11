@@ -645,10 +645,7 @@ export const pt = {
       ibanHint:   'A empresa paga-te diretamente o valor bruto. Se pagar por transferência, precisa do teu IBAN.',
       ibanConsent:'Autorizo a partilha do meu nome e IBAN com as empresas onde fiz turnos, para que me possam pagar por transferência. Posso retirar esta autorização no meu perfil a qualquer momento.',
       ibanConsentWarn: 'Sem esta autorização, as empresas só te podem pagar por Turnos Pay Link ou MB WAY.',
-      incomeLabel:       'Outros rendimentos mensais (opcional)',
-      incomePlaceholder: 'Ex: 800 (€ por mês)',
       // Agenda do Trabalho Digno (Lei 13/2023) — Portuguese labour law, named verbatim
-      incomeInfo: '💡 Inclua rendimentos de emprego, freelance ou outras fontes fora da Turnos. Deixe em branco se não tiver outros rendimentos.\n\nEsta informação é usada para calcular a sua dependência económica por empregador, conforme exigido pela Agenda do Trabalho Digno (Lei 13/2023). Não é partilhada com empregadores.',
 
       // Step 2 — skills, availability, CV
       skillsTitle:   'Competências',
@@ -1486,6 +1483,10 @@ export const pt = {
       repost:         'Re-publicar',
       deleteExpired:  'Eliminar',
       deleteConfirm:  'Eliminar este turno caducado?',
+      deleteManyConfirm: 'Eliminar {{count}} turno(s) caducado(s)? Deixam de aparecer no painel.',
+      deleteSelected: 'Eliminar selecionados ({{count}})',
+      deleteAll:      'Eliminar todos ({{count}})',
+      selectAll:      'Selecionar todos',
       deleteError:    'Erro ao eliminar.',
 
       colShift:  'Turno',
@@ -2055,8 +2056,6 @@ export const pt = {
       restPeriodEmployer:'Este trabalhador não teria as {{hours}}h de descanso obrigatórias entre turnos com este horário — já tem outro turno confirmado demasiado perto.',
       mcdLimitSeries:    'Limite MCD: já tens {{used}}/{{limit}} dias com este empregador em {{year}} e este trabalho tem {{days}} dias — excede o limite legal. A Lei 93/2019 não permite mais de {{limit}} dias/ano com o mesmo empregador.',
       mcdLimitReached:   'Limite MCD atingido: {{used}}/{{limit}} dias com este empregador em {{year}}. Legislação portuguesa (Lei 93/2019) não permite mais de {{limit}} dias/ano com o mesmo empregador.',
-      dependencyBlock:   'Limite de dependência económica atingido: {{percent}}% dos seus rendimentos anuais declarados provêm deste empregador. A Agenda do Trabalho Digno (Lei 13/2023) impede mais de {{limit}}% de dependência de um único empregador.',
-      dependencyWarning: 'Atenção: {{percent}}% dos seus rendimentos anuais declarados provêm deste empregador. O limite legal é {{limit}}%. Considere diversificar.',
     },
 
     payments: {

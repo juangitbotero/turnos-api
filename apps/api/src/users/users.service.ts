@@ -263,7 +263,6 @@ export class UsersService {
       iban: string;
       skills: string[];
       availableDays: string[];
-      declaredExternalMonthlyIncome?: number;
       ibanShareConsent?: boolean;
       dateOfBirth?: string;
     },
@@ -281,9 +280,6 @@ export class UsersService {
     worker.availableDays = dto.availableDays;
     this.applyIbanShareConsent(worker, dto.ibanShareConsent);
     this.applyDateOfBirth(worker, dto.dateOfBirth);
-    if (dto.declaredExternalMonthlyIncome !== undefined) {
-      worker.declaredExternalMonthlyIncome = dto.declaredExternalMonthlyIncome;
-    }
 
     const qualityResult = this.rescoreWorker(worker);
     await this.workerRepo.save(worker);
