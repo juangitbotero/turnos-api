@@ -9,6 +9,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { isLookupKey } from '../common/lookup-key';
 import { Repository } from 'typeorm';
 import { Employer } from '../users/entities/employer.entity';
 import { Worker } from '../users/entities/worker.entity';
@@ -52,8 +53,17 @@ export class ShiftsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       const secret = this.configService.get<string>('JWT_SECRET', 'dev-secret');
-      const payload = this.jwtService.verify<{ userId: string; role: string }>(token, { secret });
-      const { userId, role } = payload;
+      // Tokens carry `sub` (auth.service generateTokens), not `userId`. Reading
+      // `userId` gave undefined, the room lookup dropped the condition, and
+      // every client joined the FIRST company's / worker's room — other
+      // companies received that one's live events and none of their own.
+      const payload = this.jwtService.verify<{ sub?: string; role?: string }>(token, { secret });
+      const userId = payload.sub;
+      const role = payload.role;
+      if (!isLookupKey(userId)) {
+        client.disconnect();
+        return;
+      }
 
       client.data.userId = userId;
       client.data.role = role;

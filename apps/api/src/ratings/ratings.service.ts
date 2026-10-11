@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { isLookupKey } from '../common/lookup-key';
 import { Repository, MoreThan, In } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -539,6 +540,7 @@ export class RatingsService {
 
   /** Returns Worker IDs that are favourites of this employer. Used by NotificationsService. */
   async getFavouriteWorkerIds(employerId: string): Promise<string[]> {
+    if (!isLookupKey(employerId)) return [];
     const favs = await this.favouriteRepo.find({
       where: { employer: { id: employerId } },
       relations: ['worker'],

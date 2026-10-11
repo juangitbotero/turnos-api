@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { isLookupKey } from '../common/lookup-key';
 import { IsNull, LessThan, Repository } from 'typeorm';
 import Expo from 'expo-server-sdk';
 import { Worker } from '../users/entities/worker.entity';
@@ -62,8 +63,9 @@ export class NotificationsService {
     const alreadyRaw = await this.redis.get(notifiedKey);
     const alreadyNotifiedIds: string[] = alreadyRaw ? (JSON.parse(alreadyRaw) as string[]) : [];
 
-    // Load employer's favourite worker IDs for priority sorting
-    const favourites = await this.favouriteRepo.find({
+    // Load employer's favourite worker IDs for priority sorting. No employer
+    // id → no favourites (an empty condition would return every company's).
+    const favourites = !isLookupKey(employerId) ? [] : await this.favouriteRepo.find({
       where: { employer: { id: employerId } },
       relations: ['worker'],
     });

@@ -16,6 +16,7 @@ import {
   WorkerExperience, normalizeSkills, TERMS_VERSIONS,
 } from '@turnos/shared';
 import { t } from '../i18n/request-language';
+import { isLookupKey } from '../common/lookup-key';
 import { notificationPrefsOf } from '../users/notification-prefs';
 
 const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
@@ -81,6 +82,12 @@ export class AuthService {
   async verifyOtp(phone: string, code: string): Promise<{
     accessToken: string; refreshToken: string; isNewUser: boolean;
   }> {
+    // Both are required. With the mock below, a request carrying neither used
+    // to pass (`store.get(undefined) === undefined`) and then sign in as the
+    // first user in the table — see common/lookup-key.ts.
+    if (!isLookupKey(phone) || !isLookupKey(code)) {
+      throw new UnauthorizedException('Invalid or expired OTP code');
+    }
     let isValid = false;
 
     if (this.twilioClient && this.twilioServiceSid) {
@@ -93,7 +100,8 @@ export class AuthService {
         this.logger.error(`Twilio OTP verify failed: ${err.message}`);
       }
     } else {
-      isValid = this.mockOtpStore.get(phone) === code;
+      const expected = this.mockOtpStore.get(phone);
+      isValid = expected !== undefined && expected === code;
       if (isValid) this.mockOtpStore.delete(phone);
     }
 
@@ -160,6 +168,9 @@ export class AuthService {
   async employerLogin(email: string, password: string): Promise<{
     accessToken: string; refreshToken: string;
   }> {
+    if (!isLookupKey(email) || typeof password !== 'string' || !password) {
+      throw new UnauthorizedException(t('api.auth.invalidCredentials'));
+    }
     const user = await this.usersService.findByEmail(email);
     if (!user || user.role === 'WORKER' || !user.password) {
       throw new UnauthorizedException(t('api.auth.invalidCredentials'));
@@ -189,8 +200,14 @@ export class AuthService {
     if (!res.ok) throw new UnauthorizedException('Invalid Google token');
 
     const profile = await res.json() as {
-      id: string; email: string; name: string; picture: string;
+      id?: string; email?: string; verified_email?: boolean; name?: string; picture?: string;
     };
+    // A token issued without the email scope returns no email; one for an
+    // unverified address must not be able to claim an account by email.
+    // Without these checks a missing email reached findByEmail(undefined).
+    if (!isLookupKey(profile.id) || !isLookupKey(profile.email) || profile.verified_email !== true) {
+      throw new UnauthorizedException('Invalid Google token');
+    }
 
     // Find existing user by Google ID or email
     let user = await this.usersService.findByGoogleId(profile.id);
@@ -204,7 +221,7 @@ export class AuthService {
       isNewUser = true;
       if (userType === 'WORKER') {
         user = await this.usersService.createGoogleWorker(
-          profile.id, profile.email, profile.name, profile.picture,
+          profile.id, profile.email, profile.name ?? '', profile.picture ?? '',
         );
       } else {
         user = await this.usersService.createGoogleEmployer(profile.id, profile.email);
@@ -223,6 +240,9 @@ export class AuthService {
   async refreshTokens(userId: string, oldRefreshToken: string): Promise<{
     accessToken: string; refreshToken: string;
   }> {
+    if (!isLookupKey(userId) || !isLookupKey(oldRefreshToken)) {
+      throw new UnauthorizedException('Invalid or expired refresh token.');
+    }
     const stored = await this.redis.get(`refresh:${userId}`);
     if (!stored || stored !== oldRefreshToken) {
       throw new UnauthorizedException('Invalid or expired refresh token.');

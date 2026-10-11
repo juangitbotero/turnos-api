@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { isLookupKey } from '../common/lookup-key';
 import { Repository, In } from 'typeorm';
 import { User } from './entities/user.entity';
 import { Worker } from './entities/worker.entity';
@@ -47,11 +48,16 @@ export class UsersService {
 
   // ─── Lookups ───────────────────────────────────────────────────────────────
 
+  // Each lookup refuses an empty key instead of querying — see isLookupKey():
+  // TypeORM would drop the condition and return the first user in the table.
+
   findByPhone(phone: string): Promise<User | null> {
+    if (!isLookupKey(phone)) return Promise.resolve(null);
     return this.userRepo.findOne({ where: { phone } });
   }
 
   findByEmail(email: string): Promise<User | null> {
+    if (!isLookupKey(email)) return Promise.resolve(null);
     return this.userRepo.findOne({
       where: { email },
       select: ['id', 'email', 'password', 'role', 'emailVerified'],
@@ -59,6 +65,7 @@ export class UsersService {
   }
 
   findById(id: string): Promise<User | null> {
+    if (!isLookupKey(id)) return Promise.resolve(null);
     return this.userRepo.findOne({ where: { id } });
   }
 
@@ -81,6 +88,7 @@ export class UsersService {
   }
 
   findByGoogleId(googleId: string): Promise<User | null> {
+    if (!isLookupKey(googleId)) return Promise.resolve(null);
     return this.userRepo.findOne({ where: { googleId } });
   }
 
@@ -147,6 +155,7 @@ export class UsersService {
    * it has to be asked for explicitly.
    */
   async findByIdWithPassword(userId: string): Promise<User | null> {
+    if (!isLookupKey(userId)) return null;
     return this.userRepo.findOne({
       where: { id: userId },
       select: ['id', 'email', 'password', 'role'],

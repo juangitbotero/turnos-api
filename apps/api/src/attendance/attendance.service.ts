@@ -25,6 +25,7 @@ import {
   NotFoundException, UnauthorizedException, Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { isLookupKey } from '../common/lookup-key';
 import { Repository, In, Not, IsNull } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { lisbonDateTime, lisbonDate, nextDay } from '../common/lisbon-time';
@@ -146,6 +147,8 @@ export class AttendanceService {
       );
     }
 
+    // Signed by us, but an empty employerId would match any company's shift.
+    if (!isLookupKey(payload.employerId)) throw new BadRequestException(t('api.attendance.qrInvalid'));
     const shift = await this.findWorkerShiftForEmployerToday(worker.id, payload.employerId);
     if (shift.status !== ShiftStatus.FILLED) {
       throw new BadRequestException(
