@@ -800,7 +800,7 @@ export class WagePaymentsService {
     const amount  = `€${Number(wage.amount).toFixed(2)}`;
     const fee     = wage.processingFee > 0 ? `€${Number(wage.processingFee).toFixed(2)}` : null;
     const method  = paymentMethodLabel(wage.paymentMethod);
-    const rateUrl = `${this.config.get<string>('WEB_ADMIN_URL', 'http://localhost:3000')}/dashboard/ratings`;
+    const rateUrl = `${this.config.get<string>('WEB_ADMIN_URL', 'http://localhost:3000')}/dashboard/workers?tab=reviews`;
     const payBtn  = (label: string) =>
       `<p><a href="${wage.payLinkUrl}" style="background:#6a79ff;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none">${label}</a></p>`;
 

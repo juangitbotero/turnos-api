@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "web-admin-only",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "@turnos/web-admin"],
+      "port": 3000
     }
   ]
 }

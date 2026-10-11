@@ -70,7 +70,6 @@ export default function QrCodesPage() {
       {/* Screen header */}
       <div style={s.header} className="no-print">
         <div>
-          <Link href="/dashboard/shifts" style={s.backLink}>{t('admin.qrCodes.back')}</Link>
           <h1 style={s.title}>{t('admin.qrCodes.title')}</h1>
           <p style={s.sub}>{t('admin.qrCodes.sub')}</p>
         </div>

@@ -381,3 +381,21 @@ export function Stars({ value, size = 13 }: { value: number; size?: number }) {
     </span>
   );
 }
+
+export const IconArrowLeft = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M19 12H5M11 6l-6 6 6 6" />
+  </svg>
+);
+
+export const IconLogout = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4" />
+  </svg>
+);
+
+export const IconUserCheck = ({ size = 16, style }: IconProps) => (
+  <svg {...base(size)} style={style}>
+    <circle cx="9" cy="8" r="3.5" /><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 11l2 2 4-4" />
+  </svg>
+);

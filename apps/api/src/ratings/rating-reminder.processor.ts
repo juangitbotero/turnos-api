@@ -33,7 +33,7 @@ export class RatingReminderProcessor extends WorkerHost {
       try {
         const button = (label: string) => `
           <p style="text-align:center;margin:24px 0">
-            <a href="${webUrl}/dashboard/ratings"
+            <a href="${webUrl}/dashboard/workers?tab=reviews"
                style="background:#6a79ff;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
               ${label}
             </a>

@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { adminApi, TsuReport, McdContract, AuditLogEntry } from '../../../lib/api';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 import { IconInbox, Spinner } from '../../../components/icons';
+import { useTabParam } from '../../../components/PageNav';
 
-type Tab = 'tsu' | 'mcd' | 'audit';
+const TABS = ['tsu', 'mcd', 'audit'] as const;
+type Tab = typeof TABS[number];
 
 /**
  * Semicolon-separated with a BOM: Excel in a Portuguese locale uses `;` as the
@@ -38,9 +39,8 @@ function formatEvent(event: string) {
 }
 
 export default function CompliancePage() {
-  const router = useRouter();
   const { t, fMediumDate, fMoney, fMonthName, fTimestamp } = useT();
-  const [tab, setTab] = useState<Tab>('tsu');
+  const [tab, setTab] = useTabParam(TABS, 'tsu');
 
   // TSU report state
   const now = new Date();
@@ -54,12 +54,11 @@ export default function CompliancePage() {
   const [contractsLoading, setContractsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Deep link from the shifts page: ?tab=mcd&month=YYYY-MM. Read from
-  // window rather than useSearchParams, which would need a Suspense boundary
-  // for the static build.
+  // Deep link from the shifts page: ?tab=mcd&month=YYYY-MM (the tab itself is
+  // read by useTabParam). Read from window rather than useSearchParams, which
+  // would need a Suspense boundary for the static build.
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
-    if (q.get('tab') === 'mcd') setTab('mcd');
     const m = q.get('month')?.match(/^(\d{4})-(\d{2})$/);
     if (m) { setYear(Number(m[1])); setMonth(Number(m[2])); }
   }, []);
@@ -135,7 +134,6 @@ export default function CompliancePage() {
       {/* Header */}
       <div style={s.header}>
         <div>
-          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>{t('admin.chrome.backDashboard')}</button>
           <h1 style={s.title}>{t('admin.compliance.title')}</h1>
           <p style={s.subtitle}>{t('admin.compliance.sub')}</p>
         </div>

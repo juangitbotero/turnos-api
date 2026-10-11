@@ -14,7 +14,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { adminApi, SpendingReport, PaymentRecord } from '../../../lib/api';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
@@ -48,7 +47,6 @@ function downloadCsv(records: PaymentRecord[], period: string, header: string, f
 }
 
 export default function SpendingPage() {
-  const router = useRouter();
   const { t, fMediumDate, fMoney, fMonthName } = useT();
 
   const now   = new Date();
@@ -82,7 +80,6 @@ export default function SpendingPage() {
       {/* Header */}
       <div style={s.header}>
         <div>
-          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>{t('admin.chrome.backDashboard')}</button>
           <h1 style={s.pageTitle}>{t('admin.spending.title')}</h1>
           <p style={s.pageSub}>{t('admin.spending.sub')}</p>
         </div>
@@ -297,8 +294,7 @@ export default function SpendingPage() {
 
       {/* Nav */}
       <div style={s.navRow}>
-        <Link href="/dashboard/billing" style={s.navLink}>{t('admin.spending.navBilling')}</Link>
-        <Link href="/dashboard" style={s.navLink}>{t('admin.chrome.backDashboard')}</Link>
+        <Link href="/dashboard/settings?tab=subscription" style={s.navLink}>{t('admin.spending.navBilling')}</Link>
       </div>
 
     </div>

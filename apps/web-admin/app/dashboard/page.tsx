@@ -4,11 +4,9 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { adminApi, Shift, EmployerProfile } from '../../lib/api';
-import { SIDEBAR_NAV } from '../../lib/nav';
 import { useT } from '../../lib/i18n';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
-import { Logo } from '../../components/Logo';
-import { IconClipboard, IconBolt, IconUsers, IconAlert, IconSearch, IconQr, IconBuilding } from '../../components/icons';
+import { IconClipboard, IconBolt, IconUsers, IconAlert, IconSearch, IconQr } from '../../components/icons';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -77,57 +75,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div style={s.shell}>
-
-      {/* ── Sidebar ── */}
-      <aside style={s.sidebar}>
-        <div style={s.sidebarTop}>
-          <div style={{ padding: '8px 12px', marginBottom: 8 }}><Logo height={30} href="/dashboard" /></div>
-          <div style={s.sidebarDivider} />
-          <nav style={s.sidebarNav}>
-            {SIDEBAR_NAV.map(({ Icon, key, href, soon }) => {
-              const isActive = href === '/dashboard';
-              const label = t(`admin.nav.${key}`);
-              if (soon || !href) {
-                return (
-                  <div key={key} style={{ ...s.sidebarItem, ...s.sidebarItemDisabled }}>
-                    <span style={s.sidebarIcon}><Icon size={17} /></span>
-                    <span>{label}</span>
-                    <span style={s.soonPill}>{t('admin.chrome.soon')}</span>
-                  </div>
-                );
-              }
-              return (
-                <Link key={href} href={href}
-                  style={{ ...s.sidebarItem, ...(isActive ? s.sidebarItemActive : {}) }}
-                >
-                  <span style={s.sidebarIcon}><Icon size={17} /></span>
-                  <span>{label}</span>
-                  {isActive && <span style={s.activeIndicator} />}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-        <div style={s.sidebarBottom}>
-          <Link href="/dashboard/settings" style={s.companyBadge}>
-            <div style={s.companyAvatar}>
-              {profile?.logoUrl
-                ? <img src={profile.logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />
-                : <IconBuilding size={18} />}
-            </div>
-            <div>
-              <div style={s.companyName}>{profile?.companyName ?? t('admin.chrome.myCompany')}</div>
-              <div style={s.companyPlan}>{profile?.sector ?? '—'}</div>
-            </div>
-          </Link>
-          <Link href="/login" style={s.logoutBtn}>{t('admin.chrome.logout')}</Link>
-        </div>
-      </aside>
-
-      {/* ── Main ── */}
-      <main style={s.main}>
-
+      <div style={s.main}>
         {/* Top bar */}
         <header style={s.topBar}>
           <div>
@@ -186,8 +134,7 @@ export default function DashboardPage() {
           />
         </section>
 
-      </main>
-    </div>
+      </div>
   );
 }
 
@@ -235,81 +182,9 @@ const qa: Record<string, React.CSSProperties> = {
 /* ─────────────────────────── Styles ─────────────────────────────────────── */
 
 const s: Record<string, React.CSSProperties> = {
-  shell: { display: 'flex', minHeight: '100vh', background: 'var(--color-bg)' },
-
-  /* Sidebar */
-  sidebar: {
-    width: 240, flexShrink: 0,
-    background: 'var(--color-surface)',
-    borderRight: '1px solid var(--color-border)',
-    display: 'flex', flexDirection: 'column',
-    padding: '24px 16px',
-    position: 'sticky', top: 0, height: '100vh', overflow: 'hidden',
-  },
-  sidebarTop: { flex: 1, display: 'flex', flexDirection: 'column' },
-  sidebarLogoWrap: {
-    display: 'flex', alignItems: 'center', gap: 4,
-    padding: '8px 12px', marginBottom: 8,
-  },
-  sidebarLogoText: {
-    fontSize: 20, fontWeight: 800, color: 'var(--color-primary)',
-    letterSpacing: '-0.5px',
-  },
-  sidebarLogoDot: {
-    width: 6, height: 6, borderRadius: '50%',
-    background: 'var(--color-primary)', opacity: 0.7,
-    marginBottom: 2,
-  },
-  sidebarDivider: { height: 1, background: 'var(--color-border)', margin: '8px 0 16px' },
-  sidebarNav: { display: 'flex', flexDirection: 'column', gap: 4 },
-  sidebarItem: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    padding: '10px 12px', borderRadius: 'var(--radius-sm)',
-    fontSize: 14, fontWeight: 500,
-    color: 'var(--color-text-secondary)',
-    textDecoration: 'none', transition: 'background 0.15s, color 0.15s',
-    position: 'relative',
-  },
-  sidebarItemActive: {
-    background: 'var(--color-primary-light)',
-    color: 'var(--color-primary)', fontWeight: 700,
-  },
-  sidebarItemDisabled: { opacity: 0.45, cursor: 'default' },
-  sidebarIcon: { width: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  activeIndicator: {
-    marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%',
-    background: 'var(--color-primary)',
-  },
-  soonPill: {
-    marginLeft: 'auto', fontSize: 9, fontWeight: 700,
-    letterSpacing: '0.5px', textTransform: 'uppercase' as const,
-    background: 'var(--color-neutral)', color: 'var(--color-text-secondary)',
-    padding: '2px 6px', borderRadius: 4,
-  },
-  sidebarBottom: {
-    borderTop: '1px solid var(--color-border)', paddingTop: 16,
-    display: 'flex', flexDirection: 'column', gap: 12,
-  },
-  companyBadge: { textDecoration: 'none',
-    display: 'flex', alignItems: 'center', gap: 10,
-    padding: '10px 12px', background: 'var(--color-bg)', borderRadius: 'var(--radius-sm)',
-  },
-  companyAvatar: { overflow: 'hidden',
-    width: 36, height: 36,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'var(--color-primary-light)', borderRadius: 'var(--radius-sm)', flexShrink: 0,
-  },
-  companyName: { fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' },
-  companyPlan: { fontSize: 11, color: 'var(--color-text-muted)', marginTop: 1 },
-  logoutBtn: {
-    fontSize: 13, color: 'var(--color-text-muted)', textDecoration: 'none',
-    padding: '8px 12px', display: 'block', textAlign: 'center',
-    borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)',
-  },
-
   /* Main */
   main: {
-    flex: 1, padding: '32px 36px', overflowY: 'auto',
+    padding: '32px 36px',
     display: 'flex', flexDirection: 'column', gap: 28,
   },
   topBar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },

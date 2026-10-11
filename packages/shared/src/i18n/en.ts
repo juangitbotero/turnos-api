@@ -799,7 +799,9 @@ export const en: Translated<TranslationCatalogue> = {
     },
 
     nav: {
-      dashboard:     'Dashboard',
+      groupOperational: 'Operational',
+      groupAdmin:       'Admin',
+      dashboard:     'Home',
       workersSearch: 'Find workers',
       workers:       'Who worked for us',
       shifts:        'Shifts',
@@ -817,6 +819,7 @@ export const en: Translated<TranslationCatalogue> = {
       backDashboard: '← Dashboard',
       backToDashboard: '← Back to dashboard',
       myCompany:     'My company',
+      signOut:       'Sign out',
       postShift:     '+ Post a shift',
     },
 
@@ -930,6 +933,8 @@ export const en: Translated<TranslationCatalogue> = {
 
     workers: {
       title: 'My workers',
+      tabList:    'Workers',
+      tabReviews: 'Reviews',
       subNone:  'No workers hired yet',
       subOne:   '1 worker hired',
       subOther: '{{count}} workers hired',
@@ -1100,6 +1105,7 @@ export const en: Translated<TranslationCatalogue> = {
     settings: {
       title: 'Settings',
       sub:   'Your account, your data and your plan.',
+      tabAccount: 'Account',
 
       accountTitle: 'Account details',
       accountSub:   'These details appear on MCD contracts and on Segurança Social notifications.',
@@ -1325,7 +1331,8 @@ export const en: Translated<TranslationCatalogue> = {
       selectedLabel: 'Selected:',
 
       // Languages
-      languagesSection: 'Languages required',      languagesPlaceholder: 'Select languages',
+      languagesSection: 'Languages required',
+      languagesPlaceholder: 'Select languages',
       languagesCount:       '{{count}} languages selected',
 
       languagesHint:    'Only workers who speak these languages will be notified. Leave empty if it does not matter.',
@@ -1581,7 +1588,8 @@ export const en: Translated<TranslationCatalogue> = {
       available:   'Available',
       companyName: 'Restaurante A Taberna',
       companyMeta: '{{role}} · Today 18:00–02:00 · €10/hr',
-      match:       '✓ Match confirmed',      step1:       'Shift posted',
+      match:       '✓ Match confirmed',
+      step1:       'Shift posted',
       step2:       'Application received',
       step3:       'Worker confirmed ✓',
     },

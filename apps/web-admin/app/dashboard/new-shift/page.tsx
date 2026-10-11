@@ -11,6 +11,7 @@ import { adminApi, ApiError } from '../../../lib/api';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 import { MultiSelect } from '../../../components/MultiSelect';
+import { Breadcrumbs } from '../../../components/PageNav';
 import { IconUtensils, IconBed, IconTicket, IconTag, IconHeadset, IconBox, IconBriefcase, IconShield, IconClipboard, IconCheck, IconCalendar, IconAlert } from '../../../components/icons';
 
 type GeoResult = { lat: number; lng: number; display: string } | null;
@@ -404,6 +405,10 @@ export default function NewShiftPage() {
 
   return (
     <div style={s.page}>
+      <Breadcrumbs trail={[
+        { label: t('admin.nav.shifts'), href: '/dashboard/shifts' },
+        { label: t('admin.newShift.title') },
+      ]} />
       <div style={s.header}>
         <div>
           <h1 style={s.title}>{t('admin.newShift.title')}</h1>
@@ -411,7 +416,6 @@ export default function NewShiftPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <LanguageSwitcher />
-          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>{t('admin.newShift.back')}</button>
         </div>
       </div>
 
@@ -813,7 +817,7 @@ export default function NewShiftPage() {
 
         {/* ── Actions ── */}
         <div style={s.actions}>
-          <button type="button" style={s.cancelBtn} onClick={() => router.push('/dashboard')}>
+          <button type="button" style={s.cancelBtn} onClick={() => router.push('/dashboard/shifts')}>
             {t('common.cancel')}
           </button>
           <button

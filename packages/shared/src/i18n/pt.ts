@@ -802,7 +802,9 @@ export const pt = {
     },
 
     nav: {
-      dashboard:     'Dashboard',
+      groupOperational: 'Operacional',
+      groupAdmin:       'Administração',
+      dashboard:     'Início',
       workersSearch: 'Procurar Workers',
       workers:       'Quem já trabalhou',
       shifts:        'Turnos',
@@ -821,6 +823,7 @@ export const pt = {
       backDashboard: '← Dashboard',
       backToDashboard: '← Voltar ao Dashboard',
       myCompany:     'A minha empresa',
+      signOut:       'Terminar sessão',
       postShift:     '+ Publicar Turno',
     },
 
@@ -935,6 +938,8 @@ export const pt = {
 
     workers: {
       title: 'Os Meus Trabalhadores',
+      tabList:    'Trabalhadores',
+      tabReviews: 'Avaliações',
       subNone:  'Nenhum trabalhador contratado ainda',
       subOne:   '1 trabalhador contratado',
       subOther: '{{count}} trabalhadores contratados',
@@ -1111,6 +1116,7 @@ export const pt = {
     settings: {
       title: 'Definições',
       sub:   'A tua conta, os teus dados e o teu plano.',
+      tabAccount: 'Conta',
 
       // ── Account details ──
       accountTitle: 'Dados da conta',
@@ -1342,7 +1348,8 @@ export const pt = {
       selectedLabel: 'Selecionadas:',
 
       // Languages
-      languagesSection: 'Idiomas necessários',      languagesPlaceholder: 'Selecionar idiomas',
+      languagesSection: 'Idiomas necessários',
+      languagesPlaceholder: 'Selecionar idiomas',
       languagesCount:       '{{count}} idiomas selecionados',
 
       languagesHint:    'Só os trabalhadores que falam estes idiomas serão notificados. Deixa vazio se for indiferente.',
@@ -1605,7 +1612,8 @@ export const pt = {
       available:   'Disponível',
       companyName: 'Restaurante A Taberna',
       companyMeta: '{{role}} · Hoje 18h–02h · €10/hr',
-      match:       '✓ Match confirmado',      step1:       'Turno publicado',
+      match:       '✓ Match confirmado',
+      step1:       'Turno publicado',
       step2:       'Candidatura recebida',
       step3:       'Worker confirmado ✓',
     },

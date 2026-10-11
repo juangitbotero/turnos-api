@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { adminApi, ApiError, Shift, Application, WagePayment } from '../../../lib/api';
 import { connectSocket, getSocket, NewApplicationPayload } from '../../../lib/socket';
 import { COMPANY_CANCEL_REASONS, paymentMethodLabel } from '@turnos/shared';
@@ -347,7 +346,6 @@ function ShiftApplicationsModal({
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ShiftsPage() {
-  const router = useRouter();
   const { t, tSkill, fMediumDate } = useT();
   const [shifts, setShifts]           = useState<Shift[]>([]);
   const [isLoading, setIsLoading]     = useState(true);
@@ -466,7 +464,6 @@ export default function ShiftsPage() {
       {/* Header */}
       <div style={s.header}>
         <div>
-          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>{t('admin.chrome.backDashboard')}</button>
           <h1 style={s.title}>{t('admin.shifts.title')}</h1>
           <p style={s.sub}>
             {isLoading

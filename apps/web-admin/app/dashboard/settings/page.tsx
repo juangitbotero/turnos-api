@@ -11,26 +11,29 @@
  * Two fields are shown but locked: NIPC (the company's legal identifier, with a
  * unique constraint) and the sign-in email (it is the login). Both are support
  * operations, and the page says so rather than hiding them.
+ *
+ * Two tabs: Conta (everything below) and A minha subscrição (BillingPanel —
+ * the old /dashboard/billing page, moved here 2026-10-11 and opened from the
+ * company menu with ?tab=subscription).
  */
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { EMPLOYER_SECTORS, SUPPORT_EMAIL } from '@turnos/shared';
 import { adminApi, EmployerProfile, ApiError } from '../../../lib/api';
-import { SIDEBAR_NAV } from '../../../lib/nav';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
-import { Logo } from '../../../components/Logo';
+import { BillingPanel } from '../../../components/BillingPanel';
+import { PROFILE_CHANGED_EVENT } from '../../../components/DashboardShell';
+import { PageTabs, useTabParam } from '../../../components/PageNav';
 import {
-  IconBuilding, IconShield, IconCheck, IconHeadset, IconCard, IconUser,
+  IconBuilding, IconShield, IconCheck, IconHeadset, IconUser,
   IconImage, IconBell,
 } from '../../../components/icons';
 
-const BENEFITS = ['1', '2', '3', '4', '5'] as const;
+const TABS = ['account', 'subscription'] as const;
 
 export default function SettingsPage() {
-  const router = useRouter();
   const { t, tSector } = useT();
+  const [tab, setTab] = useTabParam(TABS, 'account');
 
   const [profile, setProfile] = useState<EmployerProfile | null>(null);
   const [form, setForm] = useState({
@@ -77,6 +80,7 @@ export default function SettingsPage() {
       const updated = await adminApi.updateEmployerProfile(form);
       setProfile(updated);
       setSaved(true);
+      window.dispatchEvent(new Event(PROFILE_CHANGED_EVENT));
     } catch (err) {
       setSaveError(err instanceof ApiError ? err.message : t('admin.settings.saveError'));
     } finally {
@@ -105,6 +109,7 @@ export default function SettingsPage() {
     try {
       const { logoUrl } = await adminApi.uploadEmployerLogo(file);
       setProfile(p => (p ? { ...p, logoUrl } : p));
+      window.dispatchEvent(new Event(PROFILE_CHANGED_EVENT));
     } catch (err) {
       setLogoError(err instanceof ApiError ? err.message : t('admin.settings.logoError'));
     } finally {
@@ -132,66 +137,28 @@ export default function SettingsPage() {
     wageReminders:   profile?.notificationPrefs?.wageReminders   ?? true,
   };
 
-  const planActive = profile?.subscriptionStatus === 'ACTIVE';
-
   return (
-    <div style={s.shell}>
-      {/* ── Sidebar ── */}
-      <aside style={s.sidebar}>
-        <div style={s.sidebarTop}>
-          <div style={{ padding: '8px 12px', marginBottom: 8 }}><Logo height={30} href="/dashboard" /></div>
-          <div style={s.sidebarDivider} />
-          <nav style={s.sidebarNav}>
-            {SIDEBAR_NAV.map(({ Icon, key, href, soon }) => {
-              const isActive = href === '/dashboard/settings';
-              const label = t(`admin.nav.${key}`);
-              if (soon || !href) {
-                return (
-                  <div key={key} style={{ ...s.sidebarItem, ...s.sidebarItemDisabled }}>
-                    <span style={s.sidebarIcon}><Icon size={17} /></span>
-                    <span>{label}</span>
-                    <span style={s.soonPill}>{t('admin.chrome.soon')}</span>
-                  </div>
-                );
-              }
-              return (
-                <Link key={href} href={href} style={{ ...s.sidebarItem, ...(isActive ? s.sidebarItemActive : {}) }}>
-                  <span style={s.sidebarIcon}><Icon size={17} /></span>
-                  <span>{label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-        <div style={s.sidebarBottom}>
-          <Link href="/dashboard/settings" style={s.companyBadge}>
-            <div style={s.companyAvatar}>
-              {profile?.logoUrl
-                ? <img src={profile.logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />
-                : <IconBuilding size={18} />}
-            </div>
-            <div>
-              <div style={s.companyName}>{profile?.companyName ?? t('admin.chrome.myCompany')}</div>
-              <div style={s.companyPlan}>{profile?.sector ? tSector(profile.sector) : '—'}</div>
-            </div>
-          </Link>
-          <Link href="/login" style={s.logoutBtn}>{t('admin.chrome.logout')}</Link>
-        </div>
-      </aside>
-
-      {/* ── Main ── */}
-      <main style={s.main}>
+      <div style={s.main}>
         <header style={s.topBar}>
           <div>
-            <button style={s.backBtn} onClick={() => router.push('/dashboard')}>
-              {t('admin.chrome.backDashboard')}
-            </button>
             <h1 style={s.title}>{t('admin.settings.title')}</h1>
             <p style={s.sub}>{t('admin.settings.sub')}</p>
           </div>
           <LanguageSwitcher />
         </header>
 
+        <PageTabs
+          tabs={[
+            { id: 'account', label: t('admin.settings.tabAccount') },
+            { id: 'subscription', label: t('admin.nav.billing') },
+          ]}
+          active={tab}
+          onChange={setTab}
+        />
+
+        {tab === 'subscription' && <BillingPanel />}
+
+        {tab === 'account' && (
         <div style={s.grid}>
           {/* ── Account details ── */}
           <section style={s.card}>
@@ -255,36 +222,6 @@ export default function SettingsPage() {
                 {saveError && <span style={s.err}>{saveError}</span>}
               </div>
             </form>
-          </section>
-
-          {/* ── Plan ── */}
-          <section style={s.card}>
-            <div style={s.cardHead}>
-              <span style={s.cardIcon}><IconCard size={18} /></span>
-              <div>
-                <h2 style={s.cardTitle}>{t('admin.settings.planTitle')}</h2>
-                <p style={s.cardSub}>{t('admin.settings.planPrice')}</p>
-              </div>
-            </div>
-            <div style={s.planRow}>
-              <span style={s.planName}>
-                {profile?.subscriptionTier && profile.subscriptionTier !== 'NONE'
-                  ? t('admin.settings.planStarter')
-                  : t('admin.settings.planNone')}
-              </span>
-              <span style={{ ...s.planPill, ...(planActive ? s.planPillOn : {}) }}>
-                {planActive ? t('admin.settings.planActive') : t('admin.settings.planInactive')}
-              </span>
-            </div>
-            <ul style={s.benefits}>
-              {BENEFITS.map(n => (
-                <li key={n} style={s.benefit}>
-                  <span style={s.benefitTick}><IconCheck size={12} /></span>
-                  {t(`admin.settings.benefit${n}`)}
-                </li>
-              ))}
-            </ul>
-            <Link href="/dashboard/billing" style={s.linkBtn}>{t('admin.settings.planManage')}</Link>
           </section>
 
           {/* ── Password ── */}
@@ -404,8 +341,8 @@ export default function SettingsPage() {
             <p style={s.note}>{t('admin.settings.legalNote')}</p>
           </section>
         </div>
-      </main>
-    </div>
+        )}
+      </div>
   );
 }
 
@@ -445,54 +382,8 @@ function Field({ label, hint, full, children }: {
 }
 
 const s: Record<string, React.CSSProperties> = {
-  shell: { display: 'flex', minHeight: '100vh', background: 'var(--color-secondary)' },
-
-  sidebar: {
-    width: 232, background: '#fff', borderRight: '1px solid var(--color-border)',
-    display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-    padding: '18px 12px', position: 'sticky', top: 0, height: '100vh',
-  },
-  sidebarTop: {},
-  sidebarDivider: { height: 1, background: 'var(--color-border)', margin: '4px 0 12px' },
-  sidebarNav: { display: 'flex', flexDirection: 'column', gap: 2 },
-  sidebarItem: {
-    display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
-    borderRadius: 8, fontSize: 13.5, fontWeight: 500, textDecoration: 'none',
-    color: 'var(--color-text-secondary)',
-  },
-  sidebarItemActive: {
-    background: 'var(--color-primary-light)', color: 'var(--color-primary)', fontWeight: 700,
-  },
-  sidebarItemDisabled: { opacity: 0.45 },
-  sidebarIcon: { width: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  soonPill: {
-    marginLeft: 'auto', fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-    background: 'var(--color-neutral-light, #eef0f4)', padding: '2px 6px', borderRadius: 20,
-  },
-  sidebarBottom: { display: 'flex', flexDirection: 'column', gap: 8 },
-  companyBadge: {
-    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-    borderRadius: 10, background: 'var(--color-secondary)', textDecoration: 'none',
-  },
-  companyAvatar: { overflow: 'hidden',
-    width: 36, height: 36, color: 'var(--color-primary)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'var(--color-primary-light)', borderRadius: 8, flexShrink: 0,
-  },
-  companyName: { fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' },
-  companyPlan: { fontSize: 11.5, color: 'var(--color-text-secondary)' },
-  logoutBtn: {
-    textAlign: 'center', padding: '9px', fontSize: 13, fontWeight: 600,
-    color: 'var(--color-text-secondary)', textDecoration: 'none',
-    border: '1px solid var(--color-border)', borderRadius: 8,
-  },
-
-  main: { flex: 1, padding: '26px 30px 60px', maxWidth: 1100 },
+  main: { padding: '26px 30px 60px', maxWidth: 1100 },
   topBar: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 26 },
-  backBtn: {
-    background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-    fontSize: 13, color: 'var(--color-text-secondary)', fontFamily: 'inherit', marginBottom: 6,
-  },
   title: { fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.5px' },
   sub: { fontSize: 13.5, color: 'var(--color-text-secondary)', marginTop: 4 },
 
@@ -529,23 +420,6 @@ const s: Record<string, React.CSSProperties> = {
   ok: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 600, color: '#16a34a' },
   err: { fontSize: 12.5, fontWeight: 600, color: '#dc2626' },
 
-  planRow: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 },
-  planName: { fontSize: 15, fontWeight: 800, color: 'var(--color-text-primary)' },
-  planPill: {
-    fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
-    background: '#f1f2f6', color: 'var(--color-text-secondary)',
-  },
-  planPillOn: { background: '#dcfce7', color: '#166534' },
-  benefits: { listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 16 },
-  benefit: {
-    display: 'flex', gap: 9, alignItems: 'flex-start',
-    fontSize: 13.5, lineHeight: 1.5, color: 'var(--color-text-secondary)',
-  },
-  benefitTick: {
-    flexShrink: 0, width: 18, height: 18, borderRadius: '50%', marginTop: 1,
-    background: 'var(--color-primary-light)', color: 'var(--color-primary)',
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  },
   linkBtn: {
     display: 'inline-block', padding: '9px 16px', borderRadius: 'var(--radius-full)',
     border: '1.5px solid var(--color-border)', textDecoration: 'none',

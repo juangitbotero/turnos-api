@@ -5,9 +5,16 @@ import { useRouter } from 'next/navigation';
 import { adminApi, ApiError, HiredWorker } from '../../../lib/api';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
+import { PageTabs, useTabParam } from '../../../components/PageNav';
+import { RatingsPanel } from '../../../components/RatingsPanel';
 import { IconAlert, IconUsers, Stars } from '../../../components/icons';
 
+// "Quem já trabalhou": the list, and a Reviews tab (the former Reputação page)
+// where a company can still rate a worker it forgot to rate from the email.
+const TABS = ['list', 'reviews'] as const;
+
 export default function WorkersPage() {
+  const [tab, setTab] = useTabParam(TABS, 'list');
   const router = useRouter();
   const { t, tSkill, tWeekday, fShortDate } = useT();
   const [workers, setWorkers]   = useState<HiredWorker[]>([]);
@@ -33,7 +40,6 @@ export default function WorkersPage() {
       {/* Header */}
       <div style={s.header}>
         <div>
-          <button style={s.backBtn} onClick={() => router.push('/dashboard')}>{t('admin.chrome.backDashboard')}</button>
           <h1 style={s.title}>{t('admin.workers.title')}</h1>
           <p style={s.sub}>
             {isLoading
@@ -47,9 +53,24 @@ export default function WorkersPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <LanguageSwitcher />
-          <button style={s.refreshBtn} onClick={load} disabled={isLoading}>{t('admin.workers.refresh')}</button>
+          {tab === 'list' && (
+            <button style={s.refreshBtn} onClick={load} disabled={isLoading}>{t('admin.workers.refresh')}</button>
+          )}
         </div>
       </div>
+
+      <PageTabs
+        tabs={[
+          { id: 'list', label: t('admin.workers.tabList') },
+          { id: 'reviews', label: t('admin.workers.tabReviews') },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+
+      {tab === 'reviews' && <RatingsPanel />}
+
+      {tab === 'list' && (<>
 
       {error && <div style={s.errorBanner}><IconAlert size={15} /> {error}</div>}
 
@@ -155,6 +176,7 @@ export default function WorkersPage() {
           );
         })}
       </div>
+      </>)}
     </div>
   );
 }
@@ -162,12 +184,7 @@ export default function WorkersPage() {
 const s: Record<string, React.CSSProperties> = {
   page: { padding: 32, maxWidth: 1200, margin: '0 auto' },
   header: {
-    display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 32,
-  },
-  backBtn: {
-    display: 'block', background: 'none', border: 'none', padding: 0,
-    fontSize: 13, color: 'var(--color-text-secondary)', cursor: 'pointer',
-    fontFamily: 'inherit', marginBottom: 6,
+    display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20,
   },
   title: { fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.5px', marginBottom: 4 },
   sub: { fontSize: 14, color: 'var(--color-text-secondary)' },

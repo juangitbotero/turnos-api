@@ -1,15 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LANGUAGES, ALL_SKILLS, STORED_WEEKDAYS } from '@turnos/shared';
 import { adminApi, WorkerSearchResult, Shift, ApiError } from '../../../lib/api';
-import { SIDEBAR_NAV } from '../../../lib/nav';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 import { WorkerReviews } from '../../../components/WorkerReviews';
-import { Logo } from '../../../components/Logo';
 import {
   IconSearch, IconBriefcase, IconGlobe, IconStar, IconCalendar,
   IconDownload, IconReset, IconChevron, IconFile, Stars,
@@ -234,7 +231,6 @@ function WorkerDetailPanel({
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function WorkersSearchPage() {
-  const router = useRouter();
   const { t, tSkill, tWorkerLanguage, tWeekday } = useT();
 
   const [workers, setWorkers]         = useState<WorkerSearchResult[]>([]);
@@ -317,46 +313,10 @@ export default function WorkersSearchPage() {
   };
 
   return (
-    <div style={s.shell}>
-
-      {/* Sidebar */}
-      <aside style={s.sidebar}>
-        <div style={s.sidebarTop}>
-          <div style={s.logoWrap}><Logo height={30} href="/dashboard" /></div>
-          <div style={s.divider} />
-          <nav style={s.nav}>
-            {SIDEBAR_NAV.map(({ Icon, key, href, soon }) => {
-              const label = t(`admin.nav.${key}`);
-              if (soon || !href) {
-                return (
-                  <div key={key} style={{ ...s.navItem, opacity: 0.45, cursor: 'default' }}>
-                    <span style={s.navIcon}><Icon size={17} /></span>
-                    <span>{label}</span>
-                    <span style={s.soonPill}>{t('admin.chrome.soon')}</span>
-                  </div>
-                );
-              }
-              const active = href === '/dashboard/workers-search';
-              return (
-                <Link key={href} href={href}
-                  style={{ ...s.navItem, ...(active ? s.navItemActive : {}) }}
-                >
-                  <span style={s.navIcon}><Icon size={17} /></span>
-                  <span>{label}</span>
-                  {active && <span style={s.activeDot} />}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-        <Link href="/login" style={s.logoutBtn}>{t('admin.chrome.logout')}</Link>
-      </aside>
-
-      {/* Main */}
-      <main style={s.main}>
+    <>
+      <div style={s.main}>
         <header style={s.topBar}>
           <div>
-            <button style={s.backBtn} onClick={() => router.push('/dashboard')}>{t('admin.chrome.backDashboard')}</button>
             <h1 style={s.title}>{t('admin.workersSearch.title')}</h1>
             <p style={s.sub}>{t('admin.workersSearch.sub')}</p>
           </div>
@@ -607,7 +567,7 @@ export default function WorkersSearchPage() {
             </div>
           )}
         </div>
-      </main>
+      </div>
 
       {selected && (
         <WorkerDetailPanel
@@ -616,7 +576,7 @@ export default function WorkersSearchPage() {
           onClose={() => setSelected(null)}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -730,42 +690,9 @@ const p: Record<string, React.CSSProperties> = {
 /* ── Page styles ──────────────────────────────────────────────────────────── */
 
 const s: Record<string, React.CSSProperties> = {
-  shell: { display: 'flex', minHeight: '100vh', background: 'var(--color-bg)' },
-
-  /* Sidebar */
-  sidebar: {
-    width: 240, flexShrink: 0, background: 'var(--color-surface)',
-    borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column',
-    padding: '24px 16px', position: 'sticky', top: 0, height: '100vh', overflow: 'hidden',
-  },
-  sidebarTop: { flex: 1, display: 'flex', flexDirection: 'column' },
-  logoWrap: { display: 'flex', alignItems: 'center', gap: 4, padding: '8px 12px', marginBottom: 8 },
-  logoText: { fontSize: 20, fontWeight: 800, color: 'var(--color-primary)', letterSpacing: '-0.5px' },
-  logoDot: { width: 6, height: 6, borderRadius: '50%', background: 'var(--color-primary)', opacity: 0.7, marginBottom: 2 },
-  divider: { height: 1, background: 'var(--color-border)', margin: '8px 0 16px' },
-  nav: { display: 'flex', flexDirection: 'column', gap: 4 },
-  navItem: {
-    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-    borderRadius: 'var(--radius-sm)', fontSize: 14, fontWeight: 500,
-    color: 'var(--color-text-secondary)', textDecoration: 'none', position: 'relative',
-  },
-  navItemActive: { background: 'var(--color-primary-light)', color: 'var(--color-primary)', fontWeight: 700 },
-  soonPill: { marginLeft: 'auto', fontSize: 9, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', borderRadius: 4, padding: '2px 5px', letterSpacing: 0.5 },
-  navIcon: { width: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--color-primary)' },
-  logoutBtn: {
-    fontSize: 13, color: 'var(--color-text-muted)', textDecoration: 'none',
-    padding: '8px 12px', display: 'block', textAlign: 'center',
-    borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)',
-  },
-
   /* Main */
-  main: { flex: 1, padding: '32px 36px', display: 'flex', flexDirection: 'column', gap: 20 },
+  main: { padding: '32px 36px', display: 'flex', flexDirection: 'column', gap: 20 },
   topBar: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' },
-  backBtn: {
-    background: 'none', border: 'none', fontSize: 13, color: 'var(--color-text-secondary)',
-    cursor: 'pointer', fontFamily: 'inherit', padding: 0, marginBottom: 8, display: 'block',
-  },
   title: { fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.5px' },
   sub: { fontSize: 13, color: 'var(--color-text-muted)', marginTop: 4 },
   /* Reset replaces the old gradient Search button — a secondary action, so it
