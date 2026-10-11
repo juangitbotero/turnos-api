@@ -36,9 +36,8 @@ aren't.
 
 **Blocked on outside events, not on code:** Twilio (#1) and live Stripe (#5)
 wait for the company's NIPC; the Pay Link end-to-end run waits for Stripe; the
-legal copy waits for the law firm — and the pack they have is **out of date**
-(outside-income question and dependency limit removed 2026-10-11; regenerate
-before sending anything).
+legal copy waits for the law firm. The pack was **regenerated 2026-10-11** with
+Juanes's trims and is ready to send (`docs/legal/pack-advogados/`).
 
 ## Session log — 2026-10-11
 
@@ -288,7 +287,7 @@ No document in the repo covered this before 2026-09-09. Derived from
 
 | Blocker | State |
 |---|---|
-| Privacy policy | 🟠 Built at `/privacidade` (PT + EN), revised 2026-09-27 and sent to the law firm with `docs/legal/brief-advogados.md`. **Draft — not lawyer-reviewed; controller identity and hosting region still `[[PLACEHOLDER]]`**. **To add (2026-10-11):** the worker notifications inbox — what it stores (the notification text: shift names, amounts, restriction notices), 180-day retention, deleted with the account |
+| Privacy policy | 🟠 Built at `/privacidade` (PT + EN), revised 2026-09-27 and sent to the law firm with `docs/legal/brief-advogados.md`. **Draft — not lawyer-reviewed; controller identity and hosting region still `[[PLACEHOLDER]]`**. Notifications inbox added 2026-10-11 (what it stores, 180-day retention, erased with the account) |
 | Terms of use | 🟠 Provisional versions live at `/termos` (workers) and `/termos-empresas` (companies), linked everywhere and accepted with version + date. **Not lawyer-reviewed** — review copies in `docs/legal/`, Word pack in `docs/legal/pack-advogados/` |
 | In-app account deletion | 🟢 Built. Profile → Eliminar a minha conta → `/delete-account` |
 
@@ -364,7 +363,7 @@ false` is already set, which also clears export compliance.
 | ~~Redis eviction policy~~ | 🟢 Set 2026-10-11. Locally BullMQ warned `Eviction policy is allkeys-lru. It should be "noeviction"` — under memory pressure Redis may delete queued jobs (2h acceptance timeouts, wage reminders, auto-completion); likely cause of the shift found stuck on "A aguardar trabalhador". Railway Redis now has the service variable `maxmemory-policy = noeviction`, which Railway applies at start — confirmed with `redis-cli --no-auth-warning -a "$REDIS_PASSWORD" CONFIG GET maxmemory-policy` in the Redis Console (the Console is a shell, not redis-cli). **Keep that variable.** Final check: the warning should be absent from the API's Railway log after the next deploy |
 | `synchronize: true` | `app.module.ts:86` rewrites the production schema from entities on every boot. Generate migrations before the first real payroll. Keep `autoLoadEntities` — it prevents the silently-unregistered-entity bug that killed the Pay Link flow once |
 | `BYPASS_SUBSCRIPTION` | `payments.service.ts:205` returns early, which also skips the overdue-wage block. Delete the Railway variable after the Pay Link end-to-end run (the test company publishes through it; the transferência run was done 2026-10-05); consider gating the code on `NODE_ENV !== 'production'` |
-| **Test accounts** | Worker `+33767560422` (Juanes) and employer Carolina Bakes are real rows, not demo rows — no cleanup touches them. Decide per account: keep as internal test data or delete. The worker's bio, skills, languages and experiences are still seeder fiction — rewrite them if the account stays |
+| ~~Test accounts~~ | 🟢 **Decided 2026-10-11: keep both** — worker `+33767560422` (Juanes) and employer Carolina Bakes stay as internal test data. No cleanup touches them. The worker's bio, skills, languages and experiences are still seeder fiction; rewrite them whenever convenient |
 | ~~`apps/api/.env` baked into the image~~ | 🟢 Not possible — `.env` is not in git and Railway builds from git (checked 2026-10-05). An image built locally *would* include it: the Dockerfile copies `apps/api/` and the only `.dockerignore` sits in `apps/api/`, outside the build context root |
 | Uploads on local disk | R2 is decided, wiring incomplete. `useStaticAssets('/uploads')` serves photos, CVs and payment proofs from a container filesystem that does not survive a Railway redeploy |
 | Dashboard unusable on a phone | 0 media queries, 843 inline style objects across 11 pages, and an overlay telling sub-768px visitors to use a desktop. The sidebar was hoisted into one `components/DashboardShell.tsx` on 2026-10-11 (it had been copied into 3 pages and missing from 8) — the next step is making that shell collapse on narrow screens |
@@ -372,7 +371,7 @@ false` is already set, which also clears export compliance.
 | **Legal gates — test pass** | 🟠 Built 2026-09-27. **Tested 2026-10-05:** company terms modal after the version bump (accepted), 18+ check on apply (passed with a date of birth set). **Still untested:** worker terms screen on a fresh sign-in, statements of reasons (needs a reported no-show on a test shift), retention log line `[Retention] Nightly purge registered` in the Railway logs. How: runbook §8 |
 | ~~Email is not being sent~~ | Promoted to Track 1, blocker #7 |
 | ~~Shift times read as UTC~~ | 🟢 Fixed 2026-10-05, found preparing the first end-to-end run. The API runs in UTC on Railway and built shift instants with `new Date(\`${date}T${time}\`)`, so every Lisbon wall-clock time was an hour late in summer: check-in window, auto-completion, 11h rest check, company/worker cancellation thresholds, check-in "today" after 23:00. Now `common/lisbon-time.ts` (`lisbonDateTime`, `lisbonDate`, DST-tested); API messages format in Lisbon time. Not fixed via `TZ` — that would change how `pg` reads existing `timestamp` columns |
-| **Law firm has the v0.1 pack** | The accountant email and Annex A were removed on 2026-10-05 (Track 1, #7 notes). Send the regenerated pack, pointing at the "Alteração de 5 de outubro" box at the top of the brief |
+| **Law firm has the v0.1 pack** | 🟠 **Pack regenerated 2026-10-11 — ready to send.** Juanes trimmed it for the firm (no dates, change logs, documents table, "O que pedimos"; question B5 on controller qualification dropped from the note — it stays as the ⚖️ note under clause 11.3 of the company terms). His edits were made on the 27/09 copy, so they were re-applied to the current sources rather than copied over: the accountant email and Annex A stay removed. Since the change box is gone, **say in the cover email** that the accountant email and Annex A were removed (company terms v0.2) and that the outside-income question is gone. Sources, never the .docx: see `scripts/legal-pack/build.js` |
 | Stored accountant emails | No longer collected or used; clear what is stored — runbook §8 SQL |
 | TSU tab said the worker pays their own 11% | 🟢 Neutralised 2026-10-05 (now "simulação informativa… obrigações da entidade empregadora"), because the page became reachable from the new "Contratações" menu entry. Write the definitive copy once the law firm answers brief question A3 |
 | ~~Every ratings endpoint used the wrong user~~ | 🟢 Fixed 2026-10-05, found in the first end-to-end run. `ratings.controller.ts` read `req.user.sub`; the JWT strategy provides `req.user.userId`. Every handler got `undefined`, and TypeORM drops an undefined condition — so lookups matched the **first** employer/worker row: ratings refused with 401 (which also logged the company out of the dashboard), a worker's "my reviews" showed someone else's, favourites and no-show reports acted on an arbitrary company. Production has only test data, so nothing to repair. **Open question worth an audit:** any other `findOne` reachable with an undefined id has the same failure mode |

@@ -253,7 +253,8 @@ function loadPrivacyPolicy() {
 function policyToBlocks(doc) {
   const blocks = [
     heading(1, doc.title),
-    para(`*${doc.updated}*`),
+    // No "Última atualização" line: the firm reviews the text, not its history.
+    // The live page keeps the date (section 14 points to it).
     new Paragraph({
       children: runs('Texto publicado em **/privacidade** (PT e EN). Versão provisória, em revisão jurídica. Os campos [[…]] são dados da sociedade ainda por preencher.'),
       shading: noteShading, border: noteBorder, spacing: { after: 200 },

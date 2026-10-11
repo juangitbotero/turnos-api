@@ -1,25 +1,7 @@
 # Política de Cancelamento e Faltas — Turnos
 
 > Versão 1.2 · 2026-09-27 · Fonte única para Web Admin e app móvel.
-> Baseada nas decisões de negócio de ADR 007 e ADR 008. Texto pronto a publicar
-> **depois** de revisto pelo advogado (ver `docs/legal/brief-advogados.md`).
->
-> **O que mudou desde a v1.1 (2026-07-05):**
-> - Novo: **trabalhos de vários dias** (candidatura a todos os dias, cancelamento
->   antes do primeiro dia, impossibilidade de cancelar depois de começar, falta
->   a meio do trabalho).
-> - Novo: **direito a revisão humana** de qualquer consequência automática.
-> - Retirado — prometido mas não implementado, por isso não pode estar num texto
->   publicado: o lembrete push antes de cada turno; "impede o selo FIÁVEL" e
->   "reduz a prioridade nas notificações" num cancelamento tardio; "prioridade em
->   turnos semelhantes" para o trabalhador quando a empresa cancela; e (27/09,
->   2.ª passagem) "turnos confirmados futuros são cancelados" à 2.ª falta. Se
->   forem construídos, voltam a entrar.
-> - Novo: **fundamentação de cada suspensão ou bloqueio**, enviada ao
->   trabalhador e visível no perfil (implementado a 27/09).
-> - Clarificado: a Turnos regista e aplica as regras da plataforma, mas **não é
->   parte** na relação de trabalho — o mínimo de 2 horas é pago pela empresa ao
->   trabalhador, diretamente.
+> Baseada nas decisões de negócio de ADR 007 e ADR 008.
 
 Cancelamentos e faltas prejudicam toda a comunidade Turnos. Os turnos
 confirmados são compromissos entre empresas e trabalhadores: quando uma

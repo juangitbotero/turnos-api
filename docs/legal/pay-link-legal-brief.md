@@ -1,29 +1,6 @@
 # Turnos Pay Link — Estrutura do Fluxo de Pagamento (Brief Jurídico)
 
 > Para revisão e validação por escrito pelo advogado.
-> Versão 2 — 2026-07-29 (v1: 2026-07-06). Ainda **sem sign-off**.
-> Contexto: pivot do modelo de negócio (ADR 007) — a Turnos saiu do fluxo
-> monetário salarial para eliminar qualquer vínculo de intermediação laboral.
-
-## O que mudou desde a v1
-
-Esta versão corrige e amplia o documento anterior. As alterações materiais:
-
-1. **Já não existe check-out.** O ADR 008 (2026-07-14) eliminou a leitura de QR
-   à saída: o turno conclui-se automaticamente à hora agendada de fim. A v1
-   descrevia o Pay Link como gerado "no check-out" — deixou de ser verdade.
-2. **O numerário foi retirado** como método de pagamento (2026-07-29). Um
-   salário MCD deve deixar rasto documental; um pagamento em numerário não dá
-   nada à análise de uma disputa.
-3. **A transferência bancária passou a exigir comprovativo** carregado pela
-   empresa (recibo bancário ou captura MB WAY), associado ao turno.
-4. **O MB WAY passou a estar disponível dentro do próprio Pay Link** (e não
-   apenas como pagamento manual fora da plataforma).
-5. **O IBAN do trabalhador só é divulgado à empresa mediante consentimento
-   explícito, revogável e datado** — mecanismo descrito na secção
-   "Consentimento para partilha do IBAN".
-6. **Divulgam-se agora os mecanismos de execução** (secção "Poderes contratuais
-   da Turnos") que a v1 omitia — é o ponto que mais precisa de parecer.
 
 ## Princípios da estrutura
 

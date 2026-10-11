@@ -30,6 +30,9 @@
  * income, company-side data, processor list, concrete retention periods,
  * hosting region made a placeholder rather than an unverified claim.
  *
+ * Revised 2026-10-11: worker notifications inbox (what it stores, 180-day
+ * retention, erased on account deletion).
+ *
  * Kept out of the shared i18n catalogue deliberately — a legal document is
  * reviewed as a whole, and 100+ catalogue keys would obstruct that review.
  */
@@ -48,7 +51,7 @@ const REGION     = '[[REGIÃO DE ALOJAMENTO]]';
 const pt: PolicyDoc = {
   back: '← Voltar',
   title: 'Política de Privacidade',
-  updated: 'Última atualização: 5 de outubro de 2026',
+  updated: 'Última atualização: 11 de outubro de 2026',
   lede:
     'Esta política explica que dados a Turnos recolhe, porquê, com quem os partilha e que direitos tens. ' +
     'Está escrita para ser lida — se alguma coisa não for clara, escreve-nos.',
@@ -80,6 +83,7 @@ const pt: PolicyDoc = {
           ['Justificações', 'Motivo de um cancelamento tardio (doença, lesão, emergência, outro), a descrição que escreveres e, se o enviares ao suporte, um comprovativo', 'Avaliar se o cancelamento é justificado e, se for, retirá-lo do teu registo. Indicar doença ou lesão é um dado de saúde — ver secção 4'],
           ['Pagamentos', 'Estado do pagamento de cada turno, comprovativo carregado pela empresa, a tua confirmação de receção', 'Registar que foste pago e resolver disputas'],
           ['Localização', 'Coordenadas GPS no momento em que lês o QR code', 'Confirmar que estás no local do turno (raio de 200 m). A aplicação só pede acesso à localização enquanto está a ser usada; não recolhemos a tua localização em contínuo nem fora desse momento'],
+          ['Notificações', 'O texto de cada aviso que te enviamos (por exemplo nome do turno, empresa, valores, ofertas, avisos de suspensão), a data e se já o leste', 'Guardar os avisos numa caixa de entrada na aplicação, para os poderes consultar mesmo que tenhas as notificações push desligadas ou tenhas perdido alguma'],
           ['Técnicos', 'Token de notificações, identificadores de sessão, registos de acesso', 'Enviar-te avisos de turnos e manter a plataforma segura'],
         ],
       },
@@ -154,6 +158,7 @@ const pt: PolicyDoc = {
         'Comprovativos de pagamento: 24 meses após o pagamento, ou até ao fim de uma disputa em curso.',
         'Justificações de cancelamento e respetivos comprovativos: 6 meses após a decisão.',
         'Histórico de turnos e pagamentos: conservado de forma anonimizada após a eliminação da conta.',
+        'Notificações na caixa de entrada da aplicação: 180 dias.',
         'Registos técnicos de acesso: 12 meses.',
       ],
     },
@@ -161,7 +166,7 @@ const pt: PolicyDoc = {
       heading: '9. Eliminar a tua conta',
       paragraphs: [
         'Podes eliminar a conta a qualquer momento na aplicação, em Perfil → Eliminar a minha conta. Não precisas de nos contactar.',
-        'Ao eliminares, apagamos o teu nome, telemóvel, data de nascimento, NIF, IBAN, fotografia, CV, biografia, competências, idiomas, experiência e disponibilidade, e deixas de receber qualquer notificação.',
+        'Ao eliminares, apagamos o teu nome, telemóvel, data de nascimento, NIF, IBAN, fotografia, CV, biografia, competências, idiomas, experiência, disponibilidade e as notificações da caixa de entrada, e deixas de receber qualquer notificação.',
         'Não podemos apagar os registos de contrato e o registo de auditoria das verificações legais: a lei obriga-nos a conservá-los (art. 17.º/3/b RGPD). Esses registos ficam associados a um identificador sem nome nem contactos.',
         'Não é possível eliminar a conta enquanto tiveres um turno confirmado por realizar ou um pagamento por receber — no segundo caso, para que não fiques sem prova do que te é devido.',
       ],
@@ -205,7 +210,7 @@ const pt: PolicyDoc = {
 const en: PolicyDoc = {
   back: '← Back',
   title: 'Privacy Policy',
-  updated: 'Last updated: 5 October 2026',
+  updated: 'Last updated: 11 October 2026',
   lede:
     'This policy explains what data Turnos collects, why, who we share it with and what rights you have. ' +
     'It is written to be read — if anything is unclear, write to us.',
@@ -237,6 +242,7 @@ const en: PolicyDoc = {
           ['Justifications', 'Reason for a late cancellation (illness, injury, emergency, other), the description you write and, if you send it to support, a supporting document', 'Decide whether the cancellation is justified and, if so, remove it from your record. Stating illness or injury is health data — see section 4'],
           ['Payments', 'Payment status for each shift, proof uploaded by the company, your confirmation of receipt', 'Record that you were paid and resolve disputes'],
           ['Location', 'GPS coordinates at the moment you scan the QR code', 'Confirm you are at the shift location (200 m radius). The app only asks for location while it is in use; we do not track your location continuously or at any other time'],
+          ['Notifications', 'The text of each notice we send you (for example shift name, company, amounts, offers, suspension notices), its date and whether you have read it', 'Keep the notices in an in-app inbox, so you can look them up even if push notifications are off or you missed one'],
           ['Technical', 'Notification token, session identifiers, access logs', 'Send you shift alerts and keep the platform secure'],
         ],
       },
@@ -311,6 +317,7 @@ const en: PolicyDoc = {
         'Payment proofs: 24 months after payment, or until an open dispute is resolved.',
         'Cancellation justifications and their supporting documents: 6 months after the decision.',
         'Shift and payment history: retained in anonymised form after account deletion.',
+        'Notifications in the in-app inbox: 180 days.',
         'Technical access logs: 12 months.',
       ],
     },
@@ -318,7 +325,7 @@ const en: PolicyDoc = {
       heading: '9. Deleting your account',
       paragraphs: [
         'You can delete your account at any time in the app, under Profile → Delete my account. You do not need to contact us.',
-        'When you do, we erase your name, phone number, date of birth, NIF, IBAN, photo, CV, bio, skills, languages, experience and availability, and you stop receiving any notification.',
+        'When you do, we erase your name, phone number, date of birth, NIF, IBAN, photo, CV, bio, skills, languages, experience, availability and your inbox notifications, and you stop receiving any notification.',
         'We cannot erase contract records or the audit trail of legal checks: the law requires us to keep them (GDPR Art. 17(3)(b)). Those records remain attached to an identifier carrying no name and no contact details.',
         'You cannot delete your account while you have a confirmed shift still to work or a payment still outstanding — the second, so that you are not left without evidence of what you are owed.',
       ],

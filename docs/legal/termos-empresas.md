@@ -4,10 +4,6 @@
 > Versão 0.2 · 2026-10-05. Escrita a partir do funcionamento real da plataforma.
 > As notas `⚖️` são perguntas para o advogado e saem do texto final. Os campos
 > `[[…]]` são dados da sociedade ainda por preencher.
-> **Alteração face à v0.1 (2026-09-27):** a Turnos deixou de enviar os dados de
-> cada contratação ao contabilista da Empresa. Esses dados ficam disponíveis no
-> painel da Empresa (secção 7.3). Com isso, desaparece o tratamento por conta
-> da Empresa, e o **Anexo A** (art. 28.º RGPD) foi retirado.
 
 ---
 

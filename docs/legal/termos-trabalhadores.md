@@ -2,10 +2,7 @@
 
 > **PRIMEIRA VERSÃO PARA REVISÃO JURÍDICA — NÃO PUBLICAR.**
 > Versão 0.1 · 2026-09-27. Escrita a partir do funcionamento real da aplicação,
-> não de um modelo. As notas `⚖️` são perguntas para o advogado e saem do texto
-> final. Os campos `[[…]]` são dados da sociedade ainda por preencher.
-> Documentos relacionados: Política de Privacidade (`/privacidade`), Política de
-> Cancelamento e Faltas v1.2, Termos para Empresas.
+> não de um modelo.
 
 ---
 
