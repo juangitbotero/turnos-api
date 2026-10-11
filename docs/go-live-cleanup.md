@@ -108,14 +108,29 @@ FROM (
 WHERE w.id = '<worker-id>';
 ```
 
-## 5. `synchronize: true` → migrations · *pre-flight Track 3*
+## 5. Schema changes — migrations · *pre-flight Track 3*
 
-`apps/api/src/app.module.ts:85`. TypeORM alters the production schema from the
-entity files on every boot; one careless rename drops a column and its data.
-Generate a baseline migration from the current production schema, then set
-`synchronize: false` before the first real payroll. Keep
-`autoLoadEntities: true` — it prevents the silently-unregistered-entity bug
-that once killed the whole Pay Link flow.
+`synchronize` is off since 2026-10-11; the API runs pending migrations from
+`apps/api/src/migrations/` at boot (`migrationsRun`). The first one,
+`Baseline`, is a no-op on any database `synchronize` had already built
+(it checks for the `users` table) and builds everything on an empty one.
+
+To change the schema (from `apps/api/`, Docker running):
+
+```bash
+docker compose up -d postgres           # repo root
+npm run migration:generate -- src/migrations/AddSomething   # diffs entities vs LOCAL db
+npm run migration:run                   # apply locally, test
+npm run migration:show                  # [X] = applied
+```
+
+Commit the migration with the entity change; Railway applies it on the next
+boot. Never point `migration:generate` at production. Undo the last one
+locally with `npm run migration:revert`. The scripts call
+`node --no-experimental-strip-types` because Node 24 otherwise loads `.ts`
+files itself as ES modules and the CLI fails with `__dirname is not defined`.
+Keep `autoLoadEntities: true` — it prevents the silently-unregistered-entity
+bug that once killed the whole Pay Link flow.
 
 ## 6. `BYPASS_SUBSCRIPTION` · *pre-flight Track 3*
 

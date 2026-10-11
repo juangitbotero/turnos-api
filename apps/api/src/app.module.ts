@@ -1,3 +1,4 @@
+import * as path from 'path';
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -82,7 +83,15 @@ import { LanguageMiddleware } from './i18n/language.middleware';
           // is added to the connection automatically, so the next entity someone
           // adds cannot repeat the WagePayment failure by being left off the list.
           autoLoadEntities: true,
-          synchronize: true, // Safe for beta — switch to migrations before real launch
+          // Schema changes go through migrations (src/migrations), run at boot.
+          // synchronize rewrote the production schema from the entities on
+          // every start — a renamed column was a dropped column. Switched off
+          // 2026-10-11; the Baseline migration is a no-op on databases it had
+          // already built. New change → `npm run migration:generate`.
+          synchronize: false,
+          // .js once compiled (dist also holds .d.ts files, which must not load)
+          migrations: [path.join(__dirname, 'migrations', __filename.endsWith('.ts') ? '*.ts' : '*.js')],
+          migrationsRun: true,
         };
         if (databaseUrl) {
           return { ...baseConfig, url: databaseUrl, ssl: isProduction ? { rejectUnauthorized: false } : false };

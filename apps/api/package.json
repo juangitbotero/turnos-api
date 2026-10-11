@@ -12,7 +12,12 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "typeorm": "node --no-experimental-strip-types -r ts-node/register/transpile-only -r tsconfig-paths/register ../../node_modules/typeorm/cli.js -d src/data-source.ts",
+    "migration:generate": "npm run typeorm -- migration:generate",
+    "migration:run": "npm run typeorm -- migration:run",
+    "migration:revert": "npm run typeorm -- migration:revert",
+    "migration:show": "npm run typeorm -- migration:show"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1053.0",

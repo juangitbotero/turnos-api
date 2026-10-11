@@ -437,4 +437,4 @@ These are non-negotiable and must be correct before launch:
 
 ## TypeORM Note
 
-`synchronize: true` is set in dev — TypeORM auto-creates/alters tables from entities. Never enable this in production; use migrations instead.
+`synchronize` is **off everywhere** since 2026-10-11. Schema changes are migrations in `apps/api/src/migrations/`, run automatically at boot (`migrationsRun`). Change an entity → `npm run migration:generate -- src/migrations/<Name>` from `apps/api` against the **local Docker** DB → commit both together. The `Baseline` migration is a no-op on databases `synchronize` had built. How-to: `docs/go-live-cleanup.md` §5.
