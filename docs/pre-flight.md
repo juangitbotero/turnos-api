@@ -15,25 +15,55 @@ contradicts the product is worse than no roadmap.
 > Rule for every session: when work opens or closes a launch item, update its
 > row here **in the same commit** as the change.
 
-Last full reconciliation with the runbook and the live API: **2026-10-05**.
+Last full reconciliation with the runbook and the live API: **2026-10-05**
+(this file updated through the 2026-10-11 session).
 Re-check before acting — some of these are load-bearing until the day they
 aren't.
 
 ## Next session — start here
 
-1. **Look & feel fixes** from the 2026-10-05 end-to-end run — listed and in
-   progress since 2026-10-11 (Track 3, "Look & feel from the E2E", five
-   batches). Wanted improvements that are *not* blockers live in Track 5.
-2. **Next EAS preview build** — three app changes are waiting for it (Track 2,
-   "New EAS build needed"): visible "✓ Recebi / Não recebi" buttons (to build),
-   completed-shifts count and "Taxa de conclusão" label (done).
+1. **Check the 2026-10-11 deploy on a device** with APK `versionCode` 11: the
+   26 Sept application shows in History as Caducado (not Pendente); a new
+   worker's onboarding has no income question; a push to an EN worker arrives
+   in English. Railway API log: no `Eviction policy is allkeys-lru` line.
+2. **"✓ Recebi / Não recebi" buttons** on the completed-shift card — the last
+   app item from the 10-05 run still not built (Track 2, "EAS preview build").
 3. Pick from what is left and needs no external account: `synchronize` →
-   migrations, the undefined-id audit (Track 3, ratings row), the
-   `DashboardShell` for phones, R2 uploads (needs a Cloudflare key).
+   migrations (today added 6 columns + 1 table + 2 enum values through it),
+   the undefined-id audit (Track 3, ratings row), make `DashboardShell`
+   collapse on phones, R2 uploads (needs a Cloudflare key). Wanted
+   improvements that are not blockers: Track 5.
 
 **Blocked on outside events, not on code:** Twilio (#1) and live Stripe (#5)
 wait for the company's NIPC; the Pay Link end-to-end run waits for Stripe; the
-legal copy waits for the law firm.
+legal copy waits for the law firm — and the pack they have is **out of date**
+(outside-income question and dependency limit removed 2026-10-11; regenerate
+before sending anything).
+
+## Session log — 2026-10-11
+
+Look & feel list from the 10-05 run, done in five batches, plus what testing
+turned up. All deployed to Railway (API + dashboard) and in APK `versionCode` 11.
+**Built:** one dashboard shell with a grouped sidebar (Operacional /
+Administração), company menu, subscription inside Definições, Reputação as a
+tab of Quem já trabalhou, breadcrumbs; **Candidatos** page with live badge,
+toast and first-candidate email; equal applicant buttons, sort Best rated /
+Best match (`skillMatch`); **Retirar oferta** + Cancel for offers awaiting the
+worker; bulk **delete of expired shifts** (archived, not cancelled); worker
+**notifications inbox** with bell and offer **countdown**; worker pushes in the
+worker's language (PT/EN). Track 5 created from the automations notes.
+**Fixed:** offers stuck on "A aguardar trabalhador" (lost 2h timer → 15-min
+sweep; Railway Redis set to `noeviction`); a stale timer could cancel a newer
+offer; invite-only offers turned workers into "applicants"; "Eliminar" 400'd
+until 02:00 UTC; expiry read UTC; Expired section had broken layout; the 11h
+rest rule compared with one shift only (refused every earlier shift, missed
+rest before an existing one) and now also runs at accept and invite;
+applications on expired/cancelled shifts stayed "Pendente" forever; Início
+"Candidatos pendentes" counted open shifts; duplicate socket connections; a
+push pointing to the non-existent `suporte@turnos.pt`; a payment-timing promise
+in a push. **Decided (Juanes):** economic-dependency check and the
+outside-income question removed — Turnos does the matching and doesn't ask
+about income outside the platform.
 
 ## Session log — 2026-10-05
 
@@ -296,7 +326,7 @@ account, and `Worker.deletedAt` plus the new enum value reach production through
 | ~~`RECORD_AUDIO` permission~~ | 🟢 Fixed 2026-09-27 — removed, `recordAudioAndroid: false` on `expo-camera` |
 | ~~Location asks for "Always"~~ | 🟢 Fixed 2026-09-27 — when-in-use only, background disabled on both platforms |
 | ~~Permission strings mixed PT/EN~~ | 🟢 Fixed 2026-09-27 — camera and location strings now PT like the rest |
-| New EAS build needed | **Built 2026-10-11** — preview APK `versionCode` 9 (EAS build `72b82ffe`), contains everything listed here; still to be checked on a device. The `app.json` permission changes and the date-of-birth field were in the build tested on 2026-10-05. **Waiting for the next build:** completed-shifts count + "Taxa de conclusão" label on the reviews screen (code done 2026-10-05); visible **"✓ Recebi" / "Não recebi" buttons** on the completed-shift card — today the action is a tappable sentence that opens a dialog, and in the first end-to-end run it was not found (not built yet); **notifications inbox** (bell + unread count, server-saved list), **countdown** on the pending-acceptance card, and the selection push opening My shifts (planned 2026-10-11, Look & feel batch 5) |
+| EAS preview build | 🟢 **Current: `versionCode` 11** (built 2026-10-11, EAS `6fd6854d`) — completed-shifts count + "Taxa de conclusão", notifications inbox + bell + offer countdown, offer pushes open My shifts, closed applications in History as Caducado/Cancelado, onboarding without the outside-income question. Tested on a device 2026-10-11 by Juanes (inbox, countdown, candidates flow). Earlier `app.json` permission changes and the date-of-birth field were in the 10-05 build. **Still not built (needs a future APK):** visible **"✓ Recebi" / "Não recebi" buttons** on the completed-shift card (today a tappable sentence opening a dialog, not found in the first E2E run); app writing `preferredLanguage` on first launch, not only on a manual switch. Bump `versionCode` in `app.json` for every build (`appVersionSource: local`) |
 | `version: "0.0.1"` | Ship as `1.0.0`; set `ios.buildNumber` or let EAS auto-increment |
 | ~~Off-brand colours~~ | 🟢 Already fixed — `app.json` uses `#6a79ff` / `#fafdff` (confirmed 2026-10-05) |
 
@@ -325,7 +355,7 @@ false` is already set, which also clears export compliance.
 | Item | Detail |
 |---|---|
 | First end-to-end run | 🟢 **Ran 2026-10-05** (Carolina Bakes + worker on the emulator, payment method Transferência): company terms gate → publish → apply (18+ check passed) → approve → worker accepts → "Dados SS" / Contratações → manual "Concluído" → wage payment row + payment-due email → "Marcar como pago" with proof → worker sees proof → ratings both ways → completion count. Found 6 bugs, all fixed (Session log). **Not covered, still to run:** the **QR scan** (emulator has no camera — Android Studio VirtualScene can show the QR image), hence the geofence, the corrected Lisbon check-in window and the **automatic completion at the scheduled end**; and the **Pay Link** path, which needs Stripe (#5) — rerun the whole flow with a Pay Link shift once Stripe is set up |
-| **Look & feel from the E2E** | 🟢 Listed and built 2026-10-11 in five batches — **not yet pushed/deployed**; the mobile part ships with the next EAS build: (1) this doc + Track 5 — **done**; (2) **done 2026-10-11** — one shared `DashboardShell`, sidebar grouped Operacional / Administração, "Dashboard" → "Início", subscription moved into Settings + company menu, breadcrumbs instead of the tiny "← Dashboard" link, Reputação folded into "Quem já trabalhou" as a Reviews tab (old `/dashboard/billing` and `/dashboard/ratings` URLs redirect; rate-the-worker emails now link to `/dashboard/workers?tab=reviews`); (3) **done 2026-10-11** — **Candidates** page (`/dashboard/candidates`, jobs with pending applicants, soonest first) + live sidebar badge (red while some are unseen, from the `shift:new_application` socket) + toast on any page + real count on the Início card (it was showing open shifts) + one email per job on its first candidate (switchable in Definições → Notificações, `newCandidates`), equal-size applicant buttons, sort reduced to Best rated / Best match (`skillMatch()` in shared, reasons shown). New column `shift_applications.employerSeenAt` reaches production through `synchronize` like the others. Verified locally end to end with three test workers; (4) **done 2026-10-11** — "Awaiting worker" (PENDING_ACCEPTANCE) shifts get **Retirar oferta** + Cancelar (they had no action at all); one `shifts/offer-release.ts` for the 2h timeout, the withdraw and a new **15-min sweep** that releases offers whose timeout job was lost; a stale timer can no longer cancel a newer offer; an invite-only offer that lapses no longer turns the worker into an "applicant" (`ShiftApplication.invited`); "Eliminar" on an expired shift works before the 02:00 UTC job runs (it 400'd for up to a day); expiry reads Lisbon time; the Expired section had broken layout (styles that never existed) and now sits under Active shifts; re-post leaves date **and** start time empty and keeps payment method + map location; the company-cancel push no longer promises worker "priority" (removed from policy v1.2). Verified locally end to end; (5) **done 2026-10-11** — worker **notifications inbox**: every personal push is also stored (`worker_notifications`, `NotificationsService.notifyWorker()` replaces the 12 `if (token) sendDirectPush` call sites, so workers with notifications off now get a record), bell with unread count on the feed and My shifts, `/notifications` screen, one tap-routing table for push and inbox (`lib/notificationRoute.ts` — offer pushes now open My shifts, where Accept lives), live **countdown** on the offer card from the new `Shift.offeredAt` (timestamptz; the sweep uses it too). Retention 180 days (nightly) and wiped on account deletion. API verified locally; the mobile screens are **not yet seen on a device** — check them on the next EAS build. Also: the hours-adjusted push pointed workers to the non-existent `suporte@turnos.pt` — now `SUPPORT_EMAIL`. **Follow-up 2026-10-11:** worker pushes were hard-coded Portuguese — now catalogue keys (`api.push.*`, PT + EN) sent in `Worker.preferredLanguage`, and the inbox re-renders in the app's current language (entries from before this stay as sent). The "payment received" push dropped its "arrives in 1–2 working days" promise. Server-only, no new APK. Known gap: `preferredLanguage` is only written when the worker switches language in the app, so a worker who never touched the switch is treated as PT |
+| ~~Look & feel from the E2E~~ | 🟢 Listed, built, **deployed and tested 2026-10-11** in five batches (mobile part in APK `versionCode` 11): (1) this doc + Track 5 — **done**; (2) **done 2026-10-11** — one shared `DashboardShell`, sidebar grouped Operacional / Administração, "Dashboard" → "Início", subscription moved into Settings + company menu, breadcrumbs instead of the tiny "← Dashboard" link, Reputação folded into "Quem já trabalhou" as a Reviews tab (old `/dashboard/billing` and `/dashboard/ratings` URLs redirect; rate-the-worker emails now link to `/dashboard/workers?tab=reviews`); (3) **done 2026-10-11** — **Candidates** page (`/dashboard/candidates`, jobs with pending applicants, soonest first) + live sidebar badge (red while some are unseen, from the `shift:new_application` socket) + toast on any page + real count on the Início card (it was showing open shifts) + one email per job on its first candidate (switchable in Definições → Notificações, `newCandidates`), equal-size applicant buttons, sort reduced to Best rated / Best match (`skillMatch()` in shared, reasons shown). New column `shift_applications.employerSeenAt` reaches production through `synchronize` like the others. Verified locally end to end with three test workers; (4) **done 2026-10-11** — "Awaiting worker" (PENDING_ACCEPTANCE) shifts get **Retirar oferta** + Cancelar (they had no action at all); one `shifts/offer-release.ts` for the 2h timeout, the withdraw and a new **15-min sweep** that releases offers whose timeout job was lost; a stale timer can no longer cancel a newer offer; an invite-only offer that lapses no longer turns the worker into an "applicant" (`ShiftApplication.invited`); "Eliminar" on an expired shift works before the 02:00 UTC job runs (it 400'd for up to a day); expiry reads Lisbon time; the Expired section had broken layout (styles that never existed) and now sits under Active shifts; re-post leaves date **and** start time empty and keeps payment method + map location; the company-cancel push no longer promises worker "priority" (removed from policy v1.2). Verified locally end to end; (5) **done 2026-10-11** — worker **notifications inbox**: every personal push is also stored (`worker_notifications`, `NotificationsService.notifyWorker()` replaces the 12 `if (token) sendDirectPush` call sites, so workers with notifications off now get a record), bell with unread count on the feed and My shifts, `/notifications` screen, one tap-routing table for push and inbox (`lib/notificationRoute.ts` — offer pushes now open My shifts, where Accept lives), live **countdown** on the offer card from the new `Shift.offeredAt` (timestamptz; the sweep uses it too). Retention 180 days (nightly) and wiped on account deletion. API verified locally; the mobile screens are **not yet seen on a device** — check them on the next EAS build. Also: the hours-adjusted push pointed workers to the non-existent `suporte@turnos.pt` — now `SUPPORT_EMAIL`. **Follow-up 2026-10-11:** worker pushes were hard-coded Portuguese — now catalogue keys (`api.push.*`, PT + EN) sent in `Worker.preferredLanguage`, and the inbox re-renders in the app's current language (entries from before this stay as sent). The "payment received" push dropped its "arrives in 1–2 working days" promise. Server-only, no new APK. Known gap: `preferredLanguage` is only written when the worker switches language in the app, so a worker who never touched the switch is treated as PT |
 | ~~11h rest rule compared with one shift only~~ | 🟢 Fixed 2026-10-11 (found from a worker question). `checkRestPeriod` compared the new shift with the worker's **latest-dated** confirmed shift, one direction only: any shift *earlier* than that one got a negative gap and was always refused, and a shift ending <11h before an existing one passed. Now `ComplianceService.assertRestPeriod()` checks every confirmed shift within ±2 days, both directions, and also runs when the worker **accepts** an offer and when a company **invites** directly (company-facing message). Days of the same multi-day job are not checked against each other. Verified locally with 6 cases |
 | ~~Applications on dead shifts stayed "Pendente"~~ | 🟢 Fixed 2026-10-11. Nothing closed applications when a shift expired or was cancelled, so the worker's "Pendentes" listed a 26 Sept job on 11 Oct. New `ApplicationStatus.EXPIRED` / `CANCELLED` (`shifts/application-closing.ts`) set on cancel, on "Eliminar" of an expired shift and on expiry; the 15-min sweep now also runs expiry (was 02:00 UTC only) and a catch-up that closed every stuck row. App: closed ones move to History as "Caducado"/"Cancelado" — **needs the next APK**; on the current APK they simply drop out of "Pendentes" (it doesn't know the new statuses) |
 | ~~Economic-dependency check blocks repeat work~~ | 🟢 **Removed 2026-10-11 by decision** (Juanes): Turnos does the matching and does not ask about income outside the platform. It refused every further application to a company once a worker with no declared outside income had worked for it. Check, onboarding question, column (dropped by `synchronize`) and endpoints removed; privacy policy, company terms and FAQ no longer mention declared income. **The law-firm pack still describes it** — send the next regenerated pack |
