@@ -31,6 +31,7 @@ import { restrictionNotice, statementToHtml } from '../users/restriction-notice'
 import { lisbonDate, lisbonDateTime } from '../common/lisbon-time';
 import { notificationPrefsOf } from '../users/notification-prefs';
 import { releasePendingOffer, ACCEPTANCE_WINDOW_MS } from './offer-release';
+import { closeApplications } from './application-closing';
 
 // 5 hours in milliseconds — delay before re-notification job fires
 const RE_NOTIFY_DELAY_MS = 5 * 60 * 60 * 1000;
@@ -406,6 +407,8 @@ export class ShiftsService {
     );
     for (const day of cancellable) day.status = ShiftStatus.CANCELLED;
     await this.shiftRepo.save(cancellable);
+    // Applicants and the confirmed worker see "Cancelado", not a stale "Pendente"
+    await closeApplications(this.applicationRepo, cancellable.map(d => d.id), ApplicationStatus.CANCELLED);
     const saved = cancellable.find(d => d.id === shift.id) ?? shift;
 
     // Notify all applicants that the shift was cancelled
@@ -719,6 +722,9 @@ export class ShiftsService {
     // Confirming accepts the whole job — every day of the series at once
     const days = (await this.seriesShifts(shift))
       .filter(d => d.status === ShiftStatus.PENDING_ACCEPTANCE && d.assignedWorker?.id === worker.id);
+    // Rest period again at acceptance: the offer may be hours old, and the
+    // worker may have taken another shift since they applied.
+    for (const day of days) await this.compliance.assertRestPeriod(worker, day);
     for (const day of days) { day.status = ShiftStatus.FILLED; day.offeredAt = null; }
     await this.shiftRepo.save(days);
 
@@ -1240,6 +1246,8 @@ export class ShiftsService {
     });
     if (!worker) throw new NotFoundException('Worker not found');
     this.assertWorkerIsAdult(worker, shift.date, 'employer');
+    // A direct invite skips apply(), so it gets the rest-period check here
+    await this.compliance.assertRestPeriod(worker, shift, 'employer');
 
     // Create or reuse an application for this worker on this shift
     let application = await this.applicationRepo.findOne({
@@ -1366,6 +1374,8 @@ export class ShiftsService {
     }
     shift.status = ShiftStatus.CANCELLED;
     await this.shiftRepo.save(shift);
+    // It ended unfilled — to applicants it expired, whatever the company does with it now
+    await closeApplications(this.applicationRepo, [shift.id], ApplicationStatus.EXPIRED);
     return { message: t('api.shifts.deleted') };
   }
 

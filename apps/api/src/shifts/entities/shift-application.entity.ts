@@ -16,6 +16,10 @@ export enum ApplicationStatus {
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
   WITHDRAWN = 'WITHDRAWN',
+  /** The shift expired unfilled (or with an unanswered offer). See shifts/application-closing.ts. */
+  EXPIRED = 'EXPIRED',
+  /** The company cancelled the shift. */
+  CANCELLED = 'CANCELLED',
 }
 
 @Entity('shift_applications')

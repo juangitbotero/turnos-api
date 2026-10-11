@@ -245,7 +245,8 @@ export interface ShiftSummary {
 
 export interface MyApplication {
   id: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
+  /** EXPIRED / CANCELLED (2026-10-11): the shift ended unfilled or the company cancelled it. */
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN' | 'EXPIRED' | 'CANCELLED';
   appliedAt: string;
   shift: ShiftSummary & { employer: { id: string; companyName: string } | null };
 }

@@ -5,7 +5,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { NotificationsService } from '../notifications.service';
 import { Shift, ShiftStatus } from '../../shifts/entities/shift.entity';
-import { ShiftApplication } from '../../shifts/entities/shift-application.entity';
+import { ShiftApplication, ApplicationStatus } from '../../shifts/entities/shift-application.entity';
+import { closeApplications, closeStaleApplications } from '../../shifts/application-closing';
 import { releasePendingOffer, ACCEPTANCE_WINDOW_MS } from '../../shifts/offer-release';
 import { lisbonDateTime } from '../../common/lisbon-time';
 
@@ -58,6 +59,11 @@ export class ReNotificationProcessor extends WorkerHost {
     // ── Safety net: offers whose timeout job was lost ───────────────────────
     if (job.name === 'release-stale-offers') {
       await this.releaseStaleOffers();
+      // Expiry used to run only at 02:00 UTC, so an unfilled shift sat as OPEN
+      // (still in the feed, its applications "pending") until the next night.
+      await this.runShiftExpiry();
+      const closed = await closeStaleApplications(this.applicationRepo);
+      if (closed) this.logger.log(`[Applications] ${closed} application(s) on expired/cancelled shifts closed`);
       return;
     }
 
@@ -137,11 +143,9 @@ export class ReNotificationProcessor extends WorkerHost {
     // Lisbon wall-clock: the API runs in UTC, and `new Date(y, m, d, h)` read
     // shift times as UTC — an hour late in summer (same bug as 2026-10-05).
     const toExpire = candidates.filter(shift => lisbonDateTime(shift.date, shift.endTime) < now);
-    if (toExpire.length === 0) {
-      this.logger.log('[ShiftExpiry] No stale shifts.');
-      return;
-    }
+    if (toExpire.length === 0) return;   // runs every 15 min — stay quiet when idle
     await this.shiftRepo.update({ id: In(toExpire.map(s => s.id)) }, { status: ShiftStatus.EXPIRED });
+    await closeApplications(this.applicationRepo, toExpire.map(s => s.id), ApplicationStatus.EXPIRED);
     this.logger.log(`[ShiftExpiry] ${toExpire.length} shift(s) marked EXPIRED.`);
   }
 }

@@ -21,7 +21,26 @@ const STATUS_COLOR: Record<AppStatus, { bg: string; text: string; border: string
   APPROVED: { bg: '#dcfce7', text: '#166534', border: '#86efac' },
   REJECTED: { bg: '#fee2e2', text: '#991b1b', border: '#fca5a5' },
   WITHDRAWN: { bg: '#f3f4f6', text: '#6b7280', border: '#d1d5db' },
+  EXPIRED:   { bg: '#f3f4f6', text: '#6b7280', border: '#d1d5db' },
+  CANCELLED: { bg: '#fee2e2', text: '#991b1b', border: '#fca5a5' },
 };
+
+/**
+ * The shift this application was for will never happen: the API closed it
+ * (EXPIRED / CANCELLED), or — for rows the server hasn't swept yet — the shift
+ * is cancelled/expired or its end has passed while the application is still
+ * PENDING. Such applications belong in history, never in "Pendentes"; a job
+ * from 26 Sept was still listed there on 11 Oct.
+ */
+function closedOutcome(app: MyApplication): 'EXPIRED' | 'CANCELLED' | null {
+  if (app.status === 'EXPIRED' || app.status === 'CANCELLED') return app.status;
+  if (app.status !== 'PENDING') return null;
+  if (app.shift.status === 'CANCELLED') return 'CANCELLED';
+  if (app.shift.status === 'EXPIRED') return 'EXPIRED';
+  const [y, mo, d] = app.shift.date.split('-').map(Number);
+  const [h, m] = app.shift.endTime.split(':').map(Number);
+  return new Date(y ?? 0, (mo ?? 1) - 1, d ?? 1, h ?? 0, m ?? 0) < new Date() ? 'EXPIRED' : null;
+}
 
 /** Returns true if the shift has ended (by shift.status or by wall-clock time). */
 function isShiftOver(app: MyApplication): boolean {
@@ -242,9 +261,9 @@ export default function MyShiftsScreen() {
   const nextJob     = [...allConfirmed].sort((a, b) => shiftStart(a).getTime() - shiftStart(b).getTime())[0];
   const confirmed   = allConfirmed.filter(a => a.id !== nextJob?.id);
   // 4. Pendentes — awaiting employer decision
-  const pending     = applications.filter(a => a.status === 'PENDING');
+  const pending     = applications.filter(a => a.status === 'PENDING' && !closedOutcome(a));
   // 5. Histórico — rejected or withdrawn
-  const history     = applications.filter(a => a.status === 'REJECTED' || a.status === 'WITHDRAWN');
+  const history     = applications.filter(a => a.status === 'REJECTED' || a.status === 'WITHDRAWN' || !!closedOutcome(a));
 
   return (
     <View style={s.root}>
@@ -689,8 +708,9 @@ function ApplicationCard({
     badgeLabel = t('mobile.myShifts.badgeCompleted');
     badgeStyle = { bg: '#cffafe', text: '#0e7490', border: '#67e8f9' };
   } else {
-    badgeLabel = t(`domain.applicationStatus.${app.status}`);
-    badgeStyle = STATUS_COLOR[app.status];
+    const shown = closedOutcome(app) ?? app.status;
+    badgeLabel = t(`domain.applicationStatus.${shown}`);
+    badgeStyle = STATUS_COLOR[shown];
   }
 
   return (

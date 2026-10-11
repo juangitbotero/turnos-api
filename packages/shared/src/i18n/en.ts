@@ -89,6 +89,8 @@ export const en: Translated<TranslationCatalogue> = {
       APPROVED:  'Confirmed',
       REJECTED:  'Rejected',
       WITHDRAWN: 'Withdrawn',
+      EXPIRED:   'Expired',
+      CANCELLED: 'Cancelled',
     },
     workerStatus: {
       INCOMPLETE:     'Profile incomplete',
@@ -2011,6 +2013,8 @@ export const en: Translated<TranslationCatalogue> = {
 
     compliance: {
       restPeriod:        'A minimum {{hours}}h rest between shifts is mandatory (EU Working Time Directive). You are available again from {{availableAt}}.',
+      restPeriodBefore:  'A minimum {{hours}}h rest between shifts is mandatory (EU Working Time Directive). This shift ends less than {{hours}}h before your next shift, which starts {{nextStart}}.',
+      restPeriodEmployer:'This worker would not have the mandatory {{hours}}h rest between shifts with these hours — they already have another confirmed shift too close.',
       mcdLimitSeries:    'MCD (Muito Curta Duração) limit: you already have {{used}}/{{limit}} days with this employer in {{year}} and this job is {{days}} days — that goes over the legal cap. Lei 93/2019 allows no more than {{limit}} days a year with the same employer.',
       mcdLimitReached:   'MCD (Muito Curta Duração) limit reached: {{used}}/{{limit}} days with this employer in {{year}}. Portuguese law (Lei 93/2019) allows no more than {{limit}} days a year with the same employer.',
       dependencyBlock:   'Economic dependency limit reached: {{percent}}% of your declared annual income comes from this employer. The Agenda do Trabalho Digno (Lei 13/2023) caps dependency on a single employer at {{limit}}%.',

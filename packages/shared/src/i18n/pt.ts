@@ -89,6 +89,8 @@ export const pt = {
       APPROVED:  'Confirmado',
       REJECTED:  'Rejeitado',
       WITHDRAWN: 'Retirado',
+      EXPIRED:   'Caducado',
+      CANCELLED: 'Cancelado',
     },
     workerStatus: {
       INCOMPLETE:     'Perfil incompleto',
@@ -2049,6 +2051,8 @@ export const pt = {
 
     compliance: {
       restPeriod:        'Mínimo {{hours}}h de descanso obrigatório entre turnos (Diretiva Europeia do Tempo de Trabalho). Disponível a partir de {{availableAt}}.',
+      restPeriodBefore:  'Mínimo {{hours}}h de descanso obrigatório entre turnos (Diretiva Europeia do Tempo de Trabalho). Este turno termina a menos de {{hours}}h do teu próximo turno, que começa {{nextStart}}.',
+      restPeriodEmployer:'Este trabalhador não teria as {{hours}}h de descanso obrigatórias entre turnos com este horário — já tem outro turno confirmado demasiado perto.',
       mcdLimitSeries:    'Limite MCD: já tens {{used}}/{{limit}} dias com este empregador em {{year}} e este trabalho tem {{days}} dias — excede o limite legal. A Lei 93/2019 não permite mais de {{limit}} dias/ano com o mesmo empregador.',
       mcdLimitReached:   'Limite MCD atingido: {{used}}/{{limit}} dias com este empregador em {{year}}. Legislação portuguesa (Lei 93/2019) não permite mais de {{limit}} dias/ano com o mesmo empregador.',
       dependencyBlock:   'Limite de dependência económica atingido: {{percent}}% dos seus rendimentos anuais declarados provêm deste empregador. A Agenda do Trabalho Digno (Lei 13/2023) impede mais de {{limit}}% de dependência de um único empregador.',

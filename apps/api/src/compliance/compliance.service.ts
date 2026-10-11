@@ -2,7 +2,7 @@ import {
   Injectable, BadRequestException, Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, MoreThanOrEqual } from 'typeorm';
+import { Repository, In, MoreThanOrEqual, Between } from 'typeorm';
 import { calculateTSU } from '@turnos/shared';
 import { McdContract } from './entities/mcd-contract.entity';
 import { ComplianceAuditLog, ComplianceEvent } from './entities/compliance-audit-log.entity';
@@ -57,7 +57,7 @@ export class ComplianceService {
     shift: Shift,
     daysBeingAdded = 1,
   ): Promise<{ warning?: string }> {
-    await this.checkRestPeriod(worker, shift);
+    await this.assertRestPeriod(worker, shift);
     await this.checkMcdAnnualLimit(worker, shift, daysBeingAdded);
     const warning = await this.checkEconomicDependency(worker, shift.employer);
     return warning ? { warning } : {};
@@ -274,39 +274,79 @@ export class ComplianceService {
 
   // ── Private compliance checks ─────────────────────────────────────────────
 
-  private async checkRestPeriod(worker: Worker, newShift: Shift): Promise<void> {
-    const lastConfirmed = await this.shiftRepo.findOne({
+  /**
+   * 11h minimum rest between shifts (EU Working Time Directive; Código do
+   * Trabalho art. 214.º), checked against EVERY confirmed shift of the worker
+   * near the new one — in both directions.
+   *
+   * Until 2026-10-11 this compared only with the worker's latest-dated
+   * confirmed shift and only "after" it: a shift earlier than that one came out
+   * with a negative gap and was always refused, and a new shift ending less
+   * than 11h before an existing one was let through.
+   *
+   * Days of the same multi-day job are not checked against each other — the
+   * schedule is the company's, and the whole job is taken or not.
+   *
+   * `audience` picks the wording: a worker applying/accepting is told when
+   * they are free again; a company inviting is told the worker is not.
+   */
+  async assertRestPeriod(worker: Worker, newShift: Shift, audience: 'worker' | 'employer' = 'worker'): Promise<void> {
+    const span = (sh: Shift) => {
+      // Lisbon wall-clock (common/lisbon-time.ts); an overnight shift ends the next day
+      const overnight = sh.endTime.slice(0, 5) <= sh.startTime.slice(0, 5);
+      return {
+        start: lisbonDateTime(sh.date, sh.startTime),
+        end:   lisbonDateTime(overnight ? nextDay(sh.date) : sh.date, sh.endTime),
+      };
+    };
+    const n = span(newShift);
+    const restMs = REST_PERIOD_HOURS * 3_600_000;
+
+    // ±2 calendar days covers every shift that could be within 11h either side
+    const day = (offset: number) => {
+      const d = new Date(`${newShift.date}T12:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + offset);
+      return d.toISOString().slice(0, 10);
+    };
+    const nearby = await this.shiftRepo.find({
       where: {
         assignedWorker: { id: worker.id },
         status: In([ShiftStatus.FILLED, ShiftStatus.ACTIVE, ShiftStatus.COMPLETED]),
+        date: Between(day(-2), day(2)),
       },
-      order: { date: 'DESC', endTime: 'DESC' },
     });
 
-    if (!lastConfirmed) return;
-
-    // Lisbon wall-clock times (see common/lisbon-time.ts). An overnight shift
-    // ends on the following calendar day.
-    const lastOvernight = lastConfirmed.endTime.slice(0, 5) <= lastConfirmed.startTime.slice(0, 5);
-    const lastEnd  = lisbonDateTime(lastOvernight ? nextDay(lastConfirmed.date) : lastConfirmed.date, lastConfirmed.endTime);
-    const newStart = lisbonDateTime(newShift.date, newShift.startTime);
-    const gapHours = (newStart.getTime() - lastEnd.getTime()) / 3_600_000;
-
-    if (gapHours < REST_PERIOD_HOURS) {
-      const availableAt = new Date(lastEnd.getTime() + REST_PERIOD_HOURS * 3_600_000);
+    for (const other of nearby) {
+      if (other.id === newShift.id) continue;
+      if (newShift.seriesId && other.seriesId === newShift.seriesId) continue;
+      const o = span(other);
+      // Fine only if the new shift starts ≥11h after the other ends, or ends ≥11h before it starts
+      const clashes = n.start.getTime() < o.end.getTime() + restMs
+                   && n.end.getTime() + restMs > o.start.getTime();
+      if (!clashes) continue;
 
       await this.log({
         event:    ComplianceEvent.REST_PERIOD_VIOLATION_ATTEMPT,
         workerId: worker.id,
         shiftId:  newShift.id,
-        details:  { gapHours: Math.round(gapHours * 10) / 10, lastShiftId: lastConfirmed.id },
+        details:  { conflictingShiftId: other.id, audience },
       });
 
+      if (audience === 'employer') {
+        throw new BadRequestException(t('api.compliance.restPeriodEmployer', { hours: REST_PERIOD_HOURS }));
+      }
       throw new BadRequestException(
-        t('api.compliance.restPeriod', {
-          hours:       REST_PERIOD_HOURS,
-          availableAt: tDateTime(availableAt),
-        }),
+        n.start.getTime() >= o.start.getTime()
+          // New shift comes after the other one: free again 11h after it ends
+          ? t('api.compliance.restPeriod', {
+              hours: REST_PERIOD_HOURS,
+              availableAt: tDateTime(new Date(o.end.getTime() + restMs)),
+            })
+          // New shift comes before the other one: it ends too close to it
+          : t('api.compliance.restPeriodBefore', {
+              hours: REST_PERIOD_HOURS,
+              nextStart: tDateTime(o.start),
+            }),
       );
     }
   }

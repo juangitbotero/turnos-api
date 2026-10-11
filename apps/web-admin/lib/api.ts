@@ -258,7 +258,7 @@ export interface WagePayment {
 
 export interface Application {
   id: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN' | 'EXPIRED' | 'CANCELLED';
   appliedAt: string;
   coverNote?: string | null;
   worker: {
