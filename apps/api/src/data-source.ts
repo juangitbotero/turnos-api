@@ -12,10 +12,13 @@
  */
 import 'reflect-metadata';
 import * as path from 'path';
-import * as dotenv from 'dotenv';
 import { DataSource } from 'typeorm';
 
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+// Node's own .env loader — `dotenv` is not an API dependency, and importing
+// it broke the Railway build. Variables already set win; no file is fine.
+try {
+  (process as unknown as { loadEnvFile(p: string): void }).loadEnvFile(path.join(__dirname, '..', '.env'));
+} catch { /* no .env (CI, production) */ }
 
 const url = process.env.DATABASE_URL;
 
