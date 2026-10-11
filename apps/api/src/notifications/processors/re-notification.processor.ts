@@ -99,14 +99,9 @@ export class ReNotificationProcessor extends WorkerHost {
     );
     if (!released) return;
     this.logger.log(`[AcceptanceTimeout] Shift ${shiftId} back to OPEN — no answer in 2h (${why})`);
-    if (released.worker.expoPushToken) {
-      this.notificationsService.sendDirectPush(
-        [released.worker.expoPushToken],
-        'Tempo esgotado ⏰',
-        'Não respondeste a tempo — o turno voltou à lista de disponíveis.',
-        { type: 'acceptance_timeout', shiftId },
-      ).catch(() => {});
-    }
+    this.notificationsService.notifyWorker(released.worker, 'Tempo esgotado ⏰',
+      'Não respondeste a tempo — o turno voltou à lista de disponíveis.',
+      { type: 'acceptance_timeout', shiftId }).catch(() => {});
   }
 
   /**
@@ -123,7 +118,8 @@ export class ReNotificationProcessor extends WorkerHost {
     const stale = await this.shiftRepo.createQueryBuilder('s')
       .leftJoinAndSelect('s.assignedWorker', 'w')
       .where('s.status = :status', { status: ShiftStatus.PENDING_ACCEPTANCE })
-      .andWhere(`s."updatedAt" < now() - make_interval(mins => :minutes)`, { minutes })
+      // offeredAt (timestamptz) since 2026-10-11; updatedAt for offers made before it existed
+      .andWhere(`COALESCE(s."offeredAt", s."updatedAt" AT TIME ZONE 'UTC') < now() - make_interval(mins => :minutes)`, { minutes })
       .getMany();
     const seen = new Set<string>();
     for (const shift of stale) {

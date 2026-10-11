@@ -387,14 +387,9 @@ export class AttendanceService {
 
     // Two-way review prompts: immediate push to the worker + +8h follow-ups
     // to whichever side hasn't rated yet (handled by RatingsService).
-    if (worker.expoPushToken) {
-      this.notifications.sendDirectPush(
-        [worker.expoPushToken],
-        'Turno concluído! 🎉',
-        `Como correu o turno "${shift.title}"? Avalia a empresa — demora 10 segundos.`,
-        { type: 'rate_employer', shiftId: shift.id },
-      ).catch(() => {});
-    }
+    this.notifications.notifyWorker(worker, 'Turno concluído! 🎉',
+      `Como correu o turno "${shift.title}"? Avalia a empresa — demora 10 segundos.`,
+      { type: 'rate_employer', shiftId: shift.id }).catch(() => {});
     this.ratings.scheduleReviewFollowUps(shift.id, shift.title, shift.employer.id, worker.id)
       .catch(err => {
         this.logger.warn(`[Attendance] Failed to schedule review follow-ups: ${(err as Error).message}`);

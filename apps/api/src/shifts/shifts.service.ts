@@ -378,25 +378,17 @@ export class ShiftsService {
       }
 
       // Apology push to the affected worker (all tiers)
-      if (worker.expoPushToken) {
-        this.notifications.sendDirectPush(
-          [worker.expoPushToken],
-          'Turno cancelado pela empresa 😔',
-          `O turno "${shift.title}" (${shift.date}) foi cancelado. Pedimos desculpa.`,
-          { type: 'shift_cancelled_by_employer', shiftId: shift.id },
-        ).catch(() => {});
-      }
+      this.notifications.notifyWorker(worker, 'Turno cancelado pela empresa 😔',
+        `O turno "${shift.title}" (${shift.date}) foi cancelado. Pedimos desculpa.`,
+        { type: 'shift_cancelled_by_employer', shiftId: shift.id }).catch(() => {});
     }
 
     // An offer still waiting for an answer: the selected worker is told the
     // job no longer exists, so they don't accept something that is gone.
-    if (shift.status === ShiftStatus.PENDING_ACCEPTANCE && shift.assignedWorker?.expoPushToken) {
-      this.notifications.sendDirectPush(
-        [shift.assignedWorker.expoPushToken],
-        'Turno cancelado pela empresa',
+    if (shift.status === ShiftStatus.PENDING_ACCEPTANCE) {
+      this.notifications.notifyWorker(shift.assignedWorker, 'Turno cancelado pela empresa',
         `A empresa cancelou "${shift.title || shift.subcategory}" antes de responderes. Não precisas de fazer nada.`,
-        { type: 'shift_cancelled_by_employer', shiftId: shift.id },
-      ).catch(() => {});
+        { type: 'shift_cancelled_by_employer', shiftId: shift.id }).catch(() => {});
     }
 
     // Collect applicants to notify via WebSocket
@@ -638,9 +630,11 @@ export class ShiftsService {
     // For a multi-day job every day moves together: the worker is selected for
     // the job, not for one of its days.
     const days = (await this.seriesShifts(shift)).filter(d => d.status === ShiftStatus.OPEN);
+    const offeredAt = new Date();
     for (const day of days) {
       day.assignedWorker = application.worker;
       day.status = ShiftStatus.PENDING_ACCEPTANCE;
+      day.offeredAt = offeredAt;
     }
     await this.shiftRepo.save(days);
 
@@ -656,14 +650,9 @@ export class ShiftsService {
       .execute();
 
     // Push notification to worker: pre-selected, must accept/decline in 2h
-    if (application.worker?.expoPushToken) {
-      this.notifications.sendDirectPush(
-        [application.worker.expoPushToken],
-        '🎉 Foste pré-selecionado!',
-        `Tens 2 horas para aceitar o turno: ${shift.title}. Abre a app para confirmar.`,
-        { type: 'pre_selected', shiftId: shift.id },
-      ).catch(() => {});
-    }
+    this.notifications.notifyWorker(application.worker, '🎉 Foste pré-selecionado!',
+      `Tens 2 horas para aceitar o turno: ${shift.title}. Abre a app para confirmar.`,
+      { type: 'pre_selected', shiftId: shift.id }).catch(() => {});
 
     // WebSocket: notify worker immediately
     if (application.worker?.id) {
@@ -703,14 +692,9 @@ export class ShiftsService {
     const released = await releasePendingOffer(
       { shiftRepo: this.shiftRepo, applicationRepo: this.applicationRepo }, shiftId,
     );
-    if (released?.worker.expoPushToken) {
-      this.notifications.sendDirectPush(
-        [released.worker.expoPushToken],
-        'Oferta retirada',
-        `A empresa retirou a oferta para "${shift.title || shift.subcategory}". Não precisas de fazer nada.`,
-        { type: 'offer_withdrawn', shiftId: shift.id },
-      ).catch(() => {});
-    }
+    this.notifications.notifyWorker(released?.worker, 'Oferta retirada',
+      `A empresa retirou a oferta para "${shift.title || shift.subcategory}". Não precisas de fazer nada.`,
+      { type: 'offer_withdrawn', shiftId: shift.id }).catch(() => {});
     return this.employerShiftView(shiftId);
   }
 
@@ -733,7 +717,7 @@ export class ShiftsService {
     // Confirming accepts the whole job — every day of the series at once
     const days = (await this.seriesShifts(shift))
       .filter(d => d.status === ShiftStatus.PENDING_ACCEPTANCE && d.assignedWorker?.id === worker.id);
-    for (const day of days) day.status = ShiftStatus.FILLED;
+    for (const day of days) { day.status = ShiftStatus.FILLED; day.offeredAt = null; }
     await this.shiftRepo.save(days);
 
     const dayIds = days.map(d => d.id);
@@ -781,6 +765,7 @@ export class ShiftsService {
     for (const day of days) {
       day.status = ShiftStatus.OPEN;
       day.assignedWorker = undefined as any;
+      day.offeredAt = null;
     }
     await this.shiftRepo.save(days);
 
@@ -1205,11 +1190,7 @@ export class ShiftsService {
    * statement stays readable in the app even if both deliveries fail.
    */
   private sendRestrictionNotice(worker: Worker, notice: ReturnType<typeof restrictionNotice>): void {
-    if (worker.expoPushToken) {
-      this.notifications.sendDirectPush(
-        [worker.expoPushToken], notice.pushTitle, notice.pushBody, { type: 'account_restricted' },
-      ).catch(() => {});
-    }
+    this.notifications.notifyWorker(worker, notice.pushTitle, notice.pushBody, { type: 'account_restricted' }).catch(() => {});
     const email = worker.user?.email;
     if (email) {
       this.mail.sendMail({ to: email, subject: notice.emailSubject, html: statementToHtml(notice.statement) })
@@ -1277,17 +1258,13 @@ export class ShiftsService {
     // Move shift to PENDING_ACCEPTANCE
     shift.assignedWorker = worker;
     shift.status = ShiftStatus.PENDING_ACCEPTANCE;
+    shift.offeredAt = new Date();
     await this.shiftRepo.save(shift);
 
     // Push notification to worker
-    if (worker.expoPushToken) {
-      this.notifications.sendDirectPush(
-        [worker.expoPushToken],
-        '🎉 Tens um convite de turno!',
-        `A empresa ${employer.companyName ?? 'Empresa'} convidou-te para "${shift.title || shift.subcategory}". Tens 2h para aceitar.`,
-        { type: 'pre_selected', shiftId: shift.id },
-      ).catch(() => {});
-    }
+    this.notifications.notifyWorker(worker, '🎉 Tens um convite de turno!',
+      `A empresa ${employer.companyName ?? 'Empresa'} convidou-te para "${shift.title || shift.subcategory}". Tens 2h para aceitar.`,
+      { type: 'pre_selected', shiftId: shift.id }).catch(() => {});
 
     // WebSocket notify worker
     if (worker.user?.id) {

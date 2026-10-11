@@ -283,6 +283,15 @@ export function experienceLevelLabel(level: string | null | undefined): string {
   return EXPERIENCE_LEVELS[level as ExperienceLevel] ?? level;
 }
 
+// ─── Offers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Hours a selected worker has to accept an offer before it lapses. The API
+ * enforces it (shifts/offer-release.ts); the app counts down from
+ * `Shift.offeredAt` with the same value.
+ */
+export const OFFER_ACCEPTANCE_HOURS = 2;
+
 // ─── Skill match ──────────────────────────────────────────────────────────────
 
 /** Points per declared experience level for the shift's role (max 20). */

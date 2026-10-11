@@ -1,10 +1,11 @@
 import { Repository } from 'typeorm';
 import { Shift, ShiftStatus } from './entities/shift.entity';
 import { ShiftApplication, ApplicationStatus } from './entities/shift-application.entity';
+import { OFFER_ACCEPTANCE_HOURS } from '@turnos/shared';
 import { Worker } from '../users/entities/worker.entity';
 
 /** How long a selected worker has to accept before the offer lapses. */
-export const ACCEPTANCE_WINDOW_MS = 2 * 60 * 60 * 1000;
+export const ACCEPTANCE_WINDOW_MS = OFFER_ACCEPTANCE_HOURS * 60 * 60 * 1000;
 
 /**
  * Put a job whose offer is pending (PENDING_ACCEPTANCE) back on the market.
@@ -48,7 +49,7 @@ export async function releasePendingOffer(
   // Status guard in the UPDATE itself: a worker accepting at the same moment wins.
   await shiftRepo.createQueryBuilder()
     .update(Shift)
-    .set({ status: ShiftStatus.OPEN, assignedWorker: null as any })
+    .set({ status: ShiftStatus.OPEN, assignedWorker: null as any, offeredAt: null })
     .where('id IN (:...dayIds) AND status = :status', { dayIds, status: ShiftStatus.PENDING_ACCEPTANCE })
     .execute();
 

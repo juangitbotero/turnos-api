@@ -28,7 +28,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
-import { paymentMethodLabel } from '@turnos/shared';
+import { paymentMethodLabel, SUPPORT_EMAIL } from '@turnos/shared';
 import { WagePayment, WagePaymentStatus, WagePaymentType } from './entities/wage-payment.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { Worker } from '../users/entities/worker.entity';
@@ -345,14 +345,9 @@ export class WagePaymentsService {
 
     // Push to the worker: money is on its way to their IBAN
     const worker = await this.workerRepo.findOne({ where: { id: wage.workerId } });
-    if (worker?.expoPushToken) {
-      this.notifications.sendDirectPush(
-        [worker.expoPushToken],
-        'Pagamento recebido ✅',
-        `A empresa pagou €${wageAmount.toFixed(2)} pelo turno "${wage.shiftTitle}". O valor chega à tua conta em 1–2 dias úteis.`,
-        { type: 'wage_paid', shiftId: wage.shiftId },
-      ).catch(() => {});
-    }
+    this.notifications.notifyWorker(worker, 'Pagamento recebido ✅',
+      `A empresa pagou €${wageAmount.toFixed(2)} pelo turno "${wage.shiftTitle}". O valor chega à tua conta em 1–2 dias úteis.`,
+      { type: 'wage_paid', shiftId: wage.shiftId }).catch(() => {});
   }
 
   /**
@@ -480,14 +475,9 @@ export class WagePaymentsService {
 
     // The worker must know — and can contest via "Não recebi" / support
     const worker = await this.workerRepo.findOne({ where: { id: wage.workerId } });
-    if (worker?.expoPushToken) {
-      this.notifications.sendDirectPush(
-        [worker.expoPushToken],
-        'A empresa ajustou as horas do turno',
-        `"${wage.shiftTitle}": €${previousAmount.toFixed(2)} → €${newAmount.toFixed(2)} (${clamped}h). Se não concordas, contesta na app ou contacta suporte@turnos.pt.`,
-        { type: 'wage_adjusted', shiftId: wage.shiftId },
-      ).catch(() => {});
-    }
+    this.notifications.notifyWorker(worker, 'A empresa ajustou as horas do turno',
+      `"${wage.shiftTitle}": €${previousAmount.toFixed(2)} → €${newAmount.toFixed(2)} (${clamped}h). Se não concordas, contesta na app ou escreve para ${SUPPORT_EMAIL}.`,
+      { type: 'wage_adjusted', shiftId: wage.shiftId }).catch(() => {});
 
     this.logger.log(`[Wage] Hours adjusted on ${wage.id}: €${previousAmount} → €${newAmount} (${clamped}h)`);
     return wage;
@@ -580,15 +570,10 @@ export class WagePaymentsService {
 
     // Ask the worker to confirm
     const worker = await this.workerRepo.findOne({ where: { id: wage.workerId } });
-    if (worker?.expoPushToken) {
-      this.notifications.sendDirectPush(
-        [worker.expoPushToken],
-        'A empresa marcou o teu pagamento como feito 💶',
-        `€${Number(wage.amount).toFixed(2)} pelo turno "${wage.shiftTitle}".` +
-        `${wage.paymentProofUrl ? ' Anexou comprovativo.' : ''} Confirma na app se já recebeste.`,
-        { type: 'wage_marked_paid', shiftId: wage.shiftId },
-      ).catch(() => {});
-    }
+    this.notifications.notifyWorker(worker, 'A empresa marcou o teu pagamento como feito 💶',
+      `€${Number(wage.amount).toFixed(2)} pelo turno "${wage.shiftTitle}".` +
+      `${wage.paymentProofUrl ? ' Anexou comprovativo.' : ''} Confirma na app se já recebeste.`,
+      { type: 'wage_marked_paid', shiftId: wage.shiftId }).catch(() => {});
 
     this.logger.log(`[Wage] ${wage.id} marked paid by employer (${wage.paymentProofUrl ? 'with' : 'without'} proof)`);
     return wage;

@@ -5,6 +5,7 @@ import { View, ActivityIndicator } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { tokenStorage } from '../lib/storage';
 import { authApi } from '../lib/api';
+import { notificationRoute } from '../lib/notificationRoute';
 import { initI18n, LanguageProvider } from '../lib/i18n';
 import { colors, AppLanguage, DEFAULT_LANGUAGE } from '@turnos/shared';
 
@@ -51,20 +52,9 @@ export default function RootLayout() {
         type?:    string;
       };
 
-      // A 'recibo_verde' push still sitting on a device from before 2026-09-27
-      // has a shiftId, so it falls through to the shift detail below.
-      if (data?.type === 'account_restricted') {
-        // Suspension/block notice → profile, where the statement of reasons is shown
-        router.push('/profile' as any);
-      } else if (data?.type === 'rate_employer' && data?.shiftId) {
-        // Review prompt (at completion + the +8h follow-up) → rating screen
-        router.push(`/rate/${data.shiftId}` as any);
-      } else if (data?.type === 'wage_paid' || data?.type === 'wage_marked_paid' || data?.type === 'wage_adjusted') {
-        // Payment updates → my-shifts, where the wage status chips live
-        router.push('/my-shifts' as any);
-      } else if (data?.shiftId) {
-        router.push(`/shift/${data.shiftId}` as any);
-      }
+      // Same table as the inbox screen — see lib/notificationRoute.ts
+      const route = notificationRoute(data);
+      if (route) router.push(route as any);
     });
 
     return () => {

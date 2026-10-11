@@ -26,7 +26,7 @@ export class RatingReminderProcessor extends WorkerHost {
 
   async process(job: Job<RatingReminderJobData>): Promise<void> {
     const { shiftId, shiftTitle, employerEmail, employerName } = job.data;
-    const { remindEmployer, workerPushToken } = await this.ratings.processReviewFollowUp(job.data);
+    const { remindEmployer, workerToNudge } = await this.ratings.processReviewFollowUp(job.data);
 
     if (remindEmployer) {
       const webUrl = this.config.get<string>('WEB_ADMIN_URL', 'http://localhost:3000');
@@ -60,17 +60,14 @@ export class RatingReminderProcessor extends WorkerHost {
       }
     }
 
-    if (workerPushToken) {
-      await this.notifications.sendDirectPush(
-        [workerPushToken],
-        'Ainda não avaliaste a empresa ⭐',
+    if (workerToNudge) {
+      await this.notifications.notifyWorker(workerToNudge, 'Ainda não avaliaste a empresa ⭐',
         `Como correu o turno "${shiftTitle}"? A tua avaliação demora 10 segundos.`,
-        { type: 'rate_employer', shiftId },
-      ).catch(() => {});
+        { type: 'rate_employer', shiftId }).catch(() => {});
     }
 
     this.logger.log(
-      `[RatingReminder] Follow-up for shift ${shiftId}: employer=${remindEmployer ? 'nudged' : 'already rated'}, worker=${workerPushToken ? 'nudged' : 'already rated / no token'}`,
+      `[RatingReminder] Follow-up for shift ${shiftId}: employer=${remindEmployer ? 'nudged' : 'already rated'}, worker=${workerToNudge ? 'nudged' : 'already rated'}`,
     );
   }
 }

@@ -9,6 +9,7 @@ import { WagePayment, WagePaymentStatus } from '../payments/entities/wage-paymen
 import { StorageService } from '../storage/storage.service';
 import { t } from '../i18n/request-language';
 import { NOTIFICATION_PREF_KEYS } from './notification-prefs';
+import { WorkerNotification } from '../notifications/entities/worker-notification.entity';
 import {
   calculateProfileQualityScore,
   PROFILE_MIN_SCORE_TO_APPLY,
@@ -636,6 +637,9 @@ export class UsersService {
     worker.isVerified         = false;
     worker.status             = 'DELETED';
     worker.deletedAt          = new Date();
+
+    // The inbox holds shift names and amounts — nothing to keep once deleted.
+    await this.workerRepo.manager.delete(WorkerNotification, { worker: { id: worker.id } });
 
     // `stripeAccountId` is deliberately KEPT. It is Stripe's record, not
     // personal data we hold, and it is the only way to reconcile a Pay Link

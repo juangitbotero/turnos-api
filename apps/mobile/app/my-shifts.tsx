@@ -7,11 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-  colors, spacing, radius, fontSize, fontWeight, PaymentMethod, SUPPORT_EMAIL,
-} from '@turnos/shared';
+  colors, spacing, radius, fontSize, fontWeight, PaymentMethod, SUPPORT_EMAIL, OFFER_ACCEPTANCE_HOURS } from '@turnos/shared';
 import { shiftApi, ratingsApi, wagesApi, MyApplication, WagePayment, ApiError } from '../lib/api';
 import { getSocket, ShiftStatusChangedPayload, ShiftCancelledPayload } from '../lib/socket';
 import { useT } from '../lib/i18n';
+import { InboxBell } from '../components/InboxBell';
 import { syncShiftToCalendar, isShiftInCalendar } from '../lib/calendar';
 
 type AppStatus = MyApplication['status'];
@@ -254,7 +254,7 @@ export default function MyShiftsScreen() {
         <TouchableOpacity style={s.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <Text style={s.backIcon}>←</Text>
         </TouchableOpacity>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={s.headerTitle}>{t('mobile.myShifts.title')}</Text>
           <Text style={s.headerSub}>
             {applications.length === 1
@@ -262,6 +262,7 @@ export default function MyShiftsScreen() {
               : t('mobile.myShifts.countOther', { count: applications.length })}
           </Text>
         </View>
+        <InboxBell color={colors.textPrimary} />
       </View>
 
       {isLoading ? (
@@ -586,12 +587,33 @@ function PreSelectedCard({
   const [declining, setDeclining] = useState(false);
   const shift = app.shift;
 
+  // Live countdown to the end of the acceptance window. offeredAt is absent
+  // only for offers made before it existed — those keep the static banner.
+  const deadline = shift.offeredAt
+    ? new Date(shift.offeredAt).getTime() + OFFER_ACCEPTANCE_HOURS * 3_600_000
+    : null;
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!deadline) return;
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, [deadline]);
+  const leftMin = deadline ? Math.max(0, Math.ceil((deadline - now) / 60_000)) : null;
+  const expired = leftMin === 0;
+  const banner = leftMin == null
+    ? t('mobile.myShifts.preBanner')
+    : expired
+      ? t('mobile.myShifts.preExpired')
+      : t('mobile.myShifts.preCountdown', {
+          time: leftMin >= 60 ? `${Math.floor(leftMin / 60)}h ${String(leftMin % 60).padStart(2, '0')}m` : `${leftMin} min`,
+        });
+
   return (
     <TouchableOpacity style={s.preCard} onPress={onPress} activeOpacity={0.9}>
-      {/* Urgency banner */}
-      <View style={s.preBanner}>
-        <Ionicons name="flash" size={14} color="#fff" />
-        <Text style={s.preBannerText}>{t('mobile.myShifts.preBanner')}</Text>
+      {/* Urgency banner — red in the last 15 minutes */}
+      <View style={[s.preBanner, leftMin != null && leftMin <= 15 && { backgroundColor: '#dc2626' }]}>
+        <Ionicons name={expired ? 'time-outline' : 'flash'} size={14} color="#fff" />
+        <Text style={s.preBannerText}>{banner}</Text>
       </View>
 
       <View style={s.cardBody}>

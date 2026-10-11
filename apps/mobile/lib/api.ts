@@ -234,6 +234,8 @@ export interface ShiftSummary {
   /** How the company pays the worker directly (PaymentMethod from @turnos/shared) */
   paymentMethod?: string | null;
   status: string;
+  /** When the current offer was made (PENDING_ACCEPTANCE) — the countdown starts here. */
+  offeredAt?: string | null;
   employer: { id: string; companyName: string } | null;
   /** Decimal latitude stored alongside the PostGIS geometry — reliable for client display */
   lat?: number | null;
@@ -408,6 +410,25 @@ export const ratingsApi = {
   /** Worker submits employer rating (internal — not shown publicly) */
   rateEmployer: (dto: { shiftId: string; score: number }) =>
     api.post<{ id: string }>('/ratings/employer', dto),
+};
+
+// ─── Notifications inbox ──────────────────────────────────────────────────────
+
+export interface InboxItem {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  data: { type?: string; shiftId?: string } | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export const inboxApi = {
+  list: () => api.get<{ items: InboxItem[]; unread: number }>('/notifications/inbox'),
+  unreadCount: () => api.get<{ unread: number }>('/notifications/inbox/unread-count'),
+  /** No ids = mark everything read. */
+  markRead: (ids?: string[]) => api.post<{ unread: number }>('/notifications/inbox/read', { ids }),
 };
 
 // ─── Shift API ────────────────────────────────────────────────────────────────

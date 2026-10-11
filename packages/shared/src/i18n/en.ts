@@ -346,6 +346,14 @@ export const en: Translated<TranslationCatalogue> = {
       calendar: 'Calendar',
     },
 
+    inbox: {
+      title:      'Notifications',
+      loadError:  'Could not load your notifications.',
+      emptyTitle: 'No notifications yet',
+      emptySub:   'When a company selects you, pays you or cancels a shift, it is recorded here — even with notifications turned off.',
+      bellLabel:  'Notifications, {{count}} unread',
+    },
+
     myShifts: {
       title: 'My Shifts',
       countOne:   '1 application',
@@ -374,6 +382,8 @@ export const en: Translated<TranslationCatalogue> = {
 
       // Pre-selected
       preBanner:     'You have 2h to accept this shift',
+      preCountdown:  '{{time}} left to answer',
+      preExpired:    'The time to answer has run out',
       accept:        '✓ Accept',
       accepting:     'Confirming...',
       decline:       'Decline',

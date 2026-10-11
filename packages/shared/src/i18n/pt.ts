@@ -346,6 +346,14 @@ export const pt = {
       calendar: 'Calendário',
     },
 
+    inbox: {
+      title:      'Notificações',
+      loadError:  'Não foi possível carregar as notificações.',
+      emptyTitle: 'Ainda não tens notificações',
+      emptySub:   'Quando uma empresa te selecionar, pagar ou cancelar um turno, fica registado aqui — mesmo que tenhas as notificações desligadas.',
+      bellLabel:  'Notificações, {{count}} por ler',
+    },
+
     myShifts: {
       title: 'Os Meus Turnos',
       // Explicit singular/plural pair rather than i18next plural suffixes —
@@ -376,6 +384,8 @@ export const pt = {
 
       // Pré-selecionado
       preBanner:     'Tens 2h para aceitar este turno',
+      preCountdown:  'Faltam {{time}} para responderes',
+      preExpired:    'O tempo para responder terminou',
       accept:        '✓ Aceitar',
       accepting:     'A confirmar...',
       decline:       'Recusar',

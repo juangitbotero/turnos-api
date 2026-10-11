@@ -13,6 +13,7 @@ import {
 } from '@turnos/shared';
 import { shiftApi, authApi, ShiftSummary, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
+import { InboxBell } from '../components/InboxBell';
 import { useT } from '../lib/i18n';
 
 function toFeedItem(s: ShiftSummary, fmt: {
@@ -103,8 +104,8 @@ export default function FeedScreen() {
         style={s.header}
       >
         <View style={s.headerTop}>
-          {/* Left spacer — same width as profile button so logo sits perfectly centred */}
-          <View style={s.headerSide} />
+          {/* Inbox bell — left, same width as the profile button so the logo stays centred */}
+          <InboxBell style={s.headerSide} />
           {/* Turnos logo — centred */}
           <Image
             source={require('../assets/logo-white.png')}

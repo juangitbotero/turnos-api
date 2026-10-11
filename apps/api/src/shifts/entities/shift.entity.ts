@@ -99,6 +99,14 @@ export class Shift {
   @JoinColumn()
   assignedWorker?: Worker;
 
+  /**
+   * When the current offer was made (shift entered PENDING_ACCEPTANCE); null
+   * otherwise. timestamptz, unlike updatedAt, so the app's countdown and the
+   * 15-min sweep read the same instant on any host timezone.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  offeredAt: Date | null;
+
   @Column({ type: 'simple-array', nullable: true })
   skillsRequired: string[];
 

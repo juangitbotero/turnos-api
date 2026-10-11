@@ -1,10 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, LessThan, Repository } from 'typeorm';
 import Expo from 'expo-server-sdk';
 import { Worker } from '../users/entities/worker.entity';
 import { FavouriteWorker } from '../ratings/entities/favourite-worker.entity';
 import { RedisService } from '../redis/redis.service';
+import { WorkerNotification } from './entities/worker-notification.entity';
+
+/** Inbox page size — the app shows the latest; older entries are rarely useful. */
+const INBOX_LIMIT = 50;
+/** Inbox retention (RetentionService purges nightly). */
+export const INBOX_RETENTION_DAYS = 180;
 
 @Injectable()
 export class NotificationsService {
@@ -17,6 +23,8 @@ export class NotificationsService {
     private readonly workerRepo: Repository<Worker>,
     @InjectRepository(FavouriteWorker)
     private readonly favouriteRepo: Repository<FavouriteWorker>,
+    @InjectRepository(WorkerNotification)
+    private readonly inboxRepo: Repository<WorkerNotification>,
     private readonly redis: RedisService,
   ) {}
 
@@ -135,6 +143,90 @@ export class NotificationsService {
     for (const chunk of chunks) {
       try { await this.expo.sendPushNotificationsAsync(chunk); } catch { /* best-effort */ }
     }
+  }
+
+  /**
+   * Tell one worker something that happened to THEM: write it to their inbox,
+   * then push it if they have a token.
+   *
+   * Use this — not sendDirectPush — for every personal worker notification.
+   * The inbox write is what reaches a worker whose notifications are off or
+   * who missed the push; the call sites used to skip such workers entirely
+   * (`if (worker.expoPushToken) …`). Deleted accounts get nothing.
+   */
+  async notifyWorker(
+    worker: Pick<Worker, 'id' | 'expoPushToken'> & { deletedAt?: Date | null } | null | undefined,
+    title: string,
+    body: string,
+    data: Record<string, unknown> & { type: string },
+  ): Promise<void> {
+    if (!worker?.id || worker.deletedAt) return;
+    try {
+      await this.inboxRepo.save(this.inboxRepo.create({
+        worker: { id: worker.id } as Worker,
+        type: String(data.type).slice(0, 40),
+        title: title.slice(0, 160),
+        body,
+        data,
+      }));
+    } catch (err) {
+      // The push still goes out — a failed inbox write must not swallow it.
+      this.logger.warn(`[Inbox] Could not store notification for worker ${worker.id}: ${(err as Error).message}`);
+    }
+    if (worker.expoPushToken) await this.sendDirectPush([worker.expoPushToken], title, body, data);
+  }
+
+  /** The worker's inbox, newest first, with the unread count for the bell. */
+  async getInbox(userId: string): Promise<{ items: WorkerNotification[]; unread: number }> {
+    const worker = await this.workerForUser(userId);
+    if (!worker) return { items: [], unread: 0 };
+    const [items, unread] = await Promise.all([
+      this.inboxRepo.find({
+        where: { worker: { id: worker.id } },
+        order: { createdAt: 'DESC' },
+        take: INBOX_LIMIT,
+      }),
+      this.inboxRepo.count({ where: { worker: { id: worker.id }, readAt: IsNull() } }),
+    ]);
+    return { items, unread };
+  }
+
+  async getUnreadCount(userId: string): Promise<{ unread: number }> {
+    const worker = await this.workerForUser(userId);
+    if (!worker) return { unread: 0 };
+    return { unread: await this.inboxRepo.count({ where: { worker: { id: worker.id }, readAt: IsNull() } }) };
+  }
+
+  /** Mark the given entries read — or all of them when `ids` is empty. */
+  async markRead(userId: string, ids?: string[]): Promise<{ unread: number }> {
+    const worker = await this.workerForUser(userId);
+    if (!worker) return { unread: 0 };
+    const qb = this.inboxRepo.createQueryBuilder()
+      .update(WorkerNotification)
+      .set({ readAt: () => 'NOW()' })
+      .where('"workerId" = :workerId AND "readAt" IS NULL', { workerId: worker.id });
+    if (ids?.length) qb.andWhere('id IN (:...ids)', { ids });
+    await qb.execute();
+    return this.getUnreadCount(userId);
+  }
+
+  /** Nightly retention (RetentionService) and account deletion. */
+  async purgeInbox(opts: { olderThanDays?: number; workerId?: string }): Promise<number> {
+    if (opts.workerId) {
+      return (await this.inboxRepo.delete({ worker: { id: opts.workerId } })).affected ?? 0;
+    }
+    const cutoff = new Date(Date.now() - (opts.olderThanDays ?? INBOX_RETENTION_DAYS) * 86_400_000);
+    return (await this.inboxRepo.delete({ createdAt: LessThan(cutoff) })).affected ?? 0;
+  }
+
+  /**
+   * Resolve the caller's worker row. An undefined userId must never reach
+   * findOne — TypeORM drops the condition and returns the first row (the bug
+   * that hit every ratings endpoint until 2026-10-05).
+   */
+  private async workerForUser(userId: string | undefined): Promise<Worker | null> {
+    if (!userId) return null;
+    return this.workerRepo.findOne({ where: { user: { id: userId } } });
   }
 
   /**

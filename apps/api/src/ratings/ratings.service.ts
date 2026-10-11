@@ -414,11 +414,7 @@ export class RatingsService {
     offender.restrictedAt      = new Date();
     await this.workerRepo.save(offender);
 
-    if (offender.expoPushToken) {
-      this.notifications.sendDirectPush(
-        [offender.expoPushToken], notice.pushTitle, notice.pushBody, { type: 'account_restricted' },
-      ).catch(() => {});
-    }
+    this.notifications.notifyWorker(offender, notice.pushTitle, notice.pushBody, { type: 'account_restricted' }).catch(() => {});
     const offenderUser = await this.userRepo.findOne({ where: { workerProfile: { id: offender.id } } });
     if (offenderUser?.email) {
       this.mail.sendMail({ to: offenderUser.email, subject: notice.emailSubject, html: statementToHtml(notice.statement) })
@@ -566,7 +562,8 @@ export class RatingsService {
    */
   async processReviewFollowUp(data: RatingReminderJobData): Promise<{
     remindEmployer: boolean;
-    workerPushToken: string | null;
+    /** The worker to nudge (inbox + push), or null if they already rated. */
+    workerToNudge: Worker | null;
   }> {
     const employerRated = await this.ratingRepo.exist({
       where: { shift: { id: data.shiftId }, direction: 'EMPLOYER_TO_WORKER' },
@@ -575,10 +572,9 @@ export class RatingsService {
       where: { shift: { id: data.shiftId }, direction: 'WORKER_TO_EMPLOYER' },
     });
 
-    let workerPushToken: string | null = null;
+    let workerToNudge: Worker | null = null;
     if (!workerRated && data.workerId) {
-      const worker = await this.workerRepo.findOne({ where: { id: data.workerId } });
-      workerPushToken = worker?.expoPushToken ?? null;
+      workerToNudge = await this.workerRepo.findOne({ where: { id: data.workerId } });
     }
 
     // A company that switched rating reminders off in settings is not nudged.
@@ -593,7 +589,7 @@ export class RatingsService {
       employerWantsReminder = notificationPrefsOf(shift?.employer).ratingReminders;
     }
 
-    return { remindEmployer: !employerRated && employerWantsReminder, workerPushToken };
+    return { remindEmployer: !employerRated && employerWantsReminder, workerToNudge };
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { In, IsNull, LessThan, Not, Repository } from 'typeorm';
 import { WagePayment, WagePaymentStatus } from './entities/wage-payment.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../storage/storage.service';
 
 /** Privacy policy §8 — keep these two in step with the published text. */
@@ -40,6 +41,7 @@ export class RetentionService implements OnApplicationBootstrap {
     @InjectQueue('wage-reminders')
     private readonly queue: Queue,
     private readonly storage: StorageService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -50,11 +52,13 @@ export class RetentionService implements OnApplicationBootstrap {
     this.logger.log('[Retention] Nightly purge registered: 30 3 * * *');
   }
 
-  async run(): Promise<{ proofsPurged: number; notesCleared: number }> {
+  async run(): Promise<{ proofsPurged: number; notesCleared: number; inboxPurged: number }> {
     const proofsPurged = await this.purgePaymentProofs();
     const notesCleared = await this.clearCancellationNotes();
-    this.logger.log(`[Retention] ${proofsPurged} payment proof(s) deleted, ${notesCleared} cancellation note(s) cleared`);
-    return { proofsPurged, notesCleared };
+    // Worker inbox entries (shift names, amounts) — 180 days, INBOX_RETENTION_DAYS
+    const inboxPurged = await this.notifications.purgeInbox({});
+    this.logger.log(`[Retention] ${proofsPurged} payment proof(s) deleted, ${notesCleared} cancellation note(s) cleared, ${inboxPurged} inbox entr(ies) purged`);
+    return { proofsPurged, notesCleared, inboxPurged };
   }
 
   private async purgePaymentProofs(): Promise<number> {
