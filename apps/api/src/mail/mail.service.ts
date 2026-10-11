@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { SUPPORT_EMAIL } from '@turnos/shared';
+import { OpsCase, renderOpsEmail } from './ops-email';
 
 const BREVO_API = 'https://api.brevo.com/v3';
 
@@ -148,12 +149,27 @@ export class MailService {
     await this.send(to, `${copy.pt.subject} · ${copy.en.subject} — Turnos`, html);
   }
 
+  /**
+   * Alert to the Turnos team, in the one ops template (`ops-email.ts`).
+   * Tagged `ops` in Brevo so these can be filtered in its logs. Never throws:
+   * an alert failing to send must not fail the action that triggered it — it
+   * is logged with its reference instead, so the case can still be found.
+   */
+  async sendOpsAlert(c: OpsCase): Promise<void> {
+    const { subject, html } = renderOpsEmail(c);
+    try {
+      await this.send(this.opsAddress, subject, html, ['ops']);
+    } catch (err) {
+      this.logger.error(`Ops alert ${c.ref} not sent: ${(err as Error).message}`);
+    }
+  }
+
   /** Generic send — used by compliance and other modules */
   async sendMail(opts: { to: string; subject: string; html: string }): Promise<void> {
     await this.send(opts.to, opts.subject, opts.html);
   }
 
-  private async send(to: string, subject: string, html: string): Promise<void> {
+  private async send(to: string, subject: string, html: string, tags?: string[]): Promise<void> {
     if (this.brevoKey) {
       const res = await fetch(`${BREVO_API}/smtp/email`, {
         method: 'POST',
@@ -163,6 +179,7 @@ export class MailService {
           to: [{ email: to }],
           subject,
           htmlContent: html,
+          ...(tags?.length ? { tags } : {}),
         }),
       });
       if (!res.ok) {

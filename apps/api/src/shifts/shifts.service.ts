@@ -13,7 +13,7 @@ import { randomUUID } from 'crypto';
 import {
   PAYMENT_METHOD_LABELS, COMPANY_CANCEL_REASONS, WORKER_CANCEL_REASONS,
   MAX_SERIES_DAYS, MIN_WORKER_AGE, ageOn, PROFILE_MIN_SCORE_TO_APPLY,
-  OFFER_ACCEPTANCE_HOURS,
+  OFFER_ACCEPTANCE_HOURS, paymentMethodLabel,
 } from '@turnos/shared';
 import { Shift, ShiftStatus } from './entities/shift.entity';
 import { ShiftApplication, ApplicationStatus } from './entities/shift-application.entity';
@@ -26,6 +26,7 @@ import { ComplianceService } from '../compliance/compliance.service';
 import { PaymentsService } from '../payments/payments.service';
 import { WagePaymentsService } from '../payments/wage-payments.service';
 import { MailService } from '../mail/mail.service';
+import { opsRef, eur, lisbonStamp, ptDate, deadlineIn, joinParts } from '../mail/ops-email';
 import { t, tNumericDate } from '../i18n/request-language';
 import { restrictionNotice, statementToHtml } from '../users/restriction-notice';
 import { lisbonDate, lisbonDateTime } from '../common/lisbon-time';
@@ -87,6 +88,55 @@ export class ShiftsService {
   ) {}
 
   // ── Internal helpers ──────────────────────────────────────────────────────
+
+  /**
+   * Ops alert: a company cancelled a confirmed shift <3h before start with a
+   * reason that, if accepted, waives the worker's 2-hour minimum.
+   */
+  private async alertCompanyLateCancel(
+    shift: Shift,
+    employer: Employer,
+    workerId: string,
+    category: string,
+    note: string | undefined,
+    hoursUntil: number,
+  ): Promise<void> {
+    const [company, worker] = await Promise.all([
+      this.employerRepo.findOne({ where: { id: employer.id }, relations: ['user'] }),
+      this.workerRepo.findOne({ where: { id: workerId }, relations: ['user'] }),
+    ]);
+    const minimum = eur(2 * Number(shift.grossHourlyRate));
+    await this.mail.sendOpsAlert({
+      ref: opsRef('CAN', shift.id),
+      kind: 'Cancelamento <3 h justificado',
+      subjectParts: [employer.companyName, shift.title],
+      summary: `${employer.companyName} cancelou "${shift.title}" a ${Math.max(0, hoursUntil).toFixed(1)} h do início e pede isenção do mínimo de 2 h (${minimum}).`,
+      facts: [
+        ['Empresa', joinParts(employer.companyName, `NIPC ${employer.nipc}`)],
+        ['Email da empresa', company?.user?.email],
+        ['Cancelamentos tardios da empresa', String(employer.lateCancellationCount ?? 0)],
+        ['Trabalhador afetado', worker?.fullName],
+        ['Contacto do trabalhador', joinParts(worker?.user?.phone, worker?.user?.email)],
+        ['Turno', joinParts(shift.title, ptDate(shift.date), `${shift.startTime.slice(0, 5)}–${shift.endTime.slice(0, 5)}`)],
+        ['Valor/hora', eur(shift.grossHourlyRate)],
+        ['Método de pagamento', shift.paymentMethod ? paymentMethodLabel(shift.paymentMethod) : null],
+        ['Motivo declarado', COMPANY_CANCEL_REASONS[category as keyof typeof COMPANY_CANCEL_REASONS]],
+        ['Nota da empresa', note],
+        ['Cancelado em', lisbonStamp(new Date())],
+      ],
+      steps: [
+        'Pedir à empresa prova do motivo, se necessário.',
+        'Decidir se a justificação é aceite.',
+        `Se for recusada: gerar o mínimo de 2 h (${minimum}) a pagar ao trabalhador (shift ${shift.id}).`,
+        'Informar a empresa e o trabalhador da decisão, citando a referência.',
+      ],
+      deadline: deadlineIn(48),
+      contacts: [
+        { label: 'Escrever à empresa', email: company?.user?.email },
+        { label: 'Escrever ao trabalhador', email: worker?.user?.email },
+      ],
+    });
+  }
 
   private async resolveEmployer(userId: string): Promise<Employer> {
     const employer = await this.employerRepo.findOne({ where: { user: { id: userId } } });
@@ -358,16 +408,7 @@ export class ShiftsService {
             t('api.shifts.cancelConsequence', { amount: minimumEur.toFixed(2) });
         } else {
           // Justified exemption — ops reviews within 48h; no payment generated now
-          this.mail.sendMail({
-            to: this.mail.opsAddress,
-            subject: `⚖️ Cancelamento <3h justificado — revisão necessária: ${shift.title}`,
-            html: `<p>A empresa <strong>${employer.companyName}</strong> cancelou o turno
-                   <strong>${shift.title}</strong> (${shift.date}) a menos de 3h do início.</p>
-                   <p>Motivo declarado: <strong>${COMPANY_CANCEL_REASONS[category as keyof typeof COMPANY_CANCEL_REASONS]}</strong></p>
-                   ${reason?.note ? `<p>Nota: ${reason.note}</p>` : ''}
-                   <p>Trabalhador afetado: ${worker.fullName ?? worker.id}</p>
-                   <p>Se a justificação for recusada, gerar o mínimo de 2h (€${(2 * Number(shift.grossHourlyRate)).toFixed(2)}) — shift ${shift.id}.</p>`,
-          }).catch(() => {});
+          void this.alertCompanyLateCancel(shift, employer, worker.id, category, reason?.note, hoursUntil);
           cancellationConsequence = 'Motivo justificado registado — será avaliado pela equipa Turnos em até 48h.';
         }
 
@@ -896,17 +937,37 @@ export class ShiftsService {
       // the strike is removed manually (48h SLA per policy v1.1)
       const category = justification?.category;
       if (category && Object.keys(WORKER_CANCEL_REASONS).includes(category)) {
-        this.mail.sendMail({
-          to: this.mail.opsAddress,
-          subject: `⚖️ Justificação de cancelamento tardio — ${worker.fullName ?? worker.id}`,
-          html: `<p>O trabalhador <strong>${worker.fullName ?? worker.id}</strong> cancelou o turno
-                 <strong>${shift.title}</strong> (${shift.date}) a menos de 24h do início.</p>
-                 <p>Motivo: <strong>${WORKER_CANCEL_REASONS[category as keyof typeof WORKER_CANCEL_REASONS]}</strong></p>
-                 ${justification?.note ? `<p>Descrição: ${justification.note}</p>` : ''}
-                 <p>Se aceite, remover o strike (worker ${worker.id}, registado ${now.toISOString()}).</p>
-                 <p><em>Pode conter dados de saúde. Apagar este email, e qualquer comprovativo recebido,
-                 6 meses após a decisão (Política de Privacidade, secção 8).</em></p>`,
-        }).catch(() => {});
+        void this.mail.sendOpsAlert({
+          ref: opsRef('JUS', firstDay.id),
+          kind: 'Justificação de cancelamento',
+          subjectParts: [worker.fullName, shift.employer?.companyName],
+          summary: `${worker.fullName ?? 'Um trabalhador'} cancelou a menos de 24 h e justificou: ${WORKER_CANCEL_REASONS[category as keyof typeof WORKER_CANCEL_REASONS]}.`,
+          facts: [
+            ['Trabalhador', worker.fullName],
+            ['Contacto do trabalhador', joinParts(worker.user?.phone, worker.user?.email)],
+            ['Empresa', shift.employer?.companyName],
+            ['Email da empresa', shift.employer?.user?.email],
+            ['Turno', joinParts(shift.title, ptDate(firstDay.date), `${firstDay.startTime.slice(0, 5)}–${firstDay.endTime.slice(0, 5)}`)],
+            ['Dias do trabalho', filledDays.length > 1 ? `${filledDays.length} dias` : null],
+            ['Cancelado em', lisbonStamp(now)],
+            ['Horas antes do início', `${hoursUntil.toFixed(1)} h`],
+            ['Motivo', WORKER_CANCEL_REASONS[category as keyof typeof WORKER_CANCEL_REASONS]],
+            ['Descrição do trabalhador', justification?.note],
+            ['Cancelamentos tardios em 30 dias', `${strikes.length}${notice ? ' — conta suspensa 7 dias' : ''}`],
+          ],
+          steps: [
+            'Pedir ao trabalhador um comprovativo, se fizer sentido (atestado, documento) — é opcional.',
+            'Decidir se a justificação é aceite.',
+            `Se for aceite: retirar o cancelamento tardio do registo (worker ${worker.id}, registo ${now.toISOString()})${notice ? ' e levantar a suspensão de 7 dias' : ''}.`,
+            'Responder ao trabalhador com a decisão, citando a referência.',
+          ],
+          deadline: deadlineIn(48, now),
+          contacts: [
+            { label: 'Escrever ao trabalhador', email: worker.user?.email },
+            { label: 'Escrever à empresa', email: shift.employer?.user?.email },
+          ],
+          sensitive: 'Pode conter dados de saúde. Apagar este email, e qualquer comprovativo recebido, 6 meses após a decisão (Política de Privacidade, secção 8).',
+        });
       }
     }
 

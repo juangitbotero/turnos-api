@@ -34,6 +34,7 @@ import { Employer } from '../users/entities/employer.entity';
 import { Worker } from '../users/entities/worker.entity';
 import { Shift } from '../shifts/entities/shift.entity';
 import { MailService } from '../mail/mail.service';
+import { OpsCase, opsRef, eur, lisbonStamp, ptDate, deadlineIn, joinParts } from '../mail/ops-email';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../storage/storage.service';
 import { t } from '../i18n/request-language';
@@ -331,16 +332,24 @@ export class WagePaymentsService {
     // worker came up short, ops settles the difference — it must never be silent.
     if (shortfall >= 0.01) {
       this.logger.warn(`[Wage] Shortfall €${shortfall} on ${wage.id} — worker under-paid`);
-      this.mail.sendMail({
-        to: this.mail.opsAddress,
-        subject: `⚠️ Pay Link liquidou abaixo do salário — €${shortfall.toFixed(2)} em falta`,
-        html: `<p>O trabalhador recebeu <strong>€${actual!.netEur.toFixed(2)}</strong> em vez de
-               <strong>€${wageAmount.toFixed(2)}</strong> pelo turno <strong>${wage.shiftTitle}</strong>.</p>
-               <p>Taxa Stripe real: €${actual!.feeEur.toFixed(2)} (estimada: €${Number(wage.processingFee).toFixed(2)}).
-               Provável cartão não-EEE.</p>
-               <p>Diferença a regularizar: <strong>€${shortfall.toFixed(2)}</strong> ·
-               WagePayment ${wage.id} · Shift ${wage.shiftId}</p>`,
-      }).catch(() => {});
+      const ctx = await this.wageCaseContext(wage);
+      void this.mail.sendOpsAlert({
+        ...this.wageCaseBase(wage, ctx, [
+          ['Pago em', lisbonStamp(wage.paidAt)],
+          ['Taxa Stripe real', eur(actual!.feeEur)],
+          ['Taxa estimada (gross-up)', eur(wage.processingFee)],
+          ['Diferença a regularizar', eur(shortfall)],
+        ]),
+        kind: 'Pay Link abaixo do salário',
+        subjectParts: [ctx.employer?.companyName, `${eur(shortfall)} em falta`],
+        summary: `O trabalhador recebeu ${eur(actual!.netEur)} em vez de ${eur(wageAmount)} — faltam ${eur(shortfall)}.`,
+        steps: [
+          'Confirmar o pagamento no painel Stripe da conta do trabalhador (link acima) — provavelmente um cartão de fora do EEE.',
+          `Transferir ${eur(shortfall)} ao trabalhador: a diferença é suportada pela Turnos, nunca pelo trabalhador.`,
+          'Avisar o trabalhador de que a diferença foi paga e responder a este email com a referência, para registar o fecho.',
+        ],
+        deadline: deadlineIn(48),
+      });
     }
 
     // Push to the worker: money is on its way to their IBAN
@@ -515,16 +524,24 @@ export class WagePaymentsService {
     wage.cancellationNote = `[PROBLEMA: ${category}] ${note ?? ''}`.trim();
     await this.wageRepo.save(wage);
 
-    await this.mail.sendMail({
-      to: this.mail.opsAddress,
-      subject: `⚖️ Problema reportado no turno "${wage.shiftTitle}" — revisão necessária`,
-      html: `<p>A empresa <strong>${employer.companyName}</strong> reportou um problema no turno
-             <strong>${wage.shiftTitle}</strong> (${wage.shiftDate ?? '—'}).</p>
-             <p>Categoria: <strong>${category}</strong></p>
-             ${note ? `<p>Descrição: ${note}</p>` : ''}
-             <p>Pagamento em causa: €${Number(wage.amount).toFixed(2)} · WagePayment ${wage.id} · Shift ${wage.shiftId}</p>
-             <p>O ciclo de lembretes está pausado até decisão (SLA 48h).</p>`,
-    }).catch(() => {});
+    const ctx = await this.wageCaseContext(wage, employer);
+    void this.mail.sendOpsAlert({
+      ...this.wageCaseBase(wage, ctx, [
+        ['Categoria', category],
+        ['Descrição da empresa', note],
+        ['Reportado em', lisbonStamp(new Date())],
+      ]),
+      kind: 'Problema reportado pela empresa',
+      subjectParts: [employer.companyName, eur(wage.amount)],
+      summary: `${employer.companyName} reportou um problema no turno "${wage.shiftTitle}" — o pagamento ficou em pausa.`,
+      steps: [
+        'Ouvir a empresa: pedir os factos (hora de saída, o que aconteceu, testemunhas).',
+        'Ouvir o trabalhador, antes de qualquer decisão.',
+        'Decidir se o salário é devido por inteiro, ajustado (mínimo 2 h) ou não devido, e informar as duas partes por escrito.',
+        'Enquanto não houver decisão, os lembretes de pagamento à empresa estão parados.',
+      ],
+      deadline: deadlineIn(48),
+    });
 
     this.logger.warn(`[Wage] Problem reported on ${wage.id} (${category}) — reminder ladder paused`);
     return wage;
@@ -598,18 +615,37 @@ export class WagePaymentsService {
     if (wage.status === WagePaymentStatus.PAID) {
       throw new BadRequestException(t('api.wages.stripeConfirmed'));
     }
+    const markedPaid = wage.status === WagePaymentStatus.MARKED_PAID;
     wage.status = WagePaymentStatus.DISPUTED;
     await this.wageRepo.save(wage);
 
     // Internal flag — ops reviews non-payment disputes
-    this.mail.sendMail({
-      to: this.mail.opsAddress,
-      subject: `🚩 Não-pagamento reportado — turno "${wage.shiftTitle}"`,
-      html: `<p>O trabalhador reportou que <strong>não recebeu €${Number(wage.amount).toFixed(2)}</strong>
-             pelo turno <strong>${wage.shiftTitle}</strong> (${wage.shiftDate ?? '—'}).</p>
-             <p>Empresa: ${wage.employerId} · Método: ${wage.paymentMethod} · Estado anterior: ${wage.paidAt ? 'marcado como pago' : 'pendente'}.</p>
-             <p>WagePayment: ${wage.id} · Shift: ${wage.shiftId}</p>`,
-    }).catch(() => {});
+    const ctx = await this.wageCaseContext(wage);
+    const who = ctx.worker?.fullName ?? 'O trabalhador';
+    void this.mail.sendOpsAlert({
+      ...this.wageCaseBase(wage, ctx, [
+        ['Marcado como pago', markedPaid ? lisbonStamp(wage.paidAt) : 'Não'],
+        ['Comprovativo', wage.paymentProofUrl
+          ? 'Sim — link abaixo'
+          : (wage.paymentProofPurgedAt ? 'Apagado (prazo de conservação)' : 'Não enviado')],
+        ['Motivo sem comprovativo', wage.paymentProofUrl ? null : wage.paymentProofNote],
+        ['Reportado em', lisbonStamp(new Date())],
+      ]),
+      kind: 'Não-pagamento',
+      subjectParts: [ctx.employer?.companyName, eur(wage.amount)],
+      summary: markedPaid
+        ? `${who} diz que não recebeu ${eur(wage.amount)}, mas a empresa marcou o pagamento como feito.`
+        : `${who} diz que não recebeu ${eur(wage.amount)}; a empresa ainda não marcou o pagamento.`,
+      steps: [
+        wage.paymentProofUrl
+          ? 'Abrir o comprovativo e confirmar valor, data e destino (IBAN ou MB WAY do trabalhador).'
+          : 'Pedir à empresa o comprovativo da transferência ou do MB WAY — não carregou nenhum.',
+        'Perguntar ao trabalhador se já verificou o extrato — uma transferência normal pode levar 1 a 2 dias úteis.',
+        'Se o pagamento não se confirmar, pedir à empresa que pague e envie o comprovativo.',
+        'Responder às duas partes com a conclusão, citando a referência.',
+      ],
+      deadline: deadlineIn(48),
+    });
 
     return wage;
   }
@@ -706,6 +742,61 @@ export class WagePaymentsService {
 
   // ── Reminder ladder (called by the BullMQ processor) ───────────────────────
 
+  // ── Ops alerts ─────────────────────────────────────────────────────────────
+
+  /** What an ops email about a wage needs: both parties with contacts, and the shift. */
+  private async wageCaseContext(wage: WagePayment, knownEmployer?: Employer) {
+    const [employer, worker, shift] = await Promise.all([
+      knownEmployer?.user
+        ? knownEmployer
+        : this.employerRepo.findOne({ where: { id: wage.employerId }, relations: ['user'] }),
+      this.workerRepo.findOne({ where: { id: wage.workerId }, relations: ['user'] }),
+      this.shiftRepo.findOne({ where: { id: wage.shiftId } }),
+    ]);
+    return { employer, worker, shift };
+  }
+
+  /**
+   * The parts every wage alert shares — reference, both parties with their
+   * contacts, the shift and the payment, useful links, reply buttons.
+   * Case-specific rows go in `extraFacts`, after the common ones.
+   */
+  private wageCaseBase(
+    wage: WagePayment,
+    { employer, worker, shift }: Awaited<ReturnType<WagePaymentsService['wageCaseContext']>>,
+    extraFacts: OpsCase['facts'] = [],
+  ): Pick<OpsCase, 'ref' | 'facts' | 'links' | 'contacts'> {
+    const hours = shift ? `${shift.startTime.slice(0, 5)}–${shift.endTime.slice(0, 5)}` : null;
+    return {
+      ref: opsRef('PAG', wage.id),
+      facts: [
+        ['Empresa', joinParts(employer?.companyName, employer?.nipc && `NIPC ${employer.nipc}`)],
+        ['Email da empresa', employer?.user?.email],
+        ['Trabalhador', worker?.fullName ?? (worker?.deletedAt ? 'Conta eliminada' : null)],
+        ['Contacto do trabalhador', joinParts(worker?.user?.phone, worker?.user?.email)],
+        ['Turno', joinParts(wage.shiftTitle, ptDate(wage.shiftDate), hours)],
+        ['Valor', eur(wage.amount)],
+        ['Método', paymentMethodLabel(wage.paymentMethod)],
+        ['Turno concluído em', lisbonStamp(wage.createdAt)],
+        ...extraFacts,
+      ],
+      links: [
+        { label: 'Ver comprovativo da empresa', url: wage.paymentProofUrl },
+        { label: 'Pay Link', url: wage.status === WagePaymentStatus.PAID ? null : wage.payLinkUrl },
+        {
+          label: 'Conta Stripe do trabalhador',
+          url: wage.paymentMethod === 'TURNOS_PAY_LINK' && worker?.stripeAccountId
+            ? `https://dashboard.stripe.com/connect/accounts/${worker.stripeAccountId}`
+            : null,
+        },
+      ],
+      contacts: [
+        { label: 'Escrever à empresa', email: employer?.user?.email },
+        { label: 'Escrever ao trabalhador', email: worker?.user?.email },
+      ],
+    };
+  }
+
   async processReminder(data: WageReminderJobData): Promise<void> {
     const wage = await this.wageRepo.findOne({ where: { id: data.wagePaymentId } });
     if (!wage) return;
@@ -741,6 +832,23 @@ export class WagePaymentsService {
         },
       });
       this.logger.warn(`[Wage] Employer ${wage.employerId} posting-blocked — wage ${wage.id} unpaid >72h`);
+      // The ladder ends here; from now on only a person can move the case.
+      const ctx = await this.wageCaseContext(wage);
+      void this.mail.sendOpsAlert({
+        ...this.wageCaseBase(wage, ctx, [
+          ['Lembretes à empresa', '8 h, 24 h, 48 h (último aviso) e 72 h (bloqueio)'],
+          ['Bloqueado em', lisbonStamp(new Date())],
+        ]),
+        kind: 'Salário por pagar há 72 h',
+        subjectParts: [ctx.employer?.companyName, owed],
+        summary: `${ctx.employer?.companyName ?? 'A empresa'} não pagou ${owed} ao trabalhador em 72 horas — a publicação de turnos foi bloqueada.`,
+        steps: [
+          'Contactar a empresa: confirmar se pagou fora da plataforma e, se sim, pedir que marque como pago com comprovativo.',
+          'Contactar o trabalhador e confirmar que não recebeu.',
+          'Se a empresa não responder, decidir os próximos passos (manter o bloqueio, suspender a conta).',
+        ],
+        deadline: deadlineIn(48),
+      });
       return; // ladder complete
     }
 

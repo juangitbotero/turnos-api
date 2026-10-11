@@ -18,6 +18,7 @@ import { Employer } from '../users/entities/employer.entity';
 import { Shift, ShiftStatus } from '../shifts/entities/shift.entity';
 import { User } from '../users/entities/user.entity';
 import { MailService } from '../mail/mail.service';
+import { opsRef, lisbonStamp, ptDate, deadlineIn, joinParts } from '../mail/ops-email';
 import { NotificationsService } from '../notifications/notifications.service';
 import { restrictionNotice, statementToHtml } from '../users/restriction-notice';
 import { t } from '../i18n/request-language';
@@ -457,24 +458,46 @@ export class RatingsService {
       await this.releaseRemainingSeriesDays(shift, offender.id);
     }
 
-    // Check 60-day window — if ≥ 3 flags, trigger admin review
+    // Every no-show goes to a person: the suspension or block above was applied
+    // automatically, and the policy promises human review on request. (Until
+    // 2026-10-11 this fired only at 3 no-shows in 60 days — unreachable, since
+    // the 2nd already blocks the account.)
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - BADGE_THRESHOLDS.NO_SHOW_REVIEW_DAYS);
     const recentFlags = await this.noShowRepo.count({
-      where: { worker: { id: shift.assignedWorker.id }, createdAt: MoreThan(cutoff) },
+      where: { worker: { id: offender.id }, createdAt: MoreThan(cutoff) },
     });
-
-    if (recentFlags >= BADGE_THRESHOLDS.NO_SHOW_REVIEW_THRESHOLD) {
-      this.logger.warn(`[Ratings] Worker ${shift.assignedWorker.id} reached ${recentFlags} no-shows in 60 days — triggering admin review`);
-      await this.mail.sendMail({
-        to: this.mail.opsAddress,
-        subject: `⚠️ Worker no-show review: ${shift.assignedWorker.fullName ?? shift.assignedWorker.id}`,
-        html: `<p>O trabalhador <strong>${shift.assignedWorker.fullName ?? shift.assignedWorker.id}</strong>
-               acumulou <strong>${recentFlags} faltas</strong> nos últimos 60 dias.</p>
-               <p>Turno em questão: <strong>${shift.title}</strong> (${shiftId})</p>
-               <p>Reveja manualmente na plataforma Turnos Admin.</p>`,
-      });
-    }
+    void this.mail.sendOpsAlert({
+      ref: opsRef('FAL', shift.id),
+      kind: offender.isBlocked ? 'Falta — conta bloqueada' : 'Falta — conta suspensa',
+      subjectParts: [offender.fullName, employer.companyName],
+      summary: `${employer.companyName} registou uma falta de ${offender.fullName ?? 'um trabalhador'}. `
+        + (offender.isBlocked ? 'Foi a 2.ª falta: a conta ficou bloqueada.' : 'A conta ficou suspensa 30 dias.'),
+      facts: [
+        ['Trabalhador', offender.fullName],
+        ['Contacto do trabalhador', joinParts(offenderUser?.phone, offenderUser?.email)],
+        ['Empresa', employer.companyName],
+        ['Email da empresa', employer.user?.email],
+        ['Turno', joinParts(shift.title, ptDate(shift.date), `${shift.startTime.slice(0, 5)}–${shift.endTime.slice(0, 5)}`)],
+        ['Nota da empresa', note],
+        ['Faltas no total', String(offender.noShowCount)],
+        [`Faltas nos últimos ${BADGE_THRESHOLDS.NO_SHOW_REVIEW_DAYS} dias`, String(recentFlags)],
+        ['Consequência aplicada', offender.isBlocked
+          ? 'Bloqueio permanente + avaliação de 1★'
+          : `Suspensão até ${lisbonStamp(offender.suspendedUntil)} + avaliação de 1★`],
+        ['Registado em', lisbonStamp(new Date())],
+      ],
+      steps: [
+        'Confirmar com a empresa que o trabalhador não apareceu (e se avisou).',
+        'Se o trabalhador contestar, ouvir a versão dele — tem direito a revisão humana.',
+        'Se a falta não se confirmar: retirar a falta, a avaliação de 1★ e a suspensão ou bloqueio, e avisar o trabalhador.',
+      ],
+      deadline: deadlineIn(48),
+      contacts: [
+        { label: 'Escrever à empresa', email: employer.user?.email },
+        { label: 'Escrever ao trabalhador', email: offenderUser?.email },
+      ],
+    });
 
     this.logger.log(`[Ratings] No-show reported for worker ${shift.assignedWorker.id} on shift ${shiftId}`);
     return { message: 'Falta registada com sucesso' };
