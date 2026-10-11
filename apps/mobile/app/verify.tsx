@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
-import { authApi, ApiError } from '../lib/api';
+import { authApi, ApiError, syncPreferredLanguage } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
 import { useT } from '../lib/i18n';
 import { connectSocket } from '../lib/socket';
@@ -110,6 +110,7 @@ export default function VerifyScreen() {
       // is out of date. The terms screen continues to intro/home itself.
       // If /me fails, fall through: the launch check in _layout retries.
       const me = await authApi.getMe().catch(() => null);
+      syncPreferredLanguage(me);
       if (me && me.termsCurrent === false) {
         router.replace('/terms' as any);
         return;

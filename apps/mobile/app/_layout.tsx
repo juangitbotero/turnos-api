@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { tokenStorage } from '../lib/storage';
-import { authApi } from '../lib/api';
+import { authApi, syncPreferredLanguage } from '../lib/api';
 import { notificationRoute } from '../lib/notificationRoute';
 import { initI18n, LanguageProvider } from '../lib/i18n';
 import { colors, AppLanguage, DEFAULT_LANGUAGE } from '@turnos/shared';
@@ -79,7 +79,10 @@ export default function RootLayout() {
         // the acceptance screen, before anything else. Fails open on network
         // errors; verify.tsx and the next launch check again.
         authApi.getMe()
-          .then(me => { if (me.termsCurrent === false) router.replace('/terms' as any); })
+          .then(me => {
+            syncPreferredLanguage(me);
+            if (me.termsCurrent === false) router.replace('/terms' as any);
+          })
           .catch(() => {});
       }
     } catch {

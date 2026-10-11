@@ -165,6 +165,8 @@ export const authApi = {
     restrictionReason?: string | null; restrictedAt?: string | null;
     // Terms of Use — false until the current TERMS_VERSIONS.WORKER is accepted
     termsVersion?: string | null; termsCurrentVersion?: string; termsCurrent?: boolean;
+    // Language the server writes pushes in — kept in step by syncPreferredLanguage()
+    preferredLanguage?: string;
   }>('/auth/me'),
 
   /** Record acceptance of the Terms of Use version the screen showed. */
@@ -465,3 +467,18 @@ export const shiftApi = {
   getMyApplications: () =>
     api.get<MyApplication[]>('/shifts/worker/applied'),
 };
+
+/**
+ * Keep `Worker.preferredLanguage` equal to the language the app is showing.
+ * The language switch in the profile writes it, but a worker who never
+ * touches the switch — e.g. an English phone resolved to EN on first launch —
+ * would otherwise get every push in Portuguese. Called with the /auth/me
+ * response at sign-in and on each launch; only writes when the two differ.
+ * Best-effort: a failure just means the next launch tries again.
+ */
+export function syncPreferredLanguage(me: { role: string; preferredLanguage?: string } | null): void {
+  if (!me || me.role !== 'WORKER') return;
+  const lang = currentLanguage();
+  if (me.preferredLanguage === lang) return;
+  authApi.updateWorkerPartial({ preferredLanguage: lang }).catch(() => {});
+}

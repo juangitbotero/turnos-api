@@ -419,8 +419,6 @@ export const pt = {
       seriesLockBody:  'Aceitaste um trabalho de vários dias que já começou, por isso não podes cancelá-lo aqui. Se tiveres um imprevisto sério, fala com o suporte: turnos.contact@gmail.com',
 
       // Trust loop de pagamento
-      wageConfirmTitle:  'Confirmar pagamento',
-      wageConfirmBody:   'Recebeste €{{amount}} pelo turno "{{shift}}"?',
       wageNotReceived:   '🚩 Não recebi',
       wageReceived:      '✓ Recebi',
       wageFlaggedTitle:  'Registado',
@@ -431,9 +429,11 @@ export const pt = {
       wageReceivedChip:  '💶 €{{amount}} recebido ✓',
       wageDisputedChip:  '🚩 Não-pagamento reportado — em análise pela Turnos',
       wagePendingChip:   '💳 €{{amount}} — a aguardar pagamento da empresa via Pay Link',
-      wageMarkedChip:    '💶 €{{amount}} — a empresa diz que pagou. Recebeste? →',
-      wageAskChip:       '💶 €{{amount}} — já recebeste? Confirma aqui →',
       wageProof:         '📎 Ver comprovativo da empresa',
+      wageMarkedQuestion: '💶 €{{amount}} — a empresa diz que pagou. Recebeste?',
+      wageAskQuestion:    '💶 €{{amount}} — já recebeste o pagamento?',
+      wageNotReceivedTitle: 'Não recebeste?',
+      wageNotReceivedBody:  'Vamos avisar a equipa Turnos de que não recebeste €{{amount}} pelo turno "{{shift}}". A equipa contacta-te a ti e à empresa.',
     },
 
     shiftDetail: {

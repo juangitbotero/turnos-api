@@ -417,8 +417,6 @@ export const en: Translated<TranslationCatalogue> = {
       seriesLockBody:  'You accepted a multi-day job that has already started, so you cannot cancel it here. If something serious has come up, talk to support: turnos.contact@gmail.com',
 
       // Payment trust loop
-      wageConfirmTitle:  'Confirm payment',
-      wageConfirmBody:   'Did you receive €{{amount}} for the shift "{{shift}}"?',
       wageNotReceived:   "🚩 Didn't receive it",
       wageReceived:      '✓ Received',
       wageFlaggedTitle:  'Reported',
@@ -429,9 +427,11 @@ export const en: Translated<TranslationCatalogue> = {
       wageReceivedChip:  '💶 €{{amount}} received ✓',
       wageDisputedChip:  '🚩 Non-payment reported — under review by Turnos',
       wagePendingChip:   '💳 €{{amount}} — waiting for the company to pay via Pay Link',
-      wageMarkedChip:    '💶 €{{amount}} — the company says they paid. Did you receive it? →',
-      wageAskChip:       '💶 €{{amount}} — already got paid? Confirm here →',
       wageProof:         "📎 View the company's proof of payment",
+      wageMarkedQuestion: '💶 €{{amount}} — the company says they paid. Did you receive it?',
+      wageAskQuestion:    '💶 €{{amount}} — have you been paid?',
+      wageNotReceivedTitle: "Didn't receive it?",
+      wageNotReceivedBody:  'We will tell the Turnos team you did not receive €{{amount}} for the shift "{{shift}}". The team will contact you and the company.',
     },
 
     shiftDetail: {

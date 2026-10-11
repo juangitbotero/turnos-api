@@ -210,10 +210,21 @@ export default function MyShiftsScreen() {
   }, [doCancelAssignment, t]);
 
   // ── Wage trust loop: "Recebi" / "Não recebi" ──────────────────────────────
-  const handleConfirmWage = useCallback((wage: WagePayment) => {
+  // Two visible buttons on the card. "Recebi" acts at once; "Não recebi"
+  // asks first, because it opens a case with the Turnos team.
+  const handleWageReceived = useCallback(async (wage: WagePayment) => {
+    try {
+      const updated = await wagesApi.confirmReceived(wage.id);
+      setWagesByShift(prev => ({ ...prev, [wage.shiftId]: updated }));
+    } catch {
+      Alert.alert(t('common.error'), t('mobile.myShifts.wageConfirmFailed'));
+    }
+  }, [t]);
+
+  const handleWageNotReceived = useCallback((wage: WagePayment) => {
     Alert.alert(
-      t('mobile.myShifts.wageConfirmTitle'),
-      t('mobile.myShifts.wageConfirmBody', {
+      t('mobile.myShifts.wageNotReceivedTitle'),
+      t('mobile.myShifts.wageNotReceivedBody', {
         amount: Number(wage.amount).toFixed(2),
         shift: wage.shiftTitle,
       }),
@@ -229,17 +240,6 @@ export default function MyShiftsScreen() {
               Alert.alert(t('mobile.myShifts.wageFlaggedTitle'), t('mobile.myShifts.wageFlaggedBody'));
             } catch {
               Alert.alert(t('common.error'), t('mobile.myShifts.wageFlagFailed'));
-            }
-          },
-        },
-        {
-          text: t('mobile.myShifts.wageReceived'),
-          onPress: async () => {
-            try {
-              const updated = await wagesApi.confirmReceived(wage.id);
-              setWagesByShift(prev => ({ ...prev, [wage.shiftId]: updated }));
-            } catch {
-              Alert.alert(t('common.error'), t('mobile.myShifts.wageConfirmFailed'));
             }
           },
         },
@@ -405,7 +405,8 @@ export default function MyShiftsScreen() {
                       isRated={ratedShiftIds.has(app.shift.id)}
                       onRate={() => router.push(`/rate/${app.shift.id}`)}
                       wage={wagesByShift[app.shift.id]}
-                      onConfirmWage={handleConfirmWage}
+                      onWageReceived={handleWageReceived}
+                      onWageNotReceived={handleWageNotReceived}
                     />
                   ))}
                 </>
@@ -682,7 +683,8 @@ function ApplicationCard({
   onRate,
   onCancel,
   wage,
-  onConfirmWage,
+  onWageReceived,
+  onWageNotReceived,
 }: {
   app: MyApplication;
   onPress: () => void;
@@ -690,7 +692,8 @@ function ApplicationCard({
   onRate?: () => void;
   onCancel?: () => void;
   wage?: WagePayment;
-  onConfirmWage?: (wage: WagePayment) => void;
+  onWageReceived?: (wage: WagePayment) => void;
+  onWageNotReceived?: (wage: WagePayment) => void;
 }) {
   const { t, fDateTime, fDateRange, fSmartDate } = useT();
   const shift = app.shift;
@@ -810,21 +813,15 @@ function ApplicationCard({
                 {t('mobile.myShifts.wagePendingChip', { amount: Number(wage.amount).toFixed(2) })}
               </Text>
             </View>
-          ) : onConfirmWage ? (
-            <>
-              <TouchableOpacity
-                style={[s.wageChip, s.wageChipAction]}
-                onPress={() => onConfirmWage(wage)}
-                activeOpacity={0.85}
-              >
-                <Text style={s.wageChipActionText}>
-                  {t(
-                    wage.status === 'MARKED_PAID' ? 'mobile.myShifts.wageMarkedChip' : 'mobile.myShifts.wageAskChip',
-                    { amount: Number(wage.amount).toFixed(2) },
-                  )}
-                </Text>
-              </TouchableOpacity>
-              {/* Check the receipt before confirming */}
+          ) : onWageReceived && onWageNotReceived ? (
+            <View style={s.wageAsk}>
+              <Text style={s.wageAskText}>
+                {t(
+                  wage.status === 'MARKED_PAID' ? 'mobile.myShifts.wageMarkedQuestion' : 'mobile.myShifts.wageAskQuestion',
+                  { amount: Number(wage.amount).toFixed(2) },
+                )}
+              </Text>
+              {/* Check the receipt before answering */}
               {wage.paymentProofUrl && (
                 <TouchableOpacity
                   onPress={() => Linking.openURL(wage.paymentProofUrl!)}
@@ -833,7 +830,23 @@ function ApplicationCard({
                   <Text style={s.wageProofLink}>{t('mobile.myShifts.wageProof')}</Text>
                 </TouchableOpacity>
               )}
-            </>
+              <View style={s.wageBtnRow}>
+                <TouchableOpacity
+                  style={[s.wageBtn, s.wageBtnYes]}
+                  onPress={() => onWageReceived(wage)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={s.wageBtnYesText}>{t('mobile.myShifts.wageReceived')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.wageBtn, s.wageBtnNo]}
+                  onPress={() => onWageNotReceived(wage)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={s.wageBtnNoText}>{t('mobile.myShifts.wageNotReceived')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           ) : null}
         </View>
       )}
@@ -988,9 +1001,15 @@ const s = StyleSheet.create({
   wageChipDisputedText: { fontSize: 12, fontWeight: fontWeight.semibold, color: '#991b1b' },
   wageChipPending:      { backgroundColor: '#eef0ff', borderColor: '#c7d2fe' },
   wageChipPendingText:  { fontSize: 12, fontWeight: fontWeight.semibold, color: '#4338ca' },
-  wageChipAction:       { backgroundColor: '#fffbeb', borderColor: '#fde68a' },
-  wageChipActionText:   { fontSize: 12, fontWeight: fontWeight.bold, color: '#92400e' },
+  wageAsk:              { backgroundColor: '#fffbeb', borderColor: '#fde68a', borderWidth: 1, borderRadius: radius.md, padding: 12 },
+  wageAskText:          { fontSize: 13, fontWeight: fontWeight.bold, color: '#92400e' },
   wageProofLink:        { fontSize: 12, fontWeight: fontWeight.semibold, color: '#16a34a', marginTop: 6 },
+  wageBtnRow:           { flexDirection: 'row', gap: 8, marginTop: 10 },
+  wageBtn:              { flex: 1, height: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  wageBtnYes:           { backgroundColor: '#16a34a' },
+  wageBtnYesText:       { fontSize: 13, fontWeight: fontWeight.bold, color: '#ffffff' },
+  wageBtnNo:            { backgroundColor: '#ffffff', borderWidth: 1.5, borderColor: '#fca5a5' },
+  wageBtnNoText:        { fontSize: 13, fontWeight: fontWeight.bold, color: '#b91c1c' },
 
   ratedChip: {
     backgroundColor: '#f3f4f6',
