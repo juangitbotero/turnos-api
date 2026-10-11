@@ -21,8 +21,9 @@ aren't.
 
 ## Next session — start here
 
-1. **Look & feel fixes** Juanes noted during the 2026-10-05 end-to-end run —
-   he brings the list (Track 3, "Look & feel from the E2E").
+1. **Look & feel fixes** from the 2026-10-05 end-to-end run — listed and in
+   progress since 2026-10-11 (Track 3, "Look & feel from the E2E", five
+   batches). Wanted improvements that are *not* blockers live in Track 5.
 2. **Next EAS preview build** — three app changes are waiting for it (Track 2,
    "New EAS build needed"): visible "✓ Recebi / Não recebi" buttons (to build),
    completed-shifts count and "Taxa de conclusão" label (done).
@@ -295,7 +296,7 @@ account, and `Worker.deletedAt` plus the new enum value reach production through
 | ~~`RECORD_AUDIO` permission~~ | 🟢 Fixed 2026-09-27 — removed, `recordAudioAndroid: false` on `expo-camera` |
 | ~~Location asks for "Always"~~ | 🟢 Fixed 2026-09-27 — when-in-use only, background disabled on both platforms |
 | ~~Permission strings mixed PT/EN~~ | 🟢 Fixed 2026-09-27 — camera and location strings now PT like the rest |
-| New EAS build needed | The `app.json` permission changes and the date-of-birth field were in the build tested on 2026-10-05. **Waiting for the next build:** completed-shifts count + "Taxa de conclusão" label on the reviews screen (code done 2026-10-05); visible **"✓ Recebi" / "Não recebi" buttons** on the completed-shift card — today the action is a tappable sentence that opens a dialog, and in the first end-to-end run it was not found (not built yet) |
+| New EAS build needed | The `app.json` permission changes and the date-of-birth field were in the build tested on 2026-10-05. **Waiting for the next build:** completed-shifts count + "Taxa de conclusão" label on the reviews screen (code done 2026-10-05); visible **"✓ Recebi" / "Não recebi" buttons** on the completed-shift card — today the action is a tappable sentence that opens a dialog, and in the first end-to-end run it was not found (not built yet); **notifications inbox** (bell + unread count, server-saved list), **countdown** on the pending-acceptance card, and the selection push opening My shifts (planned 2026-10-11, Look & feel batch 5) |
 | `version: "0.0.1"` | Ship as `1.0.0`; set `ios.buildNumber` or let EAS auto-increment |
 | ~~Off-brand colours~~ | 🟢 Already fixed — `app.json` uses `#6a79ff` / `#fafdff` (confirmed 2026-10-05) |
 
@@ -324,7 +325,7 @@ false` is already set, which also clears export compliance.
 | Item | Detail |
 |---|---|
 | First end-to-end run | 🟢 **Ran 2026-10-05** (Carolina Bakes + worker on the emulator, payment method Transferência): company terms gate → publish → apply (18+ check passed) → approve → worker accepts → "Dados SS" / Contratações → manual "Concluído" → wage payment row + payment-due email → "Marcar como pago" with proof → worker sees proof → ratings both ways → completion count. Found 6 bugs, all fixed (Session log). **Not covered, still to run:** the **QR scan** (emulator has no camera — Android Studio VirtualScene can show the QR image), hence the geofence, the corrected Lisbon check-in window and the **automatic completion at the scheduled end**; and the **Pay Link** path, which needs Stripe (#5) — rerun the whole flow with a Pay Link shift once Stripe is set up |
-| **Look & feel from the E2E** | Juanes noted several visual / UX issues during the run — list them here at the start of the next session and fix |
+| **Look & feel from the E2E** | 🟠 Listed 2026-10-11, done in five batches: (1) this doc + Track 5; (2) one shared `DashboardShell`, sidebar grouped Operacional / Administração, "Dashboard" → "Início", subscription moved into Settings + company menu, breadcrumbs instead of the tiny "← Dashboard" link, Reputação folded into "Quem trabalhou connosco"; (3) **Candidates** page + live sidebar badge + toast + Início card + email on a shift's first applicant, equal-size applicant buttons, sort reduced to Best rated / Best match; (4) "Awaiting worker" shifts get Withdraw offer / Cancel (they had no action at all), check the 2h acceptance timeout, re-post opens with empty date and times; (5) mobile notifications inbox — see Track 2 "New EAS build needed" |
 | `synchronize: true` | `app.module.ts:86` rewrites the production schema from entities on every boot. Generate migrations before the first real payroll. Keep `autoLoadEntities` — it prevents the silently-unregistered-entity bug that killed the Pay Link flow once |
 | `BYPASS_SUBSCRIPTION` | `payments.service.ts:205` returns early, which also skips the overdue-wage block. Delete the Railway variable after the Pay Link end-to-end run (the test company publishes through it; the transferência run was done 2026-10-05); consider gating the code on `NODE_ENV !== 'production'` |
 | **Test accounts** | Worker `+33767560422` (Juanes) and employer Carolina Bakes are real rows, not demo rows — no cleanup touches them. Decide per account: keep as internal test data or delete. The worker's bio, skills, languages and experiences are still seeder fiction — rewrite them if the account stays |
@@ -399,6 +400,61 @@ Not gaps. These should not reappear on a "what's missing" list.
   company is the product. `Employer` has a `@OneToOne` to `User` and every
   profile lookup resolves a company from that single user; reopening it is a
   structural change, not a feature.
+
+---
+
+## Track 5 — Future improvements (not launch blockers)
+
+Every wanted improvement, kept in one place so nothing lives in a stray doc.
+**None of these block launch.** Promote an item to Track 1–3 only by decision.
+Source: Juanes's "Automatizations to do" notes (2026-10-11), re-ordered by
+value.
+
+### Fewer no-shows, faster fills
+
+| Item | Detail |
+|---|---|
+| **Reconfirmation 24h before** | Worker confirms 24h out; no reply by 12h → automatic cancellation and the slot reopens. Biggest single lever against no-shows (Shifty's "<5% no-show"). Carry the consequences reminder the cancellation policy used to promise (removed from v1.2 until built) |
+| **Waiting list** | When a confirmed worker cancels, offer the shift to that shift's other applicants first — the company has already seen them. Shifty benchmark gap |
+| **No-show detection + urgent refill** | T+15 min without check-in: push the worker ("On your way?" [Arriving] [Can't make it]) and alert the company. T+30: *ask* the company — sanctions (1★ + suspension) still need its confirmation, never a timer (Platform Work Directive, human review). Refill: other applicants first, then an urgent wave to opted-in workers ("Available for urgent shifts" switch) within ~30 min travel, skills match, 11h rest respected. New start = now + 60–90 min, same end; warn if under the 2h minimum. First qualified worker to accept gets it, with the company's consent given in advance; optional "+€X/h urgent" bonus. Multi-day jobs: refill only that day |
+| **Reminder 2h before** | Address + maps link, dress code, "scan the QR on arrival" |
+| **Weekly "Available this week?"** | One-tap day selection; keeps the availability data that matching and urgent refill depend on fresh |
+
+### Matching and invitations
+
+| Item | Detail |
+|---|---|
+| **Top 5 suggested workers after publishing** | Needs a second kind of invitation, "invited to apply" (push → one-tap apply, company still chooses). Today's `inviteWorker` is a *direct offer* that locks the shift to one worker for 2h — keep it as is. Ranking is a transparent score, not AI. Hard filters: available that day, `isAvailableForWork`, not suspended, required languages, no overlapping shift, MCD 70-day + 11h rest pass. Weights: skill/experience for the role, distance, smoothed rating, reliability, worked here before / favourite, recent activity, response rate. Reserve 1 of 5 slots for a promising new worker. Show "why suggested" (1.2 km · ★4.8 · 12 shifts as Barista). Delivery: on screen after publishing with "Invite all 5"; email to companies that left the page — its button opens a confirmation page (mail scanners click links), shows first name, photo, rating, distance only. Coordinate with the existing top-20 wave; per-worker daily invite cap; one "Convite" notification type |
+| **"Repeat this shift"** | After completion; suggest a recurring shift when the same one is posted three weeks running |
+| **No applicants at 48h / 24h** | Tell the company, with suggestions: raise the rate (what similar shifts pay nearby) or widen skill requirements |
+
+### Notifications
+
+| Item | Detail |
+|---|---|
+| **Workers** | What's missing to reach 80 profile points; approaching the 70-day MCD limit with one company; "Company X wants to work with you again"; end of a suspension; rejected applications (don't leave people waiting) |
+| **Companies** | Candidates waiting more than 6h for an answer; day-before summary of who's coming; a favourite worker became available; monthly summary (spend, hours, informative SS figures); card expiring / payment failed |
+| **Operations** | Disputes breaking the 48h response time the policy promises → automatic escalation; fraud and rating anomalies; companies inactive 30 days |
+| **Rules** | Preferences screen; quiet hours 22:00–08:00 (except urgent shifts for opted-in workers); deduplication; channel order push → WhatsApp → email; per-day cap per worker. Document how prioritisation works — it is the "algorithmic management" the law now regulates |
+
+### Verification and trust — no AI CV screening
+
+| Item | Detail |
+|---|---|
+| **Why no AI screening** | EU AI Act Annex III(4) makes candidate-filtering AI high-risk (conformity assessment, logging, human oversight), plus GDPR art. 22 and discrimination risk. And for hospitality shifts a CV says little |
+| **Identity** | Award VERIFIED from Stripe Connect KYC (free for Pay Link workers); Stripe Identity (~€1.50/check) for the rest. Rule-based fraud checks: same IBAN, device or photo across accounts |
+| **Right to work** | The check that matters legally — much of Lisbon's hospitality workforce is non-EU and the employer is liable. Collect nationality + residence/work document where needed |
+| **Skills "verified by work"** | After ≥4★ shifts in a role: "Barista ✓ confirmed in 3 shifts". First shifts as a trial: "Novo" label + a structured "didn't have the skill" tag (the "unable to perform the role" cancellation reason can feed it) |
+| **Certificates and video** | Certificates only where the law requires them (e.g. food hygiene for kitchen roles). Optional video intro as a language badge (Shifty benchmark) |
+| **Where AI is fine** | Parsing a CV to pre-fill the experience fields, worker confirms — assists, evaluates nobody |
+
+### WhatsApp assistant for companies
+
+| Item | Detail |
+|---|---|
+| **Order of work** | 1) Notifications + one-tap actions ("New candidate: Ana ★4.8 [See] [Select]", "Wage unpaid 24h [Pay Link]") — read far more than email. 2) Repeat-a-shift with buttons ("Repeat last Saturday's? [Yes] [Change time]"). 3) Free-text posting via AI only once the structured flow works |
+| **How** | WhatsApp Flows + interactive buttons; the model's tools are the existing API endpoints; always a summary + explicit confirmation before publishing (it creates the hire record, the fee and the payment-method commitment). Link the number to the company account once, with an OTP. FAQ answers from `faq-turnos.md` are cheap and useful |
+| **Costs / constraints** | Meta charges business-initiated templates (replies in the 24h window ~free); needs Meta business verification; Twilio supports WhatsApp; Meta + the AI provider must be named in the privacy policy and DPA; never send IBANs through the bot. Not a substitute for making the dashboard work on a phone (Track 3) |
 
 ---
 
