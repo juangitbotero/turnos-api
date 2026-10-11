@@ -201,6 +201,22 @@ export default function ShiftsPage() {
     }
   };
 
+  /** "Retirar oferta": the selected worker has not answered — reopen the shift. */
+  const handleWithdrawOffer = async (shift: Shift) => {
+    if (!confirm(t('admin.shifts.withdrawOfferConfirm'))) return;
+    setCancelling(shift.id);
+    try {
+      await adminApi.withdrawOffer(shift.id);
+      setShifts(prev => prev.map(sh => sh.id === shift.id ? { ...sh, status: 'OPEN' as const } : sh));
+      // Candidates who had applied are waiting for an answer again
+      window.dispatchEvent(new Event(CANDIDATES_CHANGED_EVENT));
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : t('admin.shifts.withdrawOfferError'));
+    } finally {
+      setCancelling(null);
+    }
+  };
+
   const handleManualConfirm = async (shift: Shift) => {
     if (!confirm(t('admin.shifts.manualConfirmBody', {
       shift: shift.title || tSkill(shift.subcategory),
@@ -416,14 +432,15 @@ export default function ShiftsPage() {
           <h2 style={s.sectionTitle}>{t('admin.shifts.sectionActive')}</h2>
           <div style={s.table}>
             <div style={s.tableHead}>
-              <span>Turno</span><span>Data</span><span>Horário</span>
-              <span>Valor bruto</span><span>Estado</span><span>Ações</span>
+              <span>{t('admin.shifts.colShift')}</span><span>{t('admin.shifts.colDate')}</span><span>{t('admin.shifts.colTime')}</span>
+              <span>{t('admin.shifts.colRate')}</span><span>{t('admin.shifts.colStatus')}</span><span>{t('admin.shifts.colActions')}</span>
             </div>
             {active.map(shift => (
               <ShiftRow
                 key={shift.id}
                 shift={shift}
                 onCancel={handleCancel}
+                onWithdrawOffer={handleWithdrawOffer}
                 onManualConfirm={handleManualConfirm}
                 cancelling={cancelling}
                 confirming={confirming}
@@ -432,31 +449,6 @@ export default function ShiftsPage() {
                   setViewingApps(shift);
                   setNewAppCounts(prev => ({ ...prev, [shift.id]: 0 }));
                 }}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Past shifts */}
-      {past.length > 0 && (
-        <section style={s.section}>
-          <h2 style={{ ...s.sectionTitle, color: 'var(--color-text-secondary)' }}>{t('admin.shifts.sectionHistory')}</h2>
-          <div style={s.table}>
-            <div style={s.tableHead}>
-              <span>Turno</span><span>Data</span><span>Horário</span>
-              <span>Valor bruto</span><span>Estado</span><span>Ações</span>
-            </div>
-            {past.map(shift => (
-              <ShiftRow
-                key={shift.id}
-                shift={shift}
-                onCancel={handleCancel}
-                onManualConfirm={handleManualConfirm}
-                cancelling={cancelling}
-                confirming={confirming}
-                newAppCount={0}
-                onViewApps={() => setViewingApps(shift)}
               />
             ))}
           </div>
@@ -482,20 +474,20 @@ export default function ShiftsPage() {
           {showExpired && (
             <div style={s.table}>
               <div style={s.tableHead}>
-                <span>Turno</span><span>Data</span><span>Horário</span>
-                <span>Valor bruto</span><span>Estado</span><span>Ações</span>
+                <span>{t('admin.shifts.colShift')}</span><span>{t('admin.shifts.colDate')}</span><span>{t('admin.shifts.colTime')}</span>
+                <span>{t('admin.shifts.colRate')}</span><span>{t('admin.shifts.colStatus')}</span><span>{t('admin.shifts.colActions')}</span>
               </div>
               {expired.map(shift => (
-                <div key={shift.id} style={{ ...s.row, opacity: 0.85 }}>
-                  <div style={s.rowMain}>
-                    <p style={s.rowTitle}>{shift.title || shift.subcategory}</p>
-                    <p style={s.rowSub}>{shift.employer?.companyName ?? ''}</p>
+                <div key={shift.id} style={s.tableRow}>
+                  <div>
+                    <p style={s.rowTitle}>{shift.title || tSkill(shift.subcategory)}</p>
+                    <p style={s.rowSub}>{shift.address.split(',')[0]}</p>
                   </div>
                   <span style={s.rowCell}>{fMediumDate(shift.date)}</span>
                   <span style={s.rowCell}>{shift.startTime.slice(0,5)}–{shift.endTime.slice(0,5)}</span>
                   <span style={s.rowCell}>€{Number(shift.grossHourlyRate).toFixed(2)}/hr</span>
-                  <span style={{ ...s.statusPill, background: '#fee2e2', color: '#dc2626' }}>{t('admin.shifts.expiredPill')}</span>
-                  <div style={{ display: 'flex', gap: 6 }}>
+                  <span style={{ ...s.badge, background: '#fee2e2', border: '1px solid #fecaca', color: '#dc2626' }}>{t('admin.shifts.expiredPill')}</span>
+                  <div style={s.rowActions}>
                     <button
                       style={s.repostBtn}
                       onClick={() => {
@@ -531,6 +523,33 @@ export default function ShiftsPage() {
           )}
         </section>
       )}
+
+      {/* Past shifts */}
+      {past.length > 0 && (
+        <section style={s.section}>
+          <h2 style={{ ...s.sectionTitle, color: 'var(--color-text-secondary)' }}>{t('admin.shifts.sectionHistory')}</h2>
+          <div style={s.table}>
+            <div style={s.tableHead}>
+              <span>{t('admin.shifts.colShift')}</span><span>{t('admin.shifts.colDate')}</span><span>{t('admin.shifts.colTime')}</span>
+              <span>{t('admin.shifts.colRate')}</span><span>{t('admin.shifts.colStatus')}</span><span>{t('admin.shifts.colActions')}</span>
+            </div>
+            {past.map(shift => (
+              <ShiftRow
+                key={shift.id}
+                shift={shift}
+                onCancel={handleCancel}
+                onWithdrawOffer={handleWithdrawOffer}
+                onManualConfirm={handleManualConfirm}
+                cancelling={cancelling}
+                confirming={confirming}
+                newAppCount={0}
+                onViewApps={() => setViewingApps(shift)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
 
       {viewingApps && (
         <ShiftApplicationsModal shift={viewingApps} onClose={() => setViewingApps(null)} />
@@ -961,9 +980,10 @@ function CancelShiftModal({ shift, hoursUntil, busy, onClose, onConfirm }: {
 
 // ── Shift row ─────────────────────────────────────────────────────────────────
 
-function ShiftRow({ shift, onCancel, onManualConfirm, cancelling, confirming, onViewApps, newAppCount }: {
+function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancelling, confirming, onViewApps, newAppCount }: {
   shift: Shift;
   onCancel: (id: string) => void;
+  onWithdrawOffer: (shift: Shift) => void;
   onManualConfirm: (shift: Shift) => void;
   cancelling: string | null;
   confirming: string | null;
@@ -973,7 +993,9 @@ function ShiftRow({ shift, onCancel, onManualConfirm, cancelling, confirming, on
   const { t, tSkill, tCategory, fMediumDate, fDateRange } = useT();
   const st = STATUS_STYLE[shift.status] ?? { color: '#6b7280', bg: '#f3f4f6' };
   const statusLabel = t(`domain.shiftStatus.${shift.status}`, { defaultValue: shift.status });
-  const canCancel        = ['OPEN', 'DRAFT', 'FILLED'].includes(shift.status);
+  // PENDING_ACCEPTANCE had no action at all before 2026-10-11 — a shift could
+  // sit on "A aguardar trabalhador" with nothing the company could do.
+  const canCancel        = ['OPEN', 'DRAFT', 'FILLED', 'PENDING_ACCEPTANCE'].includes(shift.status);
   const canManualConfirm = ['FILLED', 'ACTIVE'].includes(shift.status);
 
   return (
@@ -1021,6 +1043,16 @@ function ShiftRow({ shift, onCancel, onManualConfirm, cancelling, confirming, on
             title={t('admin.shifts.manualDoneTitle')}
           >
             {confirming === shift.id ? '...' : t('admin.shifts.manualDone')}
+          </button>
+        )}
+        {shift.status === 'PENDING_ACCEPTANCE' && (
+          <button
+            style={{ ...s.viewAppsBtn, opacity: cancelling === shift.id ? 0.6 : 1 }}
+            onClick={() => onWithdrawOffer(shift)}
+            disabled={cancelling === shift.id}
+            title={t('admin.shifts.withdrawOfferTitle')}
+          >
+            {t('admin.shifts.withdrawOfferBtn')}
           </button>
         )}
         {canCancel && (

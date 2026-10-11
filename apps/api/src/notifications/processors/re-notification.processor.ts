@@ -5,7 +5,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { NotificationsService } from '../notifications.service';
 import { Shift, ShiftStatus } from '../../shifts/entities/shift.entity';
-import { ShiftApplication, ApplicationStatus } from '../../shifts/entities/shift-application.entity';
+import { ShiftApplication } from '../../shifts/entities/shift-application.entity';
+import { releasePendingOffer, ACCEPTANCE_WINDOW_MS } from '../../shifts/offer-release';
+import { lisbonDateTime } from '../../common/lisbon-time';
 
 export interface ReNotificationJobData {
   shiftId: string;
@@ -42,42 +44,20 @@ export class ReNotificationProcessor extends WorkerHost {
 
     // ── Worker acceptance timeout (2h) ──────────────────────────────────────
     if (job.name === 'acceptance-timeout') {
-      const { shiftId: sid, applicationId } = job.data as { shiftId: string; applicationId: string };
+      const { shiftId: sid, applicationId, workerId } =
+        job.data as { shiftId: string; applicationId: string; workerId?: string };
+      // Jobs queued before 2026-10-11 carry no workerId — read it from the application.
+      const expected = workerId ?? (await this.applicationRepo.findOne({
+        where: { id: applicationId }, relations: ['worker'],
+      }))?.worker?.id;
+      if (!expected) return;
+      await this.releaseOffer(sid, expected, 'timeout');
+      return;
+    }
 
-      // Atomically revert shift + clear assignedWorker FK via QueryBuilder.
-      // The WHERE status guard makes this a no-op if the worker already accepted
-      // (status would be FILLED) — safe to retry.
-      const result = await this.shiftRepo
-        .createQueryBuilder()
-        .update(Shift)
-        .set({ status: ShiftStatus.OPEN, assignedWorker: null as any })
-        .where('id = :id AND status = :status', { id: sid, status: ShiftStatus.PENDING_ACCEPTANCE })
-        .execute();
-
-      if (result.affected && result.affected > 0) {
-        this.logger.log(`[AcceptanceTimeout] Shift ${sid} reverted to OPEN — worker did not respond in 2h`);
-
-        // Reset application APPROVED → PENDING so the worker's my-shifts screen
-        // no longer shows this shift as "confirmed" (the shift was never accepted).
-        const application = await this.applicationRepo.findOne({
-          where: { id: applicationId },
-          relations: ['worker'],
-        });
-        if (application?.status === ApplicationStatus.APPROVED) {
-          application.status = ApplicationStatus.PENDING;
-          await this.applicationRepo.save(application);
-
-          // Notify the worker that their window expired
-          if (application.worker?.expoPushToken) {
-            this.notificationsService.sendDirectPush(
-              [application.worker.expoPushToken],
-              'Tempo esgotado ⏰',
-              'Não respondeste a tempo — o turno voltou à lista de disponíveis.',
-              { type: 'acceptance_timeout', shiftId: sid },
-            ).catch(() => {});
-          }
-        }
-      }
+    // ── Safety net: offers whose timeout job was lost ───────────────────────
+    if (job.name === 'release-stale-offers') {
+      await this.releaseStaleOffers();
       return;
     }
 
@@ -112,17 +92,56 @@ export class ReNotificationProcessor extends WorkerHost {
     );
   }
 
+  /** Release one pending offer and tell the worker why. */
+  private async releaseOffer(shiftId: string, workerId: string, why: 'timeout' | 'sweep'): Promise<void> {
+    const released = await releasePendingOffer(
+      { shiftRepo: this.shiftRepo, applicationRepo: this.applicationRepo }, shiftId, workerId,
+    );
+    if (!released) return;
+    this.logger.log(`[AcceptanceTimeout] Shift ${shiftId} back to OPEN — no answer in 2h (${why})`);
+    if (released.worker.expoPushToken) {
+      this.notificationsService.sendDirectPush(
+        [released.worker.expoPushToken],
+        'Tempo esgotado ⏰',
+        'Não respondeste a tempo — o turno voltou à lista de disponíveis.',
+        { type: 'acceptance_timeout', shiftId },
+      ).catch(() => {});
+    }
+  }
+
+  /**
+   * Every 15 minutes: offers older than the acceptance window (plus 5 min of
+   * slack for the normal job to run first). `updatedAt` is when the shift
+   * entered PENDING_ACCEPTANCE — nothing else writes a shift while it waits.
+   */
+  private async releaseStaleOffers(): Promise<void> {
+    // Compared on the database clock: `updatedAt` is a timestamp WITHOUT time
+    // zone written by now(), and Postgres silently drops the offset of a JS
+    // Date parameter — on a non-UTC host the cutoff landed hours off and fresh
+    // offers were released after minutes (found testing locally, 2026-10-11).
+    const minutes = Math.round(ACCEPTANCE_WINDOW_MS / 60000) + 5;
+    const stale = await this.shiftRepo.createQueryBuilder('s')
+      .leftJoinAndSelect('s.assignedWorker', 'w')
+      .where('s.status = :status', { status: ShiftStatus.PENDING_ACCEPTANCE })
+      .andWhere(`s."updatedAt" < now() - make_interval(mins => :minutes)`, { minutes })
+      .getMany();
+    const seen = new Set<string>();
+    for (const shift of stale) {
+      const key = shift.seriesId ?? shift.id;
+      if (seen.has(key) || !shift.assignedWorker) continue;
+      seen.add(key);
+      await this.releaseOffer(shift.id, shift.assignedWorker.id, 'sweep');
+    }
+  }
+
   private async runShiftExpiry(): Promise<void> {
     const now = new Date();
     const candidates = await this.shiftRepo.find({
       where: [{ status: ShiftStatus.OPEN }, { status: ShiftStatus.PENDING_ACCEPTANCE }],
     });
-    const toExpire = candidates.filter(shift => {
-      const [h, m] = shift.endTime.split(':').map(Number);
-      const [y, mo, d] = shift.date.split('-').map(Number);
-      const end = new Date(y!, (mo! - 1), d!, h!, m!, 0);
-      return end < now;
-    });
+    // Lisbon wall-clock: the API runs in UTC, and `new Date(y, m, d, h)` read
+    // shift times as UTC — an hour late in summer (same bug as 2026-10-05).
+    const toExpire = candidates.filter(shift => lisbonDateTime(shift.date, shift.endTime) < now);
     if (toExpire.length === 0) {
       this.logger.log('[ShiftExpiry] No stale shifts.');
       return;

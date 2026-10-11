@@ -69,6 +69,12 @@ export class ShiftsController {
     });
   }
 
+  @Post(':id/withdraw-offer')
+  @Roles('EMPLOYER')
+  withdrawOffer(@Request() req: any, @Param('id') id: string) {
+    return this.shiftsService.withdrawOffer(req.user.userId, id);
+  }
+
   @Get(':id/applications')
   @Roles('EMPLOYER')
   getApplications(@Request() req: any, @Param('id') id: string) {

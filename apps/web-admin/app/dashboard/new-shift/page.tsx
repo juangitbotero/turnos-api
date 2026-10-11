@@ -266,6 +266,9 @@ export default function NewShiftPage() {
   const [dressCode, setDressCode]       = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(RECOMMENDED_PAYMENT_METHOD);
 
+  // Set when the form was pre-filled from an expired shift ("Re-publicar")
+  const [isRepost, setIsRepost] = useState(false);
+
   // Pre-fill form when re-posting a caducated shift
   useEffect(() => {
     const raw = sessionStorage.getItem('repost_shift');
@@ -273,6 +276,7 @@ export default function NewShiftPage() {
     sessionStorage.removeItem('repost_shift');
     try {
       const sh = JSON.parse(raw);
+      setIsRepost(true);
       if (sh.category && SHIFT_CATEGORIES[sh.category as ShiftCategory]) {
         setCategory(sh.category as ShiftCategory);
         setSubcategory(sh.subcategory ?? SHIFT_CATEGORIES[sh.category as ShiftCategory][0]);
@@ -287,8 +291,17 @@ export default function NewShiftPage() {
         setHasDressCode(true);
         setDressCode(sh.dressCode);
       }
-      if (sh.startTime) setStartTime(sh.startTime.slice(0, 5));
-      // Recalculate duration from original start/end if available
+      if (sh.paymentMethod && sh.paymentMethod in PAYMENT_METHOD_LABELS) {
+        setPaymentMethod(sh.paymentMethod as PaymentMethod);
+      }
+      // The address was already geocoded once — reuse it instead of making the
+      // company press "find address" again for the same place.
+      if (sh.address && sh.lat != null && sh.lng != null) {
+        setGeo({ lat: Number(sh.lat), lng: Number(sh.lng), display: sh.address });
+      }
+      // Neither the date nor the start time is copied: the reason to re-post
+      // is that the old slot passed, so the company picks a new one. The
+      // length of the shift is kept — it usually doesn't change.
       if (sh.startTime && sh.endTime) {
         const [sh_, sm_] = sh.startTime.split(':').map(Number);
         const [eh_, em_] = sh.endTime.split(':').map(Number);
@@ -296,7 +309,6 @@ export default function NewShiftPage() {
         if (mins < 0) mins += 24 * 60; // overnight — 20:00→00:00 is 4h, not −20h
         if (mins >= 120) setDuration(Math.round(mins / 60));
       }
-      // Don't copy the date — employer must choose a new one
     } catch { /* ignore parse errors */ }
   }, []);
   const [geo, setGeo]             = useState<GeoResult>(null);
@@ -419,6 +431,9 @@ export default function NewShiftPage() {
         </div>
       </div>
 
+      {isRepost && (
+        <div style={s.repostBanner}><IconCalendar size={15} /> {t('admin.newShift.repostBanner')}</div>
+      )}
       {error && <div style={s.errorBanner}><IconAlert size={15} /> {error}</div>}
 
       <form onSubmit={handleSubmit} style={s.form}>
@@ -835,6 +850,11 @@ export default function NewShiftPage() {
 
 const s: Record<string, React.CSSProperties> = {
   page: { padding: 32, maxWidth: 900, margin: '0 auto' },
+  repostBanner: {
+    display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20,
+    background: 'var(--color-primary-light)', border: '1px solid rgba(106,121,255,0.3)', borderRadius: 10,
+    padding: '12px 14px', fontSize: 13.5, fontWeight: 600, color: 'var(--color-primary)',
+  },
   header: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 32 },
   title: { fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.5px', marginBottom: 4 },
   sub: { fontSize: 14, color: 'var(--color-text-secondary)', maxWidth: 500 },

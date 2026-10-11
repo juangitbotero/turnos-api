@@ -1352,6 +1352,7 @@ export const pt = {
       title: 'Publicar Turno',
       sub:   'Preencha os detalhes do turno. O valor bruto e o custo TSU são calculados automaticamente.',
       back:  '← Voltar',
+      repostBanner: 'A re-publicar um turno caducado: os detalhes foram copiados. Escolhe a nova data e a hora de início.',
       optional: 'opcional',
 
       // Role & category
@@ -1487,6 +1488,10 @@ export const pt = {
       manualDone:   'Concluído',
       manualDoneTitle: 'Marcar como concluído (sem QR) — usar quando o turno não concluiu automaticamente',
       cancelBtn:    'Cancelar',
+      withdrawOfferBtn: 'Retirar oferta',
+      withdrawOfferTitle: 'O trabalhador ainda não respondeu. Retirar a oferta volta a abrir o turno a candidaturas.',
+      withdrawOfferConfirm: 'Retirar a oferta? O turno volta a estar aberto a candidaturas e o trabalhador é avisado.',
+      withdrawOfferError: 'Não foi possível retirar a oferta.',
       cancelConfirmSimple: 'Tem a certeza que quer cancelar este turno?',
       cancelError:  'Erro ao cancelar.',
       confirmError: 'Erro ao confirmar.',
@@ -1993,6 +1998,7 @@ export const pt = {
       cancelledLate:       'Turno cancelado. Atenção: cancelar a menos de 24h do início afeta a tua fiabilidade na plataforma.',
       cancelledFree:       'Turno cancelado sem penalização. O turno voltou ao estado aberto.',
       declined:            'Turno recusado. O turno voltou ao estado aberto.',
+      noPendingOffer:      'Este turno não tem nenhuma oferta à espera de resposta.',
       deleted:             'Turno eliminado.',
     },
 

@@ -1335,6 +1335,7 @@ export const en: Translated<TranslationCatalogue> = {
       // TSU is Portugal's social-security contribution — kept, not translated
       sub:   'Fill in the shift details. The gross rate and TSU cost are calculated automatically.',
       back:  '← Back',
+      repostBanner: 'Re-posting an expired shift: the details were copied. Pick the new date and start time.',
       optional: 'optional',
 
       // Role & category
@@ -1470,6 +1471,10 @@ export const en: Translated<TranslationCatalogue> = {
       manualDone:   'Completed',
       manualDoneTitle: 'Mark as completed (no QR) — use when the shift did not complete automatically',
       cancelBtn:    'Cancel',
+      withdrawOfferBtn: 'Withdraw offer',
+      withdrawOfferTitle: 'The worker has not answered yet. Withdrawing the offer reopens the shift to applications.',
+      withdrawOfferConfirm: 'Withdraw the offer? The shift reopens to applications and the worker is told.',
+      withdrawOfferError: 'Could not withdraw the offer.',
       cancelConfirmSimple: 'Are you sure you want to cancel this shift?',
       cancelError:  "Couldn't cancel the shift.",
       confirmError: "Couldn't confirm the shift.",
@@ -1961,6 +1966,7 @@ export const en: Translated<TranslationCatalogue> = {
       cancelledLate:       'Shift cancelled. Note: cancelling less than 24h before the start affects your reliability on the platform.',
       cancelledFree:       'Shift cancelled with no penalty. It is open for applications again.',
       declined:            'Shift declined. It is open for applications again.',
+      noPendingOffer:      'This shift has no offer waiting for an answer.',
       deleted:             'Shift deleted.',
     },
 

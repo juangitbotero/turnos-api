@@ -559,6 +559,10 @@ export const adminApi = {
       method: 'POST', body: JSON.stringify({ category, note }),
     }),
 
+  /** Take back an offer the worker has not answered (PENDING_ACCEPTANCE → OPEN). */
+  withdrawOffer: (id: string) =>
+    request<Shift>(`/shifts/${id}/withdraw-offer`, { method: 'POST' }),
+
   /** Mark an expired shift as CANCELLED (soft delete) */
   deleteExpiredShift: (id: string) =>
     request<{ message: string }>(`/shifts/${id}/expired`, { method: 'DELETE' }),

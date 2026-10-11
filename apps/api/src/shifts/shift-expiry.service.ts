@@ -1,9 +1,12 @@
 /**
  * ShiftExpiryService
  *
- * Registers a nightly BullMQ repeatable job (02:00 UTC) that scans for
- * OPEN / PENDING_ACCEPTANCE shifts whose end datetime has passed and marks
- * them EXPIRED.
+ * Registers two repeatable BullMQ jobs, both processed by
+ * ReNotificationProcessor:
+ *  - nightly (02:00 UTC): OPEN / PENDING_ACCEPTANCE shifts whose end has passed
+ *    are marked EXPIRED;
+ *  - every 15 min: pending offers past the 2h window are released, in case
+ *    their own timeout job was lost (see shifts/offer-release.ts).
  *
  * EXPIRED shifts:
  *  - Do not appear in the mobile feed (search returns OPEN only)
@@ -12,20 +15,14 @@
  */
 
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
-import { Repository, In } from 'typeorm';
 import { Queue } from 'bullmq';
-import { Shift, ShiftStatus } from './entities/shift.entity';
 
 @Injectable()
 export class ShiftExpiryService implements OnApplicationBootstrap {
   private readonly logger = new Logger(ShiftExpiryService.name);
 
   constructor(
-    @InjectRepository(Shift)
-    private readonly shiftRepo: Repository<Shift>,
-
     @InjectQueue('shift-notifications')
     private readonly queue: Queue,
   ) {}
@@ -41,37 +38,12 @@ export class ShiftExpiryService implements OnApplicationBootstrap {
       },
     );
     this.logger.log('[ShiftExpiry] Nightly expiry job registered: 0 2 * * *');
-  }
 
-  /** Called by the queue processor when the job fires */
-  async runExpiry(): Promise<{ expired: number }> {
-    const now = new Date();
-
-    const candidates = await this.shiftRepo.find({
-      where: [
-        { status: ShiftStatus.OPEN },
-        { status: ShiftStatus.PENDING_ACCEPTANCE },
-      ],
-    });
-
-    const toExpire = candidates.filter(shift => {
-      const [h, m] = shift.endTime.split(':').map(Number);
-      const [y, mo, d] = shift.date.split('-').map(Number);
-      const end = new Date(y!, (mo! - 1), d!, h!, m!, 0);
-      return end < now;
-    });
-
-    if (toExpire.length === 0) {
-      this.logger.log('[ShiftExpiry] No stale shifts to expire.');
-      return { expired: 0 };
-    }
-
-    await this.shiftRepo.update(
-      { id: In(toExpire.map(s => s.id)) },
-      { status: ShiftStatus.EXPIRED },
+    // Safety net for pending offers whose 2h timeout job was lost
+    await this.queue.add(
+      'release-stale-offers',
+      {},
+      { repeat: { pattern: '*/15 * * * *' }, jobId: 'release-stale-offers' },
     );
-
-    this.logger.log(`[ShiftExpiry] Marked ${toExpire.length} shift(s) EXPIRED.`);
-    return { expired: toExpire.length };
   }
 }

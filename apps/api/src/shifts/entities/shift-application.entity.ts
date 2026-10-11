@@ -39,6 +39,15 @@ export class ShiftApplication {
   })
   status: ApplicationStatus;
 
+  /**
+   * Created by the company's direct invitation, not by the worker applying.
+   * When such an offer lapses or is withdrawn the row is WITHDRAWN rather than
+   * put back to PENDING — the worker never applied, so they must not appear
+   * as a candidate. See shifts/offer-release.ts.
+   */
+  @Column({ type: 'boolean', default: false })
+  invited: boolean;
+
   /** Optional short message from worker to employer (max 200 chars) */
   @Column({ type: 'varchar', length: 200, nullable: true })
   coverNote?: string;

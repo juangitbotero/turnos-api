@@ -29,6 +29,7 @@ import { t, tNumericDate } from '../i18n/request-language';
 import { restrictionNotice, statementToHtml } from '../users/restriction-notice';
 import { lisbonDate, lisbonDateTime } from '../common/lisbon-time';
 import { notificationPrefsOf } from '../users/notification-prefs';
+import { releasePendingOffer, ACCEPTANCE_WINDOW_MS } from './offer-release';
 
 // 5 hours in milliseconds — delay before re-notification job fires
 const RE_NOTIFY_DELAY_MS = 5 * 60 * 60 * 1000;
@@ -381,10 +382,21 @@ export class ShiftsService {
         this.notifications.sendDirectPush(
           [worker.expoPushToken],
           'Turno cancelado pela empresa 😔',
-          `O turno "${shift.title}" (${shift.date}) foi cancelado. Pedimos desculpa — vais ter prioridade em turnos semelhantes na tua zona.`,
+          `O turno "${shift.title}" (${shift.date}) foi cancelado. Pedimos desculpa.`,
           { type: 'shift_cancelled_by_employer', shiftId: shift.id },
         ).catch(() => {});
       }
+    }
+
+    // An offer still waiting for an answer: the selected worker is told the
+    // job no longer exists, so they don't accept something that is gone.
+    if (shift.status === ShiftStatus.PENDING_ACCEPTANCE && shift.assignedWorker?.expoPushToken) {
+      this.notifications.sendDirectPush(
+        [shift.assignedWorker.expoPushToken],
+        'Turno cancelado pela empresa',
+        `A empresa cancelou "${shift.title || shift.subcategory}" antes de responderes. Não precisas de fazer nada.`,
+        { type: 'shift_cancelled_by_employer', shiftId: shift.id },
+      ).catch(() => {});
     }
 
     // Collect applicants to notify via WebSocket
@@ -666,10 +678,39 @@ export class ShiftsService {
     // BullMQ: 2h timeout — if worker hasn't confirmed, revert to OPEN
     await this.notificationQueue.add(
       'acceptance-timeout',
-      { shiftId: shift.id, applicationId: application.id },
-      { delay: 2 * 60 * 60 * 1000 },
+      { shiftId: shift.id, applicationId: application.id, workerId: application.worker.id },
+      { delay: ACCEPTANCE_WINDOW_MS },
     );
 
+    return this.employerShiftView(shiftId);
+  }
+
+  /**
+   * The company takes back an offer the worker has not answered yet
+   * ("Retirar oferta"). The job goes back to OPEN — candidates who applied are
+   * candidates again — and the worker is told. Before 2026-10-11 a shift in
+   * PENDING_ACCEPTANCE had no action at all on the dashboard.
+   */
+  async withdrawOffer(userId: string, shiftId: string) {
+    const employer = await this.resolveEmployer(userId);
+    const shift = await this.shiftRepo.findOne({ where: { id: shiftId }, relations: ['employer'] });
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
+    if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
+    if (shift.status !== ShiftStatus.PENDING_ACCEPTANCE) {
+      throw new BadRequestException(t('api.shifts.noPendingOffer'));
+    }
+
+    const released = await releasePendingOffer(
+      { shiftRepo: this.shiftRepo, applicationRepo: this.applicationRepo }, shiftId,
+    );
+    if (released?.worker.expoPushToken) {
+      this.notifications.sendDirectPush(
+        [released.worker.expoPushToken],
+        'Oferta retirada',
+        `A empresa retirou a oferta para "${shift.title || shift.subcategory}". Não precisas de fazer nada.`,
+        { type: 'offer_withdrawn', shiftId: shift.id },
+      ).catch(() => {});
+    }
     return this.employerShiftView(shiftId);
   }
 
@@ -1226,6 +1267,7 @@ export class ShiftsService {
         shift: { id: shiftId } as any,
         worker: { id: workerId } as any,
         status: ApplicationStatus.APPROVED,
+        invited: true,
       });
     } else {
       application.status = ApplicationStatus.APPROVED;
@@ -1260,8 +1302,8 @@ export class ShiftsService {
     // 2h timeout
     await this.notificationQueue.add(
       'acceptance-timeout',
-      { shiftId: shift.id, applicationId: application.id },
-      { delay: 2 * 60 * 60 * 1000 },
+      { shiftId: shift.id, applicationId: application.id, workerId: worker.id },
+      { delay: ACCEPTANCE_WINDOW_MS },
     );
 
     return this.employerShiftView(shiftId);
@@ -1333,7 +1375,14 @@ export class ShiftsService {
     const shift = await this.shiftRepo.findOne({ where: { id: shiftId }, relations: ['employer'] });
     if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
-    if (shift.status !== ShiftStatus.EXPIRED) throw new BadRequestException('Only EXPIRED shifts can be deleted this way');
+    // The dashboard lists a shift as expired the moment its end passes; the
+    // nightly job only sets EXPIRED at 02:00 UTC. Accept both, or "Eliminar"
+    // fails for up to a day on a shift the company is looking at as expired.
+    const endedUnfilled = [ShiftStatus.OPEN, ShiftStatus.PENDING_ACCEPTANCE].includes(shift.status)
+      && lisbonDateTime(shift.date, shift.endTime) < new Date();
+    if (shift.status !== ShiftStatus.EXPIRED && !endedUnfilled) {
+      throw new BadRequestException('Only EXPIRED shifts can be deleted this way');
+    }
     shift.status = ShiftStatus.CANCELLED;
     await this.shiftRepo.save(shift);
     return { message: t('api.shifts.deleted') };
