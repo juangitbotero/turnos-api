@@ -7,7 +7,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { WorkerStatus, WorkerExperience } from '@turnos/shared';
+import { WorkerStatus, WorkerExperience, WorkerRole } from '@turnos/shared';
 import { User } from './user.entity';
 
 /**
@@ -95,7 +95,17 @@ export class Worker {
    * jobTitle values come from the shared JOB_TITLES list.
    */
   @Column({ type: 'jsonb', nullable: true })
-  experiences?: WorkerExperience[];
+  experiences?: WorkerExperience[];   // Legacy since 2026-10-25 — superseded by `roles`
+
+  /**
+   * The roles the worker can do — [{ role, level, tasks, years, … }], at most
+   * MAX_WORKER_ROLES. Replaces the old `skills` + `experiences` pair (which
+   * stay, written as a derived copy, until no old app version reads them).
+   * Validated by `validateWorkerRoles()` in shared; `confirmedShifts` and
+   * `belowLevelCount` are written by the server only.
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  roles?: WorkerRole[] | null;
 
   // ── Status & Trust ────────────────────────────────────────────────────────
   @Column({ type: 'boolean', default: false })

@@ -19,6 +19,7 @@ import { initReactI18next, useTranslation as useI18nTranslation } from 'react-i1
 import {
   CATALOGUES, AppLanguage, DEFAULT_LANGUAGE, resolveInitialLanguage,
   translateSkill, translateSkills, translateCategory, translateWorkerLanguage, translateSector,
+  roleLevelText, roleTaskLabel,
   weekdayKey,
   formatShortDate, formatMediumDate, formatTimestamp, formatLongDate, formatWeekdayDate, formatDateTime,
   formatSmartDate, formatDateRange, formatNumericDate, formatMoney,
@@ -128,6 +129,10 @@ export function useT() {
     tCategory:       (category: string) => translateCategory(category, language),
     tWorkerLanguage: (l: string) => translateWorkerLanguage(l, language),
     tSector:         (sector: string) => translateSector(sector, language),
+    /** What a level of a role means, e.g. Barista 2 → "Manual machine and textured milk…". */
+    tRoleLevel:      (role: string, level: number) => roleLevelText(role, level, language),
+    /** Label of a role's task id. */
+    tTask:           (role: string, taskId: string) => roleTaskLabel(role, taskId, language),
     /** Stored weekday abbreviation ('Seg') → display label ('Seg' / 'Mon'). */
     tWeekday: (storedDay: string) => {
       const key = weekdayKey(storedDay);

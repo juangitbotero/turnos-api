@@ -1,4 +1,4 @@
-import { WorkerExperience } from '@turnos/shared';
+import { WorkerExperience, WorkerRole } from '@turnos/shared';
 import { tokenStorage } from './storage';
 import { currentLanguage } from './i18n';
 
@@ -103,7 +103,8 @@ export const authApi = {
 
   updateWorkerProfile: (dto: {
     fullName: string; nif: string; iban: string;
-    skills: string[]; availableDays: string[];
+    /** Up to MAX_WORKER_ROLES roles with level and tasks; the server derives `skills`. */
+    roles: WorkerRole[]; availableDays: string[];
     /** Consent to disclose name + IBAN to companies the worker did shifts for */
     ibanShareConsent?: boolean;
     /** ISO 'YYYY-MM-DD' — Turnos is 18+, the server rejects anyone younger */
@@ -155,6 +156,8 @@ export const authApi = {
     skills?: string[]; languages?: string[]; availableDays?: string[];
     isAvailableForWork?: boolean;
     experiences?: WorkerExperience[];
+    /** Roles with level + tasks. `provisional` ones were migrated and await the worker's confirmation. */
+    roles?: WorkerRole[];
     profileQualityScore?: number; status?: string;
     nif?: string | null; iban?: string | null;
     ibanShareConsent?: boolean;
@@ -181,7 +184,7 @@ export const authApi = {
     availableDays?: string[];
     /** Master availability switch — `availableDays` says which days it covers */
     isAvailableForWork?: boolean;
-    experiences?: WorkerExperience[];
+    roles?: WorkerRole[];
     /** UI language, mirrored server-side so push/email use it too */
     preferredLanguage?: string;
     nif?: string;
@@ -226,6 +229,10 @@ export interface ShiftSummary {
   grossHourlyRate: number;
   address: string;
   skillsRequired: string[] | null;
+  /** Minimum level of the role (`subcategory`); 1 = no experience needed. */
+  requiredLevel?: number;
+  /** Task ids of the role this shift involves. */
+  tasksRequired?: string[] | null;
   /**
    * Dress code as the company wrote it — free text, shown as-is like the
    * description. Only present when `hasDressCode` is true.

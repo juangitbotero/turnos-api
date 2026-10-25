@@ -82,6 +82,7 @@ function ShiftApplicationsModal({
         {viewingProfile ? (
           <WorkerProfilePanel
             app={viewingProfile}
+            shiftRole={shift.subcategory}
             onBack={() => setViewingProfile(null)}
             onApprove={app => handleApprove(app.id)}
             processing={processing}

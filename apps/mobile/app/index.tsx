@@ -30,6 +30,7 @@ function toFeedItem(s: ShiftSummary, fmt: {
     category: s.category as ShiftCategory,
     subcategory: s.subcategory,
     grossHourlyRate: Number(s.grossHourlyRate),
+    requiredLevel: Number(s.requiredLevel) || 1,
     paymentMethodLabel: PAYMENT_METHOD_LABELS[s.paymentMethod as PaymentMethod] ?? null,
     startTime: s.startTime.slice(0, 5),
     endTime: s.endTime.slice(0, 5),
@@ -283,6 +284,15 @@ export default function FeedScreen() {
                 <View style={s.footerChip}>
                   <Ionicons name="time-outline" size={11} color={colors.textSecondary} />
                   <Text style={s.footerChipText}>{item.startTime}–{item.endTime}</Text>
+                </View>
+                {/* Level the company asked for — level 1 means anyone can apply */}
+                <View style={[s.footerChip, item.requiredLevel > 1 ? s.levelChip : s.openChip]}>
+                  <Ionicons name="ribbon-outline" size={11} color={item.requiredLevel > 1 ? colors.primary : '#15803d'} />
+                  <Text style={[s.footerChipText, { color: item.requiredLevel > 1 ? colors.primary : '#15803d', fontWeight: fontWeight.bold }]}>
+                    {item.requiredLevel > 1
+                      ? t('mobile.roles.levelN', { level: item.requiredLevel })
+                      : t('mobile.feed.levelOpenChip')}
+                  </Text>
                 </View>
                 {item.seriesDays > 0 && (
                   <View style={[s.footerChip, s.multiDayChip]}>
@@ -593,6 +603,8 @@ const s = StyleSheet.create({
     fontWeight: fontWeight.semibold,
   },
   multiDayChip: { backgroundColor: '#dbeafe', borderColor: '#bfdbfe' },
+  levelChip: { backgroundColor: '#eef0ff', borderColor: '#c7cdff' },
+  openChip: { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
   multiDayChipText: { color: '#1d4ed8', fontWeight: fontWeight.bold },
   ratingChip: {
     backgroundColor: '#fef9c3',

@@ -14,6 +14,9 @@ import {
   PAYMENT_METHOD_LABELS, COMPANY_CANCEL_REASONS, WORKER_CANCEL_REASONS,
   MAX_SERIES_DAYS, MIN_WORKER_AGE, ageOn, PROFILE_MIN_SCORE_TO_APPLY,
   OFFER_ACCEPTANCE_HOURS, paymentMethodLabel,
+  normalizeSkill, roleCategory, roleMaxLevel, roleTaskIds,
+  meetsRoleLevel, resolveWorkerRoles, translateSkill,
+  normalizeSkills as normalizeSkillList, ROLE_CONFIRMED_MIN_SHIFTS,
 } from '@turnos/shared';
 import { Shift, ShiftStatus } from './entities/shift.entity';
 import { ShiftApplication, ApplicationStatus } from './entities/shift-application.entity';
@@ -27,7 +30,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { WagePaymentsService } from '../payments/wage-payments.service';
 import { MailService } from '../mail/mail.service';
 import { opsRef, eur, lisbonStamp, ptDate, deadlineIn, joinParts } from '../mail/ops-email';
-import { t, tNumericDate } from '../i18n/request-language';
+import { t, tNumericDate, currentLanguage } from '../i18n/request-language';
 import { restrictionNotice, statementToHtml } from '../users/restriction-notice';
 import { lisbonDate, lisbonDateTime } from '../common/lisbon-time';
 import { notificationPrefsOf } from '../users/notification-prefs';
@@ -175,6 +178,8 @@ export class ShiftsService {
     lat: number;
     lng: number;
     skillsRequired?: string[];
+    requiredLevel?: number;
+    tasksRequired?: string[];
     paymentMethod?: string;
     hasDressCode?: boolean;
     dressCode?: string | null;
@@ -218,6 +223,9 @@ export class ShiftsService {
       throw new BadRequestException(t('api.shifts.dressCodeRequired'));
     }
 
+    // Role, level and tasks — all from the catalogue, so they can be matched
+    const roleFields = this.resolveRoleFields(data.subcategory, data.requiredLevel, data.tasksRequired);
+
     // Guard: active subscription + concurrent shift limit
     await this.payments.assertCanPostShift(userId);
 
@@ -233,6 +241,7 @@ export class ShiftsService {
     const created = await this.shiftRepo.save(
       allDates.map((day, i) => this.shiftRepo.create({
         ...rest,
+        ...roleFields,
         date: day,
         // Normalised above — a toggle switched back off must not leave stale
         // instructions on the card.
@@ -253,9 +262,12 @@ export class ShiftsService {
     const primary = created[0]!;
 
     // Fire-and-forget: send push notifications to matching workers
-    const skills = data.skillsRequired ?? [];
     this.notifications
-      .notifyMatchingWorkers(primary.id, employer.id, skills, primary.title)
+      .notifyMatchingWorkers(
+        primary.id, employer.id,
+        { role: primary.subcategory, requiredLevel: primary.requiredLevel },
+        primary.title,
+      )
       .catch(() => {}); // non-blocking
 
     // Schedule re-notification job for 5 hours later (once per job, not per day)
@@ -264,13 +276,37 @@ export class ShiftsService {
       {
         shiftId: primary.id,
         shiftTitle: primary.title,
-        requiredSkills: skills,
         employerId: employer.id,
       } satisfies ReNotificationJobData,
       { delay: RE_NOTIFY_DELAY_MS },
     );
 
     return primary;
+  }
+
+  /**
+   * The role fields of a shift, validated against ROLE_CATALOGUE: the current
+   * role name, its family as the category, a level that exists for that role
+   * and only that role's task ids. `skillsRequired` is written as just the role
+   * for clients that still read it.
+   */
+  private resolveRoleFields(subcategory: string, requiredLevel?: number, tasksRequired?: string[]) {
+    const role = normalizeSkill(subcategory ?? '');
+    const category = roleCategory(role);
+    if (!category) throw new BadRequestException(t('api.shifts.roleUnknown'));
+    const level = requiredLevel === undefined || requiredLevel === null ? 1 : Number(requiredLevel);
+    if (!Number.isInteger(level) || level < 1 || level > roleMaxLevel(role)) {
+      throw new BadRequestException(t('api.shifts.levelInvalid'));
+    }
+    const valid = new Set(roleTaskIds(role));
+    const tasks = [...new Set((tasksRequired ?? []).map(String))].filter(id => valid.has(id));
+    return {
+      subcategory: role,
+      category,
+      requiredLevel: level,
+      tasksRequired: tasks.length ? tasks : null,
+      skillsRequired: [role],
+    };
   }
 
   // ── Series helpers ────────────────────────────────────────────────────────
@@ -337,6 +373,11 @@ export class ShiftsService {
     }
     const { lat, lng, ...rest } = data;
     Object.assign(shift, rest);
+    // Role edits go through the same catalogue validation as create()
+    if (rest.subcategory !== undefined || rest.requiredLevel !== undefined
+        || rest.tasksRequired !== undefined || rest.skillsRequired !== undefined) {
+      Object.assign(shift, this.resolveRoleFields(shift.subcategory, shift.requiredLevel, shift.tasksRequired ?? []));
+    }
     // Same normalisation as create() — switching the toggle off has to clear
     // the text, or the shift card keeps showing a code nobody is held to.
     if (rest.hasDressCode !== undefined || rest.dressCode !== undefined) {
@@ -643,6 +684,7 @@ export class ShiftsService {
       isAvailableForWork:  worker.isAvailableForWork,
       availableDays:       worker.availableDays ?? null,
       experiences:         worker.experiences ?? null,
+      roles:               this.publicRoles(worker),
       status:              worker.status,
       profileQualityScore: worker.profileQualityScore,
       avgRating:           worker.avgRating,
@@ -651,6 +693,18 @@ export class ShiftsService {
       completedShifts:     worker.completedShifts ?? 0,
       badges:              worker.badges ?? [],
     };
+  }
+
+  /**
+   * A worker's roles as companies see them: role, level, tasks, years and how
+   * many shifts confirmed it. `belowLevelCount` is internal (it only opens an
+   * ops review) and never leaves the server.
+   */
+  private publicRoles(worker: Worker) {
+    return resolveWorkerRoles(worker).map(r => ({
+      role: r.role, level: r.level, tasks: r.tasks, years: r.years ?? null,
+      confirmedShifts: r.confirmedShifts ?? 0,
+    }));
   }
 
   /** The shift as returned to its company — the assigned worker trimmed to what a company may see. */
@@ -1005,7 +1059,11 @@ export class ShiftsService {
     // Immediately re-notify matching workers — refilling the slot fast is the
     // real remedy for the employer.
     this.notifications
-      .notifyMatchingWorkers(shift.id, shift.employer.id, shift.skillsRequired ?? [], shift.title)
+      .notifyMatchingWorkers(
+        shift.id, shift.employer.id,
+        { role: shift.subcategory, requiredLevel: shift.requiredLevel },
+        shift.title,
+      )
       .catch(() => {});
 
     const suspended = worker.suspendedUntil && worker.suspendedUntil > new Date();
@@ -1104,6 +1162,16 @@ export class ShiftsService {
       throw new BadRequestException(
         t('api.shifts.profileIncomplete', { score: worker.profileQualityScore }),
       );
+    }
+
+    // Level gate — above level 1 the worker must have declared the role at the
+    // shift's level. It is the worker's own statement being checked, not a
+    // judgement about them (decision D2). Level 1 is open to all (D3).
+    if (!meetsRoleLevel(resolveWorkerRoles(worker), shift.subcategory, shift.requiredLevel)) {
+      throw new BadRequestException(t('api.shifts.levelTooLow', {
+        level: shift.requiredLevel,
+        role: translateSkill(normalizeSkill(shift.subcategory), currentLanguage()),
+      }));
     }
 
     const existing = await this.applicationRepo.findOne({
@@ -1421,7 +1489,11 @@ export class ShiftsService {
   // ── Public worker search (for employers browsing talent) ──────────────────
 
   async searchWorkersPublic(filters: {
+    /** Role names — a worker matches if they declared any of them (at `minLevel`+). */
     skills?: string[];
+    minLevel?: number;
+    /** Only workers whose role was confirmed by companies that hired them. */
+    confirmedOnly?: boolean;
     languages?: string[];
     available?: string[];
     availableNow?: boolean;
@@ -1435,7 +1507,7 @@ export class ShiftsService {
         'w.id', 'w.fullName', 'w.photoUrl', 'w.bio',
         'w.cvUrl', 'w.cvFileName',
         'w.skills', 'w.languages', 'w.availableDays',
-        'w.isAvailableForWork', 'w.experiences',
+        'w.isAvailableForWork', 'w.experiences', 'w.roles',
         'w.avgRating', 'w.totalRatings', 'w.noShowCount', 'w.completedShifts',
         'w.badges', 'w.profileQualityScore',
       ]);
@@ -1445,12 +1517,21 @@ export class ShiftsService {
       qb.andWhere('w."isAvailableForWork" = true');
     }
 
-    if (filters.skills?.length) {
-      // Worker has at least one of the requested skills
-      const skillConditions = filters.skills.map((_, i) => `w.skills LIKE :skill${i}`).join(' OR ');
-      const skillParams: Record<string, string> = {};
-      filters.skills.forEach((sk, i) => { skillParams[`skill${i}`] = `%${sk}%`; });
-      qb.andWhere(`(${skillConditions})`, skillParams);
+    const roles = normalizeSkillList(filters.skills);
+    if (roles.length || filters.confirmedOnly) {
+      // Exact role (any of the requested), at the minimum level, optionally confirmed
+      const conditions = ['TRUE'];
+      const params: Record<string, unknown> = {
+        minLevel: Math.max(1, Number(filters.minLevel) || 1),
+        confirmedMin: ROLE_CONFIRMED_MIN_SHIFTS,
+      };
+      if (roles.length) { conditions.push(`r->>'role' IN (:...roles)`); params.roles = roles; }
+      conditions.push(`(r->>'level')::int >= :minLevel`);
+      if (filters.confirmedOnly) conditions.push(`COALESCE((r->>'confirmedShifts')::int, 0) >= :confirmedMin`);
+      qb.andWhere(
+        `EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(w.roles, '[]'::jsonb)) r WHERE ${conditions.join(' AND ')})`,
+        params,
+      );
     }
 
     if (filters.languages?.length) {
@@ -1474,7 +1555,33 @@ export class ShiftsService {
     qb.orderBy('w."avgRating"', 'DESC', 'NULLS LAST')
       .addOrderBy('w."profileQualityScore"', 'DESC');
 
-    return qb.getMany();
+    const workers = await qb.getMany();
+    return workers.map(w => ({ ...w, roles: this.publicRoles(w) }));
+  }
+
+  /**
+   * How many active workers could take a shift of this role at this level —
+   * shown live while the company fills in the form, so a level or language
+   * requirement that leaves nobody is visible before publishing.
+   * Level 1 is open to everyone, but the count is of workers who declared the
+   * role: they are the ones notified.
+   */
+  async countMatchingWorkers(filters: { role: string; level?: number; languages?: string[] }): Promise<{ count: number }> {
+    const role = normalizeSkill(filters.role ?? '');
+    if (!roleCategory(role)) return { count: 0 };
+    const qb = this.workerRepo
+      .createQueryBuilder('w')
+      .where('w.status = :status', { status: 'ACTIVE' })
+      .andWhere('w."profileQualityScore" >= :minScore', { minScore: PROFILE_MIN_SCORE_TO_APPLY })
+      .andWhere(
+        `EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(w.roles, '[]'::jsonb)) r
+                 WHERE r->>'role' = :role AND (r->>'level')::int >= :level)`,
+        { role, level: Math.max(1, Number(filters.level) || 1) },
+      );
+    (filters.languages ?? []).forEach((l, i) => {
+      qb.andWhere(`w.languages LIKE :lang${i}`, { [`lang${i}`]: `%${l}%` });
+    });
+    return { count: await qb.getCount() };
   }
 
   // ── Repost an expired shift (duplicate with same data, date reset) ─────────

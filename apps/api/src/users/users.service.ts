@@ -27,6 +27,12 @@ import {
   ageOn,
   isRealIsoDate,
   TERMS_VERSIONS,
+  WorkerRole,
+  MAX_WORKER_ROLES,
+  validateWorkerRoles,
+  resolveWorkerRoles,
+  levelFromYears,
+  getRole,
 } from '@turnos/shared';
 
 @Injectable()
@@ -264,13 +270,61 @@ export class UsersService {
     worker.dateOfBirth = iso;
   }
 
+  /**
+   * Store the worker's roles. Two shapes arrive:
+   *  - `roles` (current app): validated against the catalogue; the server-owned
+   *    confirmation counters are carried over from what was stored.
+   *  - only `skills` (+ `experiences`) — app versions from before 2026-10-25:
+   *    roles already stored keep their level and tasks, new titles come in as
+   *    provisional at a level guessed from the years bucket, and dropped titles
+   *    are removed. Retired titles stay in `skills` (so the score doesn't drop)
+   *    but never become a role.
+   * `skills` is always rewritten as the derived list old apps still read.
+   */
+  private applyRoles(
+    worker: Worker,
+    dto: { roles?: WorkerRole[]; skills?: string[]; experiences?: WorkerExperience[] },
+  ): void {
+    const previous = resolveWorkerRoles(worker);
+
+    if (dto.roles !== undefined) {
+      const result = validateWorkerRoles(dto.roles, previous);
+      if ('error' in result) {
+        const key = {
+          tooMany: 'rolesTooMany', unknownRole: 'rolesUnknown',
+          duplicateRole: 'rolesDuplicate', invalidLevel: 'rolesInvalidLevel',
+        }[result.error];
+        throw new BadRequestException(t(`api.auth.${key}`, { max: MAX_WORKER_ROLES }));
+      }
+      worker.roles  = result.roles;
+      worker.skills = result.roles.map(r => r.role);
+      return;
+    }
+
+    if (dto.skills === undefined) return;
+    const skills = normalizeSkills(dto.skills);
+    const years = new Map((dto.experiences ?? worker.experiences ?? []).map(e => [normalizeSkills([e.jobTitle])[0], e.level]));
+    worker.roles = skills
+      .filter(name => getRole(name))
+      .slice(0, MAX_WORKER_ROLES)
+      .map(role => previous.find(p => p.role === role) ?? {
+        role,
+        level: levelFromYears(years.get(role), role),
+        tasks: [],
+        years: years.get(role) ?? null,
+        provisional: true,
+      });
+    worker.skills = skills;
+  }
+
   async updateWorkerProfile(
     userId: string,
     dto: {
       fullName: string;
       nif: string;
       iban: string;
-      skills: string[];
+      skills?: string[];
+      roles?: WorkerRole[];
       availableDays: string[];
       ibanShareConsent?: boolean;
       dateOfBirth?: string;
@@ -285,7 +339,7 @@ export class UsersService {
     worker.fullName      = dto.fullName?.trim();
     worker.nif           = dto.nif?.trim();
     worker.iban          = dto.iban?.trim().replace(/\s/g, '');
-    worker.skills        = normalizeSkills(dto.skills);
+    this.applyRoles(worker, dto);
     worker.availableDays = dto.availableDays;
     this.applyIbanShareConsent(worker, dto.ibanShareConsent);
     this.applyDateOfBirth(worker, dto.dateOfBirth);
@@ -315,6 +369,7 @@ export class UsersService {
       ibanShareConsent?: boolean;
       isAvailableForWork?: boolean;
       experiences?: WorkerExperience[];
+      roles?: WorkerRole[];
       preferredLanguage?: string;
       dateOfBirth?: string;
     },
@@ -327,7 +382,6 @@ export class UsersService {
 
     if (dto.fullName      !== undefined) worker.fullName      = dto.fullName.trim();
     if (dto.bio           !== undefined) worker.bio           = dto.bio.slice(0, 200);
-    if (dto.skills        !== undefined) worker.skills        = normalizeSkills(dto.skills);
     if (dto.languages     !== undefined) worker.languages     = dto.languages;
     if (dto.availableDays !== undefined) worker.availableDays = dto.availableDays;
     if (dto.isAvailableForWork !== undefined) worker.isAvailableForWork = dto.isAvailableForWork;
@@ -348,6 +402,9 @@ export class UsersService {
       }
       worker.experiences = [...byTitle.values()];
     }
+
+    // After experiences: an old app's years feed the provisional levels.
+    this.applyRoles(worker, dto);
 
     // NIF — validate before saving; empty string clears it
     if (dto.nif !== undefined) {
@@ -635,6 +692,7 @@ export class UsersService {
     worker.skills             = [];
     worker.languages          = [];
     worker.experiences        = [];
+    worker.roles              = [];
     worker.availableDays      = [];
     worker.isAvailableForWork = false;
     worker.expoPushToken      = undefined;   // stops every future push

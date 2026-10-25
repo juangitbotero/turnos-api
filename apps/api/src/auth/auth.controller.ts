@@ -7,7 +7,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { memoryStorage } from 'multer';
-import { WorkerExperience } from '@turnos/shared';
+import { WorkerExperience, WorkerRole } from '@turnos/shared';
 import { AuthService } from './auth.service';
 import { Public } from './decorators';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -134,7 +134,7 @@ export class AuthController {
     @Request() req: { user: { userId: string } },
     @Body() body: {
       fullName: string; nif: string; iban: string;
-      skills: string[]; availableDays: string[];
+      skills?: string[]; roles?: WorkerRole[]; availableDays: string[];
       ibanShareConsent?: boolean;
       dateOfBirth?: string;
     },
@@ -166,6 +166,7 @@ export class AuthController {
       ibanShareConsent?: boolean;
       isAvailableForWork?: boolean;
       experiences?: WorkerExperience[];
+      roles?: WorkerRole[];
       preferredLanguage?: string;
       dateOfBirth?: string;
     },

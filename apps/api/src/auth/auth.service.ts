@@ -13,7 +13,7 @@ import * as crypto from 'crypto';
 import { Twilio } from 'twilio';
 import {
   isValidNIF, isValidIBAN, isValidNIPC, isValidPostalCode,
-  WorkerExperience, normalizeSkills, TERMS_VERSIONS,
+  WorkerExperience, WorkerRole, resolveWorkerRoles, normalizeSkills, TERMS_VERSIONS,
 } from '@turnos/shared';
 import { t } from '../i18n/request-language';
 import { isLookupKey } from '../common/lookup-key';
@@ -263,7 +263,7 @@ export class AuthService {
 
   async updateWorkerProfile(userId: string, dto: {
     fullName: string; nif: string; iban: string;
-    skills: string[]; availableDays: string[];
+    skills?: string[]; roles?: WorkerRole[]; availableDays: string[];
     ibanShareConsent?: boolean;
     dateOfBirth?: string;
   }): Promise<{ profileQualityScore: number; status: string; missingItems: string[] }> {
@@ -289,6 +289,7 @@ export class AuthService {
     ibanShareConsent?: boolean;
     isAvailableForWork?: boolean;
     experiences?: WorkerExperience[];
+    roles?: WorkerRole[];
     preferredLanguage?: string;
     dateOfBirth?: string;
   }): Promise<{ profileQualityScore: number }> {
@@ -414,6 +415,9 @@ export class AuthService {
         preferredLanguage:   worker?.preferredLanguage   ?? 'pt',
         availableDays:       worker?.availableDays       ?? [],
         experiences:         worker?.experiences         ?? [],
+        // Stored roles, or for a not-yet-migrated profile the ones derived
+        // from skills + experiences (flagged provisional).
+        roles:               worker ? resolveWorkerRoles(worker) : [],
         profileQualityScore: worker?.profileQualityScore ?? 0,
         status:              worker?.status              ?? 'INCOMPLETE',
         nif:                 worker?.nif                 ?? null,

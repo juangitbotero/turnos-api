@@ -8,7 +8,7 @@ import { FavouriteWorker } from '../ratings/entities/favourite-worker.entity';
 import { RedisService } from '../redis/redis.service';
 import { WorkerNotification } from './entities/worker-notification.entity';
 import { runWithLanguage, t } from '../i18n/request-language';
-import { APP_LANGUAGES, AppLanguage, DEFAULT_LANGUAGE } from '@turnos/shared';
+import { APP_LANGUAGES, AppLanguage, DEFAULT_LANGUAGE, normalizeSkill } from '@turnos/shared';
 
 /**
  * What to tell the worker: a catalogue key under `api.push.*` (preferred — sent
@@ -40,7 +40,7 @@ export class NotificationsService {
   ) {}
 
   /**
-   * Find top-N ACTIVE workers whose skills overlap with the shift's required skills,
+   * Find top-N ACTIVE workers who declared the shift's role at the required level or above,
    * sorted by priority: (1) employer's favourites first, (2) TOP_RATED badge workers,
    * (3) everyone else — all ordered by profileQualityScore DESC within each group.
    *
@@ -48,14 +48,14 @@ export class NotificationsService {
    *
    * @param shiftId        - shift UUID (used as Redis tracking key)
    * @param employerId     - employer UUID (used to look up favourites)
-   * @param requiredSkills - shift.skillsRequired (empty = notify all active workers)
+   * @param match          - the shift's role and minimum level (no role = notify all active workers)
    * @param shiftTitle     - shown in the push notification body
    * @param batchOffset    - 0 for first wave, BATCH_SIZE for second wave
    */
   async notifyMatchingWorkers(
     shiftId: string,
     employerId: string,
-    requiredSkills: string[],
+    match: { role: string | null; requiredLevel: number },
     shiftTitle: string,
     batchOffset = 0,
   ): Promise<void> {
@@ -86,12 +86,14 @@ export class NotificationsService {
       .skip(batchOffset)
       .take(this.BATCH_SIZE);
 
-    // Skill filter — prefer workers with at least one matching skill
-    if (requiredSkills.length > 0) {
-      const conditions = requiredSkills.map((_, i) => `worker.skills LIKE :skill${i}`);
-      const params: Record<string, string> = {};
-      requiredSkills.forEach((skill, i) => { params[`skill${i}`] = `%${skill}%`; });
-      query.andWhere(`(${conditions.join(' OR ')})`, params);
+    // Role filter — the exact role at the shift's level or above (roles is a
+    // jsonb array of { role, level, … }; see WorkerRole in shared).
+    if (match.role) {
+      query.andWhere(
+        `EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(worker.roles, '[]'::jsonb)) r
+                 WHERE r->>'role' = :role AND (r->>'level')::int >= :level)`,
+        { role: normalizeSkill(match.role), level: Math.max(1, match.requiredLevel || 1) },
+      );
     }
 
     // Exclude already-notified workers

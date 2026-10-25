@@ -188,6 +188,8 @@ export class ShiftsController {
     @Query('available') available?: string,
     @Query('availableNow') availableNow?: string,
     @Query('minRating') minRating?: string,
+    @Query('minLevel') minLevel?: string,
+    @Query('confirmedOnly') confirmedOnly?: string,
   ) {
     return this.shiftsService.searchWorkersPublic({
       skills:       skills    ? skills.split(',').filter(Boolean)    : undefined,
@@ -195,6 +197,23 @@ export class ShiftsController {
       available:    available ? available.split(',').filter(Boolean) : undefined,
       availableNow: availableNow === 'true',
       minRating:    minRating ? Number(minRating) : undefined,
+      minLevel:     minLevel ? Number(minLevel) : undefined,
+      confirmedOnly: confirmedOnly === 'true',
+    });
+  }
+
+  /** Live count while posting: active workers who declared the role at the level. */
+  @Get('workers/match-count')
+  @Roles('EMPLOYER')
+  matchCount(
+    @Query('role') role: string,
+    @Query('level') level?: string,
+    @Query('languages') languages?: string,
+  ) {
+    return this.shiftsService.countMatchingWorkers({
+      role,
+      level:     level ? Number(level) : undefined,
+      languages: languages ? languages.split(',').filter(Boolean) : undefined,
     });
   }
 

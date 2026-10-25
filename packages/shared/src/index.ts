@@ -7,6 +7,14 @@ export * from './design-tokens';
 // domain data whose Portuguese value is the stored database key.
 export * from './i18n';
 
+// ─── Role catalogue ──────────────────────────────────────────────────────────
+// Roles, levels, tasks — the vocabulary both worker profiles and shifts use.
+export * from './roles';
+import {
+  ROLE_CATALOGUE, getRole, roleMaxLevel, roleTaskIds,
+  type RoleCategory, type RoleLevel,
+} from './roles';
+
 // ─── User Types ──────────────────────────────────────────────────────────────
 
 
@@ -53,7 +61,10 @@ export interface Worker extends BaseUser {
   /** Master availability switch — see `availableDays` for which days it applies to. */
   isAvailableForWork?: boolean;
   availableDays?: string[];
+  /** Legacy (pre-2026-10-25): superseded by `roles`. */
   experiences?: WorkerExperience[];
+  /** Up to MAX_WORKER_ROLES roles, each with a level and tasks. */
+  roles?: WorkerRole[];
   status: WorkerStatus;
   isVerified: boolean;
   profileQualityScore: number;  // 0–100, rule-based
@@ -140,6 +151,10 @@ export interface Shift {
   grossHourlyRate: number;  // EUR
   status: ShiftStatus;
   skillsRequired: string[];
+  /** Minimum level of `subcategory` (the role) a worker must have declared. */
+  requiredLevel?: RoleLevel;
+  /** Task ids of the role this shift involves (see ROLE_CATALOGUE). */
+  tasksRequired?: string[];
   /**
    * Dress code as the company wrote it. Free text, like `title` and
    * `description` — company-authored content that is displayed but never
@@ -152,62 +167,16 @@ export interface Shift {
   updatedAt: string;
 }
 
-export const SHIFT_CATEGORIES = {
-  'Vendas': [
-    'Vendedor/a de loja',
-    'Operador/a de caixa',
-    'Promotor/a de vendas',
-    'Merchandising',
-  ],
-  'Apoio ao Cliente': [
-    'Atendimento telefónico',
-    'Teleoperador/a',
-    'Apoio ao cliente presencial',
-    'Gestão de reclamações',
-  ],
-  'Eventos': [
-    'Assistente de eventos',
-    'Rececionista',
-    'Animador/a',
-    'Segurança de eventos',
-    'Montagem e desmontagem',
-  ],
-  'Hotelaria': [
-    'Rececionista',
-    'Barista',
-    'Assistente de cozinha',
-    'Assistente de sala',
-    'Serviço de quarto',
-  ],
-  'Restauração': [
-    'Empregado/a de mesa',
-    'Barman/Barmaid',
-    'Barista',
-    'Cozinheiro/a',
-    'Lavador/a de loiça',
-    'Padeiro/a',
-    'Pasteleiro/a',
-  ],
-  'Limpeza e Segurança': [
-    'Empregado/a de limpeza',
-    'Técnico/a de manutenção',
-    'Segurança/Vigilante',
-  ],
-  'Logística': [
-    'Preparação de encomendas',
-    'Assistente de armazém',
-    'Estafeta/Motorista',
-    'Gestão de stock',
-  ],
-  'Administração': [
-    'Assistente administrativo/a',
-    'Community manager',
-    'Assistente de RH',
-    'Gestão de escritório',
-  ],
-} as const;
+/**
+ * Role families → role names. DERIVED from ROLE_CATALOGUE (roles.ts), which
+ * holds the levels, tasks and translations; this shape is kept because every
+ * picker and icon map was written against it.
+ */
+export const SHIFT_CATEGORIES = Object.fromEntries(
+  Object.entries(ROLE_CATALOGUE).map(([category, roles]) => [category, Object.keys(roles)]),
+) as unknown as { readonly [C in RoleCategory]: readonly (keyof typeof ROLE_CATALOGUE[C] & string)[] };
 
-export type ShiftCategory = keyof typeof SHIFT_CATEGORIES;
+export type ShiftCategory = RoleCategory;
 
 /** All unique subcategories across all shift categories — used as the worker skills pool */
 export const ALL_SKILLS: string[] = [
@@ -237,8 +206,31 @@ export const JOB_TITLES: string[] = ALL_SKILLS;
  */
 export const LEGACY_SKILL_ALIASES: Record<string, string> = {
   'Rececionista de hotel':   'Rececionista',
-  'Rececionista de eventos': 'Rececionista',
+  'Rececionista de eventos': 'Hospedeiro/a (receção e protocolo)',
+  // 2026-10-25 role catalogue (docs/skills-matching-proposal.md §4)
+  'Assistente de sala':          'Runner / Ajudante de sala',
+  'Barman/Barmaid':              'Barman / Bartender',
+  'Assistente de cozinha':       'Ajudante de cozinha',
+  'Lavador/a de loiça':          'Copeiro/a (lavagem de loiça)',
+  'Serviço de quarto':           'Empregado/a de andares',
+  'Assistente de eventos':       'Staff de eventos',
+  'Segurança de eventos':        'Vigilante (segurança privada)',
+  'Segurança/Vigilante':         'Vigilante (segurança privada)',
+  'Merchandising':               'Repositor/a',
+  'Assistente de armazém':       'Operador/a de armazém',
+  'Gestão de stock':             'Operador/a de armazém',
+  'Preparação de encomendas':    'Preparador/a de encomendas',
+  'Estafeta/Motorista':          'Motorista',
+  'Atendimento telefónico':      'Teleoperador/a',
+  'Gestão de reclamações':       'Teleoperador/a',
+  'Apoio ao cliente presencial': 'Assistente de apoio ao cliente (presencial)',
 } as const;
+
+/**
+ * Titles retired WITHOUT a replacement (2026-10-25). Rows holding them keep
+ * displaying, but they can no longer be chosen and never match a shift.
+ */
+export const RETIRED_SKILLS = ['Community manager', 'Assistente de RH', 'Gestão de escritório'] as const;
 
 /** Current name for a stored skill/job title. Unknown values pass through. */
 export function normalizeSkill(skill: string): string {
@@ -292,22 +284,161 @@ export function experienceLevelLabel(level: string | null | undefined): string {
  */
 export const OFFER_ACCEPTANCE_HOURS = 2;
 
-// ─── Skill match ──────────────────────────────────────────────────────────────
+// ─── Worker roles ─────────────────────────────────────────────────────────────
 
-/** Points per declared experience level for the shift's role (max 20). */
-const EXPERIENCE_POINTS: Record<ExperienceLevel, number> = {
-  NONE: 0, ZERO_ONE: 7, ONE_FIVE: 14, FIVE_PLUS: 20,
-};
+/** A worker declares at most this many roles — the limit is what makes each mean something. */
+export const MAX_WORKER_ROLES = 3;
+
+/** Completed shifts in a role, rated ≥4★ with "level matched", before it shows as confirmed. */
+export const ROLE_CONFIRMED_MIN_SHIFTS = 2;
+
+/** "Below the declared level" answers in one role that open an ops review (never an auto-downgrade). */
+export const ROLE_BELOW_LEVEL_REVIEW_AT = 2;
+
+/**
+ * One role a worker declares. The worker writes `role`, `level`, `tasks` and
+ * `years`; the server owns `confirmedShifts` / `belowLevelCount` and keeps them
+ * across profile saves.
+ */
+export interface WorkerRole {
+  role: string;              // a role name from ROLE_CATALOGUE
+  level: RoleLevel;
+  tasks: string[];           // task ids of that role
+  years?: ExperienceLevel | null;
+  /** Server-owned: completed shifts in this role a company rated ≥4★ with "level matched". */
+  confirmedShifts?: number;
+  /** Server-owned: times a company answered that the level was below what was declared. */
+  belowLevelCount?: number;
+  /**
+   * Derived from the pre-2026-10-25 skills/experience data and not yet
+   * reviewed by the worker — the app asks them to confirm it once.
+   */
+  provisional?: boolean;
+}
+
+/** Provisional level for a years-of-experience bucket, used only to migrate old profiles. */
+export function levelFromYears(years: ExperienceLevel | null | undefined, role: string): RoleLevel {
+  const raw = years === 'FIVE_PLUS' ? 3 : years === 'ONE_FIVE' ? 2 : 1;
+  return Math.min(raw, roleMaxLevel(role)) as RoleLevel;
+}
+
+/**
+ * Roles from the old model (a list of job titles + a separate years list).
+ * Renamed titles go through the aliases; retired ones are dropped. Marked
+ * provisional, so the worker is asked to confirm them.
+ */
+export function deriveRolesFromLegacy(
+  skills: string[] | null | undefined,
+  experiences: WorkerExperience[] | null | undefined,
+): WorkerRole[] {
+  const years = new Map<string, ExperienceLevel>();
+  for (const e of experiences ?? []) years.set(normalizeSkill(e.jobTitle), e.level);
+  return normalizeSkills(skills)
+    .filter(name => getRole(name))
+    .slice(0, MAX_WORKER_ROLES)
+    .map(role => ({
+      role,
+      level: levelFromYears(years.get(role), role),
+      tasks: [],
+      years: years.get(role) ?? null,
+      provisional: true,
+    }));
+}
+
+/**
+ * The roles to use for a worker: the stored ones, or — for a profile not yet
+ * migrated — the ones derived from the old skills/experiences columns.
+ */
+export function resolveWorkerRoles(worker: {
+  roles?: WorkerRole[] | null;
+  skills?: string[] | null;
+  experiences?: WorkerExperience[] | null;
+}): WorkerRole[] {
+  if (worker.roles?.length) {
+    return worker.roles
+      .map(r => ({ ...r, role: normalizeSkill(r.role) }))
+      .filter(r => getRole(r.role));
+  }
+  return deriveRolesFromLegacy(worker.skills, worker.experiences);
+}
+
+export type WorkerRolesError = 'tooMany' | 'unknownRole' | 'duplicateRole' | 'invalidLevel';
+
+/**
+ * Validate the roles a worker submits and merge in the server-owned counters
+ * from what was stored. Unknown task ids are dropped silently (a task removed
+ * from the catalogue must not make an old app fail to save).
+ */
+export function validateWorkerRoles(
+  input: unknown,
+  previous: WorkerRole[] = [],
+): { roles: WorkerRole[] } | { error: WorkerRolesError } {
+  if (!Array.isArray(input)) return { roles: [] };
+  if (input.length > MAX_WORKER_ROLES) return { error: 'tooMany' };
+  const seen = new Set<string>();
+  const out: WorkerRole[] = [];
+  for (const raw of input as Partial<WorkerRole>[]) {
+    const role = normalizeSkill(String(raw?.role ?? ''));
+    if (!getRole(role)) return { error: 'unknownRole' };
+    if (seen.has(role)) return { error: 'duplicateRole' };
+    seen.add(role);
+    const level = Number(raw.level);
+    if (!Number.isInteger(level) || level < 1 || level > roleMaxLevel(role)) return { error: 'invalidLevel' };
+    const valid = new Set(roleTaskIds(role));
+    const tasks = [...new Set((Array.isArray(raw.tasks) ? raw.tasks : []).map(String))].filter(t => valid.has(t));
+    const years = raw.years && raw.years in EXPERIENCE_LEVELS ? raw.years : null;
+    const before = previous.find(p => normalizeSkill(p.role) === role);
+    out.push({
+      role, level: level as RoleLevel, tasks, years,
+      confirmedShifts: before?.confirmedShifts ?? 0,
+      belowLevelCount: before?.belowLevelCount ?? 0,
+    });
+  }
+  return { roles: out };
+}
+
+/**
+ * Can this worker apply to a shift of `role` at `requiredLevel`?
+ * Level-1 shifts are open to everyone ("Sem experiência necessária", decision
+ * D3) — they are how new people get started. Above that the worker must have
+ * declared the role at that level or higher.
+ */
+export function meetsRoleLevel(
+  roles: WorkerRole[],
+  role: string | null | undefined,
+  requiredLevel: number | null | undefined,
+): boolean {
+  const required = requiredLevel ?? 1;
+  if (!role || required <= 1) return true;
+  const name = normalizeSkill(role);
+  return roles.some(r => normalizeSkill(r.role) === name && r.level >= required);
+}
+
+/** Has this role been confirmed by companies that hired the worker for it? */
+export function isRoleConfirmed(role: WorkerRole | null | undefined): boolean {
+  return (role?.confirmedShifts ?? 0) >= ROLE_CONFIRMED_MIN_SHIFTS;
+}
+
+// ─── Match ───────────────────────────────────────────────────────────────────
 
 export interface SkillMatch {
   /** 0–100: points earned over points the shift makes possible. */
   score: number;
-  /** Worker lists the shift's role among their skills. */
+  /** Worker declared the shift's role. */
   hasRole: boolean;
-  /** Declared experience level in the shift's role, if any. */
-  experience: ExperienceLevel | null;
-  /** Extra required skills the worker has, out of how many the shift asks for. */
-  skills: { matched: string[]; total: number };
+  /** Worker's declared level in the shift's role, if any. */
+  level: RoleLevel | null;
+  /** Level the shift asks for. */
+  requiredLevel: RoleLevel;
+  /** Passes the level gate (always true for level-1 shifts). */
+  meetsLevel: boolean;
+  /** Completed shifts in this role confirmed by companies. */
+  confirmedShifts: number;
+  confirmed: boolean;
+  /** Years bucket the worker gave for this role, if any. */
+  years: ExperienceLevel | null;
+  /** Shift tasks the worker has done, out of how many the shift involves. */
+  tasks: { matched: string[]; total: number };
   /** Required languages the worker speaks, out of how many the shift asks for. */
   languages: { matched: string[]; total: number };
 }
@@ -315,39 +446,50 @@ export interface SkillMatch {
 /**
  * How well a worker fits a shift, from what both sides declared.
  *
- * A transparent rule, not a model: the role as a skill (40), experience in the
- * role (up to 20), extra required skills (20) and required languages (20).
- * Parts the shift doesn't ask for are left out of the denominator, so a shift
- * with no language requirement doesn't cap everyone at 80. The breakdown is
+ * A transparent rule, not a model: the role at the right level (50), confirmed
+ * in the role (10), the shift's tasks (20) and its languages (20). Parts the
+ * shift doesn't ask for are left out of the denominator. The breakdown is
  * returned so every screen can show WHY someone matched — candidate ranking is
  * algorithmic management, and the reason has to be visible.
  */
 export function skillMatch(
-  worker: { skills?: string[] | null; experiences?: WorkerExperience[] | null; languages?: string[] | null },
-  shift: { subcategory?: string | null; skillsRequired?: string[] | null; languagesRequired?: string[] | null },
+  worker: {
+    roles?: WorkerRole[] | null;
+    skills?: string[] | null;
+    experiences?: WorkerExperience[] | null;
+    languages?: string[] | null;
+  },
+  shift: {
+    subcategory?: string | null;
+    requiredLevel?: number | null;
+    tasksRequired?: string[] | null;
+    languagesRequired?: string[] | null;
+  },
 ): SkillMatch {
-  const role = shift.subcategory ? normalizeSkill(shift.subcategory) : null;
-  const workerSkills = new Set(normalizeSkills(worker.skills));
+  const roles = resolveWorkerRoles(worker);
+  const roleName = shift.subcategory ? normalizeSkill(shift.subcategory) : null;
+  const requiredLevel = Math.max(1, Math.min(3, Number(shift.requiredLevel) || 1)) as RoleLevel;
+  const mine = roleName ? roles.find(r => r.role === roleName) ?? null : null;
+  const meetsLevel = meetsRoleLevel(roles, roleName, requiredLevel);
   const workerLangs = new Set(worker.languages ?? []);
 
   let earned = 0;
   let possible = 0;
 
-  const hasRole = !!role && workerSkills.has(role);
-  const exp = role
-    ? (worker.experiences ?? []).find(e => normalizeSkill(e.jobTitle) === role)?.level ?? null
-    : null;
-  if (role) {
+  if (roleName) {
     possible += 60;
-    if (hasRole) earned += 40;
-    if (exp) earned += EXPERIENCE_POINTS[exp] ?? 0;
+    if (mine && mine.level >= requiredLevel) earned += 50;
+    else if (mine) earned += 25;            // has the role, below the level
+    else if (meetsLevel) earned += 20;      // entry shift, role not declared
+    if (isRoleConfirmed(mine)) earned += 10;
   }
 
-  const required = normalizeSkills(shift.skillsRequired).filter(s => s !== role);
-  const matchedSkills = required.filter(s => workerSkills.has(s));
-  if (required.length) {
+  const tasksRequired = shift.tasksRequired ?? [];
+  const myTasks = new Set(mine?.tasks ?? []);
+  const matchedTasks = tasksRequired.filter(t => myTasks.has(t));
+  if (tasksRequired.length) {
     possible += 20;
-    earned += 20 * (matchedSkills.length / required.length);
+    earned += 20 * (matchedTasks.length / tasksRequired.length);
   }
 
   const langs = shift.languagesRequired ?? [];
@@ -359,9 +501,14 @@ export function skillMatch(
 
   return {
     score: possible ? Math.round((earned / possible) * 100) : 0,
-    hasRole,
-    experience: exp,
-    skills: { matched: matchedSkills, total: required.length },
+    hasRole: !!mine,
+    level: mine?.level ?? null,
+    requiredLevel,
+    meetsLevel,
+    confirmedShifts: mine?.confirmedShifts ?? 0,
+    confirmed: isRoleConfirmed(mine),
+    years: mine?.years ?? null,
+    tasks: { matched: matchedTasks, total: tasksRequired.length },
     languages: { matched: matchedLangs, total: langs.length },
   };
 }
@@ -798,7 +945,7 @@ export function calculateProfileQualityScore(
   if (!input.hasPhoto)         miss('photo',        'Fotografia de perfil');
   if (!input.hasValidNif)      miss('nif',          'NIF válido');
   if (!input.hasValidIban)     miss('iban',         'IBAN válido (conta bancária)');
-  if (input.skillsCount === 0) miss('skills',       'Pelo menos 1 competência selecionada');
+  if (input.skillsCount === 0) miss('skills',       'Pelo menos 1 função escolhida');
   if (!input.hasFullName)      miss('fullName',     'Nome completo');
   if (!input.hasAvailability)  miss('availability', 'Disponibilidade semanal');
   if (!input.hasCv)            miss('cv',           'Currículo (CV)');

@@ -131,6 +131,43 @@ export const en: Translated<TranslationCatalogue> = {
   },
 
   mobile: {
+    // Roles — what the worker can do, with a level and tasks (shared by
+    // onboarding, edit-profile, profile and shift detail)
+    roles: {
+      title:        'MY ROLES',
+      sub:          'Pick up to {{max}} roles you can really do. For each one, say your level and the tasks you have done — this is what companies see.',
+      add:          'Add a role',
+      addCount:     'Add a role ({{count}}/{{max}})',
+      maxReached:   'You already have {{max}} roles. Remove one to add another.',
+      required:     'Choose at least 1 role.',
+      edit:         'Edit',
+      remove:       'Remove',
+      removeTitle:  'Remove this role?',
+      removeBody:   'You will stop getting {{role}} shifts.',
+      levelN:       'Level {{level}}',
+      tasksCount:   '{{count}} task(s) you have done',
+      noTasks:      'No tasks ticked yet',
+      pickRole:     'Which role?',
+      pickRoleSub:  'Only choose roles you have real experience in or want to start in.',
+      chosen:       'Already chosen',
+      pickLevel:    'What is your level?',
+      pickLevelSub: 'Be honest: companies confirm the level after every shift.',
+      singleLevel:  'This role has a single level.',
+      certificate:  'You need: {{doc}}',
+      tasksTitle:   'Tasks you have done',
+      tasksSub:     'Only tick what you have done in a job.',
+      yearsTitle:   'For how long?',
+      optional:     'optional',
+      done:         'Save role',
+      cancel:       'Cancel',
+      confirmed:    'Confirmed in {{count}} shifts',
+      declared:     'Declared by you',
+      provisionalTitle: 'Confirm your roles',
+      provisionalBody:  'We changed how skills work. We picked a provisional level from your profile — check the level and tasks and save.',
+      provisionalCta:   'Review roles',
+      provisionalTag:   'To confirm',
+    },
+
     nav: {
       shifts:   'Shifts',
       myShifts: 'My shifts',
@@ -244,6 +281,7 @@ export const en: Translated<TranslationCatalogue> = {
       urgent: '⚡ Urgent',
       fullGross: 'You receive the full gross',
       multiDayChip: '{{count}} days',
+      levelOpenChip: 'No experience needed',
       company: 'Company',
     },
 
@@ -265,19 +303,16 @@ export const en: Translated<TranslationCatalogue> = {
       availabilityError: "Couldn't update your availability. Please try again.",
       onDays: 'On these days:',
 
-      experiencesTitle: 'MY EXPERIENCE',
       cvTitle: 'CV',
       cvView: 'View CV',
       cvUpload: 'Upload my CV · +10pts',
 
-      skills: 'Skills',
       languages: 'Languages',
 
       completenessTitle: 'PROFILE COMPLETE',
       completenessHintLow:  'Complete your profile to reach 80% and get approved.',
-      completenessHintHigh: 'Add at least 3 skills to reach 100%.',
+      completenessHintHigh: 'Fill in the missing fields in Edit profile to reach 100%.',
 
-      skillsTitle: 'SKILLS',
       personalDataTitle: 'PERSONAL DETAILS',
 
       earningsCta:    'My Earnings',
@@ -469,7 +504,13 @@ export const en: Translated<TranslationCatalogue> = {
       periodShow:     'View schedule',
       periodHide:     'Hide',
 
-      skillsTitle: 'Skills required',
+      levelTitle:  'What this shift needs',
+      levelOpen:   'No experience needed — open to everyone',
+      tasksTitle:  'Shift tasks',
+      belowLevel:  'Your level as {{role}} is {{level}}. This shift needs level {{required}}.',
+      noRole:      '{{role}} is not one of your roles yet. This shift needs level {{required}}.',
+      updateRoles: 'Update my roles',
+      levelBlockedTitle: 'Level too low',
       aboutTitle:  'About this shift',
       dressCodeTitle: 'What to wear',
       dressCodeNote:  'Set by the company. If you do not meet it, they can cancel the shift when you arrive.',
@@ -514,8 +555,6 @@ export const en: Translated<TranslationCatalogue> = {
       savedBody:  'Your changes have been saved.',
       nameRequiredTitle: 'Name required',
       nameRequiredBody:  'Please enter your full name.',
-      skillsRequiredTitle: 'Skills',
-      skillsRequiredBody:  'Select at least 1 skill.',
 
       // Profile score card — points per item come from PROFILE_POINTS in shared
       scoreTitle:  'PROFILE SCORE',
@@ -558,11 +597,6 @@ export const en: Translated<TranslationCatalogue> = {
       cvRemoveBody: 'Are you sure? You will lose {{points}} profile points.',
       cvRemoveFailed:"Couldn't remove your CV.",
 
-      experiencesTitle: 'MY EXPERIENCE',
-      experiencesSub:   'How long you have worked in each role. Companies see this when choosing candidates.',
-      experienceAdd:    'Add experience',
-      experiencePickJob:   'Choose the role',
-      experiencePickYears: 'How many years?',
 
       legalTitle: 'LEGAL & BANK DETAILS',
       // MCD is Portugal's very-short-duration contract — kept, not translated
@@ -577,10 +611,6 @@ export const en: Translated<TranslationCatalogue> = {
       ibanConsent:'I allow my name and IBAN to be shared with the companies I have worked shifts for, so they can pay me by bank transfer. You can withdraw this consent here at any time.',
       ibanConsentWarn: 'Without this consent, companies can only pay you via Turnos Pay Link or MB WAY.',
 
-      skillsTitle: 'SKILLS',
-      skillsSub:   'Tap a category to expand it and select. At least 1 is required.',
-      skillsCountOne:   '1 selected',
-      skillsCountOther: '{{count}} selected',
 
       languagesTitle: 'LANGUAGES',
       languagesSub:   'Languages you speak fluently',
@@ -646,11 +676,8 @@ export const en: Translated<TranslationCatalogue> = {
       ibanConsentWarn: 'Without this consent, companies can only pay you via Turnos Pay Link or MB WAY.',
       // Agenda do Trabalho Digno (Lei 13/2023) is Portuguese labour law — named verbatim
 
-      // Step 2 — skills, availability, CV
-      skillsTitle:   'Skills',
-      skillsSub:     'Select your skills (choose all that apply).',
-      skillsRequiredTitle: 'Skills',
-      skillsRequiredBody:  'Please select at least 1 skill.',
+      // Step 2 — roles, availability, CV
+      skillsTitle:   'Your roles',
       availabilityTitle: 'Weekly availability',
       availabilitySub:   'Which days are you usually available?',
       cvTitle:      'CV',
@@ -674,13 +701,13 @@ export const en: Translated<TranslationCatalogue> = {
         photo:        'Profile photo',
         nif:          'Valid NIF',
         iban:         'Valid IBAN (bank account)',
-        skills:       'At least 1 skill selected',
+        skills:       'At least 1 role chosen',
         fullName:     'Full name',
         availability: 'Weekly availability',
         cv:           'CV',
       },
       summaryName:         'Name',
-      summarySkills:       'Skills',
+      summarySkills:       'Roles',
       summaryAvailability: 'Availability',
       summaryCv:           'CV',
       payNote: '💳 Once approved, the company pays you the full gross amount directly after each completed shift.',
@@ -925,8 +952,12 @@ export const en: Translated<TranslationCatalogue> = {
       panelBio:          'About',
       panelCv:           'CV',
       panelCvFallback:   'View CV',
-      panelExperience:   'Experience',
-      panelSkills:       'Skills',
+      levelAny:          'Any level',
+      level2:            'Level 2 or higher',
+      level3:            'Level 3',
+      levelShort:        'L{{level}}',
+      filterConfirmed:   'Confirmed',
+      filterConfirmedTitle: 'Only workers whose level was confirmed by companies that hired them',
       panelLanguages:    'Languages',
       panelAvailability: 'Availability',
       availableOn:  'Available for work',
@@ -1359,11 +1390,19 @@ export const en: Translated<TranslationCatalogue> = {
       descPlaceholder:  'Describe the shift, the working environment, any specific requirements...',
 
       // Skills
-      skillsSection: 'Additional skills',
-      skillsHint:    'The role you picked above is already used to find workers. Add here only what goes beyond it.',
-      customSkillPlaceholder: 'Add a custom skill...',
-      addSkill:      '+ Add',
-      selectedLabel: 'Selected:',
+      levelSection:  'Required level',
+      levelHint:     'What the worker must be able to do. Only workers who declared this level or higher can apply.',
+      levelN:        'Level {{level}}',
+      levelOpen:     'No experience needed — open to everyone',
+      singleLevel:   'This role has a single level.',
+      certificateRequired: 'Required document: {{doc}}',
+      tasksSection:  'Shift tasks',
+      tasksHint:     'Tick what the shift involves. Workers who have done these tasks appear first.',
+      tasksCount:    '{{count}} selected',
+      matchCountOne: '1 worker matches this role and level',
+      matchCountOther: '{{count}} workers match this role and level',
+      matchCountNone: 'No worker matches yet. Try a lower level or fewer languages.',
+      matchCountOpen: 'Open to everyone — {{count}} worker(s) with this role are notified first',
 
       // Languages
       languagesSection: 'Languages required',
@@ -1514,11 +1553,14 @@ export const en: Translated<TranslationCatalogue> = {
       sortRating:  'Best rated',
       sortMatch:   'Best match',
       matchScore:  '{{score}}% match',
-      matchRole:   'Role',
+      matchLevel:  'Level {{level}} ✓',
+      matchBelow:  'Level {{level}} (shift asks for {{required}})',
+      matchNoRole: 'Role not in profile',
+      matchConfirmed: 'Confirmed in {{count}} shifts',
       matchLangs:  '{{matched}}/{{total}} languages',
       newBadge:    'New',
       matchBadge:  'Full match',
-      matchCount:  '{{matched}}/{{total}} skills',
+      matchTasks:  '{{matched}}/{{total}} tasks',
       appProfile:  'Profile: {{score}}%',
       viewProfile: 'View profile',
       approved:    'Approved',
@@ -1533,8 +1575,12 @@ export const en: Translated<TranslationCatalogue> = {
       coverNoteTitle:  'Message from the applicant',
       panelBio:        'About',
       panelScore:      'Profile complete',
-      panelSkills:     'Skills',
-      panelExperience: 'Experience',
+      panelRoles:      'Roles',
+      roleLevel:       'Level {{level}}',
+      roleConfirmed:   'Confirmed in {{count}} shifts',
+      roleDeclared:    'Declared by the worker',
+      roleTasksDone:   'Has done',
+      roleThisShift:   'This shift’s role',
       panelCv:         'CV',
       panelCvFallback: 'View CV',
       panelLanguages:  'Languages',
@@ -1960,6 +2006,10 @@ export const en: Translated<TranslationCatalogue> = {
       passwordTooShort:    'The password must be at least 8 characters.',
       currentPasswordWrong:'Your current password is incorrect.',
       pushTokenMissing:   'Invalid token.',
+      rolesTooMany:       'You can choose at most {{max}} roles.',
+      rolesUnknown:       'One of the roles you chose no longer exists. Update the app and choose again.',
+      rolesDuplicate:     'You chose the same role twice.',
+      rolesInvalidLevel:  'Choose a valid level for each role.',
     },
 
     account: {
@@ -1988,6 +2038,9 @@ export const en: Translated<TranslationCatalogue> = {
       workerUnderAge:     "This worker won't be {{age}} yet on the day of the shift.",
       accountSuspended:   'Your account is suspended until {{date}} because of late cancellations or no-shows.',
       profileIncomplete:  'Your profile is {{score}}% complete. You need at least 80% to apply.',
+      levelTooLow:        'This shift asks for level {{level}} as {{role}}. If you have that experience, update the role in your profile.',
+      roleUnknown:        'Choose a role from the list.',
+      levelInvalid:       'That level does not exist for this role.',
 
       // Worker cancellation
       cancelOnlyConfirmed: 'You can only cancel confirmed shifts that have not started yet.',

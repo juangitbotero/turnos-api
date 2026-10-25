@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   colors, spacing, radius, fontSize, fontWeight, STORED_WEEKDAYS,
-  WorkerExperience, APP_LANGUAGES, APP_LANGUAGE_LABELS, AppLanguage, SUPPORT_EMAIL,
+  WorkerExperience, WorkerRole, ROLE_CONFIRMED_MIN_SHIFTS, APP_LANGUAGES, APP_LANGUAGE_LABELS, AppLanguage, SUPPORT_EMAIL,
 } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
@@ -24,6 +24,7 @@ type WorkerProfile = {
   skills: string[]; languages: string[]; availableDays: string[];
   isAvailableForWork: boolean;
   experiences: WorkerExperience[];
+  roles: WorkerRole[];
   profileQualityScore: number; status: string;
   nif: string | null; iban: string | null;
   avgRating: number | null; totalRatings: number;
@@ -118,7 +119,7 @@ const sr = StyleSheet.create({
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { t, tSkill, tWorkerLanguage, tWeekday } = useT();
+  const { t, tSkill, tRoleLevel, tWorkerLanguage, tWeekday } = useT();
   const { language, setLanguage } = useLanguage();
   const [profile, setProfile]     = useState<WorkerProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -317,17 +318,35 @@ export default function ProfileScreen() {
             )}
           </View>
 
-          {/* ── Experiências ── */}
-          {(profile?.experiences?.length ?? 0) > 0 && (
+          {/* ── Roles — what companies match on ── */}
+          {(profile?.roles?.length ?? 0) > 0 && (
             <View style={s.card}>
               <View style={s.cardHeaderRow}>
                 <Ionicons name="briefcase-outline" size={15} color={colors.primary} />
-                <Text style={s.cardTitle}>{t('mobile.profile.experiencesTitle')}</Text>
+                <Text style={s.cardTitle}>{t('mobile.roles.title')}</Text>
               </View>
-              {profile!.experiences.map(exp => (
-                <View key={exp.jobTitle} style={s.expRow}>
-                  <Text style={s.expTitle}>{tSkill(exp.jobTitle)}</Text>
-                  <Text style={s.expLevel}>{t(`domain.experienceLevels.${exp.level}`)}</Text>
+              {profile!.roles.some(r => r.provisional) && (
+                <TouchableOpacity
+                  style={s.provisionalBox}
+                  onPress={() => router.push('/edit-profile' as any)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={s.provisionalTitle}>{t('mobile.roles.provisionalTitle')}</Text>
+                  <Text style={s.provisionalBody}>{t('mobile.roles.provisionalBody')}</Text>
+                  <Text style={s.provisionalCta}>{t('mobile.roles.provisionalCta')} →</Text>
+                </TouchableOpacity>
+              )}
+              {profile!.roles.map(r => (
+                <View key={r.role} style={s.expRow}>
+                  <Text style={s.expTitle}>
+                    {tSkill(r.role)} · {t('mobile.roles.levelN', { level: r.level })}
+                  </Text>
+                  <Text style={s.expLevel}>{tRoleLevel(r.role, r.level)}</Text>
+                  <Text style={s.roleStatus}>
+                    {(r.confirmedShifts ?? 0) >= ROLE_CONFIRMED_MIN_SHIFTS
+                      ? `✓ ${t('mobile.roles.confirmed', { count: r.confirmedShifts ?? 0 })}`
+                      : r.provisional ? t('mobile.roles.provisionalTag') : t('mobile.roles.declared')}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -361,32 +380,12 @@ export default function ProfileScreen() {
             )}
           </View>
 
-          {/* ── Quick highlights (skills + languages + availability) ── */}
-          {((profile?.skills?.length ?? 0) > 0 || (profile?.languages?.length ?? 0) > 0) && (
+          {/* ── Quick highlights (languages) — roles have their own card above ── */}
+          {(profile?.languages?.length ?? 0) > 0 && (
             <View style={s.highlightCard}>
-              {/* Top skills */}
-              {profile?.skills && profile.skills.length > 0 && (
-                <View style={s.highlightRow}>
-                  <Ionicons name="construct-outline" size={15} color={colors.primary} />
-                  {/* "Competências", not "Experiência" — declared years of
-                      experience are now their own section above. */}
-                  <Text style={s.highlightLabel}>{t('mobile.profile.skills')}</Text>
-                  <View style={s.highlightChips}>
-                    {profile.skills.slice(0, 3).map(sk => (
-                      <View key={sk} style={s.hlChip}>
-                        <Text style={s.hlChipText}>{tSkill(sk)}</Text>
-                      </View>
-                    ))}
-                    {profile.skills.length > 3 && (
-                      <Text style={s.hlMore}>+{profile.skills.length - 3}</Text>
-                    )}
-                  </View>
-                </View>
-              )}
-
               {/* Languages */}
               {profile?.languages && profile.languages.length > 0 && (
-                <View style={[s.highlightRow, { marginTop: 10 }]}>
+                <View style={s.highlightRow}>
                   <Ionicons name="language-outline" size={15} color={colors.primary} />
                   <Text style={s.highlightLabel}>{t('mobile.profile.languages')}</Text>
                   <View style={s.highlightChips}>
@@ -422,23 +421,6 @@ export default function ProfileScreen() {
               </Text>
             )}
           </View>
-
-          {/* ── All skills ── */}
-          {profile?.skills && profile.skills.length > 0 && (
-            <View style={s.card}>
-              <View style={s.cardHeaderRow}>
-                <Ionicons name="construct-outline" size={15} color={colors.primary} />
-                <Text style={s.cardTitle}>{t('mobile.profile.skillsTitle')}</Text>
-              </View>
-              <View style={s.tagWrap}>
-                {profile.skills.map(sk => (
-                  <View key={sk} style={s.tag}>
-                    <Text style={s.tagText}>{tSkill(sk)}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
 
           {/* ── Legal data ── */}
           <View style={s.card}>
@@ -676,12 +658,18 @@ const s = StyleSheet.create({
 
   /* Experiences */
   expRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    gap: 10, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: colors.neutral,
+    paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.neutral, gap: 2,
   },
-  expTitle: { fontSize: fontSize.body, fontWeight: fontWeight.semibold as any, color: colors.textPrimary, flex: 1 },
-  expLevel: { fontSize: fontSize.caption, fontWeight: fontWeight.bold as any, color: colors.primary },
+  expTitle: { fontSize: fontSize.body, fontWeight: fontWeight.bold as any, color: colors.textPrimary },
+  expLevel: { fontSize: fontSize.caption, color: colors.textPrimary, lineHeight: 18 },
+  roleStatus: { fontSize: 11, fontWeight: fontWeight.semibold as any, color: colors.textSecondary },
+  provisionalBox: {
+    backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fcd34d',
+    borderRadius: 8, padding: 10, marginBottom: 6, gap: 2,
+  },
+  provisionalTitle: { fontSize: fontSize.body, fontWeight: fontWeight.bold as any, color: '#92400e' },
+  provisionalBody: { fontSize: fontSize.caption, color: '#92400e', lineHeight: 18 },
+  provisionalCta: { fontSize: fontSize.caption, fontWeight: fontWeight.bold as any, color: '#92400e', marginTop: 2 },
 
   /* CV */
   cvRow: {
@@ -707,7 +695,6 @@ const s = StyleSheet.create({
   highlightChips: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5, alignItems: 'center' },
   hlChip: { backgroundColor: '#eef0ff', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
   hlChipText: { fontSize: 11, fontWeight: fontWeight.semibold as any, color: colors.primary },
-  hlMore: { fontSize: 11, color: colors.textSecondary, fontWeight: fontWeight.semibold as any },
   dayDot: {
     width: 28, height: 28, borderRadius: 14, backgroundColor: colors.secondary,
     alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.neutral,
@@ -735,9 +722,6 @@ const s = StyleSheet.create({
   scoreHint: { fontSize: fontSize.caption, color: colors.textSecondary, lineHeight: 18 },
 
   /* Tags */
-  tagWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tag: { backgroundColor: '#eef0ff', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
-  tagText: { fontSize: fontSize.caption, fontWeight: fontWeight.semibold as any, color: colors.primary },
   tagBlue: { backgroundColor: '#dbeafe' },
   tagBlueText: { color: '#1d4ed8' },
 

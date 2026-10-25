@@ -221,6 +221,9 @@ export interface Shift {
   grossHourlyRate: number;
   address: string;
   skillsRequired: string[] | null;
+  /** Minimum level of the role (`subcategory`); 1 = no experience needed. */
+  requiredLevel?: number;
+  tasksRequired?: string[] | null;
   languagesRequired?: string[] | null;
   hasDressCode?: boolean;
   dressCode?: string | null;
@@ -274,6 +277,7 @@ export interface Application {
     isAvailableForWork?: boolean;
     availableDays: string[] | null;
     experiences?: Array<{ jobTitle: string; level: string }> | null;
+    roles?: WorkerRoleView[];
     status: string;
     avgRating?: number | null;
     totalRatings?: number;
@@ -360,6 +364,15 @@ export interface WorkerRatingSummary {
   recentRatings: RatingRecord[];
 }
 
+/** A worker's role as companies see it (server-owned counters included, internal ones not). */
+export interface WorkerRoleView {
+  role: string;
+  level: number;
+  tasks: string[];
+  years: string | null;
+  confirmedShifts: number;
+}
+
 /** Public worker profile visible to employers in talent search */
 export interface WorkerSearchResult {
   id: string;
@@ -374,6 +387,7 @@ export interface WorkerSearchResult {
   isAvailableForWork: boolean;
   availableDays: string[] | null;
   experiences: Array<{ jobTitle: string; level: string }> | null;
+  roles: WorkerRoleView[];
   avgRating: number | null;
   totalRatings: number;
   noShowCount: number;
@@ -411,6 +425,8 @@ export interface CreateShiftDto {
   lat: number;
   lng: number;
   skillsRequired?: string[];
+  requiredLevel?: number;
+  tasksRequired?: string[];
   languagesRequired?: string[];
   /** Company-authored, like `description` — displayed to the worker, not translated. */
   hasDressCode?: boolean;
@@ -596,13 +612,23 @@ export const adminApi = {
   markCandidatesSeen: () =>
     request<{ ok: true }>('/shifts/employer/candidates/seen', { method: 'POST' }),
 
+  /** Live count while posting: active workers with the role at the level. */
+  matchCount: (role: string, level: number, languages: string[] = []) => {
+    const qs = new URLSearchParams({ role, level: String(level) });
+    if (languages.length) qs.set('languages', languages.join(','));
+    return request<{ count: number }>(`/shifts/workers/match-count?${qs.toString()}`, { method: 'GET' });
+  },
+
   /** Search active workers (80%+ profile) for employer talent browsing */
   searchWorkers: (params?: {
     skills?: string[]; languages?: string[]; available?: string[];
     availableNow?: boolean; minRating?: number;
+    minLevel?: number; confirmedOnly?: boolean;
   }) => {
     const qs = new URLSearchParams();
     if (params?.skills?.length)    qs.set('skills',    params.skills.join(','));
+    if (params?.minLevel && params.minLevel > 1) qs.set('minLevel', String(params.minLevel));
+    if (params?.confirmedOnly)     qs.set('confirmedOnly', 'true');
     if (params?.languages?.length) qs.set('languages', params.languages.join(','));
     if (params?.available?.length) qs.set('available', params.available.join(','));
     if (params?.availableNow)      qs.set('availableNow', 'true');

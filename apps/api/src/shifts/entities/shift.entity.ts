@@ -117,7 +117,18 @@ export class Shift {
   archivedAt: Date | null;
 
   @Column({ type: 'simple-array', nullable: true })
-  skillsRequired: string[];
+  skillsRequired: string[];         // Since 2026-10-25 just [subcategory] — kept for old clients
+
+  /**
+   * Minimum level of the role (`subcategory`) a worker must have declared to
+   * apply. 1 = "Sem experiência necessária": open to everyone (decision D3).
+   */
+  @Column({ type: 'smallint', default: 1 })
+  requiredLevel: number;
+
+  /** Task ids of the role this shift involves — from ROLE_CATALOGUE. */
+  @Column({ type: 'simple-array', nullable: true })
+  tasksRequired: string[] | null;
 
   @Column({ type: 'simple-array', nullable: true })
   languagesRequired: string[];      // e.g. ['Inglês', 'Espanhol']

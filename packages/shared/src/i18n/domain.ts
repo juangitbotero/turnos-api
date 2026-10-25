@@ -17,71 +17,53 @@
  */
 import type * as Shared from '../index';
 import type { AppLanguage } from './types';
+// roles.ts has no imports, so importing it at runtime creates no cycle.
+import { getRole, ROLE_CATEGORIES_EN } from '../roles';
 
 type ShiftCategory = Shared.ShiftCategory;
 type Language = Shared.Language;
 
 /**
- * Every job title declared in SHIFT_CATEGORIES, derived rather than written
- * out — adding a title there without translating it below fails to compile,
- * and the union can never drift from the real list.
+ * Every current role name. The English names live with the role itself in
+ * ROLE_CATALOGUE (roles.ts), which the compiler forces to have one.
  */
-export type SkillName = typeof Shared.SHIFT_CATEGORIES[ShiftCategory][number];
+export type SkillName = Shared.RoleName;
 
-const SKILLS_EN: Record<SkillName, string> = {
-  // Vendas
-  'Vendedor/a de loja':          'Shop assistant',
-  'Operador/a de caixa':         'Cashier',
-  'Promotor/a de vendas':        'Sales promoter',
+/**
+ * English for titles that are no longer in the catalogue but may still be
+ * stored on old rows — renamed ones (see LEGACY_SKILL_ALIASES) and the three
+ * retired without a replacement (RETIRED_SKILLS).
+ */
+const LEGACY_SKILLS_EN: Record<string, string> = {
   'Merchandising':               'Merchandising',
-  // Apoio ao Cliente
   'Atendimento telefónico':      'Phone support',
-  'Teleoperador/a':              'Call centre operator',
   'Apoio ao cliente presencial': 'In-person customer support',
   'Gestão de reclamações':       'Complaints handling',
-  // Eventos
   'Assistente de eventos':       'Event assistant',
-  'Rececionista':                'Receptionist',
-  'Animador/a':                  'Entertainer',
   'Segurança de eventos':        'Event security',
-  'Montagem e desmontagem':      'Set-up & breakdown',
-  // Hotelaria
-  'Barista':                     'Barista',
   'Assistente de cozinha':       'Kitchen assistant',
   'Assistente de sala':          'Front-of-house assistant',
   'Serviço de quarto':           'Room service',
-  // Restauração
-  'Empregado/a de mesa':         'Waiter / Waitress',
   'Barman/Barmaid':              'Bartender',
-  'Cozinheiro/a':                'Cook',
   'Lavador/a de loiça':          'Dishwasher',
-  'Padeiro/a':                   'Baker',
-  'Pasteleiro/a':                'Pastry chef',
-  // Limpeza e Segurança
-  'Empregado/a de limpeza':      'Cleaner',
-  'Técnico/a de manutenção':     'Maintenance technician',
   'Segurança/Vigilante':         'Security guard',
-  // Logística
   'Preparação de encomendas':    'Order picking',
   'Assistente de armazém':       'Warehouse assistant',
   'Estafeta/Motorista':          'Courier / Driver',
   'Gestão de stock':             'Stock management',
-  // Administração
-  'Assistente administrativo/a': 'Administrative assistant',
   'Community manager':           'Community manager',
   'Assistente de RH':            'HR assistant',
   'Gestão de escritório':        'Office management',
+  'Rececionista de hotel':       'Hotel receptionist',
+  'Rececionista de eventos':     'Event receptionist',
 };
 
-const CATEGORIES_EN: Record<ShiftCategory, string> = {
+/** English for shift categories stored before the 2026-10-25 regrouping. */
+const LEGACY_CATEGORIES_EN: Record<string, string> = {
   'Vendas':              'Retail & Sales',
-  'Apoio ao Cliente':    'Customer Support',
-  'Eventos':             'Events',
   'Hotelaria':           'Hospitality',
   'Restauração':         'Restaurants & Cafes',
   'Limpeza e Segurança': 'Cleaning & Security',
-  'Logística':           'Logistics',
-  'Administração':       'Administration',
 };
 
 /**
@@ -136,13 +118,13 @@ const WORKER_LANGUAGES_EN: Record<Language, string> = {
  */
 export function translateSkill(skill: string, lang: AppLanguage): string {
   if (lang === 'pt') return skill;
-  return SKILLS_EN[skill as SkillName] ?? skill;
+  return getRole(skill)?.en ?? LEGACY_SKILLS_EN[skill] ?? skill;
 }
 
 /** Display name for a stored shift category. */
 export function translateCategory(category: string, lang: AppLanguage): string {
   if (lang === 'pt') return category;
-  return CATEGORIES_EN[category as ShiftCategory] ?? category;
+  return ROLE_CATEGORIES_EN[category as ShiftCategory] ?? LEGACY_CATEGORIES_EN[category] ?? category;
 }
 
 /** Display name for a language a worker speaks. */

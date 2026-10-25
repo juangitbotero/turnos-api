@@ -156,6 +156,7 @@ export default function CandidatesPage() {
           <aside style={s.drawer} onClick={e => e.stopPropagation()}>
             <WorkerProfilePanel
               app={profile.app}
+              shiftRole={profile.group.shift.subcategory}
               onBack={() => setProfile(null)}
               onApprove={app => void approve(profile.group, app)}
               processing={processing}

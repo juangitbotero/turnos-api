@@ -9,13 +9,14 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import {
   colors, spacing, radius, fontSize, fontWeight,
-  isValidNIF, isValidIBAN, calculateProfileQualityScore, PROFILE_POINTS, SHIFT_CATEGORIES, ShiftCategory,
+  isValidNIF, isValidIBAN, calculateProfileQualityScore, PROFILE_POINTS,
+  WorkerRole, MAX_WORKER_ROLES,
   STORED_WEEKDAYS, MIN_WORKER_AGE, ageOn, maskBirthDateInput, parseBirthDateInput,
 } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
 import { useT } from '../lib/i18n';
+import { RolesEditor } from '../components/RolesEditor';
 
-const ALL_SKILLS = [...new Set(Object.values(SHIFT_CATEGORIES).flat())];
 /** Wizard step ids — the visible name comes from the catalogue. */
 const STEPS = ['identity', 'legal', 'availability', 'summary'] as const;
 
@@ -30,7 +31,7 @@ export default function OnboardingScreen() {
   const [nif,          setNif]          = useState('');
   const [iban,         setIban]         = useState('');
   const [ibanShareConsent, setIbanShareConsent] = useState(false);
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [roles, setRoles] = useState<WorkerRole[]>([]);
   const [selectedDays,   setSelectedDays]   = useState<string[]>([]);
   const [photoUri,    setPhotoUri]    = useState<string | null>(null);
   const [photoMime,   setPhotoMime]   = useState('image/jpeg');
@@ -42,12 +43,6 @@ export default function OnboardingScreen() {
   const [nifError,  setNifError]  = useState('');
   const [ibanError, setIbanError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  const toggleSkill = useCallback((skill: string) => {
-    setSelectedSkills(prev =>
-      prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill],
-    );
-  }, []);
 
   const toggleDay = useCallback((day: string) => {
     setSelectedDays(prev =>
@@ -99,7 +94,7 @@ export default function OnboardingScreen() {
     hasPhoto:        !!photoUri,
     hasValidNif:     isValidNIF(nif),
     hasValidIban:    isValidIBAN(iban),
-    skillsCount:     selectedSkills.length,
+    skillsCount:     roles.length,
     hasFullName:     fullName.trim().length > 0,
     hasAvailability: selectedDays.length > 0,
     hasCv:           !!cvAsset,
@@ -131,8 +126,8 @@ export default function OnboardingScreen() {
       else setIbanError('');
       return ok;
     }
-    if (step === 2 && selectedSkills.length === 0) {
-      Alert.alert(t('mobile.onboarding.skillsRequiredTitle'), t('mobile.onboarding.skillsRequiredBody'));
+    if (step === 2 && roles.length === 0) {
+      Alert.alert(t('mobile.roles.title'), t('mobile.roles.required'));
       return false;
     }
     return true;
@@ -175,7 +170,7 @@ export default function OnboardingScreen() {
         nif,
         iban,
         ibanShareConsent: iban.trim() ? ibanShareConsent : false,
-        skills: selectedSkills,
+        roles: roles.map(({ role, level, tasks, years }) => ({ role, level, tasks, years })),
         availableDays: selectedDays,
       });
 
@@ -346,22 +341,10 @@ export default function OnboardingScreen() {
         {/* ── Step 2: Skills + Availability ── */}
         {step === 2 && (
           <View style={s.section}>
+            {/* Roles — role, level and tasks: what companies match on */}
             <Text style={s.sectionTitle}>{t('mobile.onboarding.skillsTitle')}</Text>
-            <Text style={s.sectionSub}>{t('mobile.onboarding.skillsSub')}</Text>
-            <View style={s.chips}>
-              {ALL_SKILLS.map(skill => (
-                <Pressable
-                  key={skill}
-                  style={[s.chip, selectedSkills.includes(skill) && s.chipActive]}
-                  onPress={() => toggleSkill(skill)}
-                >
-                  {/* Display only — the stored PT title is what gets submitted */}
-                  <Text style={[s.chipText, selectedSkills.includes(skill) && s.chipTextActive]}>
-                    {tSkill(skill)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            <Text style={s.sectionSub}>{t('mobile.roles.sub', { max: MAX_WORKER_ROLES })}</Text>
+            <RolesEditor roles={roles} onChange={setRoles} />
 
             <Text style={[s.sectionTitle, { marginTop: 28 }]}>{t('mobile.onboarding.availabilityTitle')}</Text>
             <Text style={s.sectionSub}>{t('mobile.onboarding.availabilitySub')}</Text>
@@ -441,7 +424,7 @@ export default function OnboardingScreen() {
               [t('mobile.onboarding.summaryBirthDate'), birthDate],
               ['NIF', nif],
               ['IBAN', iban ? `${iban.slice(0, 8)}...${iban.slice(-4)}` : ''],
-              [t('mobile.onboarding.summarySkills'), selectedSkills.slice(0, 3).map(tSkill).join(', ') + (selectedSkills.length > 3 ? ` +${selectedSkills.length - 3}` : '')],
+              [t('mobile.onboarding.summarySkills'), roles.map(r => `${tSkill(r.role)} · ${t('mobile.roles.levelN', { level: r.level })}`).join(', ')],
               [t('mobile.onboarding.summaryAvailability'), selectedDays.map(tWeekday).join(', ')],
               [t('mobile.onboarding.summaryCv'), cvAsset?.name ?? ''],
             ].map(([k, v]) => v ? (
@@ -567,15 +550,6 @@ const s = StyleSheet.create({
   infoIcon: { fontSize: 16 },
   infoText: { flex: 1, fontSize: fontSize.caption, color: colors.primary, fontWeight: fontWeight.semibold, lineHeight: 18 },
 
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: {
-    paddingHorizontal: 12, paddingVertical: 7,
-    borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.neutral,
-    backgroundColor: colors.white,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 13, color: colors.textSecondary, fontWeight: fontWeight.semibold },
-  chipTextActive: { color: '#fff' },
 
   daysRow: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  TextInput, Alert, ActivityIndicator, Image, Switch, Modal, Linking,
+  TextInput, Alert, ActivityIndicator, Image, Switch, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,228 +9,27 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import {
-  colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory,
+  colors, spacing, radius, fontSize, fontWeight,
   LANGUAGES, isValidIBAN, isValidNIF, STORED_WEEKDAYS,
   MIN_WORKER_AGE, ageOn, maskBirthDateInput, parseBirthDateInput, formatBirthDateInput,
-  JOB_TITLES, EXPERIENCE_LEVELS, ExperienceLevel, WorkerExperience,
+  WorkerRole, MAX_WORKER_ROLES,
   calculateProfileQualityScore, PROFILE_POINTS, PROFILE_MIN_SCORE_TO_APPLY,
 } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
 import { useT } from '../lib/i18n';
-
-const SKILL_CATEGORIES = Object.keys(SHIFT_CATEGORIES) as ShiftCategory[];
-
-// Category icons map
-const CATEGORY_ICONS: Record<string, string> = {
-  'Restauração':   'restaurant-outline',
-  'Hotelaria':     'bed-outline',
-  'Eventos':       'star-outline',
-  'Vendas':        'pricetag-outline',
-  'Apoio ao Cliente': 'headset-outline',
-  'Logística':     'cube-outline',
-  'Administração': 'briefcase-outline',
-  'Limpeza e Segurança': 'sparkles-outline',
-} as const;
-
-// Collapsible category accordion for skills
-function SkillCategoryAccordion({
-  category, skills, selected, onToggle,
-}: {
-  category: ShiftCategory;
-  skills: readonly string[];
-  selected: string[];
-  onToggle: (sk: string) => void;
-}) {
-  const { tCategory, tSkill } = useT();
-  const [open, setOpen] = useState(false);
-  const activeInCategory = skills.filter(sk => selected.includes(sk)).length;
-
-  return (
-    <View style={acc.wrapper}>
-      <TouchableOpacity
-        style={acc.header}
-        onPress={() => setOpen(v => !v)}
-        activeOpacity={0.7}
-      >
-        <Ionicons name={(CATEGORY_ICONS[category] ?? 'grid-outline') as any} size={16} color={colors.primary} />
-        <Text style={acc.headerText}>{tCategory(category)}</Text>
-        {activeInCategory > 0 && (
-          <View style={acc.countBadge}>
-            <Text style={acc.countText}>{activeInCategory}</Text>
-          </View>
-        )}
-        <Ionicons
-          name={open ? 'chevron-up' : 'chevron-down'}
-          size={16}
-          color={colors.textSecondary}
-          style={{ marginLeft: 'auto' }}
-        />
-      </TouchableOpacity>
-
-      {open && (
-        <View style={acc.body}>
-          <View style={acc.chips}>
-            {skills.map(sk => {
-              const active = selected.includes(sk);
-              return (
-                <TouchableOpacity
-                  key={sk}
-                  style={[acc.chip, active && acc.chipActive]}
-                  onPress={() => onToggle(sk)}
-                  activeOpacity={0.8}
-                >
-                  {/* Display only — `sk` stays the stored PT value on toggle */}
-                  <Text style={[acc.chipText, active && acc.chipTextActive]}>{tSkill(sk)}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-      )}
-    </View>
-  );
-}
-
-const acc = StyleSheet.create({
-  wrapper: {
-    borderWidth: 1, borderColor: colors.neutral, borderRadius: radius.md, overflow: 'hidden',
-    marginBottom: 8,
-  },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: spacing.md, paddingVertical: 12,
-    backgroundColor: '#fff',
-  },
-  headerText: { fontSize: fontSize.body, fontWeight: fontWeight.semibold as any, color: colors.textPrimary, flex: 1 },
-  countBadge: {
-    backgroundColor: colors.primary, borderRadius: 10,
-    paddingHorizontal: 7, paddingVertical: 2,
-  },
-  countText: { color: '#fff', fontSize: 11, fontWeight: fontWeight.bold as any },
-  body: { backgroundColor: '#fafbff', padding: spacing.sm, borderTopWidth: 1, borderTopColor: colors.neutral },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  chip: {
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.full,
-    backgroundColor: colors.secondary, borderWidth: 1.5, borderColor: colors.neutral,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: fontSize.caption, fontWeight: fontWeight.semibold as any, color: colors.textSecondary },
-  chipTextActive: { color: '#fff' },
-});
-
-/**
- * Two-step picker: choose the job title, then how long you've worked it.
- * Titles come from the shared JOB_TITLES list, so a declared experience always
- * matches the exact string employers post shifts with.
- */
-function ExperiencePicker({
-  visible, existing, onCancel, onPick,
-}: {
-  visible: boolean;
-  existing: WorkerExperience[];
-  onCancel: () => void;
-  onPick: (jobTitle: string, level: ExperienceLevel) => void;
-}) {
-  const { t, tSkill } = useT();
-  const [chosenTitle, setChosenTitle] = useState<string | null>(null);
-
-  // Reset to step 1 whenever the modal reopens
-  useEffect(() => { if (visible) setChosenTitle(null); }, [visible]);
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onCancel}>
-      <View style={ep.overlay}>
-        <View style={ep.sheet}>
-          <View style={ep.head}>
-            {chosenTitle ? (
-              <TouchableOpacity onPress={() => setChosenTitle(null)} activeOpacity={0.7}>
-                <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
-              </TouchableOpacity>
-            ) : <View style={{ width: 22 }} />}
-            <Text style={ep.title}>
-              {chosenTitle
-                ? t('mobile.editProfile.experiencePickYears')
-                : t('mobile.editProfile.experiencePickJob')}
-            </Text>
-            <TouchableOpacity onPress={onCancel} activeOpacity={0.7}>
-              <Ionicons name="close" size={22} color={colors.textPrimary} />
-            </TouchableOpacity>
-          </View>
-
-          {chosenTitle && <Text style={ep.chosen}>{tSkill(chosenTitle)}</Text>}
-
-          <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
-            {chosenTitle ? (
-              (Object.keys(EXPERIENCE_LEVELS) as ExperienceLevel[]).map(level => (
-                <TouchableOpacity
-                  key={level}
-                  style={ep.row}
-                  onPress={() => onPick(chosenTitle, level)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={ep.rowText}>{t(`domain.experienceLevels.${level}`)}</Text>
-                  <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-                </TouchableOpacity>
-              ))
-            ) : (
-              JOB_TITLES.map(title => {
-                const already = existing.find(e => e.jobTitle === title);
-                return (
-                  <TouchableOpacity
-                    key={title}
-                    style={ep.row}
-                    onPress={() => setChosenTitle(title)}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={ep.rowText}>{tSkill(title)}</Text>
-                    {already
-                      ? <Text style={ep.already}>{t(`domain.experienceLevelsShort.${already.level}`)}</Text>
-                      : <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />}
-                  </TouchableOpacity>
-                );
-              })
-            )}
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-const ep = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg,
-    paddingBottom: 32, paddingHorizontal: spacing.md, paddingTop: spacing.md,
-  },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
-  title: { fontSize: fontSize.h3, fontWeight: fontWeight.bold as any, color: colors.textPrimary },
-  chosen: {
-    fontSize: fontSize.body, fontWeight: fontWeight.bold as any, color: colors.primary,
-    marginBottom: spacing.sm,
-  },
-  row: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.neutral, gap: 10,
-  },
-  rowText: { fontSize: fontSize.body, color: colors.textPrimary, fontWeight: fontWeight.semibold as any, flex: 1 },
-  already: { fontSize: fontSize.caption, fontWeight: fontWeight.bold as any, color: colors.primary },
-});
+import { RolesEditor } from '../components/RolesEditor';
 
 export default function EditProfileScreen() {
   const router = useRouter();
-  const { t, tSkill, tWorkerLanguage, tWeekday } = useT();
+  const { t, tWorkerLanguage, tWeekday } = useT();
 
   const [fullName, setFullName]           = useState('');
   const [bio, setBio]                     = useState('');
-  const [skills, setSkills]               = useState<string[]>([]);
+  const [roles, setRoles]                 = useState<WorkerRole[]>([]);
   const [languages, setLanguages]         = useState<string[]>([]);
   const [availableDays, setAvailableDays] = useState<string[]>([]);
   const [isAvailableForWork, setIsAvailableForWork] = useState(true);
-  const [experiences, setExperiences]     = useState<WorkerExperience[]>([]);
-  const [expPickerOpen, setExpPickerOpen] = useState(false);
   const [cvUrl, setCvUrl]                 = useState<string | null>(null);
   const [cvFileName, setCvFileName]       = useState<string | null>(null);
   const [uploadingCv, setUploadingCv]     = useState(false);
@@ -258,11 +57,10 @@ export default function EditProfileScreen() {
       setFullName(data.fullName ?? '');
       setBirthDate(formatBirthDateInput(data.dateOfBirth));
       setBio((data as any).bio ?? '');
-      setSkills(normalise(data.skills ?? []));
+      setRoles(data.roles ?? []);
       setLanguages(normalise((data as any).languages ?? []));
       setAvailableDays(normalise(data.availableDays ?? []));
       setIsAvailableForWork(data.isAvailableForWork ?? true);
-      setExperiences(data.experiences ?? []);
       setCvUrl(data.cvUrl ?? null);
       setCvFileName(data.cvFileName ?? null);
       setNif(data.nif ?? '');
@@ -287,11 +85,6 @@ export default function EditProfileScreen() {
   }, [router, t]);
 
   useEffect(() => { load(); }, [load]);
-
-  const toggleSkill = (sk: string) => {
-    const n = sk.normalize('NFC');
-    setSkills(prev => prev.includes(n) ? prev.filter(s => s !== n) : [...prev, n]);
-  };
 
   const toggleLanguage = (lang: string) => {
     const n = lang.normalize('NFC');
@@ -388,18 +181,6 @@ export default function EditProfileScreen() {
     ]);
   };
 
-  // ── Experiences ─────────────────────────────────────────────────────────────
-  const addExperience = (jobTitle: string, level: ExperienceLevel) => {
-    setExperiences(prev => [
-      ...prev.filter(e => e.jobTitle !== jobTitle),
-      { jobTitle, level },
-    ]);
-    setExpPickerOpen(false);
-  };
-
-  const removeExperience = (jobTitle: string) =>
-    setExperiences(prev => prev.filter(e => e.jobTitle !== jobTitle));
-
   const ibanClean = iban.replace(/\s/g, '').toUpperCase();
 
   // Live score from what is on screen, so the card moves as fields are filled
@@ -407,7 +188,7 @@ export default function EditProfileScreen() {
     hasPhoto:        !!photoUrl,
     hasValidNif:     isValidNIF(nif),
     hasValidIban:    isValidIBAN(ibanClean),
-    skillsCount:     skills.length,
+    skillsCount:     roles.length,
     hasFullName:     !!fullName.trim(),
     hasAvailability: availableDays.length > 0,
     hasCv:           !!cvUrl,
@@ -428,8 +209,8 @@ export default function EditProfileScreen() {
       Alert.alert(t('mobile.editProfile.nameRequiredTitle'), t('mobile.editProfile.nameRequiredBody'));
       return;
     }
-    if (skills.length === 0) {
-      Alert.alert(t('mobile.editProfile.skillsRequiredTitle'), t('mobile.editProfile.skillsRequiredBody'));
+    if (roles.length === 0) {
+      Alert.alert(t('mobile.roles.title'), t('mobile.roles.required'));
       return;
     }
     setSaving(true);
@@ -469,11 +250,11 @@ export default function EditProfileScreen() {
         fullName: fullName.trim(),
         dateOfBirth: birthIso ?? undefined,
         bio: bio.trim(),
-        skills,
+        // Server-owned counters are merged in by the API; saving clears `provisional`
+        roles: roles.map(({ role, level, tasks, years }) => ({ role, level, tasks, years })),
         languages,
         availableDays,
         isAvailableForWork,
-        experiences,
         nif: nifClean || undefined,
         iban: ibanClean || undefined,
         contactEmail: contactEmail.trim() || undefined,
@@ -673,30 +454,21 @@ export default function EditProfileScreen() {
           )}
         </View>
 
-        {/* ── Experiências profissionais ── */}
+        {/* ── Roles — role + level + tasks, what companies match on ── */}
         <View style={s.card}>
           <View style={s.cardHeader}>
             <Ionicons name="briefcase-outline" size={16} color={colors.primary} />
-            <Text style={s.cardTitle}>{t('mobile.editProfile.experiencesTitle')}</Text>
+            <Text style={s.cardTitle}>{t('mobile.roles.title')}</Text>
+            {pointsBadge(PROFILE_POINTS.skills, roles.length > 0)}
           </View>
-          <Text style={s.cardSub}>{t('mobile.editProfile.experiencesSub')}</Text>
-
-          {experiences.map(exp => (
-            <View key={exp.jobTitle} style={s.expRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.expTitle}>{tSkill(exp.jobTitle)}</Text>
-                <Text style={s.expLevel}>{t(`domain.experienceLevels.${exp.level}`)}</Text>
-              </View>
-              <TouchableOpacity onPress={() => removeExperience(exp.jobTitle)} activeOpacity={0.7}>
-                <Ionicons name="close-circle" size={22} color="#dc2626" />
-              </TouchableOpacity>
+          {roles.some(r => r.provisional) && (
+            <View style={s.provisionalBox}>
+              <Text style={s.provisionalTitle}>{t('mobile.roles.provisionalTitle')}</Text>
+              <Text style={s.provisionalBody}>{t('mobile.roles.provisionalBody')}</Text>
             </View>
-          ))}
-
-          <TouchableOpacity style={s.expAddBtn} onPress={() => setExpPickerOpen(true)} activeOpacity={0.85}>
-            <Ionicons name="add" size={18} color={colors.primary} />
-            <Text style={s.expAddText}>{t('mobile.editProfile.experienceAdd')}</Text>
-          </TouchableOpacity>
+          )}
+          <Text style={s.cardSub}>{t('mobile.roles.sub', { max: MAX_WORKER_ROLES })}</Text>
+          <RolesEditor roles={roles} onChange={setRoles} />
         </View>
 
         {/* ── NIF + IBAN (both editable) ── */}
@@ -775,30 +547,6 @@ export default function EditProfileScreen() {
             <Ionicons name="lock-closed-outline" size={13} color={colors.textSecondary} />
             <Text style={s.mutedNote}>{t('mobile.editProfile.nifLocked')}</Text>
           </View>
-        </View>
-
-        {/* ── Skills — grouped by category accordion ── */}
-        <View style={s.card}>
-          <View style={s.cardHeader}>
-            <Ionicons name="construct-outline" size={16} color={colors.primary} />
-            <Text style={s.cardTitle}>{t('mobile.editProfile.skillsTitle')}</Text>
-            {pointsBadge(PROFILE_POINTS.skills, skills.length > 0)}
-          </View>
-          <Text style={s.cardSub}>{t('mobile.editProfile.skillsSub')}</Text>
-          {SKILL_CATEGORIES.map(cat => (
-            <SkillCategoryAccordion
-              key={cat}
-              category={cat}
-              skills={SHIFT_CATEGORIES[cat]}
-              selected={skills}
-              onToggle={toggleSkill}
-            />
-          ))}
-          <Text style={s.chipCount}>
-            {skills.length === 1
-              ? t('mobile.editProfile.skillsCountOne')
-              : t('mobile.editProfile.skillsCountOther', { count: skills.length })}
-          </Text>
         </View>
 
         {/* ── Languages ── */}
@@ -913,18 +661,18 @@ export default function EditProfileScreen() {
         <View style={{ height: 60 }} />
       </ScrollView>
 
-      <ExperiencePicker
-        visible={expPickerOpen}
-        existing={experiences}
-        onCancel={() => setExpPickerOpen(false)}
-        onPick={addExperience}
-      />
     </View>
   );
 }
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.secondary },
+  provisionalBox: {
+    backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fcd34d',
+    borderRadius: radius.sm, padding: 10, marginBottom: 8, gap: 2,
+  },
+  provisionalTitle: { fontSize: fontSize.body, fontWeight: fontWeight.bold as any, color: '#92400e' },
+  provisionalBody: { fontSize: fontSize.caption, color: '#92400e', lineHeight: 18 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   header: {
@@ -1049,22 +797,6 @@ const s = StyleSheet.create({
   cvView:    { fontSize: fontSize.caption, fontWeight: fontWeight.bold as any, color: colors.primary },
   cvReplace: { fontSize: fontSize.caption, fontWeight: fontWeight.bold as any, color: colors.textSecondary },
   cvRemove:  { fontSize: fontSize.caption, fontWeight: fontWeight.bold as any, color: '#dc2626' },
-
-  /* Experiences */
-  expRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fde68a',
-    borderRadius: radius.md, padding: spacing.sm, marginTop: 6,
-  },
-  expTitle: { fontSize: fontSize.body, fontWeight: fontWeight.bold as any, color: '#92400e' },
-  expLevel: { fontSize: fontSize.caption, color: '#b45309', marginTop: 1, fontWeight: fontWeight.semibold as any },
-  expAddBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    height: 44, borderRadius: radius.md, marginTop: 10,
-    borderWidth: 1.5, borderColor: colors.primary, borderStyle: 'dashed',
-    backgroundColor: '#f5f6ff',
-  },
-  expAddText: { fontSize: fontSize.body, fontWeight: fontWeight.bold as any, color: colors.primary },
 
   /* Availability master switch */
   availSwitchRow: {

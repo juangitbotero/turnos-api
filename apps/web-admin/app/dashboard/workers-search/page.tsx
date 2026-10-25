@@ -2,14 +2,15 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { LANGUAGES, ALL_SKILLS, STORED_WEEKDAYS } from '@turnos/shared';
+import { LANGUAGES, SHIFT_CATEGORIES, ShiftCategory, STORED_WEEKDAYS, ROLE_CONFIRMED_MIN_SHIFTS } from '@turnos/shared';
 import { adminApi, WorkerSearchResult, Shift, ApiError } from '../../../lib/api';
 import { useT } from '../../../lib/i18n';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 import { WorkerReviews } from '../../../components/WorkerReviews';
+import { WorkerRoles } from '../../../components/WorkerRoles';
 import {
   IconSearch, IconBriefcase, IconGlobe, IconStar, IconCalendar,
-  IconDownload, IconReset, IconChevron, IconFile, Stars,
+  IconDownload, IconReset, IconChevron, IconFile, IconCheck, IconTarget, Stars,
 } from '../../../components/icons';
 
 // ── Worker detail panel ────────────────────────────────────────────────────────
@@ -114,30 +115,10 @@ function WorkerDetailPanel({
             </div>
           )}
 
-          {/* Experience per job title */}
-          {worker.experiences && worker.experiences.length > 0 && (
-            <div style={p.section}>
-              <div style={p.sectionTitle}>{t('admin.workersSearch.panelExperience')}</div>
-              <div style={p.expList}>
-                {worker.experiences.map(exp => (
-                  <div key={exp.jobTitle} style={p.expRow}>
-                    <span style={p.expTitle}>{tSkill(exp.jobTitle)}</span>
-                    <span style={p.expLevel}>{t(`domain.experienceLevels.${exp.level}`)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Skills */}
-          {worker.skills && worker.skills.length > 0 && (
-            <div style={p.section}>
-              <div style={p.sectionTitle}>{t('admin.workersSearch.panelSkills')}</div>
-              <div style={p.tags}>
-                {worker.skills.map(sk => <span key={sk} style={p.tag}>{tSkill(sk)}</span>)}
-              </div>
-            </div>
-          )}
+          {/* Roles — level, tasks done, confirmed by companies or declared */}
+          <div style={p.section}>
+            <WorkerRoles roles={worker.roles} />
+          </div>
 
           {/* Languages */}
           {worker.languages && worker.languages.length > 0 && (
@@ -231,7 +212,7 @@ function WorkerDetailPanel({
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function WorkersSearchPage() {
-  const { t, tSkill, tWorkerLanguage, tWeekday } = useT();
+  const { t, tSkill, tCategory, tWorkerLanguage, tWeekday } = useT();
 
   const [workers, setWorkers]         = useState<WorkerSearchResult[]>([]);
   const [myShifts, setMyShifts]       = useState<Shift[]>([]);
@@ -245,6 +226,9 @@ export default function WorkersSearchPage() {
   const [filterDays, setFilterDays]   = useState<string[]>([]);
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [minRating, setMinRating]     = useState<number>(0);
+  // Level applies to the roles picked above (any role when none is picked)
+  const [minLevel, setMinLevel]       = useState<number>(1);
+  const [onlyConfirmed, setOnlyConfirmed] = useState(false);
   const [showSkillFilter, setShowSkillFilter] = useState(false);
   const [showDayFilter, setShowDayFilter]     = useState(false);
 
@@ -254,11 +238,12 @@ export default function WorkersSearchPage() {
 
   const hasFilters =
     filterSkills.length > 0 || filterLangs.length > 0 || filterDays.length > 0 ||
-    onlyAvailable || minRating > 0 || searchText.trim() !== '';
+    onlyAvailable || minRating > 0 || minLevel > 1 || onlyConfirmed || searchText.trim() !== '';
 
   const resetFilters = () => {
     setFilterSkills([]); setFilterLangs([]); setFilterDays([]);
     setOnlyAvailable(false); setMinRating(0); setSearchText('');
+    setMinLevel(1); setOnlyConfirmed(false);
   };
 
   const doSearch = useCallback(async () => {
@@ -270,6 +255,8 @@ export default function WorkersSearchPage() {
         available: filterDays.length     ? filterDays     : undefined,
         availableNow: onlyAvailable      ? true           : undefined,
         minRating: minRating > 0         ? minRating      : undefined,
+        minLevel:  minLevel > 1          ? minLevel       : undefined,
+        confirmedOnly: onlyConfirmed     ? true           : undefined,
       });
       setWorkers(results);
     } catch {
@@ -277,7 +264,7 @@ export default function WorkersSearchPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterSkills, filterLangs, filterDays, onlyAvailable, minRating]);
+  }, [filterSkills, filterLangs, filterDays, onlyAvailable, minRating, minLevel, onlyConfirmed]);
 
   /**
    * Filters apply themselves.
@@ -304,7 +291,7 @@ export default function WorkersSearchPage() {
     return (
       w.fullName?.toLowerCase().includes(q) ||
       w.bio?.toLowerCase().includes(q) ||
-      w.skills?.some(s => s.toLowerCase().includes(q))
+      w.roles?.some(r => r.role.toLowerCase().includes(q) || tSkill(r.role).toLowerCase().includes(q))
     );
   });
 
@@ -365,15 +352,20 @@ export default function WorkersSearchPage() {
                 <div style={s.backdrop} onClick={() => setShowSkillFilter(false)} />
                 <div style={s.dropdown}>
                   <div style={s.dropdownInner}>
-                    {ALL_SKILLS.map(sk => (
-                      <label key={sk} style={s.checkRow}>
-                        <input
-                          type="checkbox"
-                          checked={filterSkills.includes(sk)}
-                          onChange={() => toggleFilter(filterSkills, setFilterSkills, sk)}
-                        />
-                        <span style={{ fontSize: 13 }}>{tSkill(sk)}</span>
-                      </label>
+                    {(Object.keys(SHIFT_CATEGORIES) as ShiftCategory[]).map(cat => (
+                      <div key={cat}>
+                        <div style={s.groupLabel}>{tCategory(cat)}</div>
+                        {SHIFT_CATEGORIES[cat].map(sk => (
+                          <label key={sk} style={s.checkRow}>
+                            <input
+                              type="checkbox"
+                              checked={filterSkills.includes(sk)}
+                              onChange={() => toggleFilter(filterSkills, setFilterSkills, sk)}
+                            />
+                            <span style={{ fontSize: 13 }}>{tSkill(sk)}</span>
+                          </label>
+                        ))}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -436,6 +428,30 @@ export default function WorkersSearchPage() {
               {(LANGUAGES as readonly string[]).map(l => <option key={l} value={l}>{tWorkerLanguage(l)}</option>)}
             </select>
           </div>
+
+          {/* Minimum level in the chosen role(s) */}
+          <div style={s.selectWrap}>
+            <IconTarget size={15} style={s.selectIcon} />
+            <select
+              style={{ ...s.selectInput, ...(minLevel > 1 ? s.filterBtnOn : {}) }}
+              value={minLevel}
+              onChange={e => setMinLevel(Number(e.target.value))}
+            >
+              <option value={1}>{t('admin.workersSearch.levelAny')}</option>
+              <option value={2}>{t('admin.workersSearch.level2')}</option>
+              <option value={3}>{t('admin.workersSearch.level3')}</option>
+            </select>
+          </div>
+
+          {/* Confirmed by companies that hired them */}
+          <button
+            style={{ ...s.filterBtn, ...(onlyConfirmed ? s.filterBtnOn : {}) }}
+            onClick={() => setOnlyConfirmed(v => !v)}
+            title={t('admin.workersSearch.filterConfirmedTitle')}
+          >
+            <IconCheck size={14} />
+            {t('admin.workersSearch.filterConfirmed')}
+          </button>
 
           {/* Rating */}
           <div style={s.selectWrap}>
@@ -522,23 +538,15 @@ export default function WorkersSearchPage() {
                 {/* Bio */}
                 {w.bio && <p style={s.bio}>{w.bio}</p>}
 
-                {/* Top skills */}
-                {w.skills && w.skills.length > 0 && (
+                {/* Roles with level — the most relevant thing when picking a candidate */}
+                {w.roles && w.roles.length > 0 && (
                   <div style={s.skillRow}>
-                    {w.skills.slice(0, 3).map(sk => <span key={sk} style={s.skill}>{tSkill(sk)}</span>)}
-                    {w.skills.length > 3 && <span style={s.more}>+{w.skills.length - 3}</span>}
-                  </div>
-                )}
-
-                {/* Top experience — most relevant thing when picking a candidate */}
-                {w.experiences && w.experiences.length > 0 && (
-                  <div style={s.skillRow}>
-                    {w.experiences.slice(0, 2).map(exp => (
-                      <span key={exp.jobTitle} style={s.expPill}>
-                        <IconBriefcase size={12} /> {tSkill(exp.jobTitle)} · {t(`domain.experienceLevelsShort.${exp.level}`)}
+                    {w.roles.map(r => (
+                      <span key={r.role} style={s.expPill}>
+                        <IconBriefcase size={12} /> {tSkill(r.role)} · {t('admin.workersSearch.levelShort', { level: r.level })}
+                        {r.confirmedShifts >= ROLE_CONFIRMED_MIN_SHIFTS && <IconCheck size={11} />}
                       </span>
                     ))}
-                    {w.experiences.length > 2 && <span style={s.more}>+{w.experiences.length - 2}</span>}
                   </div>
                 )}
 
@@ -782,6 +790,7 @@ const s: Record<string, React.CSSProperties> = {
     maxHeight: 300, overflowY: 'auto', padding: '12px 16px',
     display: 'flex', flexDirection: 'column', gap: 8,
   },
+  groupLabel: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--color-text-secondary)', padding: '8px 4px 4px' },
   checkRow: {
     display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
   },

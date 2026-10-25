@@ -131,6 +131,43 @@ export const pt = {
   },
 
   mobile: {
+    // Roles — what the worker can do, with a level and tasks (shared by
+    // onboarding, edit-profile, profile and shift detail)
+    roles: {
+      title:        'AS MINHAS FUNÇÕES',
+      sub:          'Escolhe até {{max}} funções que sabes mesmo fazer. Para cada uma diz o teu nível e as tarefas que já fizeste — é isto que as empresas veem.',
+      add:          'Adicionar função',
+      addCount:     'Adicionar função ({{count}}/{{max}})',
+      maxReached:   'Já tens {{max}} funções. Remove uma para adicionar outra.',
+      required:     'Escolhe pelo menos 1 função.',
+      edit:         'Editar',
+      remove:       'Remover',
+      removeTitle:  'Remover função?',
+      removeBody:   'Vais deixar de receber turnos de {{role}}.',
+      levelN:       'Nível {{level}}',
+      tasksCount:   '{{count}} tarefa(s) que já fizeste',
+      noTasks:      'Ainda não marcaste tarefas',
+      pickRole:     'Que função?',
+      pickRoleSub:  'Escolhe só funções em que tens experiência real ou queres começar.',
+      chosen:       'Já escolhida',
+      pickLevel:    'Qual é o teu nível?',
+      pickLevelSub: 'Sê honesto: as empresas confirmam o nível depois de cada turno.',
+      singleLevel:  'Esta função tem um só nível.',
+      certificate:  'Precisas de: {{doc}}',
+      tasksTitle:   'Tarefas que já fizeste',
+      tasksSub:     'Marca só o que já fizeste num trabalho.',
+      yearsTitle:   'Há quanto tempo?',
+      optional:     'opcional',
+      done:         'Guardar função',
+      cancel:       'Cancelar',
+      confirmed:    'Confirmado em {{count}} turnos',
+      declared:     'Declarado por ti',
+      provisionalTitle: 'Confirma as tuas funções',
+      provisionalBody:  'Mudámos a forma como as competências funcionam. Escolhemos um nível provisório a partir do teu perfil — revê o nível e as tarefas e guarda.',
+      provisionalCta:   'Rever funções',
+      provisionalTag:   'Por confirmar',
+    },
+
     nav: {
       shifts:  'Turnos',
       myShifts: 'Os Meus',
@@ -244,6 +281,7 @@ export const pt = {
       urgent: '⚡ Urgente',
       fullGross: 'Recebes o bruto por inteiro',
       multiDayChip: '{{count}} dias',
+      levelOpenChip: 'Sem experiência',
       company: 'Empresa',
     },
 
@@ -265,19 +303,16 @@ export const pt = {
       availabilityError: 'Não foi possível atualizar a disponibilidade. Tenta novamente.',
       onDays: 'Nos dias:',
 
-      experiencesTitle: 'AS MINHAS EXPERIÊNCIAS',
       cvTitle: 'CURRÍCULO',
       cvView: 'Ver CV',
       cvUpload: 'Carregar o meu CV · +10pts',
 
-      skills: 'Competências',
       languages: 'Idiomas',
 
       completenessTitle: 'PERFIL COMPLETO',
       completenessHintLow:  'Completa o perfil para chegares a 80% e seres aprovado.',
-      completenessHintHigh: 'Adiciona pelo menos 3 competências para atingires 100%.',
+      completenessHintHigh: 'Completa os campos em falta em Editar perfil para chegares a 100%.',
 
-      skillsTitle: 'COMPETÊNCIAS',
       personalDataTitle: 'DADOS PESSOAIS',
 
       earningsCta:    'Os Meus Ganhos',
@@ -472,7 +507,13 @@ export const pt = {
       periodShow:     'Ver horário',
       periodHide:     'Ocultar',
 
-      skillsTitle: 'Competências necessárias',
+      levelTitle:  'O que o turno pede',
+      levelOpen:   'Sem experiência necessária — aberto a todos',
+      tasksTitle:  'Tarefas do turno',
+      belowLevel:  'O teu nível em {{role}} é {{level}}. Este turno pede nível {{required}}.',
+      noRole:      'Ainda não tens {{role}} nas tuas funções. Este turno pede nível {{required}}.',
+      updateRoles: 'Atualizar as minhas funções',
+      levelBlockedTitle: 'Nível insuficiente',
       aboutTitle:  'Sobre o turno',
       dressCodeTitle: 'Como te apresentares',
       dressCodeNote:  'Definido pela empresa. Se não cumprires, a empresa pode cancelar o turno à chegada.',
@@ -517,8 +558,6 @@ export const pt = {
       savedBody:  'As tuas alterações foram guardadas com sucesso.',
       nameRequiredTitle: 'Nome obrigatório',
       nameRequiredBody:  'Por favor introduz o teu nome completo.',
-      skillsRequiredTitle: 'Competências',
-      skillsRequiredBody:  'Seleciona pelo menos 1 competência.',
 
       scoreTitle:  'PONTUAÇÃO DO PERFIL',
       scoreValue:  '{{score}}/100 pontos',
@@ -560,11 +599,6 @@ export const pt = {
       cvRemoveBody: 'Tens a certeza? Vais perder {{points}} pontos no perfil.',
       cvRemoveFailed:'Não foi possível remover o CV.',
 
-      experiencesTitle: 'AS MINHAS EXPERIÊNCIAS',
-      experiencesSub:   'Quantos anos já trabalhaste em cada função. As empresas veem isto ao escolher candidatos.',
-      experienceAdd:    'Adicionar experiência',
-      experiencePickJob:   'Escolhe a função',
-      experiencePickYears: 'Quantos anos?',
 
       legalTitle: 'DADOS LEGAIS & BANCÁRIOS',
       // MCD = Contrato de Muito Curta Duração, the Portuguese short-shift contract
@@ -579,10 +613,6 @@ export const pt = {
       ibanConsent:'Autorizo a partilha do meu nome e IBAN com as empresas onde fiz turnos, para que me possam pagar por transferência. Podes retirar esta autorização aqui a qualquer momento.',
       ibanConsentWarn: 'Sem esta autorização, as empresas só te podem pagar por Turnos Pay Link ou MB WAY.',
 
-      skillsTitle: 'COMPETÊNCIAS',
-      skillsSub:   'Toca numa categoria para expandir e selecionar. Pelo menos 1 é obrigatória.',
-      skillsCountOne:   '1 selecionada',
-      skillsCountOther: '{{count}} selecionadas',
 
       languagesTitle: 'IDIOMAS',
       languagesSub:   'Idiomas em que és fluente',
@@ -647,11 +677,8 @@ export const pt = {
       ibanConsentWarn: 'Sem esta autorização, as empresas só te podem pagar por Turnos Pay Link ou MB WAY.',
       // Agenda do Trabalho Digno (Lei 13/2023) — Portuguese labour law, named verbatim
 
-      // Step 2 — skills, availability, CV
-      skillsTitle:   'Competências',
-      skillsSub:     'Selecione as suas competências (escolha todas as aplicáveis).',
-      skillsRequiredTitle: 'Competências',
-      skillsRequiredBody:  'Selecione pelo menos 1 competência.',
+      // Step 2 — roles, availability, CV
+      skillsTitle:   'As tuas funções',
       availabilityTitle: 'Disponibilidade semanal',
       availabilitySub:   'Quais os dias em que está habitualmente disponível?',
       cvTitle:      'Currículo (CV)',
@@ -675,13 +702,13 @@ export const pt = {
         photo:        'Fotografia de perfil',
         nif:          'NIF válido',
         iban:         'IBAN válido (conta bancária)',
-        skills:       'Pelo menos 1 competência selecionada',
+        skills:       'Pelo menos 1 função escolhida',
         fullName:     'Nome completo',
         availability: 'Disponibilidade semanal',
         cv:           'Currículo (CV)',
       },
       summaryName:         'Nome',
-      summarySkills:       'Competências',
+      summarySkills:       'Funções',
       summaryAvailability: 'Disponibilidade',
       summaryCv:           'CV',
       // Post-pivot: the company pays the worker directly — Turnos never holds wages
@@ -910,8 +937,8 @@ export const pt = {
       rating4:           '4+ estrelas',
       rating45:          '4,5+ estrelas',
 
-      resultsOne:   '1 worker encontrado',
-      resultsOther: '{{count}} workers encontrados',
+      resultsOne:   '1 trabalhador encontrado',
+      resultsOther: '{{count}} trabalhadores encontrados',
       emptyTitle:   'Nenhum worker encontrado',
       emptySub:     'Tenta ajustar os filtros ou pesquisa por nome.',
 
@@ -930,8 +957,12 @@ export const pt = {
       panelBio:          'Apresentação',
       panelCv:           'Currículo',
       panelCvFallback:   'Ver CV',
-      panelExperience:   'Experiência',
-      panelSkills:       'Competências',
+      levelAny:          'Qualquer nível',
+      level2:            'Nível 2 ou mais',
+      level3:            'Nível 3',
+      levelShort:        'N{{level}}',
+      filterConfirmed:   'Confirmados',
+      filterConfirmedTitle: 'Só trabalhadores cujo nível foi confirmado por empresas que os contrataram',
       panelLanguages:    'Idiomas',
       panelAvailability: 'Disponibilidade',
       availableOn:  'Disponível para trabalhar',
@@ -1376,11 +1407,19 @@ export const pt = {
       descPlaceholder:  'Descreva o turno, ambiente de trabalho, requisitos específicos...',
 
       // Skills
-      skillsSection: 'Competências adicionais',
-      skillsHint:    'A função que escolheste acima já é usada para encontrar trabalhadores. Acrescenta aqui só o que for além disso.',
-      customSkillPlaceholder: 'Adicionar competência personalizada...',
-      addSkill:      '+ Adicionar',
-      selectedLabel: 'Selecionadas:',
+      levelSection:  'Nível exigido',
+      levelHint:     'O que o trabalhador tem de saber fazer. Só se podem candidatar trabalhadores que declararam este nível ou superior.',
+      levelN:        'Nível {{level}}',
+      levelOpen:     'Sem experiência necessária — aberto a todos',
+      singleLevel:   'Esta função tem um só nível.',
+      certificateRequired: 'Documento obrigatório: {{doc}}',
+      tasksSection:  'Tarefas do turno',
+      tasksHint:     'Marca o que o turno inclui. Os trabalhadores que já fizeram estas tarefas aparecem primeiro.',
+      tasksCount:    '{{count}} selecionada(s)',
+      matchCountOne: '1 trabalhador corresponde a esta função e nível',
+      matchCountOther: '{{count}} trabalhadores correspondem a esta função e nível',
+      matchCountNone: 'Ainda nenhum trabalhador corresponde. Experimenta um nível mais baixo ou menos idiomas.',
+      matchCountOpen: 'Turno aberto a todos — {{count}} trabalhador(es) com esta função são avisados primeiro',
 
       // Languages
       languagesSection: 'Idiomas necessários',
@@ -1531,11 +1570,14 @@ export const pt = {
       sortRating:  'Melhor avaliação',
       sortMatch:   'Melhor correspondência',
       matchScore:  '{{score}}% compatível',
-      matchRole:   'Função',
+      matchLevel:  'Nível {{level}} ✓',
+      matchBelow:  'Nível {{level}} (o turno pede {{required}})',
+      matchNoRole: 'Sem esta função no perfil',
+      matchConfirmed: 'Confirmado em {{count}} turnos',
       matchLangs:  '{{matched}}/{{total}} idiomas',
       newBadge:    'Novo',
       matchBadge:  'Match total',
-      matchCount:  '{{matched}}/{{total}} competências',
+      matchTasks:  '{{matched}}/{{total}} tarefas',
       appProfile:  'Perfil: {{score}}%',
       viewProfile: 'Ver perfil',
       approved:    'Aprovado',
@@ -1550,8 +1592,12 @@ export const pt = {
       coverNoteTitle:  'Mensagem do candidato',
       panelBio:        'Apresentação',
       panelScore:      'Perfil completo',
-      panelSkills:     'Competências',
-      panelExperience: 'Experiência',
+      panelRoles:      'Funções',
+      roleLevel:       'Nível {{level}}',
+      roleConfirmed:   'Confirmado em {{count}} turnos',
+      roleDeclared:    'Declarado pelo trabalhador',
+      roleTasksDone:   'Já fez',
+      roleThisShift:   'Função deste turno',
       panelCv:         'Currículo',
       panelCvFallback: 'Ver CV',
       panelLanguages:  'Idiomas',
@@ -1998,6 +2044,10 @@ export const pt = {
       passwordTooShort:    'A palavra-passe deve ter pelo menos 8 caracteres.',
       currentPasswordWrong:'A palavra-passe atual está incorreta.',
       pushTokenMissing:   'Token inválido.',
+      rolesTooMany:       'Podes escolher no máximo {{max}} funções.',
+      rolesUnknown:       'Uma das funções escolhidas já não existe. Atualiza a app e escolhe de novo.',
+      rolesDuplicate:     'Escolheste a mesma função duas vezes.',
+      rolesInvalidLevel:  'Escolhe um nível válido para cada função.',
     },
 
     account: {
@@ -2026,6 +2076,9 @@ export const pt = {
       workerUnderAge:     'Este trabalhador ainda não terá {{age}} anos na data do turno.',
       accountSuspended:   'A tua conta está suspensa até {{date}} devido a cancelamentos tardios ou faltas.',
       profileIncomplete:  'O teu perfil está {{score}}% completo. Precisas de pelo menos 80% para te candidatares.',
+      levelTooLow:        'Este turno pede nível {{level}} em {{role}}. Se já tens essa experiência, atualiza a função no teu perfil.',
+      roleUnknown:        'Escolhe uma função da lista.',
+      levelInvalid:       'O nível escolhido não existe para esta função.',
 
       // Worker cancellation
       cancelOnlyConfirmed: 'Só podes cancelar turnos confirmados que ainda não começaram.',

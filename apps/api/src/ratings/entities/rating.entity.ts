@@ -55,6 +55,14 @@ export class Rating {
   @Column({ type: 'varchar', length: 150, nullable: true })
   review?: string;
 
+  /**
+   * Company's answer to "did the worker's declared level in this role match?"
+   * (employer → worker ratings only). true feeds `confirmedShifts`, false
+   * `belowLevelCount`; null = not asked (older ratings, worker → employer).
+   */
+  @Column({ type: 'boolean', nullable: true })
+  levelMatched?: boolean | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

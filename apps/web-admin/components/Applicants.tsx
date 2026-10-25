@@ -15,7 +15,8 @@ import { skillMatch } from '@turnos/shared';
 import { Application, Shift } from '../lib/api';
 import { useT } from '../lib/i18n';
 import { WorkerReviews } from './WorkerReviews';
-import { IconArrowLeft, IconBriefcase, IconChat, IconFile, IconTarget, Stars } from './icons';
+import { WorkerRoles } from './WorkerRoles';
+import { IconArrowLeft, IconChat, IconFile, IconTarget, Stars } from './icons';
 
 export type SortMode = 'rating' | 'match';
 
@@ -76,11 +77,18 @@ export function ApplicantList({
         {sorted.map(app => {
           const w = app.worker;
           const m = matches.get(app.id);
-          // Why they matched — only the parts the shift actually asks for.
+          // Why they matched — role at what level, confirmed or not, then the
+          // tasks and languages the shift actually asks for.
           const reasons: string[] = [];
-          if (m?.hasRole) reasons.push(`${t('admin.shifts.matchRole')} ✓`);
-          if (m?.experience) reasons.push(t(`domain.experienceLevelsShort.${m.experience}`));
-          if (m && m.skills.total > 0) reasons.push(t('admin.shifts.matchCount', { matched: m.skills.matched.length, total: m.skills.total }));
+          if (m?.hasRole && m.level != null) {
+            reasons.push(`${tSkill(shift.subcategory)} · ${m.meetsLevel
+              ? t('admin.shifts.matchLevel', { level: m.level })
+              : t('admin.shifts.matchBelow', { level: m.level, required: m.requiredLevel })}`);
+          } else if (m) {
+            reasons.push(t('admin.shifts.matchNoRole'));
+          }
+          if (m?.confirmed) reasons.push(t('admin.shifts.matchConfirmed', { count: m.confirmedShifts }));
+          if (m && m.tasks.total > 0) reasons.push(t('admin.shifts.matchTasks', { matched: m.tasks.matched.length, total: m.tasks.total }));
           if (m && m.languages.total > 0) {
             reasons.push(m.languages.matched.length
               ? m.languages.matched.map(tWorkerLanguage).join('/')
@@ -119,9 +127,9 @@ export function ApplicantList({
                     </p>
                   )}
                   {reasons.length > 0 && <p style={s.matchWhy}>{reasons.join(' · ')}</p>}
-                  {w?.skills && w.skills.length > 0 && (
+                  {w?.roles && w.roles.length > 0 && (
                     <p style={s.appSkills}>
-                      {w.skills.slice(0, 3).map(tSkill).join(', ')}{w.skills.length > 3 ? ` +${w.skills.length - 3}` : ''}
+                      {w.roles.map(r => `${tSkill(r.role)} ${r.level}`).join(' · ')}
                     </p>
                   )}
                   {app.coverNote && <p style={s.coverNote}><IconChat size={12} /> "{app.coverNote}"</p>}
@@ -154,13 +162,15 @@ export function ApplicantList({
   );
 }
 
-export function WorkerProfilePanel({ app, onBack, onApprove, processing }: {
+export function WorkerProfilePanel({ app, onBack, onApprove, processing, shiftRole }: {
   app: App;
   onBack: () => void;
   onApprove?: (app: App) => void;
   processing?: string | null;
+  /** Role of the shift being filled — shown first in the roles list. */
+  shiftRole?: string | null;
 }) {
-  const { t, tSkill, tWorkerLanguage, tWeekday } = useT();
+  const { t, tWorkerLanguage, tWeekday } = useT();
   const w = app.worker;
   const score = w?.profileQualityScore ?? 0;
   const scoreColor = score >= 80 ? '#16a34a' : score >= 50 ? '#d97706' : '#dc2626';
@@ -241,28 +251,8 @@ export function WorkerProfilePanel({ app, onBack, onApprove, processing }: {
         </div>
       </div>
 
-      {w?.skills && w.skills.length > 0 && (
-        <div style={s.profileSection}>
-          <p style={s.profileSectionTitle}>{t('admin.shifts.panelSkills')}</p>
-          <div style={s.skillTags}>
-            {w.skills.map(sk => <span key={sk} style={s.skillTag}>{tSkill(sk)}</span>)}
-          </div>
-        </div>
-      )}
-
-      {/* Experience — the strongest signal when choosing between candidates */}
-      {w?.experiences && w.experiences.length > 0 && (
-        <div style={s.profileSection}>
-          <p style={s.profileSectionTitle}>{t('admin.shifts.panelExperience')}</p>
-          <div style={s.skillTags}>
-            {w.experiences.map(exp => (
-              <span key={exp.jobTitle} style={{ ...s.skillTag, background: '#fef3c7', color: '#92400e' }}>
-                <IconBriefcase size={12} /> {tSkill(exp.jobTitle)} · {t(`domain.experienceLevels.${exp.level}`)}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Roles with level, tasks and confirmation — the strongest signal when choosing */}
+      <WorkerRoles roles={w?.roles} highlightRole={shiftRole} />
 
       {w?.cvUrl && (
         <div style={s.profileSection}>
@@ -301,7 +291,7 @@ export function WorkerProfilePanel({ app, onBack, onApprove, processing }: {
         </div>
       </div>
 
-      {!w?.bio && (!w?.skills || w.skills.length === 0) && (!w?.availableDays || w.availableDays.length === 0) && (
+      {!w?.bio && (!w?.roles || w.roles.length === 0) && (!w?.availableDays || w.availableDays.length === 0) && (
         <p style={s.emptyApps}>{t('admin.shifts.profileIncomplete')}</p>
       )}
     </div>

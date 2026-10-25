@@ -13,7 +13,8 @@ import { lisbonDateTime } from '../../common/lisbon-time';
 export interface ReNotificationJobData {
   shiftId: string;
   shiftTitle: string;
-  requiredSkills: string[];
+  /** Unused since 2026-10-25 (role + level are read from the shift); kept for jobs already queued. */
+  requiredSkills?: string[];
   employerId: string;
 }
 
@@ -68,7 +69,7 @@ export class ReNotificationProcessor extends WorkerHost {
     }
 
     // ── Re-notification wave (default) ──────────────────────────────────────
-    const { shiftId, shiftTitle, requiredSkills, employerId } = job.data as ReNotificationJobData;
+    const { shiftId, shiftTitle, employerId } = job.data as ReNotificationJobData;
     this.logger.log(`Re-notification check for shift ${shiftId}`);
 
     const shift = await this.shiftRepo.findOne({ where: { id: shiftId } });
@@ -92,7 +93,7 @@ export class ReNotificationProcessor extends WorkerHost {
     await this.notificationsService.notifyMatchingWorkers(
       shiftId,
       employerId,
-      requiredSkills,
+      { role: shift.subcategory ?? null, requiredLevel: shift.requiredLevel ?? 1 },
       shiftTitle,
       20, // skip the first 20 workers notified in wave 1
     );

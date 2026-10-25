@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   colors, spacing, radius, fontSize, fontWeight, calculateTSU, PaymentMethod,
+  meetsRoleLevel, normalizeSkill, WorkerRole,
 } from '@turnos/shared';
 import {
   shiftApi, ShiftSummary, MyApplication, ApiError,
@@ -39,12 +40,14 @@ function hoursWorked(start: string, end: string): number {
 export default function ShiftDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { t, tSkill, fSmartDate, fDateRange } = useT();
+  const { t, tSkill, tRoleLevel, tTask, fSmartDate, fDateRange } = useT();
 
   const [shift, setShift]             = useState<ShiftSummary | null>(null);
   const [myApp, setMyApp]             = useState<MyApplication | null>(null);
   const [attendance, setAttendance]   = useState<AttendanceRecord | null>(null);
   const [profileScore, setProfileScore] = useState<number | null>(null);
+  // null = unknown (not loaded) — the server still enforces the level gate
+  const [myRoles, setMyRoles]         = useState<WorkerRole[] | null>(null);
   const [isLoading, setIsLoading]     = useState(true);
   const [isApplying, setIsApplying]   = useState(false);
   const [applied, setApplied]         = useState(false);
@@ -67,7 +70,10 @@ export default function ShiftDetailScreen() {
         attendanceApi.getAttendance(id).catch(() => null),
         authApi.getMe().catch(() => null),
       ]);
-      if (me) setProfileScore(me.profileQualityScore ?? 0);
+      if (me) {
+        setProfileScore(me.profileQualityScore ?? 0);
+        setMyRoles(me.roles ?? []);
+      }
 
       setShift(shiftData);
       setMyApp(myApps.find(a => a.shift.id === id) ?? null);
@@ -90,12 +96,29 @@ export default function ShiftDetailScreen() {
 
   // ── apply ─────────────────────────────────────────────────────────────────
 
+  // ── level ───────────────────────────────────────────────────────────────
+  const shiftRole = shift?.subcategory ? normalizeSkill(shift.subcategory) : '';
+  const requiredLevel = Number(shift?.requiredLevel) || 1;
+  const myRole = myRoles?.find(r => normalizeSkill(r.role) === shiftRole) ?? null;
+  const meetsLevel = myRoles === null || meetsRoleLevel(myRoles, shiftRole, requiredLevel);
+  const levelGapText = myRole
+    ? t('mobile.shiftDetail.belowLevel', { role: tSkill(shiftRole), level: myRole.level, required: requiredLevel })
+    : t('mobile.shiftDetail.noRole', { role: tSkill(shiftRole), required: requiredLevel });
+
   // Called when worker taps "Candidatar-me"
   const handleApplyPress = () => {
     if (!shift) return;
     // Profile gate: score must be >= 80 to apply
     if (profileScore !== null && profileScore < 80) {
       setShowGate(true);
+      return;
+    }
+    // Level gate — same rule the server applies (meetsRoleLevel)
+    if (!meetsLevel) {
+      Alert.alert(t('mobile.shiftDetail.levelBlockedTitle'), levelGapText, [
+        { text: t('common.back'), style: 'cancel' },
+        { text: t('mobile.shiftDetail.updateRoles'), onPress: () => router.push('/edit-profile' as any) },
+      ]);
       return;
     }
     // Multi-day: make the commitment explicit before the cover-note sheet
@@ -453,18 +476,44 @@ export default function ShiftDetailScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Skills */}
-          {shift.skillsRequired && shift.skillsRequired.length > 0 && (
+          {/* What the shift asks for — role, level (same words the company picked), tasks */}
+          {!!shiftRole && (
             <View style={styles.skillsSection}>
-              <Text style={styles.sectionTitle}>{t('mobile.shiftDetail.skillsTitle')}</Text>
-              <View style={styles.skillsWrap}>
-                {/* Stored PT job titles — translated for display only */}
-                {shift.skillsRequired.map(skill => (
-                  <View key={skill} style={styles.skillChip}>
-                    <Text style={styles.skillText}>{tSkill(skill)}</Text>
-                  </View>
-                ))}
+              <Text style={styles.sectionTitle}>{t('mobile.shiftDetail.levelTitle')}</Text>
+              <View style={styles.levelBox}>
+                <Text style={styles.levelHead}>
+                  {tSkill(shiftRole)} · {t('mobile.roles.levelN', { level: requiredLevel })}
+                </Text>
+                <Text style={styles.levelDesc}>{tRoleLevel(shiftRole, requiredLevel)}</Text>
+                {requiredLevel <= 1 && <Text style={styles.levelOpen}>{t('mobile.shiftDetail.levelOpen')}</Text>}
               </View>
+              {(shift.tasksRequired?.length ?? 0) > 0 && (
+                <>
+                  <Text style={styles.tasksLabel}>{t('mobile.shiftDetail.tasksTitle')}</Text>
+                  <View style={styles.skillsWrap}>
+                    {shift.tasksRequired!.map(id => {
+                      const done = !!myRole?.tasks.includes(id);
+                      return (
+                        <View key={id} style={[styles.skillChip, done && styles.skillChipDone]}>
+                          <Text style={[styles.skillText, done && styles.skillTextDone]}>
+                            {done ? '✓ ' : ''}{tTask(shiftRole, id)}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+              {!meetsLevel && (
+                <TouchableOpacity
+                  style={styles.levelGap}
+                  onPress={() => router.push('/edit-profile' as any)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.levelGapText}>{levelGapText}</Text>
+                  <Text style={styles.levelGapCta}>{t('mobile.shiftDetail.updateRoles')} →</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -549,7 +598,7 @@ export default function ShiftDetailScreen() {
               </View>
             )}
             <TouchableOpacity
-              style={[styles.applyBtn, isApplying && styles.applyBtnDisabled]}
+              style={[styles.applyBtn, (isApplying || !meetsLevel) && styles.applyBtnDisabled]}
               onPress={handleApplyPress}
               disabled={isApplying}
               activeOpacity={0.85}
@@ -791,6 +840,21 @@ const styles = StyleSheet.create({
 
   skillsSection: { marginBottom: spacing.md },
   sectionTitle: { fontSize: fontSize.h3, fontWeight: fontWeight.bold, color: colors.textPrimary, marginBottom: spacing.sm },
+  levelBox: {
+    backgroundColor: '#eef0ff', borderRadius: 10, padding: 12, gap: 4, marginBottom: 10,
+  },
+  levelHead: { fontSize: fontSize.body, fontWeight: fontWeight.bold, color: colors.primary },
+  levelDesc: { fontSize: fontSize.caption, color: colors.textPrimary, lineHeight: 18 },
+  levelOpen: { fontSize: 12, fontWeight: fontWeight.semibold, color: '#15803d' },
+  tasksLabel: { fontSize: 12, fontWeight: fontWeight.bold, color: colors.textSecondary, marginBottom: 6 },
+  skillChipDone: { backgroundColor: '#dcfce7' },
+  skillTextDone: { color: '#166534' },
+  levelGap: {
+    marginTop: 10, backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fcd34d',
+    borderRadius: 10, padding: 12, gap: 4,
+  },
+  levelGapText: { fontSize: fontSize.caption, color: '#92400e', lineHeight: 18 },
+  levelGapCta: { fontSize: fontSize.caption, fontWeight: fontWeight.bold, color: '#92400e' },
   skillsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   skillChip: {
     backgroundColor: colors.primaryLight, borderRadius: radius.full,
