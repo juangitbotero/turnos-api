@@ -477,6 +477,12 @@ value.
 | **Reminder 2h before** | Address + maps link, dress code, "scan the QR on arrival" |
 | **Weekly "Available this week?"** | One-tap day selection; keeps the availability data that matching and urgent refill depend on fresh |
 
+### Shift rules
+
+| Item | Detail |
+|---|---|
+| **Shift length 4h–10h** | **Proposed 2026-10-17, not decided** (Merytu benchmark — they use 4h min / 10h max). Today: 2h minimum, no maximum (`shifts.service.ts` `create()` guard + `new-shift/page.tsx` check, errors `api.shifts.minDuration` / `admin.newShift.errDuration`, "Mínimo 2 horas" badge). **Suggestion:** raise the minimum to 4h and allow up to 10h, but since Turnos shifts are employment (MCD) and Merytu's are self-employment, the Labour Code applies above 8h: hours 9–10 are overtime (~+25% first hour, +37.5% after, art. 268.º), work can't run more than ~5h straight without a 1–2h break (art. 213.º), and 22h–7h carries the night premium (art. 266.º). So: a warning on any shift >8h, and the break + overtime included in the all-in cost estimate — **confirm with the law firm before building**. Trade-off: the 2–3h lunch/dinner-rush shift disappears; check the beta companies don't rely on it. Applies per day for multi-day jobs; existing shifts unaffected. **Rules that depend on the 2h figure — decide separately whether they stay at 2h or move to 4h** (they are compensation floors, not shift length): (1) **"Ajustar horas" floor** — `wage-payments.service.ts` clamps to ≥2h; (2) **company cancels <3h by own error** → 2h paid to the worker (`shifts.service.ts`, `minimumEur` in web-admin `shifts/page.tsx`); (3) **shift ended early** → hours worked or 2h, whichever is greater (company terms); (4) the urgent-refill idea below ("warn if under the 2h minimum"). **Documents to update with whatever is decided:** `policies/cancellation-and-noshow-policy.md`, `legal/termos-empresas.md` + `web-admin/app/termos-empresas/content.ts` (a terms change → bump `TERMS_VERSIONS.EMPLOYER`), `legal/termos-trabalhadores.md`, `legal/pay-link-legal-brief.md`, `faq-turnos.md` (Q on "porquê pagar 2 horas" explicitly ties the cancel minimum to "as 2 horas de duração mínima"), i18n PT + EN. **Not related:** the 2h window to accept an offer (`OFFER_ACCEPTANCE_HOURS`) |
+
 ### Matching and invitations
 
 | Item | Detail |
