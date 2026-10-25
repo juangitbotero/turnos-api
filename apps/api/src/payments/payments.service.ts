@@ -199,8 +199,12 @@ export class PaymentsService {
   /**
    * Guard: check if employer has an active subscription before allowing shift posting.
    * Also enforces the 15-shift concurrent limit.
+   *
+   * `adding` is how many jobs are about to be created — 1 for a single shift,
+   * every slot of a multi-role request ("2 waiters" = 2). The whole request
+   * must fit: nothing is created if it would go over the limit.
    */
-  async assertCanPostShift(employerUserId: string): Promise<void> {
+  async assertCanPostShift(employerUserId: string, adding = 1): Promise<void> {
     // Beta/dev bypass — set BYPASS_SUBSCRIPTION=true in Railway Variables to skip check
     if (process.env['BYPASS_SUBSCRIPTION'] === 'true') return;
 
@@ -231,9 +235,13 @@ export class PaymentsService {
         .andWhere('s.status = :status', { status: 'OPEN' })
         .getRawOne<{ count: string }>() ?? { count: '0' };
       const activeCount = Number(count);
-      if (activeCount >= MAX_ACTIVE_SHIFTS) {
-        throw new BadRequestException(
-          t('api.payments.maxActiveShifts', { max: MAX_ACTIVE_SHIFTS }),
+      if (activeCount + adding > MAX_ACTIVE_SHIFTS) {
+        throw new BadRequestException(adding > 1
+          ? t('api.payments.maxActiveShiftsBulk', {
+              max: MAX_ACTIVE_SHIFTS, active: activeCount, adding,
+              fits: Math.max(0, MAX_ACTIVE_SHIFTS - activeCount),
+            })
+          : t('api.payments.maxActiveShifts', { max: MAX_ACTIVE_SHIFTS }),
         );
       }
     }

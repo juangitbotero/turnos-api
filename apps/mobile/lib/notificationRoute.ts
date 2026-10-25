@@ -17,6 +17,8 @@ export function notificationRoute(data: { type?: unknown; shiftId?: unknown } | 
   const type = typeof data?.type === 'string' ? data.type : undefined;
   const shiftId = typeof data?.shiftId === 'string' ? data.shiftId : undefined;
   if (type === 'account_restricted') return '/profile';            // statement of reasons
+  if (type === 'role_confirmed') return '/profile';                 // role now shows as confirmed
+  if (type === 'role_review') return '/edit-profile';               // companies said the level is lower
   if (type === 'rate_employer' && shiftId) return `/rate/${shiftId}`;
   if (type && TO_MY_SHIFTS.has(type)) return '/my-shifts';
   if (shiftId) return `/shift/${shiftId}`;

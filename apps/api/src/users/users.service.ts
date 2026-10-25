@@ -33,6 +33,7 @@ import {
   resolveWorkerRoles,
   levelFromYears,
   getRole,
+  roleNeedsCertificate,
 } from '@turnos/shared';
 
 @Injectable()
@@ -296,6 +297,12 @@ export class UsersService {
         }[result.error];
         throw new BadRequestException(t(`api.auth.${key}`, { max: MAX_WORKER_ROLES }));
       }
+      // A removed role takes its document with it — no orphaned licence files
+      for (const old of previous) {
+        if (old.certificate?.url && !result.roles.some(r => r.role === old.role)) {
+          void this.storage.deleteByUrl(old.certificate.url);
+        }
+      }
       worker.roles  = result.roles;
       worker.skills = result.roles.map(r => r.role);
       return;
@@ -472,6 +479,31 @@ export class UsersService {
   }
 
   /** Store (or clear, with null) the worker's CV and rescore the profile. */
+  /**
+   * Attach (or replace) the legally required document of one declared role.
+   * The role must already be saved on the profile and be one that needs a
+   * document. Replacing deletes the previous file.
+   */
+  async setRoleCertificate(
+    userId: string,
+    roleName: string,
+    file: { url: string; fileName: string } | null,
+  ): Promise<{ roles: WorkerRole[] }> {
+    const worker = await this.workerRepo.findOne({ where: { user: { id: userId } }, relations: ['user'] });
+    if (!worker) throw new NotFoundException('Worker profile not found');
+    const roles = resolveWorkerRoles(worker);
+    const role = roles.find(r => r.role === normalizeSkills([roleName])[0]);
+    if (!role || !roleNeedsCertificate(role.role)) {
+      if (file) void this.storage.deleteByUrl(file.url);
+      throw new BadRequestException(t('api.auth.certificateRoleInvalid'));
+    }
+    if (role.certificate?.url) void this.storage.deleteByUrl(role.certificate.url);
+    role.certificate = file ? { ...file, uploadedAt: new Date().toISOString() } : null;
+    worker.roles = roles;
+    await this.workerRepo.save(worker);
+    return { roles };
+  }
+
   async updateWorkerCv(
     userId: string,
     cv: { url: string; fileName: string } | null,
@@ -677,6 +709,7 @@ export class UsersService {
     const removed = await Promise.all([
       this.storage.deleteByUrl(worker.photoUrl),
       this.storage.deleteByUrl(worker.cvUrl),
+      ...resolveWorkerRoles(worker).map(r => this.storage.deleteByUrl(r.certificate?.url)),
     ]);
 
     worker.fullName           = undefined;

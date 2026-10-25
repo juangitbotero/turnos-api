@@ -25,13 +25,22 @@ import { restrictionNotice, statementToHtml } from '../users/restriction-notice'
 import { t } from '../i18n/request-language';
 import { notificationPrefsOf } from '../users/notification-prefs';
 import { lisbonDateTime } from '../common/lisbon-time';
-import { BADGE_THRESHOLDS } from '@turnos/shared';
+import {
+  BADGE_THRESHOLDS, ROLE_CONFIRMED_MIN_SHIFTS, ROLE_BELOW_LEVEL_REVIEW_AT,
+  normalizeSkill, resolveWorkerRoles, translateSkill, APP_LANGUAGES, AppLanguage, DEFAULT_LANGUAGE,
+} from '@turnos/shared';
 
 export interface CreateRatingDto {
   shiftId: string;
   score: number;          // 1–5
   tags?: string[];
   review?: string;        // Employer written review (max 150 chars), shown to other employers
+  /**
+   * "Did the worker's declared level in this role match?" — only meaningful
+   * when the worker declared the shift's role. true (with ≥4★) counts towards
+   * "Confirmado", false towards an ops review. Optional: older clients omit it.
+   */
+  levelMatched?: boolean;
 }
 
 export interface CreateWorkerRatingDto {
@@ -125,7 +134,19 @@ export class RatingsService {
       tags: dto.tags ?? [],
       review: dto.review,
     });
+
+    // The level question only applies to a role the worker declared
+    const worker = shift.assignedWorker;
+    const roleName = shift.subcategory ? normalizeSkill(shift.subcategory) : null;
+    const declared = roleName ? resolveWorkerRoles(worker).some(r => r.role === roleName) : false;
+    if (typeof dto.levelMatched === 'boolean' && declared) rating.levelMatched = dto.levelMatched;
+
     const saved = await this.ratingRepo.save(rating);
+
+    if (rating.levelMatched !== null && rating.levelMatched !== undefined && roleName) {
+      this.applyLevelAnswer(worker.id, roleName, rating.levelMatched, dto.score, shift, employer)
+        .catch(err => this.logger.warn(`[Ratings] Level answer not applied for worker ${worker.id}: ${(err as Error).message}`));
+    }
 
     // Async reputation recalculation (best-effort)
     this.recalculateWorkerReputation(shift.assignedWorker.id).catch(err => {
@@ -134,6 +155,75 @@ export class RatingsService {
 
     this.logger.log(`[Ratings] Employer ${employer.id} rated worker ${shift.assignedWorker.id} → ${dto.score}★ (shift ${shift.id})`);
     return saved;
+  }
+
+  /**
+   * Turn the company's answer to "did the level match?" into the role's
+   * counters. Yes with ≥4★ → `confirmedShifts` (shown as "Confirmado em N
+   * turnos" from ROLE_CONFIRMED_MIN_SHIFTS). No → `belowLevelCount`; at
+   * ROLE_BELOW_LEVEL_REVIEW_AT the worker is asked to review the level and the
+   * case goes to a person. The level is NEVER lowered automatically — that
+   * would be an automated decision about a worker (Platform Work Directive).
+   */
+  private async applyLevelAnswer(
+    workerId: string, roleName: string, matched: boolean, score: number,
+    shift: Shift, employer: Employer,
+  ): Promise<void> {
+    const worker = await this.workerRepo.findOne({ where: { id: workerId }, relations: ['user'] });
+    if (!worker) return;
+    const roles = resolveWorkerRoles(worker);
+    const role = roles.find(r => r.role === roleName);
+    if (!role) return;
+
+    const lang: AppLanguage = APP_LANGUAGES.includes(worker.preferredLanguage as AppLanguage)
+      ? worker.preferredLanguage as AppLanguage : DEFAULT_LANGUAGE;
+    const roleLabel = translateSkill(roleName, lang);
+
+    if (matched) {
+      if (score < 4) return; // a "yes" on a weak shift is not a confirmation
+      role.confirmedShifts = (role.confirmedShifts ?? 0) + 1;
+      await this.workerRepo.update(worker.id, { roles });  // roles only — see recalculateWorkerReputation
+      if (role.confirmedShifts === ROLE_CONFIRMED_MIN_SHIFTS) {
+        this.notifications.notifyWorker(worker,
+          { key: 'roleConfirmed', params: { role: roleLabel, count: role.confirmedShifts } },
+          { type: 'role_confirmed' }).catch(() => {});
+      }
+      return;
+    }
+
+    role.belowLevelCount = (role.belowLevelCount ?? 0) + 1;
+    await this.workerRepo.update(worker.id, { roles });  // roles only — see recalculateWorkerReputation
+    if (role.belowLevelCount !== ROLE_BELOW_LEVEL_REVIEW_AT) return;
+
+    this.notifications.notifyWorker(worker,
+      { key: 'roleLevelReview', params: { role: roleLabel, level: role.level } },
+      { type: 'role_review' }).catch(() => {});
+
+    void this.mail.sendOpsAlert({
+      ref: opsRef('NIV', worker.id),
+      kind: 'Nível declarado abaixo do real',
+      subjectParts: [worker.fullName, roleName],
+      summary: `${ROLE_BELOW_LEVEL_REVIEW_AT} empresas responderam que o nível de ${worker.fullName ?? 'um trabalhador'} `
+        + `em ${roleName} ficou abaixo do declarado (nível ${role.level}). Nada foi alterado automaticamente.`,
+      facts: [
+        ['Trabalhador', worker.fullName],
+        ['Contacto do trabalhador', joinParts(worker.user?.phone, worker.user?.email)],
+        ['Função', roleName],
+        ['Nível declarado', String(role.level)],
+        ['Respostas "abaixo do nível"', String(role.belowLevelCount)],
+        ['Turnos confirmados nesta função', String(role.confirmedShifts ?? 0)],
+        ['Última empresa', employer.companyName],
+        ['Último turno', joinParts(shift.title, ptDate(shift.date))],
+        ['Registado em', lisbonStamp(new Date())],
+      ],
+      steps: [
+        'O trabalhador já recebeu um pedido para rever o nível desta função.',
+        'Falar com o trabalhador e, se fizer sentido, com as empresas que responderam.',
+        'Se o nível estiver mesmo errado, pedir ao trabalhador que o corrija — qualquer alteração imposta exige motivo escrito.',
+      ],
+      deadline: deadlineIn(7 * 24),
+      contacts: [{ label: 'Escrever ao trabalhador', email: worker.user?.email }],
+    });
   }
 
   // ── Worker rates employer (internal only) ──────────────────────────────────
@@ -213,7 +303,17 @@ export class RatingsService {
     worker.completedShifts = completion.completed;
     worker.completionRate  = completion.rate;
     await this.recalculateBadges(worker);
-    await this.workerRepo.save(worker);
+    // Write only the reputation columns. A full save() writes back every column
+    // as loaded above — it raced with applyLevelAnswer() (fired on the same
+    // rating) and silently restored the worker's roles to their old counters.
+    await this.workerRepo.update(worker.id, {
+      avgRating:       worker.avgRating,
+      totalRatings:    worker.totalRatings,
+      reputationScore: worker.reputationScore,
+      completedShifts: worker.completedShifts,
+      completionRate:  worker.completionRate,
+      badges:          worker.badges,
+    });
 
     this.logger.log(`[Ratings] Worker ${workerId} reputation updated: avg=${worker.avgRating ?? '—'}, score=${worker.reputationScore}, badges=${worker.badges?.join(',') ?? '—'}`);
   }

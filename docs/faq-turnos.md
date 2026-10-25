@@ -11,6 +11,11 @@
 > não gera documento de contrato) e "comunicado à SS" pela Turnos (é a empresa que comunica).
 > O resto do FAQ ainda não foi revisto contra a política de cancelamento v1.2.
 >
+> 2026-10-25: competências substituídas por funções com nível, tarefas e confirmação, e
+> documentos obrigatórios para segurança, empilhador e motorista
+> (`docs/skills-matching-proposal.md`). Novas perguntas nas duas secções. Também: publicar
+> várias funções num só pedido e o que são as "vagas" de um turno.
+>
 > Nota de manutenção: sempre que a política mudar, esta página muda. Um FAQ desatualizado
 > num produto de conformidade é pior do que não ter FAQ.
 
@@ -71,27 +76,54 @@ Sim, para ativar a subscrição. Não é possível publicar turnos sem subscriç
 ### Publicar e preencher turnos
 
 **Como publico um turno?**
-No painel web: categoria e função, morada (geocodificada automaticamente), data e horário,
-valor/hora bruto, competências e idiomas exigidos, número de vagas e método de pagamento.
-O custo TSU é calculado à medida que preenche.
+No painel web: a função, o **nível exigido** (escolhido entre descrições do que a pessoa tem
+de saber fazer), as tarefas do turno, idiomas, morada (geocodificada automaticamente), data e
+horário, valor/hora bruto e método de pagamento. Enquanto preenche, vê quantos trabalhadores
+correspondem à função e ao nível, e o custo TSU.
+
+**Preciso de várias pessoas, em funções diferentes, para o mesmo dia. Tenho de publicar uma a uma?**
+Não. Em Turnos → **Publicar vários turnos** preenche uma vez o nome do pedido, as datas, a morada
+e o método de pagamento, e acrescenta uma linha por função — por exemplo 2 empregados de mesa, 1
+barman e 1 copeiro, cada linha com o seu horário, valor/hora e nível. Cada pessoa tem o seu
+próprio turno: conta um turno por pessoa no seu plano e a taxa de 3 € aplica-se a cada turno
+concluído. Os trabalhadores veem uma oferta por função ("2 vagas") e candidatam-se uma vez;
+escolhe as pessoas de uma única lista de candidatos. Se o pedido não couber no limite do
+plano, nada é publicado.
 
 **Qual é a duração mínima de um turno?**
 Duas horas. É também o mínimo que serve de base a qualquer pagamento devido por
 cancelamento tardio.
 
 **Como é que os trabalhadores encontram o meu turno?**
-Ao publicar, enviamos notificação push aos 20 trabalhadores com melhor correspondência de
-competências, por proximidade. Trabalhadores marcados como favoritos e os que têm distintivo
+Ao publicar, enviamos notificação push a 20 trabalhadores que declararam a função do turno
+no nível exigido ou superior. Trabalhadores marcados como favoritos e os que têm distintivo
 TOP_RATED aparecem primeiro. Se ao fim de 5 horas não houver candidaturas, é enviada uma
 segunda vaga de notificações.
 
 **Como escolho quem fica com o turno?**
-Vê a lista de candidatos com perfil, avaliação, competências e a nota de apresentação que
-cada um escreveu. Escolhe um. Essa pessoa recebe um convite e tem **2 horas** para aceitar.
+Vê a lista de candidatos com perfil, avaliação e a nota de apresentação de cada um. Cada
+candidato tem uma linha que explica a correspondência — por exemplo *"Barista · Nível 3 ✓ ·
+2/3 tarefas · Confirmado em 4 turnos"* — e pode ordenar por melhor avaliação ou melhor
+correspondência. Escolhe um. Essa pessoa recebe um convite e tem **2 horas** para aceitar.
 Se não aceitar, o turno reabre automaticamente e é notificado.
 
 **Posso pesquisar trabalhadores em vez de esperar por candidaturas?**
-Sim. A pesquisa de trabalhadores permite filtrar por competência, idioma e disponibilidade.
+Sim. A pesquisa de trabalhadores permite filtrar por função, nível mínimo, só trabalhadores
+com nível confirmado, idioma e disponibilidade.
+
+**Como sei que o trabalhador tem mesmo o nível que diz ter?**
+Cada nível é descrito pelo que a pessoa sabe fazer, e o trabalhador declara-o com as mesmas
+palavras que vê ao publicar. Depois de cada turno, na avaliação, responde a uma pergunta: *"o
+nível correspondeu ao declarado?"*. Ao fim de 2 turnos com 4★ ou mais e resposta "sim", a
+função aparece como **Confirmada**. Duas respostas "ficou abaixo" levam a equipa Turnos a rever
+o caso com o trabalhador.
+
+**Posso contratar seguranças, operadores de empilhador ou motoristas?**
+Sim, mas estas funções exigem por lei um documento: cartão profissional de segurança privada,
+certificado de formação de operador de empilhador ou carta de condução. Só aparecem, recebem
+avisos e se candidatam os trabalhadores que carregaram o documento, e no perfil do candidato
+pode abri-lo. A Turnos verifica que o ficheiro existe, não a sua autenticidade: confirmar a
+habilitação continua a ser dever da empresa, antes do turno.
 
 **Posso trabalhar sempre com as mesmas pessoas?**
 Sim. Adicione-as a favoritos e passam a ter prioridade nas notificações dos seus turnos.
@@ -256,12 +288,41 @@ turnos dessa empresa.
 
 **Como me inscrevo?**
 Descarregas a app, entras com o teu número de telemóvel e preenches o perfil em 4 passos:
-identidade e foto, dados legais (NIF e IBAN), competências e idiomas, e disponibilidade. O
-perfil tem uma pontuação de qualidade e precisa de pelo menos 80 pontos para ir a aprovação.
+identidade e foto, dados legais (NIF e IBAN), as tuas funções (até 3, cada uma com o teu nível
+e as tarefas que já fizeste) e disponibilidade. O perfil tem uma pontuação de qualidade e
+precisa de pelo menos 80 pontos para ir a aprovação.
 
 **Quanto tempo demora a aprovação?**
 A equipa Turnos revê o teu perfil manualmente. Quanto mais completo estiver — foto, NIF, IBAN,
-pelo menos 3 competências e disponibilidade — mais rápido é.
+pelo menos 1 função e disponibilidade — mais rápido é.
+
+**O que é o nível de uma função?**
+Cada função tem até 3 níveis, descritos pelo que sabes fazer — por exemplo, em Barman: nível 1
+prepara bebidas simples e apoia o barman; nível 2 faz cocktails clássicos sem receita e
+trabalha sozinho; nível 3 é chefe de bar. Escolhe o que corresponde à tua experiência real: as
+empresas veem exatamente essa descrição, e confirmam-na depois de cada turno.
+
+**Porque é que não me consigo candidatar a um turno?**
+Se o turno pede um nível mais alto do que o que declaraste nessa função, a app explica-te e
+leva-te às tuas funções. Turnos de nível 1 ("Sem experiência") estão abertos a todos. Também
+não te podes candidatar com o perfil abaixo de 80 pontos, sem data de nascimento, ou se o turno
+passar os limites legais de dias ou de descanso.
+
+**O que quer dizer "Confirmado"?**
+Que as empresas que te contrataram confirmaram o teu nível nessa função — 2 turnos com 4★ ou
+mais em que responderam que o nível correspondeu. É o que mais pesa quando uma empresa escolhe
+entre candidatos. Se duas empresas disserem que ficou abaixo, avisamos-te para o reveres; o teu
+nível nunca é mudado automaticamente, e uma pessoa da equipa Turnos fala contigo.
+
+**Preciso de carregar documentos?**
+Só para segurança privada (cartão profissional), operador de empilhador (certificado de
+formação) e motorista (carta de condução). Sem o documento, essas funções não aparecem às
+empresas. Carregas uma foto ou PDF no perfil, em Editar perfil → As minhas funções, e a empresa
+a que te candidatas para essa função pode vê-lo. Se caducar, substitui-o ou remove-o.
+
+**O que quer dizer "2 vagas" num turno?**
+Que a empresa precisa de várias pessoas nessa função, no mesmo horário. Candidatas-te uma vez e
+ficas candidato a todas as vagas; se fores escolhido para uma, deixas de aparecer nas outras.
 
 **Como me candidato a um turno?**
 Vês o turno no feed ou no mapa, com a distância, o horário e o valor bruto/hora. Candidatas-te

@@ -12,7 +12,7 @@ export * from './i18n';
 export * from './roles';
 import {
   ROLE_CATALOGUE, getRole, roleMaxLevel, roleTaskIds,
-  type RoleCategory, type RoleLevel,
+  type RoleCategory, type RoleLevel, type RoleDefinition,
 } from './roles';
 
 // ─── User Types ──────────────────────────────────────────────────────────────
@@ -314,6 +314,39 @@ export interface WorkerRole {
    * reviewed by the worker — the app asks them to confirm it once.
    */
   provisional?: boolean;
+  /**
+   * Server-owned: the legally required document for roles that have one
+   * (ROLE_CATALOGUE `certificate`). Without it the role is hidden from
+   * companies, not notified and cannot be applied with.
+   */
+  certificate?: RoleCertificateFile | null;
+}
+
+/** An uploaded licence / certificate file for one role. */
+export interface RoleCertificateFile {
+  url: string;
+  fileName: string;
+  uploadedAt: string;  // ISO timestamp
+}
+
+/** Roles that cannot be worked without a document (security card, forklift, driving licence). */
+export const CERTIFIED_ROLES: string[] = Object.values(ROLE_CATALOGUE)
+  .flatMap(roles => Object.entries(roles as Record<string, RoleDefinition>))
+  .filter(([, def]) => !!def.certificate)
+  .map(([name]) => name);
+
+/** Does this role need a document before it can be used? */
+export function roleNeedsCertificate(role: string | null | undefined): boolean {
+  return !!role && !!getRole(normalizeSkill(role))?.certificate;
+}
+
+/**
+ * Is this declared role usable — i.e. not a licensed role still missing its
+ * document? Roles that need no document are always usable.
+ */
+export function isRoleUsable(role: WorkerRole | null | undefined): boolean {
+  if (!role) return false;
+  return !roleNeedsCertificate(role.role) || !!role.certificate?.url;
 }
 
 /** Provisional level for a years-of-experience bucket, used only to migrate old profiles. */
@@ -392,6 +425,7 @@ export function validateWorkerRoles(
       role, level: level as RoleLevel, tasks, years,
       confirmedShifts: before?.confirmedShifts ?? 0,
       belowLevelCount: before?.belowLevelCount ?? 0,
+      ...(before?.certificate ? { certificate: before.certificate } : {}),
     });
   }
   return { roles: out };
@@ -399,9 +433,11 @@ export function validateWorkerRoles(
 
 /**
  * Can this worker apply to a shift of `role` at `requiredLevel`?
- * Level-1 shifts are open to everyone ("Sem experiência necessária", decision
- * D3) — they are how new people get started. Above that the worker must have
- * declared the role at that level or higher.
+ * Licensed roles (security, forklift, driver) always need the role declared
+ * WITH its document — the law, not the company, sets that bar. Otherwise
+ * level-1 shifts are open to everyone ("Sem experiência necessária", decision
+ * D3) — they are how new people get started — and above that the worker must
+ * have declared the role at that level or higher.
  */
 export function meetsRoleLevel(
   roles: WorkerRole[],
@@ -409,8 +445,12 @@ export function meetsRoleLevel(
   requiredLevel: number | null | undefined,
 ): boolean {
   const required = requiredLevel ?? 1;
-  if (!role || required <= 1) return true;
+  if (!role) return true;
   const name = normalizeSkill(role);
+  if (roleNeedsCertificate(name)) {
+    return roles.some(r => normalizeSkill(r.role) === name && r.level >= required && isRoleUsable(r));
+  }
+  if (required <= 1) return true;
   return roles.some(r => normalizeSkill(r.role) === name && r.level >= required);
 }
 
@@ -738,7 +778,9 @@ export function formatEUR(amount: number): string {
  * Worker terms: web-admin /termos · Company terms: web-admin /termos-empresas.
  */
 export const TERMS_VERSIONS = {
-  WORKER:   '2026-09-27',
+  // 2026-10-25: roles, levels, level confirmation and licence documents (§4-A,
+  // §10, §11) — material: every worker re-accepts in the app.
+  WORKER:   '2026-10-25',
   // 2026-10-05: accountant email and Annex A (art. 28 DPA) removed — material.
   EMPLOYER: '2026-10-05',
 } as const;

@@ -8,7 +8,7 @@ import { FavouriteWorker } from '../ratings/entities/favourite-worker.entity';
 import { RedisService } from '../redis/redis.service';
 import { WorkerNotification } from './entities/worker-notification.entity';
 import { runWithLanguage, t } from '../i18n/request-language';
-import { APP_LANGUAGES, AppLanguage, DEFAULT_LANGUAGE, normalizeSkill } from '@turnos/shared';
+import { APP_LANGUAGES, AppLanguage, DEFAULT_LANGUAGE, normalizeSkill, CERTIFIED_ROLES } from '@turnos/shared';
 
 /**
  * What to tell the worker: a catalogue key under `api.push.*` (preferred — sent
@@ -91,8 +91,9 @@ export class NotificationsService {
     if (match.role) {
       query.andWhere(
         `EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(worker.roles, '[]'::jsonb)) r
-                 WHERE r->>'role' = :role AND (r->>'level')::int >= :level)`,
-        { role: normalizeSkill(match.role), level: Math.max(1, match.requiredLevel || 1) },
+                 WHERE r->>'role' = :role AND (r->>'level')::int >= :level
+                   AND (NOT (r->>'role' = ANY(:certRoles)) OR (r->'certificate'->>'url') IS NOT NULL))`,
+        { role: normalizeSkill(match.role), level: Math.max(1, match.requiredLevel || 1), certRoles: CERTIFIED_ROLES },
       );
     }
 

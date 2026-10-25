@@ -125,6 +125,12 @@ export default function CandidatesPage() {
                       <span style={s.metaItem}><IconCalendar size={13} /> {fMediumDate(sh.date)}
                         {days > 1 && <> · {t('admin.candidates.multiDay', { count: days })}</>}
                       </span>
+                      {/* A request line: one candidate list for N places */}
+                      {sh.totalSlots != null && sh.totalSlots > 1 && (
+                        <span style={s.metaItem}>
+                          {t('admin.candidates.slots', { open: sh.openSlots ?? 0, total: sh.totalSlots })}
+                        </span>
+                      )}
                       <span style={s.metaItem}><IconClock size={13} /> {sh.startTime.slice(0, 5)}–{sh.endTime.slice(0, 5)}</span>
                       <span style={s.metaItem}>€{Number(sh.grossHourlyRate).toFixed(2)}/h</span>
                     </p>

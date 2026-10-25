@@ -34,15 +34,20 @@ interface RatingModalProps {
 }
 
 function RatingModal({ worker, onClose, onSuccess }: RatingModalProps) {
-  const { t, fMediumDate } = useT();
+  const { t, fMediumDate, tSkill, tRoleLevel } = useT();
   // This worker's jobs not yet reviewed — already filtered by the server
   const unratedShifts: WorkerJobRef[] = worker.pendingReviews;
   const [selectedShiftId, setSelectedShiftId] = useState(unratedShifts[0]?.shiftId ?? '');
   const [score, setScore]                     = useState(0);
   const [selectedTags, setSelectedTags]       = useState<string[]>([]);
   const [review, setReview]                   = useState('');  // Written review visible to other employers
+  // "Did the level match?" — asked only when the worker declared the shift's role
+  const [levelMatched, setLevelMatched]       = useState<boolean | null>(null);
   const [submitting, setSubmitting]           = useState(false);
   const [error, setError]                     = useState('');
+  const selected = unratedShifts.find(s => s.shiftId === selectedShiftId);
+  const askLevel = !!selected?.role && selected.declaredLevel != null;
+  const canSubmit = score > 0 && (!askLevel || levelMatched !== null) && !submitting;
 
   const toggleTag = (key: string) => {
     setSelectedTags(prev =>
@@ -51,7 +56,7 @@ function RatingModal({ worker, onClose, onSuccess }: RatingModalProps) {
   };
 
   const handleSubmit = async () => {
-    if (!selectedShiftId || score === 0) return;
+    if (!selectedShiftId || !canSubmit) return;
     setSubmitting(true);
     setError('');
     try {
@@ -60,6 +65,7 @@ function RatingModal({ worker, onClose, onSuccess }: RatingModalProps) {
         score,
         tags: selectedTags,
         review: review.trim() || undefined,
+        levelMatched: askLevel ? levelMatched ?? undefined : undefined,
       });
       onSuccess();
     } catch (err) {
@@ -96,7 +102,7 @@ function RatingModal({ worker, onClose, onSuccess }: RatingModalProps) {
                 <select
                   style={m.select}
                   value={selectedShiftId}
-                  onChange={e => setSelectedShiftId(e.target.value)}
+                  onChange={e => { setSelectedShiftId(e.target.value); setLevelMatched(null); }}
                 >
                   {unratedShifts.map(s => (
                     <option key={s.shiftId} value={s.shiftId}>
@@ -125,6 +131,29 @@ function RatingModal({ worker, onClose, onSuccess }: RatingModalProps) {
                 <p style={m.scoreLabel}>{t(`admin.ratings.scores.${score}`)}</p>
               )}
             </div>
+
+            {/* Level check — turns declared roles into "Confirmado" over time */}
+            {askLevel && selected && (
+              <div style={m.field}>
+                <label style={m.label}>
+                  {t('admin.ratings.levelQuestion', { role: tSkill(selected.role!), level: selected.declaredLevel })}
+                </label>
+                <p style={m.levelDeclared}>{tRoleLevel(selected.role!, selected.declaredLevel!)}</p>
+                <div style={m.tagsRow}>
+                  {([[true, t('admin.ratings.levelYes')], [false, t('admin.ratings.levelBelow')]] as [boolean, string][]).map(([value, label]) => (
+                    <button
+                      key={String(value)}
+                      type="button"
+                      style={{ ...m.tagChip, ...(levelMatched === value ? m.tagChipActive : {}) }}
+                      onClick={() => setLevelMatched(value)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p style={m.levelHint}>{t('admin.ratings.levelHint')}</p>
+              </div>
+            )}
 
             {/* Tags */}
             <div style={m.field}>
@@ -168,9 +197,9 @@ function RatingModal({ worker, onClose, onSuccess }: RatingModalProps) {
                 {t('common.cancel')}
               </button>
               <button
-                style={{ ...m.submitBtn, ...(score === 0 || submitting ? m.submitBtnDisabled : {}) }}
+                style={{ ...m.submitBtn, ...(!canSubmit ? m.submitBtnDisabled : {}) }}
                 onClick={handleSubmit}
-                disabled={score === 0 || submitting}
+                disabled={!canSubmit}
               >
                 {submitting ? t('admin.ratings.rateSubmitting') : t('admin.ratings.rateSubmit')}
               </button>
@@ -535,6 +564,8 @@ const s: Record<string, React.CSSProperties> = {
 // ─── Modal Styles ─────────────────────────────────────────────────────────────
 
 const m: Record<string, React.CSSProperties> = {
+  levelDeclared: { fontSize: 12.5, color: '#374151', background: '#f5f6ff', borderRadius: 8, padding: '8px 10px', margin: 0, lineHeight: 1.45 },
+  levelHint: { fontSize: 11.5, color: '#6b7280', margin: 0, lineHeight: 1.45 },
   overlay: {
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',

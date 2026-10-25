@@ -60,6 +60,15 @@ const pt: LegalDoc = {
       ],
     },
     {
+      heading: '4-A. As tuas funções, o teu nível e os teus documentos',
+      bullets: [
+        'Escolhes até 3 funções. Para cada uma declaras o teu nível — descrito pelo que sabes fazer — e as tarefas que já fizeste. Declara só o que corresponde à tua experiência real: é com base nisso que as empresas te escolhem.',
+        'A empresa pode pedir um nível mínimo para o turno. Se o nível que declaraste for inferior, a aplicação não te deixa candidatar. Turnos de nível 1 estão abertos a todos.',
+        'Algumas funções exigem por lei um documento válido: segurança privada (cartão profissional), operador de empilhador (certificado de formação) e motorista (carta de condução). Sem o documento carregado, essas funções não aparecem às empresas e não te podes candidatar a esses turnos.',
+        'Ao carregares um documento, declaras que é teu, autêntico e válido. Se caducar ou for cancelado, tens de o remover ou substituir. A empresa a que te candidatas para essas funções pode vê-lo, porque tem o dever de o confirmar.',
+      ],
+    },
+    {
       heading: '5. Candidaturas, convites e aceitação',
       bullets: [
         'Candidatas-te aos turnos que quiseres, e podes juntar uma nota curta. Não há obrigação de te candidatares a nada.',
@@ -117,13 +126,14 @@ const pt: LegalDoc = {
       bullets: [
         'Depois de cada trabalho, a empresa pode avaliar-te (1 a 5 estrelas, com um comentário curto que outras empresas podem ver). Tu podes avaliar a empresa; essa avaliação é interna e nunca é mostrada à empresa.',
         'As avaliações, faltas e o estado da conta determinam automaticamente os selos TOP, FIÁVEL e VERIFICADO, e a ordem pela qual és avisado de novos turnos (favoritos da empresa, depois selo TOP, depois os restantes).',
+        'Na avaliação, a empresa responde se o teu nível na função do turno correspondeu ao que declaraste. Depois de 2 turnos com 4★ ou mais e resposta "sim", a função aparece como "Confirmada". Duas respostas de que ficou abaixo não mudam o teu nível automaticamente: avisamos-te para o reveres e uma pessoa da equipa Turnos analisa o caso.',
         `Revisão humana: qualquer decisão automática — pontuação, suspensão, avaliação de 1★, bloqueio — pode ser revista por uma pessoa da equipa Turnos a teu pedido, em ${SUPPORT_EMAIL}. Respondemos em até 48 horas.`,
       ],
     },
     {
       heading: '11. Suspensão e encerramento pela Turnos',
       bullets: [
-        'Podemos suspender ou encerrar a tua conta nos casos da secção 9; por informação falsa, conta duplicada ou utilização por outra pessoa; por fraude no check-in (por exemplo, partilhar ou fotografar o QR code); ou por assédio, discriminação ou violência.',
+        'Podemos suspender ou encerrar a tua conta nos casos da secção 9; por informação falsa (incluindo um nível declarado sem fundamento ou um documento falso, alheio ou caducado), conta duplicada ou utilização por outra pessoa; por fraude no check-in (por exemplo, partilhar ou fotografar o QR code); ou por assédio, discriminação ou violência.',
         'Quando o fizermos, dizemos-te porquê — os factos, a regra aplicada, a consequência e como pedir revisão — por notificação, por email se nos tiveres dado um, e no teu perfil na aplicação.',
         'Uma suspensão ou bloqueio não afeta o teu direito a receber os turnos já trabalhados.',
       ],

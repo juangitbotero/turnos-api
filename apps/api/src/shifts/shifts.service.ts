@@ -17,9 +17,11 @@ import {
   normalizeSkill, roleCategory, roleMaxLevel, roleTaskIds,
   meetsRoleLevel, resolveWorkerRoles, translateSkill,
   normalizeSkills as normalizeSkillList, ROLE_CONFIRMED_MIN_SHIFTS,
+  CERTIFIED_ROLES, roleNeedsCertificate, isRoleUsable,
 } from '@turnos/shared';
 import { Shift, ShiftStatus } from './entities/shift.entity';
 import { ShiftApplication, ApplicationStatus } from './entities/shift-application.entity';
+import { ShiftRequest } from './entities/shift-request.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { Worker } from '../users/entities/worker.entity';
 import { ShiftsGateway } from '../gateway/shifts.gateway';
@@ -63,11 +65,40 @@ export interface PublicEmployer {
 }
 
 /** A shift as the "who worked with us" cards need it. */
-export interface WorkerJobRef { shiftId: string; title: string; date: string }
+export interface WorkerJobRef {
+  shiftId: string; title: string; date: string;
+  /** Pending reviews only: the shift's role, and the worker's declared level in it (null = not declared). */
+  role?: string | null;
+  declaredLevel?: number | null;
+}
 
 export type PublicShift = Omit<Shift, 'employer' | 'assignedWorker' | 'applications'> & {
   employer: PublicEmployer | null;
   seriesDates?: string[];
+  /** Multi-role request line: workers still needed on this card ("2 vagas"). */
+  openSlots?: number;
+};
+
+/** Limits of one multi-role request ("Publicar vários turnos"). */
+export const REQUEST_MAX_LINES = 10;
+export const REQUEST_MAX_QUANTITY = 10;
+
+/** One row of a multi-role request: N workers in one role. */
+export interface RequestLineInput {
+  subcategory: string;
+  requiredLevel?: number;
+  tasksRequired?: string[];
+  quantity: number;
+  startTime: string;
+  endTime: string;
+  grossHourlyRate: number;
+  languagesRequired?: string[];
+  title?: string;
+}
+
+/** Order used to pick one application per worker when a line has several. */
+const APP_STATUS_RANK: Record<string, number> = {
+  APPROVED: 0, PENDING: 1, REJECTED: 2, WITHDRAWN: 3, EXPIRED: 4, CANCELLED: 5,
 };
 
 @Injectable()
@@ -79,6 +110,8 @@ export class ShiftsService {
     private shiftRepo: Repository<Shift>,
     @InjectRepository(ShiftApplication)
     private applicationRepo: Repository<ShiftApplication>,
+    @InjectRepository(ShiftRequest)
+    private requestRepo: Repository<ShiftRequest>,
     @InjectRepository(Employer)
     private employerRepo: Repository<Employer>,
     @InjectRepository(Worker)
@@ -184,44 +217,10 @@ export class ShiftsService {
     hasDressCode?: boolean;
     dressCode?: string | null;
   }): Promise<Shift> {
-    // Guard: minimum 2-hour shift duration
-    const [sh, sm] = data.startTime.split(':').map(Number);
-    const [eh, em] = data.endTime.split(':').map(Number);
-    let shiftMins = ((eh ?? 0) * 60 + (em ?? 0)) - ((sh ?? 0) * 60 + (sm ?? 0));
-    if (shiftMins < 0) shiftMins += 24 * 60; // overnight shift
-    if (shiftMins < 120) {
-      throw new BadRequestException(t('api.shifts.minDuration'));
-    }
-
-    // Resolve the day set — one date is an ordinary shift, several a series
-    const allDates = [...new Set([data.date, ...(data.dates ?? [])].filter(Boolean))].sort();
-    if (allDates.length === 0) {
-      throw new BadRequestException(t('api.shifts.noDates'));
-    }
-    if (allDates.length > MAX_SERIES_DAYS) {
-      throw new BadRequestException(
-        t('api.shifts.maxSeriesDays', { max: MAX_SERIES_DAYS }),
-      );
-    }
-
-    // Guard: payment method is required — workers must know how they'll be
-    // paid (directly by the company) before applying.
-    // Cash is deliberately absent — an MCD wage must leave a traceable record.
-    const validMethods = Object.keys(PAYMENT_METHOD_LABELS);
-    if (!data.paymentMethod || !validMethods.includes(data.paymentMethod)) {
-      throw new BadRequestException(
-        t('api.shifts.paymentMethodRequired'),
-      );
-    }
-
-    // Guard: a dress code that is switched on must actually say something —
-    // "there is a dress code, figure it out" is worse than no dress code, and
-    // it is what the company would later cancel the shift over.
-    const dressCode = (data.dressCode ?? '').trim().slice(0, 300);
-    const hasDressCode = data.hasDressCode === true && dressCode.length > 0;
-    if (data.hasDressCode === true && dressCode.length === 0) {
-      throw new BadRequestException(t('api.shifts.dressCodeRequired'));
-    }
+    this.assertMinDuration(data.startTime, data.endTime);
+    const allDates = this.resolveDates([data.date, ...(data.dates ?? [])]);
+    this.assertPaymentMethod(data.paymentMethod);
+    const { hasDressCode, dressCode } = this.resolveDressCode(data.hasDressCode, data.dressCode);
 
     // Role, level and tasks — all from the catalogue, so they can be matched
     const roleFields = this.resolveRoleFields(data.subcategory, data.requiredLevel, data.tasksRequired);
@@ -282,6 +281,242 @@ export class ShiftsService {
     );
 
     return primary;
+  }
+
+  // ── Guards shared by single shifts and multi-role requests ─────────────────
+
+  /** Minimum 2-hour shift duration (overnight shifts wrap past midnight). */
+  private assertMinDuration(startTime: string, endTime: string): void {
+    const [sh, sm] = (startTime ?? '').split(':').map(Number);
+    const [eh, em] = (endTime ?? '').split(':').map(Number);
+    let shiftMins = ((eh ?? 0) * 60 + (em ?? 0)) - ((sh ?? 0) * 60 + (sm ?? 0));
+    if (shiftMins < 0) shiftMins += 24 * 60; // overnight shift
+    if (shiftMins < 120) {
+      throw new BadRequestException(t('api.shifts.minDuration'));
+    }
+  }
+
+  /** The day set — one date is an ordinary shift, several a series. */
+  private resolveDates(dates: Array<string | undefined>): string[] {
+    const allDates = [...new Set(dates.filter((d): d is string => !!d))].sort();
+    if (allDates.length === 0) {
+      throw new BadRequestException(t('api.shifts.noDates'));
+    }
+    if (allDates.length > MAX_SERIES_DAYS) {
+      throw new BadRequestException(t('api.shifts.maxSeriesDays', { max: MAX_SERIES_DAYS }));
+    }
+    return allDates;
+  }
+
+  /**
+   * Payment method is required — workers must know how they'll be paid
+   * (directly by the company) before applying. Cash is deliberately absent —
+   * an MCD wage must leave a traceable record.
+   */
+  private assertPaymentMethod(paymentMethod: string | undefined): void {
+    if (!paymentMethod || !Object.keys(PAYMENT_METHOD_LABELS).includes(paymentMethod)) {
+      throw new BadRequestException(t('api.shifts.paymentMethodRequired'));
+    }
+  }
+
+  /**
+   * A dress code that is switched on must actually say something — "there is
+   * a dress code, figure it out" is worse than none, and it is what the company
+   * would later cancel the shift over.
+   */
+  private resolveDressCode(on: boolean | undefined, text: string | null | undefined) {
+    const dressCode = (text ?? '').trim().slice(0, 300);
+    if (on === true && dressCode.length === 0) {
+      throw new BadRequestException(t('api.shifts.dressCodeRequired'));
+    }
+    const hasDressCode = on === true && dressCode.length > 0;
+    return { hasDressCode, dressCode: hasDressCode ? dressCode : null };
+  }
+
+  // ── Multi-role request ("Publicar vários turnos") ─────────────────────────
+
+  /**
+   * Post several roles at once — e.g. a hotel's Saturday: 2 waiters, 1 barman,
+   * 1 dishwasher. Every worker needed is a normal shift (or a series, for
+   * several days) carrying `requestId` + `lineId`, so check-in, compliance,
+   * fees and payment are untouched. Workers see one card per line ("2 vagas")
+   * and apply once; see apply() and approveApplication().
+   *
+   * All or nothing: the plan quota counts every slot (decision 2026-10-25) and
+   * the rows are written in one transaction — a request is never half posted.
+   */
+  async createRequest(userId: string, data: {
+    name: string;
+    description?: string;
+    dates: string[];
+    address: string;
+    lat: number;
+    lng: number;
+    paymentMethod?: string;
+    hasDressCode?: boolean;
+    dressCode?: string | null;
+    lines: RequestLineInput[];
+  }): Promise<{ id: string; name: string; lines: number; shifts: number }> {
+    const name = (data.name ?? '').trim().slice(0, 120);
+    if (!name) throw new BadRequestException(t('api.shifts.requestNameRequired'));
+    const lines = Array.isArray(data.lines) ? data.lines : [];
+    if (lines.length < 1 || lines.length > REQUEST_MAX_LINES) {
+      throw new BadRequestException(t('api.shifts.requestLines', { max: REQUEST_MAX_LINES }));
+    }
+    const allDates = this.resolveDates(data.dates ?? []);
+    this.assertPaymentMethod(data.paymentMethod);
+    const { hasDressCode, dressCode } = this.resolveDressCode(data.hasDressCode, data.dressCode);
+    if (!data.address?.trim() || data.lat == null || data.lng == null) {
+      throw new BadRequestException(t('api.shifts.requestAddress'));
+    }
+
+    // Validate every line before anything is written
+    const resolved = lines.map(line => {
+      const quantity = Number(line.quantity);
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > REQUEST_MAX_QUANTITY) {
+        throw new BadRequestException(t('api.shifts.requestQuantity', { max: REQUEST_MAX_QUANTITY }));
+      }
+      this.assertMinDuration(line.startTime, line.endTime);
+      const rate = Number(line.grossHourlyRate);
+      if (!Number.isFinite(rate) || rate <= 0) throw new BadRequestException(t('api.shifts.requestRate'));
+      const roleFields = this.resolveRoleFields(line.subcategory, line.requiredLevel, line.tasksRequired);
+      const languages = [...new Set((line.languagesRequired ?? []).map(String))];
+      return { line, quantity, rate, roleFields, languages };
+    });
+    const slots = resolved.reduce((n, r) => n + r.quantity, 0);
+
+    // Subscription, unpaid wages, and the whole request against the plan limit
+    await this.payments.assertCanPostShift(userId, slots);
+    const employer = await this.resolveEmployer(userId);
+    const isSeries = allDates.length > 1;
+
+    const { request, firstOfLine } = await this.shiftRepo.manager.transaction(async m => {
+      const request = await m.save(m.create(ShiftRequest, { name, employer: { id: employer.id } as Employer }));
+      const firstOfLine: Shift[] = [];
+      for (const r of resolved) {
+        const lineId = randomUUID();
+        let first: Shift | undefined;
+        for (let n = 0; n < r.quantity; n++) {
+          const seriesId = isSeries ? randomUUID() : null;
+          const rows = await m.save(allDates.map((day, i) => m.create(Shift, {
+            ...r.roleFields,
+            title: (r.line.title ?? '').trim().slice(0, 255) || r.roleFields.subcategory,
+            description: (data.description ?? '').trim(),
+            languagesRequired: r.languages.length ? r.languages : undefined,
+            date: day,
+            startTime: r.line.startTime,
+            endTime: r.line.endTime,
+            grossHourlyRate: r.rate,
+            address: data.address.trim(),
+            lat: data.lat,
+            lng: data.lng,
+            paymentMethod: data.paymentMethod,
+            hasDressCode,
+            dressCode,
+            status: ShiftStatus.OPEN,
+            employer: { id: employer.id } as Employer,
+            requestId: request.id,
+            lineId,
+            seriesId,
+            seriesDayIndex:  isSeries ? i + 1 : null,
+            seriesTotalDays: isSeries ? allDates.length : null,
+          } as Partial<Shift>)));
+          first ??= rows[0];
+        }
+        firstOfLine.push(first!);
+      }
+      return { request, firstOfLine };
+    });
+
+    // One notification wave per line — never the same push once per slot
+    for (const primary of firstOfLine) {
+      this.notifications
+        .notifyMatchingWorkers(
+          primary.id, employer.id,
+          { role: primary.subcategory, requiredLevel: primary.requiredLevel },
+          primary.title,
+        )
+        .catch(() => {});
+      await this.notificationQueue.add(
+        're-notify',
+        { shiftId: primary.id, shiftTitle: primary.title, employerId: employer.id } satisfies ReNotificationJobData,
+        { delay: RE_NOTIFY_DELAY_MS },
+      );
+    }
+
+    this.logger.log(`[Requests] ${employer.id} posted "${name}": ${resolved.length} line(s), ${slots} shift(s)`);
+    return { id: request.id, name: request.name, lines: resolved.length, shifts: slots };
+  }
+
+  /**
+   * Cancel every shift of a request that has not started — one call per slot
+   * through cancel(), so each keeps its own policy (fees, reasons, notices).
+   * A slot that needs a reason (<3h) and gets none stops the loop with that
+   * error; the slots before it stay cancelled and are reported.
+   */
+  async cancelRequest(userId: string, requestId: string, reason?: { category?: string; note?: string }) {
+    const employer = await this.resolveEmployer(userId);
+    const request = await this.requestRepo.findOne({ where: { id: requestId }, relations: ['employer'] });
+    if (!request) throw new NotFoundException(t('api.common.shiftNotFound'));
+    if (request.employer.id !== employer.id) throw new UnauthorizedException('Not your request');
+
+    const rows = await this.shiftRepo.find({ where: { requestId }, order: { date: 'ASC' } });
+    const firstDayOfSlot = new Map<string, Shift>();
+    for (const row of rows) {
+      if (![ShiftStatus.OPEN, ShiftStatus.PENDING_ACCEPTANCE, ShiftStatus.FILLED].includes(row.status)) continue;
+      const key = row.seriesId ?? row.id;
+      if (!firstDayOfSlot.has(key)) firstDayOfSlot.set(key, row);
+    }
+    let cancelled = 0;
+    for (const day of firstDayOfSlot.values()) {
+      await this.cancel(userId, day.id, reason);
+      cancelled++;
+    }
+    return { cancelled };
+  }
+
+  /**
+   * The slots of a request line as groups of day rows — one group per worker
+   * needed (a series is one group). Ascending by date.
+   */
+  private async lineSlots(lineId: string): Promise<Shift[][]> {
+    const rows = await this.shiftRepo.find({
+      where: { lineId },
+      relations: ['employer', 'assignedWorker'],
+      order: { date: 'ASC' },
+    });
+    const groups = new Map<string, Shift[]>();
+    for (const row of rows) {
+      const key = row.seriesId ?? row.id;
+      groups.set(key, [...(groups.get(key) ?? []), row]);
+    }
+    return [...groups.values()];
+  }
+
+  /** Do two shifts overlap in time? (Lisbon wall clock, overnight-aware.) */
+  private static overlaps(a: Shift, b: Shift): boolean {
+    const span = (x: Shift) => {
+      const start = lisbonDateTime(x.date, x.startTime).getTime();
+      let end = lisbonDateTime(x.date, x.endTime).getTime();
+      if (end <= start) end += 24 * 60 * 60 * 1000;
+      return [start, end] as const;
+    };
+    const [as, ae] = span(a);
+    const [bs, be] = span(b);
+    return as < be && bs < ae;
+  }
+
+  /** One application per worker for a line: the most advanced status wins. */
+  private static onePerWorker(apps: ShiftApplication[]): ShiftApplication[] {
+    const best = new Map<string, ShiftApplication>();
+    for (const a of apps) {
+      const key = a.worker?.id;
+      if (!key) continue;
+      const cur = best.get(key);
+      const rank = (x: ShiftApplication) => APP_STATUS_RANK[x.status] ?? 9;
+      if (!cur || rank(a) < rank(cur) || (rank(a) === rank(cur) && a.shift?.date < cur.shift?.date)) best.set(key, a);
+    }
+    return [...best.values()];
   }
 
   /**
@@ -360,7 +595,15 @@ export class ShiftsService {
       const live = days.find(d => d.status !== ShiftStatus.COMPLETED && d.status !== ShiftStatus.CANCELLED) ?? days[0]!;
       collapsed.push({ ...live, seriesDates: days.map(d => d.date) });
     }
-    return collapsed;
+
+    // Shifts posted together carry their request, so the dashboard can group them
+    const requestIds = [...new Set(collapsed.map(r => r.requestId).filter((x): x is string => !!x))];
+    if (requestIds.length === 0) return collapsed;
+    const requests = await this.requestRepo.find({ where: { id: In(requestIds) } });
+    const names = new Map(requests.map(r => [r.id, r.name]));
+    return collapsed.map(r => r.requestId
+      ? { ...r, request: { id: r.requestId, name: names.get(r.requestId) ?? '' } }
+      : r);
   }
 
   async update(userId: string, shiftId: string, data: Partial<Shift> & { lat?: number; lng?: number }): Promise<Shift> {
@@ -515,6 +758,22 @@ export class ShiftsService {
     const shift = await this.shiftRepo.findOne({ where: { id: shiftId }, relations: ['employer'] });
     if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
+    // A request line is one candidate list for all its slots: the worker
+    // applied once, to every open slot, so show each worker once.
+    if (shift.lineId) {
+      const lineRows = await this.shiftRepo.find({ where: { lineId: shift.lineId }, select: ['id'] });
+      const ids = lineRows.map(r => r.id);
+      const all = await this.applicationRepo.find({
+        where: { shift: { id: In(ids) } },
+        relations: ['worker', 'shift'],
+        order: { appliedAt: 'DESC' },
+      });
+      await this.markSeen(ids);
+      return ShiftsService.onePerWorker(all)
+        .sort((a, b) => b.appliedAt.getTime() - a.appliedAt.getTime())
+        .map(({ shift: _s, ...app }) => ({ ...app, worker: this.toApplicantWorker(app.worker) }));
+    }
+
     const applications = await this.applicationRepo.find({
       where: { shift: { id: shiftId } },
       relations: ['worker'],
@@ -540,16 +799,18 @@ export class ShiftsService {
     const employer = await this.resolveEmployer(userId);
     const apps = await this.pendingApplications(employer.id);
 
+    // Job key: a request line (all its slots), else a series, else the shift
+    const jobKey = (sh: Shift) => sh.lineId ?? sh.seriesId ?? sh.id;
     const firstDay = new Map<string, string>();   // job key → earliest open date
     for (const a of apps) {
-      const key = a.shift.seriesId ?? a.shift.id;
+      const key = jobKey(a.shift);
       const d = firstDay.get(key);
       if (!d || a.shift.date < d) firstDay.set(key, a.shift.date);
     }
 
     const jobs = new Map<string, { shift: Shift; applications: ShiftApplication[] }>();
     for (const a of apps) {
-      const key = a.shift.seriesId ?? a.shift.id;
+      const key = jobKey(a.shift);
       if (a.shift.date !== firstDay.get(key)) continue;
       const job = jobs.get(key) ?? { shift: a.shift, applications: [] };
       job.applications.push(a);
@@ -557,10 +818,16 @@ export class ShiftsService {
     }
 
     const result = [];
-    for (const { shift, applications } of jobs.values()) {
+    for (const { shift, applications: rawApps } of jobs.values()) {
       const { applications: _apps, ...plain } = await this.withSeriesInfo(shift);
+      // A line's slots each hold the same applicants — one row per worker,
+      // plus how many workers the line still needs
+      const applications = shift.lineId ? ShiftsService.onePerWorker(rawApps) : rawApps;
+      const slots = shift.lineId ? await this.lineSlots(shift.lineId) : null;
       result.push({
-        shift: plain,
+        shift: slots
+          ? { ...plain, openSlots: slots.filter(g => g.some(d => d.status === ShiftStatus.OPEN)).length, totalSlots: slots.length }
+          : plain,
         applications: applications
           .sort((a, b) => b.appliedAt.getTime() - a.appliedAt.getTime())
           .map(a => ({
@@ -585,7 +852,7 @@ export class ShiftsService {
     const pending = new Set<string>();
     const unseen = new Set<string>();
     for (const a of apps) {
-      const key = `${a.shift.seriesId ?? a.shift.id}:${a.worker.id}`;
+      const key = `${a.shift.lineId ?? a.shift.seriesId ?? a.shift.id}:${a.worker.id}`;
       pending.add(key);
       if (!a.employerSeenAt) unseen.add(key);
     }
@@ -684,7 +951,7 @@ export class ShiftsService {
       isAvailableForWork:  worker.isAvailableForWork,
       availableDays:       worker.availableDays ?? null,
       experiences:         worker.experiences ?? null,
-      roles:               this.publicRoles(worker),
+      roles:               this.publicRoles(worker, { withDocuments: true }),
       status:              worker.status,
       profileQualityScore: worker.profileQualityScore,
       avgRating:           worker.avgRating,
@@ -700,10 +967,17 @@ export class ShiftsService {
    * many shifts confirmed it. `belowLevelCount` is internal (it only opens an
    * ops review) and never leaves the server.
    */
-  private publicRoles(worker: Worker) {
-    return resolveWorkerRoles(worker).map(r => ({
+  private publicRoles(worker: Worker, opts: { withDocuments?: boolean } = {}) {
+    // A licensed role without its document is hidden from companies entirely
+    return resolveWorkerRoles(worker).filter(isRoleUsable).map(r => ({
       role: r.role, level: r.level, tasks: r.tasks, years: r.years ?? null,
       confirmedShifts: r.confirmedShifts ?? 0,
+      hasCertificate: !!r.certificate?.url,
+      // The file itself only to a company the worker applied to — checking it
+      // is that company's legal duty. Worker search gets the badge, not the file.
+      ...(opts.withDocuments && r.certificate?.url
+        ? { certificate: { url: r.certificate.url, fileName: r.certificate.fileName } }
+        : {}),
     }));
   }
 
@@ -719,16 +993,40 @@ export class ShiftsService {
 
   async approveApplication(userId: string, shiftId: string, applicationId: string) {
     const employer = await this.resolveEmployer(userId);
-    const shift = await this.shiftRepo.findOne({ where: { id: shiftId }, relations: ['employer'] });
-    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
-    if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
-    if (shift.status !== ShiftStatus.OPEN) throw new BadRequestException('Shift is no longer open');
+    const requested = await this.shiftRepo.findOne({ where: { id: shiftId }, relations: ['employer'] });
+    if (!requested) throw new NotFoundException(t('api.common.shiftNotFound'));
+    if (requested.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
 
     const application = await this.applicationRepo.findOne({
       where: { id: applicationId },
       relations: ['worker'],
     });
     if (!application) throw new NotFoundException('Application not found');
+
+    // A request line: the company picks a worker, not a slot. Fill the first
+    // open slot this worker applied to; refuse a second slot of the same line.
+    let shift = requested;
+    if (requested.lineId) {
+      const already = await this.shiftRepo.count({
+        where: {
+          lineId: requested.lineId,
+          assignedWorker: { id: application.worker.id },
+          status: In([ShiftStatus.PENDING_ACCEPTANCE, ShiftStatus.FILLED, ShiftStatus.ACTIVE, ShiftStatus.COMPLETED]),
+        },
+      });
+      if (already) throw new BadRequestException(t('api.shifts.alreadySelectedInLine'));
+      const mine = await this.applicationRepo.find({
+        where: { worker: { id: application.worker.id }, status: ApplicationStatus.PENDING, shift: { lineId: requested.lineId } },
+        relations: ['shift'],
+      });
+      const open = mine
+        .filter(a => a.shift.status === ShiftStatus.OPEN)
+        .sort((a, b) => a.shift.date.localeCompare(b.shift.date))[0];
+      if (!open) throw new BadRequestException('Shift is no longer open');
+      shift = (await this.shiftRepo.findOne({ where: { id: open.shift.id }, relations: ['employer'] }))!;
+    } else if (requested.status !== ShiftStatus.OPEN) {
+      throw new BadRequestException('Shift is no longer open');
+    }
 
     // Move shift to PENDING_ACCEPTANCE — worker must confirm within 2 hours.
     // For a multi-day job every day moves together: the worker is selected for
@@ -775,7 +1073,7 @@ export class ShiftsService {
       { delay: ACCEPTANCE_WINDOW_MS },
     );
 
-    return this.employerShiftView(shiftId);
+    return this.employerShiftView(shift.id);
   }
 
   /**
@@ -840,6 +1138,20 @@ export class ShiftsService {
         status: ApplicationStatus.PENDING,
       })
       .execute();
+
+    // Same request: the worker now holds one slot. Their applications to the
+    // other slots of this line, and to other lines at an overlapping time, go.
+    if (shift.requestId) {
+      const others = await this.applicationRepo.find({
+        where: { worker: { id: worker.id }, status: ApplicationStatus.PENDING, shift: { requestId: shift.requestId } },
+        relations: ['shift'],
+      });
+      const clash = others.filter(a => !dayIds.includes(a.shift.id)
+        && (a.shift.lineId === shift.lineId || days.some(d => ShiftsService.overlaps(d, a.shift))));
+      if (clash.length) {
+        await this.applicationRepo.update({ id: In(clash.map(a => a.id)) }, { status: ApplicationStatus.WITHDRAWN });
+      }
+    }
 
     // Notify employer via WebSocket
     this.gateway.notifyShiftFilled(shift.employer.id, { shiftId: shift.id, shiftTitle: shift.title });
@@ -1129,7 +1441,19 @@ export class ShiftsService {
       const days = [...(bySeries.get(row.seriesId) ?? [])].sort((a, b) => a.date.localeCompare(b.date));
       collapsed.push({ ...days[0]!, seriesDates: days.map(d => d.date) });
     }
-    return collapsed.map(shift => this.toPublicShift(shift));
+
+    // A request line asking for N workers is one card: "N vagas", applied to once
+    const lineCount = new Map<string, number>();
+    for (const c of collapsed) if (c.lineId) lineCount.set(c.lineId, (lineCount.get(c.lineId) ?? 0) + 1);
+    const seenLines = new Set<string>();
+    const cards: Array<Shift & { seriesDates?: string[]; openSlots?: number }> = [];
+    for (const c of collapsed) {
+      if (!c.lineId) { cards.push(c); continue; }
+      if (seenLines.has(c.lineId)) continue;
+      seenLines.add(c.lineId);
+      cards.push({ ...c, openSlots: lineCount.get(c.lineId) });
+    }
+    return cards.map(shift => this.toPublicShift(shift));
   }
 
   async apply(userId: string, shiftId: string, coverNote?: string): Promise<ShiftApplication & { warning?: string }> {
@@ -1141,7 +1465,8 @@ export class ShiftsService {
       relations: ['employer'],
     });
     if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
-    if (shift.status !== ShiftStatus.OPEN) throw new BadRequestException(t('api.shifts.notOpen'));
+    // A line card stays applicable while ANY of its slots is open (checked below)
+    if (!shift.lineId && shift.status !== ShiftStatus.OPEN) throw new BadRequestException(t('api.shifts.notOpen'));
 
     // Reliability enforcement — permanent block (2 no-shows) or active suspension
     if (worker.isBlocked) {
@@ -1168,21 +1493,46 @@ export class ShiftsService {
     // shift's level. It is the worker's own statement being checked, not a
     // judgement about them (decision D2). Level 1 is open to all (D3).
     if (!meetsRoleLevel(resolveWorkerRoles(worker), shift.subcategory, shift.requiredLevel)) {
+      const roleName = normalizeSkill(shift.subcategory);
+      const roleLabel = translateSkill(roleName, currentLanguage());
+      const mine = resolveWorkerRoles(worker).find(r => r.role === roleName);
+      // Licensed role declared at the right level but no document yet
+      if (roleNeedsCertificate(roleName) && mine && mine.level >= shift.requiredLevel) {
+        throw new BadRequestException(t('api.shifts.certificateMissing', { role: roleLabel }));
+      }
       throw new BadRequestException(t('api.shifts.levelTooLow', {
         level: shift.requiredLevel,
-        role: translateSkill(normalizeSkill(shift.subcategory), currentLanguage()),
+        role: roleLabel,
       }));
     }
 
-    const existing = await this.applicationRepo.findOne({
-      where: { shift: { id: shiftId }, worker: { id: worker.id } },
-    });
-    if (existing) throw new BadRequestException(t('api.shifts.alreadyApplied'));
+    // What the application covers: one job (a shift, or every day of a series),
+    // or — for a request line — every open slot, so the company can pick this
+    // worker for whichever slot is still free.
+    let jobs: Shift[][];
+    if (shift.lineId) {
+      const appliedInLine = await this.applicationRepo.count({
+        where: { worker: { id: worker.id }, shift: { lineId: shift.lineId } },
+      });
+      if (appliedInLine) throw new BadRequestException(t('api.shifts.alreadyApplied'));
+      jobs = (await this.lineSlots(shift.lineId))
+        .map(slot => slot.filter(d => d.status === ShiftStatus.OPEN))
+        .filter(slot => slot.length > 0);
+      if (jobs.length === 0) throw new BadRequestException(t('api.shifts.notOpen'));
+    } else {
+      const existing = await this.applicationRepo.findOne({
+        where: { shift: { id: shiftId }, worker: { id: worker.id } },
+      });
+      if (existing) throw new BadRequestException(t('api.shifts.alreadyApplied'));
+      jobs = [(await this.seriesShifts(shift)).filter(d => d.status === ShiftStatus.OPEN)];
+    }
 
     // Multi-day: applying commits the worker to EVERY day of the series.
     // Compliance is checked per day and any hard block rejects the whole
     // application — a worker must never end up holding a partial series.
-    const days = (await this.seriesShifts(shift)).filter(d => d.status === ShiftStatus.OPEN);
+    // The slots of a line share their dates and times, so one is enough.
+    const days = jobs[0]!;
+    const allDays = jobs.flat();
     const warnings: string[] = [];
     for (const day of days) {
       // days.length is passed so the MCD 70-day cap is measured against the
@@ -1197,11 +1547,11 @@ export class ShiftsService {
     // Counted before saving: any earlier row (even withdrawn) means the
     // first-candidate email already went out for this job.
     const isFirstCandidate = (await this.applicationRepo.count({
-      where: { shift: { id: In(days.map(d => d.id)) } },
+      where: { shift: { id: In(allDays.map(d => d.id)) } },
     })) === 0;
 
     const saved = (await this.applicationRepo.save(
-      days.map(day => this.applicationRepo.create({
+      allDays.map(day => this.applicationRepo.create({
         shift:     { id: day.id } as any,
         worker:    { id: worker.id } as any,
         status:    ApplicationStatus.PENDING,
@@ -1267,7 +1617,23 @@ export class ShiftsService {
       } as ShiftApplication);
     }
 
-    return [...singles, ...collapsed].sort(
+    // A request line: the worker applied once to every slot — show one entry,
+    // the slot they actually hold if any, otherwise their open application.
+    const entries = [...singles, ...collapsed];
+    const byLine = new Map<string, ShiftApplication[]>();
+    const result: ShiftApplication[] = [];
+    for (const e of entries) {
+      const lineId = e.shift?.lineId;
+      if (!lineId) { result.push(e); continue; }
+      byLine.set(lineId, [...(byLine.get(lineId) ?? []), e]);
+    }
+    const rank = (x: ShiftApplication) => APP_STATUS_RANK[x.status] ?? 9;
+    for (const group of byLine.values()) {
+      // Most advanced status first (APPROVED = the slot they hold), then soonest
+      result.push([...group].sort((a, b) => rank(a) - rank(b) || a.shift.date.localeCompare(b.shift.date))[0]!);
+    }
+
+    return result.sort(
       (a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime(),
     );
   }
@@ -1302,9 +1668,11 @@ export class ShiftsService {
       pendingReviews: WorkerJobRef[]; noShowShifts: WorkerJobRef[];
     }>();
 
+    const workerEntities = new Map<string, Worker>();
     for (const app of apps) {
       if (!app.worker) continue;
       const w = app.worker;
+      workerEntities.set(w.id, w);
       if (!workerMap.has(w.id)) {
         workerMap.set(w.id, {
           id:                  w.id,
@@ -1337,9 +1705,9 @@ export class ShiftsService {
     // completed day — the day the review prompt fires), and only jobs this
     // company hasn't reviewed yet. Working again for the same company = a new
     // job = a new review.
-    const toReview: Array<{ id: string; title: string; date: string; seriesId: string | null; workerId: string }> =
+    const toReview: Array<{ id: string; title: string; date: string; seriesId: string | null; workerId: string; subcategory: string | null }> =
       await this.shiftRepo.createQueryBuilder('s')
-        .select(['s.id AS id', 's.title AS title', `to_char(s.date, 'YYYY-MM-DD') AS date`, 's."seriesId" AS "seriesId"', 's."assignedWorkerId" AS "workerId"'])
+        .select(['s.id AS id', 's.title AS title', `to_char(s.date, 'YYYY-MM-DD') AS date`, 's."seriesId" AS "seriesId"', 's."assignedWorkerId" AS "workerId"', 's.subcategory AS subcategory'])
         .where('s."employerId" = :eid', { eid: employer.id })
         .andWhere('s.status = :completed', { completed: ShiftStatus.COMPLETED })
         .andWhere('s."assignedWorkerId" IS NOT NULL')
@@ -1356,7 +1724,14 @@ export class ShiftsService {
         if (seenSeries.has(row.seriesId)) continue; // DESC → first row is the last day
         seenSeries.add(row.seriesId);
       }
-      workerMap.get(row.workerId)?.pendingReviews.push({ shiftId: row.id, title: row.title, date: row.date });
+      // Role + declared level drive the "did the level match?" question
+      const role = row.subcategory ? normalizeSkill(row.subcategory) : null;
+      const entity = workerEntities.get(row.workerId);
+      const declared = role && entity ? resolveWorkerRoles(entity).find(r => r.role === role) : undefined;
+      workerMap.get(row.workerId)?.pendingReviews.push({
+        shiftId: row.id, title: row.title, date: row.date,
+        role, declaredLevel: declared?.level ?? null,
+      });
     }
 
     // No-show: a confirmed shift of this worker that has already started and
@@ -1520,10 +1895,12 @@ export class ShiftsService {
     const roles = normalizeSkillList(filters.skills);
     if (roles.length || filters.confirmedOnly) {
       // Exact role (any of the requested), at the minimum level, optionally confirmed
-      const conditions = ['TRUE'];
+      // A licensed role without its document doesn't count (it isn't shown either)
+      const conditions = [`(NOT (r->>'role' = ANY(:certRoles)) OR (r->'certificate'->>'url') IS NOT NULL)`];
       const params: Record<string, unknown> = {
         minLevel: Math.max(1, Number(filters.minLevel) || 1),
         confirmedMin: ROLE_CONFIRMED_MIN_SHIFTS,
+        certRoles: CERTIFIED_ROLES,
       };
       if (roles.length) { conditions.push(`r->>'role' IN (:...roles)`); params.roles = roles; }
       conditions.push(`(r->>'level')::int >= :minLevel`);
@@ -1575,8 +1952,9 @@ export class ShiftsService {
       .andWhere('w."profileQualityScore" >= :minScore', { minScore: PROFILE_MIN_SCORE_TO_APPLY })
       .andWhere(
         `EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(w.roles, '[]'::jsonb)) r
-                 WHERE r->>'role' = :role AND (r->>'level')::int >= :level)`,
-        { role, level: Math.max(1, Number(filters.level) || 1) },
+                 WHERE r->>'role' = :role AND (r->>'level')::int >= :level
+                   AND (NOT (r->>'role' = ANY(:certRoles)) OR (r->'certificate'->>'url') IS NOT NULL))`,
+        { role, level: Math.max(1, Number(filters.level) || 1), certRoles: CERTIFIED_ROLES },
       );
     (filters.languages ?? []).forEach((l, i) => {
       qb.andWhere(`w.languages LIKE :lang${i}`, { [`lang${i}`]: `%${l}%` });
@@ -1674,6 +2052,11 @@ export class ShiftsService {
       relations: ['employer', 'assignedWorker'],
     });
     if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
-    return this.toPublicShift(await this.withSeriesInfo(shift));
+    const withSeries = await this.withSeriesInfo(shift);
+    if (!shift.lineId) return this.toPublicShift(withSeries);
+    // One card per line: say how many workers it still needs
+    const slots = await this.lineSlots(shift.lineId);
+    const openSlots = slots.filter(g => g.some(d => d.status === ShiftStatus.OPEN)).length;
+    return { ...this.toPublicShift(withSeries), openSlots };
   }
 }

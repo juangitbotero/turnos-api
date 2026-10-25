@@ -51,7 +51,7 @@ const REGION     = '[[REGIÃO DE ALOJAMENTO]]';
 const pt: PolicyDoc = {
   back: '← Voltar',
   title: 'Política de Privacidade',
-  updated: 'Última atualização: 11 de outubro de 2026',
+  updated: 'Última atualização: 25 de outubro de 2026',
   lede:
     'Esta política explica que dados a Turnos recolhe, porquê, com quem os partilha e que direitos tens. ' +
     'Está escrita para ser lida — se alguma coisa não for clara, escreve-nos.',
@@ -78,7 +78,9 @@ const pt: PolicyDoc = {
         rows: [
           ['Identificação', 'Nome, número de telemóvel, fotografia de perfil, data de nascimento', 'Criar a conta, autenticar por SMS, identificar-te perante a empresa do turno e confirmar que tens pelo menos 18 anos'],
           ['Fiscais e bancários', 'NIF, IBAN', 'O NIF é necessário para a empresa cumprir as suas obrigações de entidade empregadora; o IBAN serve para a empresa te pagar (ver secção 5)'],
-          ['Perfil profissional', 'Competências, idiomas, experiência, biografia, CV, disponibilidade', 'Mostrar-te turnos relevantes e permitir que a empresa avalie a tua candidatura'],
+          ['Perfil profissional', 'Funções (até 3), cada uma com o nível que declaras, as tarefas que já fizeste e há quanto tempo; idiomas, biografia, CV, disponibilidade', 'Mostrar-te turnos relevantes e permitir que a empresa avalie a tua candidatura'],
+          ['Documentos profissionais', 'Cartão profissional de segurança privada, certificado de operador de empilhador ou carta de condução — só se escolheres uma função que o exige', 'A lei exige estes documentos para estas funções, e a empresa que te contrata tem de os poder confirmar'],
+          ['Confirmações de nível', 'A resposta de cada empresa que te contratou à pergunta "o nível correspondeu ao declarado?"', 'Mostrar às empresas que o teu nível foi confirmado por quem já trabalhou contigo (secção 6)'],
           ['Atividade', 'Candidaturas, turnos realizados, check-ins, avaliações, cancelamentos, faltas, suspensões', 'Fazer funcionar o mercado, calcular a tua reputação e aplicar as regras de fiabilidade (secção 6)'],
           ['Justificações', 'Motivo de um cancelamento tardio (doença, lesão, emergência, outro), a descrição que escreveres e, se o enviares ao suporte, um comprovativo', 'Avaliar se o cancelamento é justificado e, se for, retirá-lo do teu registo. Indicar doença ou lesão é um dado de saúde — ver secção 4'],
           ['Pagamentos', 'Estado do pagamento de cada turno, comprovativo carregado pela empresa, a tua confirmação de receção', 'Registar que foste pago e resolver disputas'],
@@ -95,7 +97,7 @@ const pt: PolicyDoc = {
       heading: '4. Com que fundamento legal',
       bullets: [
         'Execução do contrato (art. 6.º/1/b RGPD) — criar a conta, apresentar turnos, gerir candidaturas, registar a assiduidade e aplicar as regras de fiabilidade dos Termos de Utilização.',
-        'Obrigação legal (art. 6.º/1/c RGPD) — limites legais de dias de trabalho e de descanso, idade mínima, e o registo de auditoria destas verificações.',
+        'Obrigação legal (art. 6.º/1/c RGPD) — limites legais de dias de trabalho e de descanso, idade mínima, o registo de auditoria destas verificações, e os documentos profissionais que a lei exige para certas funções (por exemplo o cartão profissional de segurança privada, Lei n.º 34/2013).',
         'Consentimento (art. 6.º/1/a RGPD) — partilha do teu IBAN com a empresa para a qual trabalhaste, e notificações. Podes retirar o consentimento a qualquer momento.',
         'Consentimento explícito (art. 9.º/2/a RGPD) — se indicares doença ou lesão como motivo de um cancelamento, ou nos enviares um comprovativo médico. Justificar é sempre opcional; sem justificação, o cancelamento conta como tardio.',
         'Interesse legítimo (art. 6.º/1/f RGPD) — prevenção de fraude na leitura do QR code, e segurança da plataforma.',
@@ -116,10 +118,13 @@ const pt: PolicyDoc = {
       table: {
         head: ['Regra', 'O que acontece'],
         rows: [
-          ['Pontuação de perfil', 'Calculada a partir dos campos preenchidos (foto, NIF, IBAN, competências, nome, disponibilidade, CV). Abaixo de 80 pontos não te podes candidatar'],
+          ['Pontuação de perfil', 'Calculada a partir dos campos preenchidos (foto, NIF, IBAN, funções, nome, disponibilidade, CV). Abaixo de 80 pontos não te podes candidatar'],
+          ['Nível exigido', 'Uma empresa pode pedir um nível mínimo numa função. Se o nível que declaraste for inferior, não te podes candidatar a esse turno. Turnos de nível 1 estão abertos a todos'],
+          ['Funções com documento', 'Segurança privada, operador de empilhador e motorista só aparecem às empresas, recebem avisos de turnos e aceitam candidaturas depois de carregares o documento obrigatório'],
+          ['Confirmação de nível', 'Uma função passa a "Confirmada" depois de 2 turnos avaliados com 4 estrelas ou mais em que a empresa respondeu que o nível correspondeu. Duas respostas de que o nível ficou abaixo não alteram o teu nível automaticamente: és avisado e uma pessoa da equipa Turnos revê o caso'],
           ['Idade', 'Sem data de nascimento, ou com menos de 18 anos na data do turno, não te podes candidatar nem aceitar convites'],
           ['Limites legais', 'Não te podes candidatar se o turno ultrapassar 70 dias por ano com a mesma empresa ou não respeitar 11 horas de descanso'],
-          ['Ordem das notificações', 'Quando um turno é publicado, os trabalhadores com competências compatíveis são avisados por esta ordem: favoritos da empresa, trabalhadores com o selo TOP, restantes'],
+          ['Ordem das notificações', 'Quando um turno é publicado, são avisados os trabalhadores que declararam a função do turno no nível exigido ou superior (e com o documento, quando é obrigatório), por esta ordem: favoritos da empresa, trabalhadores com o selo TOP, restantes'],
           ['Cancelamento tardio', 'Cancelar um turno confirmado a menos de 24 h do início conta como cancelamento tardio. Dois em 30 dias suspendem as candidaturas durante 7 dias'],
           ['Falta', 'Quando a empresa regista uma falta: avaliação automática de 1 estrela e suspensão de 30 dias. Uma segunda falta bloqueia a conta'],
           ['Selos', 'TOP, FIÁVEL e VERIFICADO são atribuídos automaticamente a partir das avaliações, faltas e estado da conta'],
@@ -138,7 +143,8 @@ const pt: PolicyDoc = {
       table: {
         head: ['Quem', 'O quê', 'Para quê'],
         rows: [
-          ['Empresas a que te candidatas', 'Nome, foto, biografia, CV, competências, idiomas, experiência, disponibilidade, avaliações, selos e número de faltas. Nunca o NIF nem a data de nascimento', 'Avaliar a tua candidatura'],
+          ['Empresas que pesquisam trabalhadores', 'Nome, foto, biografia, CV, funções com nível, tarefas e confirmações, idiomas, disponibilidade, avaliações, selos e número de faltas. Uma função que exige documento só aparece se o tiveres carregado, e o ficheiro não é mostrado. Nunca o NIF nem a data de nascimento', 'Encontrar e convidar trabalhadores para os seus turnos'],
+          ['Empresas a que te candidatas', 'O acima, mais o documento profissional da função do turno, quando é obrigatório. Nunca o NIF nem a data de nascimento', 'Avaliar a tua candidatura e confirmar a habilitação que a lei exige'],
           ['A empresa do turno', 'O acima, mais o IBAN se consentires (secção 5) e, quando confirmas o turno, o teu NIF e os dados do turno (função, data, horário, local e valor/hora)', 'Pagar-te e cumprir as obrigações de entidade empregadora, incluindo comunicar a tua admissão à Segurança Social'],
           ['Stripe', 'Identificação, dados bancários e verificação de identidade dos trabalhadores que ativem o Pay Link', 'Processar o pagamento direto da empresa para o trabalhador'],
           ['Twilio', 'Número de telemóvel', 'Envio do código SMS de início de sessão'],
@@ -159,6 +165,7 @@ const pt: PolicyDoc = {
         'Justificações de cancelamento e respetivos comprovativos: 6 meses após a decisão.',
         'Histórico de turnos e pagamentos: conservado de forma anonimizada após a eliminação da conta.',
         'Notificações na caixa de entrada da aplicação: 180 dias.',
+        'Documentos profissionais: enquanto a função estiver no teu perfil. São apagados quando removes o documento, a função ou a conta.',
         'Registos técnicos de acesso: 12 meses.',
       ],
     },
@@ -166,7 +173,7 @@ const pt: PolicyDoc = {
       heading: '9. Eliminar a tua conta',
       paragraphs: [
         'Podes eliminar a conta a qualquer momento na aplicação, em Perfil → Eliminar a minha conta. Não precisas de nos contactar.',
-        'Ao eliminares, apagamos o teu nome, telemóvel, data de nascimento, NIF, IBAN, fotografia, CV, biografia, competências, idiomas, experiência, disponibilidade e as notificações da caixa de entrada, e deixas de receber qualquer notificação.',
+        'Ao eliminares, apagamos o teu nome, telemóvel, data de nascimento, NIF, IBAN, fotografia, CV, biografia, funções, documentos profissionais, idiomas, experiência, disponibilidade e as notificações da caixa de entrada, e deixas de receber qualquer notificação.',
         'Não podemos apagar os registos de contrato e o registo de auditoria das verificações legais: a lei obriga-nos a conservá-los (art. 17.º/3/b RGPD). Esses registos ficam associados a um identificador sem nome nem contactos.',
         'Não é possível eliminar a conta enquanto tiveres um turno confirmado por realizar ou um pagamento por receber — no segundo caso, para que não fiques sem prova do que te é devido.',
       ],
@@ -210,7 +217,7 @@ const pt: PolicyDoc = {
 const en: PolicyDoc = {
   back: '← Back',
   title: 'Privacy Policy',
-  updated: 'Last updated: 11 October 2026',
+  updated: 'Last updated: 25 October 2026',
   lede:
     'This policy explains what data Turnos collects, why, who we share it with and what rights you have. ' +
     'It is written to be read — if anything is unclear, write to us.',
@@ -237,7 +244,9 @@ const en: PolicyDoc = {
         rows: [
           ['Identity', 'Name, mobile number, profile photo, date of birth', 'Create your account, authenticate by SMS, identify you to the company running the shift, and confirm you are at least 18'],
           ['Tax and banking', 'NIF, IBAN', 'The NIF is needed for the company to meet its duties as employer; the IBAN is how the company pays you (see section 5)'],
-          ['Professional profile', 'Skills, languages, experience, bio, CV, availability', 'Show you relevant shifts and let a company assess your application'],
+          ['Professional profile', 'Roles (up to 3), each with the level you declare, the tasks you have done and for how long; languages, bio, CV, availability', 'Show you relevant shifts and let a company assess your application'],
+          ['Professional documents', 'Private-security professional card, forklift operator certificate or driving licence — only if you choose a role that requires one', 'The law requires these documents for these roles, and the company hiring you must be able to check them'],
+          ['Level confirmations', 'Each hiring company’s answer to "did the level match what was declared?"', 'Show companies that your level was confirmed by people who worked with you (section 6)'],
           ['Activity', 'Applications, completed shifts, check-ins, ratings, cancellations, no-shows, suspensions', 'Run the marketplace, calculate your reputation and apply the reliability rules (section 6)'],
           ['Justifications', 'Reason for a late cancellation (illness, injury, emergency, other), the description you write and, if you send it to support, a supporting document', 'Decide whether the cancellation is justified and, if so, remove it from your record. Stating illness or injury is health data — see section 4'],
           ['Payments', 'Payment status for each shift, proof uploaded by the company, your confirmation of receipt', 'Record that you were paid and resolve disputes'],
@@ -254,7 +263,7 @@ const en: PolicyDoc = {
       heading: '4. Legal bases',
       bullets: [
         'Performance of a contract (GDPR Art. 6(1)(b)) — creating your account, showing shifts, handling applications, recording attendance and applying the reliability rules in the Terms of Use.',
-        'Legal obligation (Art. 6(1)(c)) — statutory limits on working days and rest, the minimum age, and the audit trail of those checks.',
+        'Legal obligation (Art. 6(1)(c)) — statutory limits on working days and rest, the minimum age, the audit trail of those checks, and the professional documents the law requires for certain roles (for example the private-security professional card, Law 34/2013).',
         'Consent (Art. 6(1)(a)) — sharing your IBAN with a company you worked for, and notifications. You can withdraw consent at any time.',
         'Explicit consent (Art. 9(2)(a)) — if you give illness or injury as the reason for a cancellation, or send us a medical document. Justifying is always optional; without a justification the cancellation counts as late.',
         'Legitimate interest (Art. 6(1)(f)) — fraud prevention on QR check-in, and platform security.',
@@ -275,10 +284,13 @@ const en: PolicyDoc = {
       table: {
         head: ['Rule', 'What happens'],
         rows: [
-          ['Profile score', 'Calculated from the fields you have filled in (photo, NIF, IBAN, skills, name, availability, CV). Below 80 points you cannot apply'],
+          ['Profile score', 'Calculated from the fields you have filled in (photo, NIF, IBAN, roles, name, availability, CV). Below 80 points you cannot apply'],
+          ['Required level', 'A company can ask for a minimum level in a role. If the level you declared is lower, you cannot apply to that shift. Level-1 shifts are open to everyone'],
+          ['Roles needing a document', 'Private security, forklift operator and driver are only shown to companies, notified of shifts and able to apply once you have uploaded the required document'],
+          ['Level confirmation', 'A role becomes "Confirmed" after 2 shifts rated 4 stars or more where the company answered that the level matched. Two answers that the level was lower do not change your level automatically: you are told, and a person on the Turnos team reviews the case'],
           ['Age', 'Without a date of birth, or if you will be under 18 on the day of the shift, you cannot apply or accept invitations'],
           ['Legal limits', 'You cannot apply if the shift would take you over 70 days a year with the same company, or break the 11-hour rest period'],
-          ['Notification order', 'When a shift is posted, workers with matching skills are notified in this order: the company’s favourites, workers with the TOP badge, everyone else'],
+          ['Notification order', 'When a shift is posted, workers who declared the shift’s role at the required level or higher (and uploaded the document, where one is required) are notified in this order: the company’s favourites, workers with the TOP badge, everyone else'],
           ['Late cancellation', 'Cancelling a confirmed shift less than 24 h before it starts counts as a late cancellation. Two within 30 days suspend applications for 7 days'],
           ['No-show', 'When the company records a no-show: an automatic 1-star rating and a 30-day suspension. A second no-show blocks the account'],
           ['Badges', 'TOP, RELIABLE and VERIFIED are awarded automatically from ratings, no-shows and account status'],
@@ -297,7 +309,8 @@ const en: PolicyDoc = {
       table: {
         head: ['Who', 'What', 'Why'],
         rows: [
-          ['Companies you apply to', 'Name, photo, bio, CV, skills, languages, experience, availability, ratings, badges and number of no-shows. Never your NIF or date of birth', 'Assess your application'],
+          ['Companies searching for workers', 'Name, photo, bio, CV, roles with level, tasks and confirmations, languages, availability, ratings, badges and number of no-shows. A role that needs a document only appears once you have uploaded it, and the file itself is not shown. Never your NIF or date of birth', 'Find and invite workers for their shifts'],
+          ['Companies you apply to', 'The above, plus the professional document for the shift’s role, where one is required. Never your NIF or date of birth', 'Assess your application and check the qualification the law requires'],
           ['The company running the shift', 'The above, plus your IBAN if you consent (section 5) and, once you confirm the shift, your NIF and the shift details (role, date, hours, location and hourly rate)', 'Pay you and meet its duties as employer, including notifying Social Security of your hire'],
           ['Stripe', 'Identity, bank details and identity verification of workers who activate the Pay Link', 'Process the direct payment from company to worker'],
           ['Twilio', 'Mobile number', 'Send the SMS sign-in code'],
@@ -318,6 +331,7 @@ const en: PolicyDoc = {
         'Cancellation justifications and their supporting documents: 6 months after the decision.',
         'Shift and payment history: retained in anonymised form after account deletion.',
         'Notifications in the in-app inbox: 180 days.',
+        'Professional documents: for as long as the role is on your profile. They are deleted when you remove the document, the role or your account.',
         'Technical access logs: 12 months.',
       ],
     },
@@ -325,7 +339,7 @@ const en: PolicyDoc = {
       heading: '9. Deleting your account',
       paragraphs: [
         'You can delete your account at any time in the app, under Profile → Delete my account. You do not need to contact us.',
-        'When you do, we erase your name, phone number, date of birth, NIF, IBAN, photo, CV, bio, skills, languages, experience, availability and your inbox notifications, and you stop receiving any notification.',
+        'When you do, we erase your name, phone number, date of birth, NIF, IBAN, photo, CV, bio, roles, professional documents, languages, experience, availability and your inbox notifications, and you stop receiving any notification.',
         'We cannot erase contract records or the audit trail of legal checks: the law requires us to keep them (GDPR Art. 17(3)(b)). Those records remain attached to an identifier carrying no name and no contact details.',
         'You cannot delete your account while you have a confirmed shift still to work or a payment still outstanding — the second, so that you are not left without evidence of what you are owed.',
       ],

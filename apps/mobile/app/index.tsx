@@ -31,6 +31,7 @@ function toFeedItem(s: ShiftSummary, fmt: {
     subcategory: s.subcategory,
     grossHourlyRate: Number(s.grossHourlyRate),
     requiredLevel: Number(s.requiredLevel) || 1,
+    openSlots: s.openSlots ?? 1,
     paymentMethodLabel: PAYMENT_METHOD_LABELS[s.paymentMethod as PaymentMethod] ?? null,
     startTime: s.startTime.slice(0, 5),
     endTime: s.endTime.slice(0, 5),
@@ -285,6 +286,15 @@ export default function FeedScreen() {
                   <Ionicons name="time-outline" size={11} color={colors.textSecondary} />
                   <Text style={s.footerChipText}>{item.startTime}–{item.endTime}</Text>
                 </View>
+                {/* One card for N places of the same role — applying once covers them */}
+                {item.openSlots > 1 && (
+                  <View style={[s.footerChip, s.slotsChip]}>
+                    <Ionicons name="people-outline" size={11} color="#b45309" />
+                    <Text style={[s.footerChipText, { color: '#b45309', fontWeight: fontWeight.bold }]}>
+                      {t('mobile.feed.slotsChip', { count: item.openSlots })}
+                    </Text>
+                  </View>
+                )}
                 {/* Level the company asked for — level 1 means anyone can apply */}
                 <View style={[s.footerChip, item.requiredLevel > 1 ? s.levelChip : s.openChip]}>
                   <Ionicons name="ribbon-outline" size={11} color={item.requiredLevel > 1 ? colors.primary : '#15803d'} />
@@ -605,6 +615,7 @@ const s = StyleSheet.create({
   multiDayChip: { backgroundColor: '#dbeafe', borderColor: '#bfdbfe' },
   levelChip: { backgroundColor: '#eef0ff', borderColor: '#c7cdff' },
   openChip: { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
+  slotsChip: { backgroundColor: '#fffbeb', borderColor: '#fde68a' },
   multiDayChipText: { color: '#1d4ed8', fontWeight: fontWeight.bold },
   ratingChip: {
     backgroundColor: '#fef9c3',

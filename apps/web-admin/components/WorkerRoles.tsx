@@ -6,17 +6,17 @@
  * confirmed it. Shared by the applicant profile panel and worker search so the
  * evidence reads the same everywhere.
  */
-import { ROLE_CONFIRMED_MIN_SHIFTS } from '@turnos/shared';
+import { ROLE_CONFIRMED_MIN_SHIFTS, ROLE_CERTIFICATE_LABELS, getRole } from '@turnos/shared';
 import { WorkerRoleView } from '../lib/api';
 import { useT } from '../lib/i18n';
-import { IconBriefcase, IconCheck } from './icons';
+import { IconBriefcase, IconCheck, IconShield } from './icons';
 
 export function WorkerRoles({ roles, highlightRole }: {
   roles: WorkerRoleView[] | null | undefined;
   /** The role of the shift being filled — shown first and marked. */
   highlightRole?: string | null;
 }) {
-  const { t, tSkill, tRoleLevel, tTask } = useT();
+  const { t, tSkill, tRoleLevel, tTask, language } = useT();
   if (!roles?.length) return null;
   const ordered = highlightRole
     ? [...roles].sort((a, b) => Number(b.role === highlightRole) - Number(a.role === highlightRole))
@@ -44,6 +44,18 @@ export function WorkerRoles({ roles, highlightRole }: {
                 {r.tasks.map(id => tTask(r.role, id)).join(' · ')}
               </p>
             )}
+            {/* Licensed role: the document the law requires — the company must check it */}
+            {r.hasCertificate && (() => {
+              const doc = getRole(r.role)?.certificate;
+              const label = doc ? ROLE_CERTIFICATE_LABELS[doc][language] : '';
+              return r.certificate ? (
+                <a href={r.certificate.url} target="_blank" rel="noopener noreferrer" style={st.certLink}>
+                  <IconShield size={12} /> {t('admin.shifts.roleCertificateOpen', { doc: label })}
+                </a>
+              ) : (
+                <span style={st.certBadge}><IconShield size={12} /> {t('admin.shifts.roleCertificateSent', { doc: label })}</span>
+              );
+            })()}
             <span style={confirmed ? st.confirmed : st.declared}>
               {confirmed && <IconCheck size={11} />}
               {confirmed
@@ -82,4 +94,10 @@ const st: Record<string, React.CSSProperties> = {
     color: '#166534', background: '#dcfce7', borderRadius: 20, padding: '2px 8px',
   },
   declared: { fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)' },
+  certLink: {
+    display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700,
+    color: '#92400e', textDecoration: 'none', background: '#fffbeb',
+    borderWidth: '1px', borderStyle: 'solid', borderColor: '#fcd34d', borderRadius: 8, padding: '4px 8px',
+  },
+  certBadge: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 600, color: '#92400e' },
 };

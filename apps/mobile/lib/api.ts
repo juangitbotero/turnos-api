@@ -129,6 +129,17 @@ export const authApi = {
     }>('/auth/worker/cv', form);
   },
 
+  /** Upload the required document of a licensed role already saved on the profile. */
+  uploadRoleCertificate: (role: string, fileUri: string, mimeType: string, fileName: string) => {
+    const form = new FormData();
+    form.append('role', role);
+    form.append('certificate', { uri: fileUri, type: mimeType, name: fileName } as any);
+    return api.postForm<{ roles: WorkerRole[] }>('/auth/worker/roles/certificate', form);
+  },
+
+  removeRoleCertificate: (role: string) =>
+    api.delete<{ roles: WorkerRole[] }>(`/auth/worker/roles/certificate?role=${encodeURIComponent(role)}`),
+
   deleteWorkerCv: () =>
     api.delete<{
       cvUrl: string | null; cvFileName: string | null; profileQualityScore: number;
@@ -233,6 +244,10 @@ export interface ShiftSummary {
   requiredLevel?: number;
   /** Task ids of the role this shift involves. */
   tasksRequired?: string[] | null;
+  /** Posted as one row of a multi-role request: workers still needed on this card ("2 vagas"). */
+  openSlots?: number;
+  requestId?: string | null;
+  lineId?: string | null;
   /**
    * Dress code as the company wrote it — free text, shown as-is like the
    * description. Only present when `hasDressCode` is true.

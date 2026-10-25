@@ -195,6 +195,24 @@ export default function ShiftsPage() {
     }
   };
 
+  /**
+   * Cancel every shift of a request that hasn't started. Each slot goes through
+   * the normal cancellation policy server-side; a confirmed slot <3h from its
+   * start needs a reason, so that one is left for the per-row "Cancelar".
+   */
+  const handleCancelRequest = async (request: { id: string; name: string }) => {
+    if (!confirm(t('admin.shifts.cancelRequestConfirm', { name: request.name }))) return;
+    try {
+      const res = await adminApi.cancelRequest(request.id);
+      alert(t('admin.shifts.cancelRequestDone', { count: res.cancelled }));
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : t('admin.shifts.cancelError'));
+    } finally {
+      void load();
+      adminApi.getPendingWages().then(setPendingWages).catch(() => {});
+    }
+  };
+
   /** "Retirar oferta": the selected worker has not answered — reopen the shift. */
   const handleWithdrawOffer = async (shift: Shift) => {
     if (!confirm(t('admin.shifts.withdrawOfferConfirm'))) return;
@@ -276,6 +294,8 @@ export default function ShiftsPage() {
           <button style={s.refreshBtn} onClick={load} disabled={isLoading}>{t('admin.shifts.refresh')}</button>
           {/* QR codes are per-employer (static), not per shift */}
           <Link href="/dashboard/qr-codes" style={s.qrCodesBtn}>{t('admin.shifts.qrCodes')}</Link>
+          {/* Several roles at once (hotels, events) — the single form stays as it is */}
+          <Link href="/dashboard/new-request" style={s.refreshBtn}>{t('admin.shifts.newRequest')}</Link>
           <Link href="/dashboard/new-shift" style={s.newBtn}>{t('admin.shifts.newShift')}</Link>
         </div>
       </div>
@@ -451,6 +471,7 @@ export default function ShiftsPage() {
             </div>
             {active.map(shift => (
               <ShiftRow
+                onCancelRequest={handleCancelRequest}
                 key={shift.id}
                 shift={shift}
                 onCancel={handleCancel}
@@ -592,6 +613,7 @@ export default function ShiftsPage() {
             </div>
             {past.map(shift => (
               <ShiftRow
+                onCancelRequest={handleCancelRequest}
                 key={shift.id}
                 shift={shift}
                 onCancel={handleCancel}
@@ -1037,8 +1059,9 @@ function CancelShiftModal({ shift, hoursUntil, busy, onClose, onConfirm }: {
 
 // ── Shift row ─────────────────────────────────────────────────────────────────
 
-function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancelling, confirming, onViewApps, newAppCount }: {
+function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancelling, confirming, onViewApps, newAppCount, onCancelRequest }: {
   shift: Shift;
+  onCancelRequest?: (request: { id: string; name: string }) => void;
   onCancel: (id: string) => void;
   onWithdrawOffer: (shift: Shift) => void;
   onManualConfirm: (shift: Shift) => void;
@@ -1064,6 +1087,17 @@ function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancellin
         {isMultiDay(shift) && (
           <div>
             <span style={s.multiDayTag}>{t('admin.shifts.multiDayTag', { count: shift.seriesDates!.length })}</span>
+          </div>
+        )}
+        {/* Posted with "Publicar vários turnos" — every slot carries its request */}
+        {shift.request && (
+          <div style={s.requestRow}>
+            <span style={s.multiDayTag}><IconClipboard size={11} /> {shift.request.name}</span>
+            {canCancel && onCancelRequest && (
+              <button type="button" style={s.requestCancel} onClick={() => onCancelRequest(shift.request!)}>
+                {t('admin.shifts.cancelRequest')}
+              </button>
+            )}
           </div>
         )}
         <p style={s.rowSub}>{tCategory(shift.category)} · {shift.address.split(',')[0]}</p>
@@ -1130,13 +1164,13 @@ function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancellin
 
 const s: Record<string, React.CSSProperties> = {
   page: { padding: 32, maxWidth: 1200, margin: '0 auto' },
-  header: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20 },
-  title: { fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.5px', marginBottom: 4 },
+  header: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, gap: 16, flexWrap: 'wrap' },
+  title: { fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.5px', marginBottom: 4, whiteSpace: 'nowrap' },
   sub: { fontSize: 14, color: 'var(--color-text-secondary)' },
-  headerActions: { display: 'flex', gap: 10, alignItems: 'center' },
-  refreshBtn: ui.btnLg,
-  qrCodesBtn: ui.btnLg,
-  newBtn: ui.primary,
+  headerActions: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' },
+  refreshBtn: { ...ui.btnLg, whiteSpace: 'nowrap' },
+  qrCodesBtn: { ...ui.btnLg, whiteSpace: 'nowrap' },
+  newBtn: { ...ui.primary, whiteSpace: 'nowrap' },
   qrTipBanner: { ...ui.banner, marginBottom: 24 },
   errorBanner: {
     background: '#fee2e2', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8,
@@ -1169,6 +1203,11 @@ const s: Record<string, React.CSSProperties> = {
   },
   rowTitle: { fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 2 },
   multiDayTag: { ...ui.pill, margin: '5px 0 1px' },
+  requestRow: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  requestCancel: {
+    background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit',
+    fontSize: 11.5, fontWeight: 600, color: '#dc2626',
+  },
   rowSub: { fontSize: 12, color: 'var(--color-text-secondary)' },
   rowCell: { color: 'var(--color-text-primary)' },
   badge: ui.pill,

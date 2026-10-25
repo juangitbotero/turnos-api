@@ -166,6 +166,16 @@ export const en: Translated<TranslationCatalogue> = {
       provisionalBody:  'We changed how skills work. We picked a provisional level from your profile — check the level and tasks and save.',
       provisionalCta:   'Review roles',
       provisionalTag:   'To confirm',
+      certificateNeeded:   'Required: {{doc}}. Without it, companies don’t see this role.',
+      certificateUpload:   'Upload document',
+      certificateSent:     'Document sent: {{name}}',
+      certificateReplace:  'Replace',
+      certificateSaveFirst:'Save your profile first, then upload the document here.',
+      certificateUploading:'Uploading...',
+      certificateFailed:   'The document could not be uploaded. Please try again.',
+      certificateTooBig:   'The document must be under 10 MB.',
+      certificateRemoveTitle: 'Remove document?',
+      certificateRemoveBody:  'Without the document, companies stop seeing {{role}}.',
     },
 
     nav: {
@@ -282,6 +292,7 @@ export const en: Translated<TranslationCatalogue> = {
       fullGross: 'You receive the full gross',
       multiDayChip: '{{count}} days',
       levelOpenChip: 'No experience needed',
+      slotsChip: '{{count}} places',
       company: 'Company',
     },
 
@@ -506,11 +517,13 @@ export const en: Translated<TranslationCatalogue> = {
 
       levelTitle:  'What this shift needs',
       levelOpen:   'No experience needed — open to everyone',
+      slots:       'The company needs {{count}} people in this role — you apply once.',
       tasksTitle:  'Shift tasks',
       belowLevel:  'Your level as {{role}} is {{level}}. This shift needs level {{required}}.',
       noRole:      '{{role}} is not one of your roles yet. This shift needs level {{required}}.',
       updateRoles: 'Update my roles',
       levelBlockedTitle: 'Level too low',
+      certificateMissing: 'To work as {{role}} you must upload the required document in your profile.',
       aboutTitle:  'About this shift',
       dressCodeTitle: 'What to wear',
       dressCodeNote:  'Set by the company. If you do not meet it, they can cancel the shift when you arrive.',
@@ -1160,6 +1173,7 @@ export const en: Translated<TranslationCatalogue> = {
       countOther:  '{{count}} candidates',
       newCount:    '{{count}} new',
       multiDay:    '{{count}} days',
+      slots:       '{{open}} of {{total}} places still open',
       selected:    'You selected a candidate. The shift now waits for the worker to confirm (2h).',
     },
 
@@ -1347,6 +1361,10 @@ export const en: Translated<TranslationCatalogue> = {
       rateAllDoneSub: 'There are no completed shifts with this worker left to rate.',
       pickShift:      'Choose the shift',
       rateQuestion:   'How did they perform?',
+      levelQuestion:  'Did their level as {{role}} match what they declared (level {{level}})?',
+      levelYes:       'Yes, it matched',
+      levelBelow:     'It was lower',
+      levelHint:      'This confirms the worker’s level for the next companies. A "lower" answer changes nothing on its own — after two, the Turnos team reviews it.',
       scores: {
         1: 'Poor',
         2: 'Fair',
@@ -1370,6 +1388,39 @@ export const en: Translated<TranslationCatalogue> = {
       noShowSubmit:     'Report no-show',
       noShowSubmitting: 'Reporting...',
       noShowError:      "Couldn't report the no-show.",
+    },
+
+    newRequest: {
+      title:          'Post multiple shifts',
+      sub:            'Several roles at once — for example a wedding: 2 waiters, 1 bartender and 1 dishwasher. Each worker gets their own shift; workers see one offer per role and apply as usual.',
+      commonSection:  'Common to every role',
+      commonHint:     'Fill in once: it applies to every shift in this request.',
+      labelName:      'Request name',
+      namePlaceholder:'E.g. Saturday wedding, August weekend',
+      labelDates:     'Date(s)',
+      multiDayHint:   '{{count}} days: each worker takes every day of their role.',
+      descPlaceholder:'The event, the venue, who to report to on arrival...',
+      rolesSection:   'Roles',
+      rolesHint:      'One row per role. Quantity is how many workers you need in that role.',
+      labelQuantity:  'Workers',
+      labelRate:      'Hourly rate (€)',
+      lineTotal:      '{{count}} worker(s) · €{{amount}} gross',
+      requirements:   'Level, tasks and languages',
+      addRole:        'Add another role',
+      removeRole:     'Remove role',
+      summary:        '{{shifts}} · {{roles}}',
+      shiftsOne:      '1 shift',
+      shiftsOther:    '{{count}} shifts',
+      rolesOne:       '1 role',
+      rolesOther:     '{{count}} roles',
+      summaryCost:    '€{{gross}} gross · €{{total}} with TSU (simulation)',
+      summaryDays:    '{{count}} days',
+      summaryQuota:   'Counts as {{shifts}} on your plan · Turnos fee of €{{fee}} per completed shift',
+      submit:         'Post {{shifts}}',
+      errName:        'Give the request a name.',
+      errDates:       'Add at least one date.',
+      errStart:       'Choose the start time for role {{row}}.',
+      errRate:        'Enter the hourly rate for role {{row}}.',
     },
 
     newShift: {
@@ -1492,6 +1543,10 @@ export const en: Translated<TranslationCatalogue> = {
       refresh:   '↻ Refresh',
       qrCodes:   'QR codes',
       newShift:  '+ Post a shift',
+      newRequest: 'Post multiple shifts',
+      cancelRequest: 'Cancel request',
+      cancelRequestConfirm: 'Cancel every shift of "{{name}}" that has not started? Each shift follows the cancellation policy.',
+      cancelRequestDone: '{{count}} shift(s) cancelled.',
       loadError: "Couldn't load your shifts.",
 
       subCount:  '{{total}} shifts in total · {{active}} active',
@@ -1581,6 +1636,8 @@ export const en: Translated<TranslationCatalogue> = {
       roleDeclared:    'Declared by the worker',
       roleTasksDone:   'Has done',
       roleThisShift:   'This shift’s role',
+      roleCertificateOpen: 'Open {{doc}} — check it before the shift',
+      roleCertificateSent: '{{doc}} uploaded',
       panelCv:         'CV',
       panelCvFallback: 'View CV',
       panelLanguages:  'Languages',
@@ -1966,6 +2023,8 @@ export const en: Translated<TranslationCatalogue> = {
    */
   api: {
     push: {
+      roleConfirmed:     { title: '✅ Role confirmed', body: 'Companies confirmed your level as {{role}} in {{count}} shifts. It now shows as "Confirmed" on your profile.' },
+      roleLevelReview:   { title: 'Review your level as {{role}}', body: 'Two companies felt your level as {{role}} is below the level {{level}} you declared. Review it in your profile — the Turnos team may contact you.' },
       completedRate:     { title: 'Shift complete! 🎉', body: 'How did "{{shift}}" go? Rate the company — it takes 10 seconds.' },
       rateReminder:      { title: "You haven't rated the company yet ⭐", body: 'How did "{{shift}}" go? Rating takes 10 seconds.' },
       preSelected:       { title: '🎉 You were selected!', body: 'You have {{hours}}h to accept "{{shift}}". Open the app to confirm.' },
@@ -2010,6 +2069,8 @@ export const en: Translated<TranslationCatalogue> = {
       rolesUnknown:       'One of the roles you chose no longer exists. Update the app and choose again.',
       rolesDuplicate:     'You chose the same role twice.',
       rolesInvalidLevel:  'Choose a valid level for each role.',
+      certificateRoleInvalid: 'Save this role on your profile first — only roles that require a document accept one.',
+      certificateFormat:  'The document must be a photo (JPG/PNG) or a PDF.',
     },
 
     account: {
@@ -2041,6 +2102,13 @@ export const en: Translated<TranslationCatalogue> = {
       levelTooLow:        'This shift asks for level {{level}} as {{role}}. If you have that experience, update the role in your profile.',
       roleUnknown:        'Choose a role from the list.',
       levelInvalid:       'That level does not exist for this role.',
+      requestNameRequired: 'Give the request a name (for example "Saturday wedding").',
+      requestLines:       'A request must have between 1 and {{max}} roles.',
+      requestQuantity:    'Each role can ask for between 1 and {{max}} workers.',
+      requestRate:        'Enter the hourly rate for each role.',
+      requestAddress:     'Confirm the request address.',
+      alreadySelectedInLine: 'This worker has already been chosen for one of the places in this role.',
+      certificateMissing: 'To work as {{role}} you must upload the required document in your profile (Edit profile → My roles).',
 
       // Worker cancellation
       cancelOnlyConfirmed: 'You can only cancel confirmed shifts that have not started yet.',
@@ -2081,6 +2149,7 @@ export const en: Translated<TranslationCatalogue> = {
       subscriptionRequired: 'You need an active subscription to post shifts. Activate your plan under Billing.',
       overdueWages:         'You have worker payments outstanding for more than 72 hours. Settle them under Turnos → Pending payments to post again.',
       maxActiveShifts:      'Your current plan allows up to {{max}} shifts open at the same time. Cancel or complete existing shifts first.',
+      maxActiveShiftsBulk:  'This request has {{adding}} shifts, but your plan allows {{max}} open and you already have {{active}}. {{fits}} more fit: lower the quantities or cancel existing shifts. Nothing was posted.',
       connectRequired:      'Finish setting up your bank details first.',
     },
 

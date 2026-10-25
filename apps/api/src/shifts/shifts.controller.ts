@@ -20,6 +20,27 @@ export class ShiftsController {
     return this.shiftsService.create(req.user.userId, body);
   }
 
+  /** "Publicar vários turnos": several roles, N workers each, in one request. */
+  @Post('requests')
+  @Roles('EMPLOYER')
+  createRequest(@Request() req: any, @Body() body: any) {
+    return this.shiftsService.createRequest(req.user.userId, body);
+  }
+
+  /** Cancel every not-yet-started shift of a request (each with its own policy). */
+  @Post('requests/:id/cancel')
+  @Roles('EMPLOYER')
+  cancelRequest(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body?: { reasonCategory?: string; reasonNote?: string },
+  ) {
+    return this.shiftsService.cancelRequest(req.user.userId, id, {
+      category: body?.reasonCategory,
+      note:     body?.reasonNote,
+    });
+  }
+
   @Get('employer/mine')
   @Roles('EMPLOYER')
   getMyShifts(@Request() req: any) {

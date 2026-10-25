@@ -1,8 +1,9 @@
 # Termos de Utilização — Trabalhadores
 
 > **PRIMEIRA VERSÃO PARA REVISÃO JURÍDICA — NÃO PUBLICAR.**
-> Versão 0.1 · 2026-09-27. Escrita a partir do funcionamento real da aplicação,
-> não de um modelo.
+> Versão 0.2 · 2026-10-25 (0.1 · 2026-09-27; 0.2 acrescenta a secção 4-A e
+> os pontos 10.3 e 11.1 sobre funções, nível e documentos). Escrita a partir
+> do funcionamento real da aplicação, não de um modelo.
 
 ---
 
@@ -55,8 +56,38 @@ estar atualizadas.
 código com ninguém.
 
 4.2. Para te poderes candidatar, o teu perfil tem de atingir **80 pontos** na
-pontuação de perfil (foto, NIF, IBAN, competências, nome, disponibilidade, CV) e
+pontuação de perfil (foto, NIF, IBAN, funções, nome, disponibilidade, CV) e
 tens de ter indicado a data de nascimento.
+
+## 4-A. As tuas funções, o teu nível e os teus documentos
+
+4-A.1. Escolhes até **3 funções**. Para cada uma declaras o teu nível —
+descrito pelo que sabes fazer — e as tarefas que já fizeste. Declara só o que
+corresponde à tua experiência real: é com base nisso que as empresas te
+escolhem.
+
+4-A.2. A empresa pode pedir um **nível mínimo** para o turno. Se o nível que
+declaraste for inferior, a aplicação não te deixa candidatar. Turnos de nível 1
+estão abertos a todos.
+
+4-A.3. Algumas funções exigem por lei um **documento válido**: segurança
+privada (cartão profissional, Lei n.º 34/2013), operador de empilhador
+(certificado de formação) e motorista (carta de condução). Sem o documento
+carregado, essas funções não aparecem às empresas e não te podes candidatar a
+esses turnos.
+
+4-A.4. Ao carregares um documento, declaras que é teu, autêntico e válido. Se
+caducar ou for cancelado, tens de o remover ou substituir. A empresa a que te
+candidatas para essas funções pode vê-lo, porque tem o dever de o confirmar.
+
+> ⚖️ **Para os advogados:** (a) a Turnos verifica apenas que *existe* um
+> ficheiro, não a sua autenticidade nem validade — é suficiente afirmá-lo aqui
+> e deixar a confirmação à entidade empregadora? (b) Um restaurante pode
+> contratar diretamente um vigilante em MCD ao abrigo do regime de
+> autoproteção (Lei n.º 34/2013), ou só empresas de segurança licenciadas?
+> (c) Bloquear a candidatura com base no nível que o próprio trabalhador
+> declarou é uma decisão automatizada para efeitos do art. 22.º RGPD / Diretiva
+> (UE) 2024/2831?
 
 ## 5. Candidaturas, convites e aceitação
 
@@ -160,7 +191,13 @@ essa avaliação é interna e nunca é mostrada à empresa.
 selos TOP, FIÁVEL e VERIFICADO, e a ordem pela qual és avisado de novos turnos
 (favoritos da empresa, depois selo TOP, depois os restantes).
 
-10.3. **Revisão humana.** Qualquer decisão automática — pontuação,
+10.3. Na avaliação, a empresa responde se o teu nível na função do turno
+correspondeu ao que declaraste. Depois de **2 turnos com 4★ ou mais** e
+resposta "sim", a função aparece como **"Confirmada"**. Duas respostas de que
+ficou abaixo **não mudam o teu nível automaticamente**: avisamos-te para o
+reveres e uma pessoa da equipa Turnos analisa o caso.
+
+10.4. **Revisão humana.** Qualquer decisão automática — pontuação,
 suspensão, avaliação de 1★, bloqueio — pode ser revista por uma pessoa da
 equipa Turnos a teu pedido. Respondemos em até 48 horas.
 
@@ -168,7 +205,9 @@ equipa Turnos a teu pedido. Respondemos em até 48 horas.
 
 11.1. Podemos suspender ou encerrar a tua conta:
 - nos casos da secção 9;
-- por informação falsa, conta duplicada ou utilização por outra pessoa;
+- por informação falsa (incluindo um nível declarado sem fundamento ou um
+  documento falso, alheio ou caducado), conta duplicada ou utilização por
+  outra pessoa;
 - por fraude no check-in (por exemplo, partilhar ou fotografar o QR code);
 - por assédio, discriminação ou violência contra empresas, trabalhadores ou a
   equipa Turnos.

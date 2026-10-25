@@ -8,16 +8,18 @@
  */
 import { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert, Linking, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import {
   colors, spacing, radius, fontSize, fontWeight,
   SHIFT_CATEGORIES, ShiftCategory, EXPERIENCE_LEVELS, ExperienceLevel,
   MAX_WORKER_ROLES, ROLE_CERTIFICATE_LABELS, ROLE_CONFIRMED_MIN_SHIFTS,
-  WorkerRole, RoleLevel, getRole, roleMaxLevel,
+  WorkerRole, RoleLevel, getRole, roleMaxLevel, roleNeedsCertificate,
 } from '@turnos/shared';
 import { useT } from '../lib/i18n';
+import { authApi, ApiError } from '../lib/api';
 
 /** One icon per role family. Record over the union: a new family without an icon fails to compile. */
 export const ROLE_CATEGORY_ICONS: Record<ShiftCategory, string> = {
@@ -33,11 +35,62 @@ export const ROLE_CATEGORY_ICONS: Record<ShiftCategory, string> = {
   'Administração':        'briefcase-outline',
 };
 
-export function RolesEditor({ roles, onChange }: {
+export function RolesEditor({ roles, onChange, savedRoleNames }: {
   roles: WorkerRole[];
   onChange: (roles: WorkerRole[]) => void;
+  /**
+   * Roles already stored on the server. A licensed role's document can only
+   * be uploaded once the role is saved; omit (onboarding) to show the hint.
+   */
+  savedRoleNames?: string[];
 }) {
-  const { t, tSkill, tRoleLevel } = useT();
+  const { t, tSkill, tRoleLevel, language } = useT();
+  const [uploading, setUploading] = useState<string | null>(null);
+
+  // The server returns the roles with the new document attached; keep the
+  // worker's unsaved edits and take only the certificate from it.
+  const mergeCertificates = (fromServer: WorkerRole[]) =>
+    onChange(roles.map(r => {
+      const s = fromServer.find(x => x.role === r.role);
+      return s ? { ...r, certificate: s.certificate ?? null } : r;
+    }));
+
+  const uploadCertificate = async (role: string) => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'image/jpeg', 'image/png', 'image/heic', 'image/webp'],
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    if (asset.size && asset.size > 10 * 1024 * 1024) {
+      Alert.alert(t('mobile.roles.title'), t('mobile.roles.certificateTooBig'));
+      return;
+    }
+    setUploading(role);
+    try {
+      const res = await authApi.uploadRoleCertificate(
+        role, asset.uri, asset.mimeType ?? 'application/pdf', asset.name ?? 'documento.pdf',
+      );
+      mergeCertificates(res.roles);
+    } catch (err) {
+      Alert.alert(t('common.error'), err instanceof ApiError && err.status < 500 ? err.message : t('mobile.roles.certificateFailed'));
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const removeCertificate = (role: string) => {
+    Alert.alert(t('mobile.roles.certificateRemoveTitle'), t('mobile.roles.certificateRemoveBody', { role: tSkill(role) }), [
+      { text: t('mobile.roles.cancel'), style: 'cancel' },
+      {
+        text: t('mobile.roles.remove'), style: 'destructive',
+        onPress: async () => {
+          try { mergeCertificates((await authApi.removeRoleCertificate(role)).roles); }
+          catch { Alert.alert(t('common.error'), t('mobile.roles.certificateFailed')); }
+        },
+      },
+    ]);
+  };
   // null = closed; '' = adding a new role; a role name = editing that role
   const [editing, setEditing] = useState<string | null>(null);
 
@@ -82,6 +135,52 @@ export function RolesEditor({ roles, onChange }: {
               {r.tasks.length ? t('mobile.roles.tasksCount', { count: r.tasks.length }) : t('mobile.roles.noTasks')}
               {r.years ? ` · ${t(`domain.experienceLevelsShort.${r.years}`)}` : ''}
             </Text>
+            {/* Licensed roles: the legally required document */}
+            {roleNeedsCertificate(r.role) && (() => {
+              const doc = getRole(r.role)?.certificate;
+              const docLabel = doc ? ROLE_CERTIFICATE_LABELS[doc][language] : '';
+              if (r.certificate?.url) {
+                return (
+                  <View style={re.certOk}>
+                    <Ionicons name="shield-checkmark" size={15} color="#166534" />
+                    <TouchableOpacity style={{ flex: 1 }} onPress={() => Linking.openURL(r.certificate!.url)} activeOpacity={0.7}>
+                      <Text style={re.certOkText} numberOfLines={1}>
+                        {t('mobile.roles.certificateSent', { name: r.certificate.fileName })}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => uploadCertificate(r.role)} activeOpacity={0.7}>
+                      <Text style={re.edit}>{t('mobile.roles.certificateReplace')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => removeCertificate(r.role)} activeOpacity={0.7}>
+                      <Text style={re.remove}>{t('mobile.roles.remove')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              }
+              const saved = !!savedRoleNames?.includes(r.role);
+              return (
+                <View style={re.certNeeded}>
+                  <Text style={re.certNeededText}>{t('mobile.roles.certificateNeeded', { doc: docLabel })}</Text>
+                  {saved ? (
+                    <TouchableOpacity
+                      style={re.certBtn}
+                      onPress={() => uploadCertificate(r.role)}
+                      disabled={uploading === r.role}
+                      activeOpacity={0.85}
+                    >
+                      {uploading === r.role
+                        ? <ActivityIndicator size="small" color={colors.primary} />
+                        : <Ionicons name="cloud-upload-outline" size={16} color={colors.primary} />}
+                      <Text style={re.certBtnText}>
+                        {uploading === r.role ? t('mobile.roles.certificateUploading') : t('mobile.roles.certificateUpload')}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={re.certHint}>{t('mobile.roles.certificateSaveFirst')}</Text>
+                  )}
+                </View>
+              );
+            })()}
             <View style={re.cardFoot}>
               <View style={confirmed ? re.confirmed : undefined}>
                 <Text style={confirmed ? re.confirmedText : re.declaredText}>
@@ -294,6 +393,7 @@ function RoleSheet({ visible, initial, taken, onCancel, onSave }: {
                   onPress={() => onSave({
                     role, level: Math.min(level, maxLevel) as RoleLevel, tasks, years,
                     confirmedShifts: initial?.role === role ? initial.confirmedShifts : 0,
+                    certificate: initial?.role === role ? initial.certificate ?? null : null,
                   })}
                   activeOpacity={0.85}
                 >
@@ -336,6 +436,23 @@ const re = StyleSheet.create({
   },
   addBtnDisabled: { borderColor: colors.neutral },
   addText: { fontSize: fontSize.body, fontWeight: fontWeight.semibold as any, color: colors.primary },
+  certOk: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4,
+    backgroundColor: '#f0fdf4', borderRadius: radius.sm, padding: 8,
+  },
+  certOkText: { fontSize: fontSize.caption, fontWeight: fontWeight.semibold as any, color: '#166534' },
+  certNeeded: {
+    marginTop: 4, backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fcd34d',
+    borderRadius: radius.sm, padding: 8, gap: 6,
+  },
+  certNeededText: { fontSize: fontSize.caption, color: '#92400e', lineHeight: 18 },
+  certHint: { fontSize: fontSize.caption, color: '#92400e', fontStyle: 'italic' },
+  certBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    borderWidth: 1.5, borderColor: colors.primary, borderRadius: radius.full,
+    paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#fff',
+  },
+  certBtnText: { fontSize: fontSize.caption, fontWeight: fontWeight.bold as any, color: colors.primary },
 });
 
 const sh = StyleSheet.create({

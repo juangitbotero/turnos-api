@@ -230,6 +230,45 @@ export class AuthController {
     return { message: 'CV carregado com sucesso', ...result };
   }
 
+  /**
+   * Upload the document a licensed role requires (security card, forklift
+   * certificate, driving licence) — image or PDF, max 10 MB. Field `role` is
+   * the stored role name; the role must already be on the profile.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('worker/roles/certificate')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('certificate', {
+    storage: memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/heic', 'image/webp'];
+      if (!allowed.includes(file.mimetype)) {
+        cb(new BadRequestException(t('api.auth.certificateFormat')), false);
+      } else {
+        cb(null, true);
+      }
+    },
+  }))
+  async uploadRoleCertificate(
+    @Request() req: { user: { userId: string } },
+    @UploadedFile() file: Express.Multer.File,
+    @Body('role') role: string,
+  ) {
+    if (!file) throw new BadRequestException(t('api.auth.noFile'));
+    return this.authService.uploadRoleCertificate(req.user.userId, role, file);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('worker/roles/certificate')
+  @HttpCode(HttpStatus.OK)
+  async removeRoleCertificate(
+    @Request() req: { user: { userId: string } },
+    @Query('role') role: string,
+  ) {
+    return this.authService.removeRoleCertificate(req.user.userId, role);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Delete('worker/cv')
   @HttpCode(HttpStatus.OK)

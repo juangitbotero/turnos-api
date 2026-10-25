@@ -64,6 +64,22 @@ export class Shift {
   @Column({ type: 'int', nullable: true })
   seriesTotalDays: number | null;
 
+  // ── Multi-role request ("Publicar vários turnos") ─────────────────────────
+  /**
+   * The request this shift was posted in (ShiftRequest), null for shifts
+   * posted one at a time. Each row of a request asks for N workers in one
+   * role: that becomes N slots (one Shift, or one series, per worker) sharing
+   * `lineId`. Workers see one card per line ("N vagas") and apply once; the
+   * company picks from one candidate list.
+   */
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  requestId: string | null;
+
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  lineId: string | null;
+
   @Column({ type: 'time' })
   startTime: string; // HH:mm:ss
 

@@ -5,6 +5,7 @@ import { ShiftsService } from './shifts.service';
 import { ShiftsController } from './shifts.controller';
 import { ShiftExpiryService } from './shift-expiry.service';
 import { Shift } from './entities/shift.entity';
+import { ShiftRequest } from './entities/shift-request.entity';
 import { ShiftApplication } from './entities/shift-application.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { Worker } from '../users/entities/worker.entity';
@@ -15,7 +16,7 @@ import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Shift, ShiftApplication, Employer, Worker]),
+    TypeOrmModule.forFeature([Shift, ShiftApplication, ShiftRequest, Employer, Worker]),
     BullModule.registerQueue({ name: 'shift-notifications' }),
     GatewayModule,
     NotificationsModule,

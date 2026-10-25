@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   colors, spacing, radius, fontSize, fontWeight, calculateTSU, PaymentMethod,
-  meetsRoleLevel, normalizeSkill, WorkerRole,
+  meetsRoleLevel, normalizeSkill, WorkerRole, roleNeedsCertificate,
 } from '@turnos/shared';
 import {
   shiftApi, ShiftSummary, MyApplication, ApiError,
@@ -101,9 +101,14 @@ export default function ShiftDetailScreen() {
   const requiredLevel = Number(shift?.requiredLevel) || 1;
   const myRole = myRoles?.find(r => normalizeSkill(r.role) === shiftRole) ?? null;
   const meetsLevel = myRoles === null || meetsRoleLevel(myRoles, shiftRole, requiredLevel);
-  const levelGapText = myRole
-    ? t('mobile.shiftDetail.belowLevel', { role: tSkill(shiftRole), level: myRole.level, required: requiredLevel })
-    : t('mobile.shiftDetail.noRole', { role: tSkill(shiftRole), required: requiredLevel });
+  // A licensed role at the right level that only lacks its document
+  const missingCertificate = !!myRole && roleNeedsCertificate(shiftRole)
+    && myRole.level >= requiredLevel && !myRole.certificate?.url;
+  const levelGapText = missingCertificate
+    ? t('mobile.shiftDetail.certificateMissing', { role: tSkill(shiftRole) })
+    : myRole
+      ? t('mobile.shiftDetail.belowLevel', { role: tSkill(shiftRole), level: myRole.level, required: requiredLevel })
+      : t('mobile.shiftDetail.noRole', { role: tSkill(shiftRole), required: requiredLevel });
 
   // Called when worker taps "Candidatar-me"
   const handleApplyPress = () => {
@@ -486,6 +491,9 @@ export default function ShiftDetailScreen() {
                 </Text>
                 <Text style={styles.levelDesc}>{tRoleLevel(shiftRole, requiredLevel)}</Text>
                 {requiredLevel <= 1 && <Text style={styles.levelOpen}>{t('mobile.shiftDetail.levelOpen')}</Text>}
+                {(shift.openSlots ?? 1) > 1 && (
+                  <Text style={styles.levelOpen}>{t('mobile.shiftDetail.slots', { count: shift.openSlots })}</Text>
+                )}
               </View>
               {(shift.tasksRequired?.length ?? 0) > 0 && (
                 <>

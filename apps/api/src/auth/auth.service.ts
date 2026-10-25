@@ -321,6 +321,16 @@ export class AuthService {
     return result;
   }
 
+  async uploadRoleCertificate(userId: string, role: string, file: Express.Multer.File) {
+    const url = await this.storage.upload(file.buffer, file.mimetype, 'worker-certificates');
+    const fileName = file.originalname?.slice(0, 255) || 'documento';
+    return this.usersService.setRoleCertificate(userId, role, { url, fileName });
+  }
+
+  async removeRoleCertificate(userId: string, role: string) {
+    return this.usersService.setRoleCertificate(userId, role, null);
+  }
+
   async deleteWorkerCv(userId: string): Promise<{
     cvUrl: string | null; cvFileName: string | null; profileQualityScore: number;
   }> {

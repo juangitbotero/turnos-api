@@ -166,6 +166,16 @@ export const pt = {
       provisionalBody:  'Mudámos a forma como as competências funcionam. Escolhemos um nível provisório a partir do teu perfil — revê o nível e as tarefas e guarda.',
       provisionalCta:   'Rever funções',
       provisionalTag:   'Por confirmar',
+      certificateNeeded:   'Obrigatório: {{doc}}. Sem ele, esta função não aparece às empresas.',
+      certificateUpload:   'Carregar documento',
+      certificateSent:     'Documento enviado: {{name}}',
+      certificateReplace:  'Substituir',
+      certificateSaveFirst:'Guarda o perfil primeiro e depois carrega aqui o documento.',
+      certificateUploading:'A enviar...',
+      certificateFailed:   'Não foi possível enviar o documento. Tenta novamente.',
+      certificateTooBig:   'O documento tem de ter menos de 10 MB.',
+      certificateRemoveTitle: 'Remover documento?',
+      certificateRemoveBody:  'Sem o documento, {{role}} deixa de aparecer às empresas.',
     },
 
     nav: {
@@ -282,6 +292,7 @@ export const pt = {
       fullGross: 'Recebes o bruto por inteiro',
       multiDayChip: '{{count}} dias',
       levelOpenChip: 'Sem experiência',
+      slotsChip: '{{count}} vagas',
       company: 'Empresa',
     },
 
@@ -509,11 +520,13 @@ export const pt = {
 
       levelTitle:  'O que o turno pede',
       levelOpen:   'Sem experiência necessária — aberto a todos',
+      slots:       'A empresa procura {{count}} pessoas para esta função — candidatas-te uma vez.',
       tasksTitle:  'Tarefas do turno',
       belowLevel:  'O teu nível em {{role}} é {{level}}. Este turno pede nível {{required}}.',
       noRole:      'Ainda não tens {{role}} nas tuas funções. Este turno pede nível {{required}}.',
       updateRoles: 'Atualizar as minhas funções',
       levelBlockedTitle: 'Nível insuficiente',
+      certificateMissing: 'Para trabalhar como {{role}} tens de carregar o documento obrigatório no teu perfil.',
       aboutTitle:  'Sobre o turno',
       dressCodeTitle: 'Como te apresentares',
       dressCodeNote:  'Definido pela empresa. Se não cumprires, a empresa pode cancelar o turno à chegada.',
@@ -1171,6 +1184,7 @@ export const pt = {
       countOther:  '{{count}} candidatos',
       newCount:    '{{count}} novos',
       multiDay:    '{{count}} dias',
+      slots:       '{{open}} de {{total}} vagas por preencher',
       selected:    'Selecionaste um candidato. O turno fica à espera da confirmação do trabalhador (2h).',
     },
 
@@ -1365,6 +1379,10 @@ export const pt = {
       rateAllDoneSub: 'Não há turnos concluídos pendentes de avaliação com este trabalhador.',
       pickShift:      'Seleciona o turno',
       rateQuestion:   'Como foi o desempenho?',
+      levelQuestion:  'O nível em {{role}} correspondeu ao que declarou (nível {{level}})?',
+      levelYes:       'Sim, correspondeu',
+      levelBelow:     'Ficou abaixo',
+      levelHint:      'Isto confirma o nível do trabalhador para as próximas empresas. Uma resposta "abaixo" não muda nada sozinha — só abre uma revisão pela equipa Turnos depois de duas.',
       scores: {
         1: 'Mau',
         2: 'Razoável',
@@ -1388,6 +1406,39 @@ export const pt = {
       noShowSubmit:     'Reportar falta',
       noShowSubmitting: 'A reportar...',
       noShowError:      'Erro ao reportar falta.',
+    },
+
+    newRequest: {
+      title:          'Publicar vários turnos',
+      sub:            'Várias funções de uma vez — por exemplo um casamento: 2 empregados de mesa, 1 barman e 1 copeiro. Cada trabalhador tem o seu turno; os trabalhadores veem uma oferta por função e candidatam-se como sempre.',
+      commonSection:  'Comum a todas as funções',
+      commonHint:     'Preenche uma vez: vale para todos os turnos deste pedido.',
+      labelName:      'Nome do pedido',
+      namePlaceholder:'Ex.: Casamento sábado, Fim de semana de agosto',
+      labelDates:     'Data(s)',
+      multiDayHint:   '{{count}} dias: cada trabalhador fica com todos os dias da sua função.',
+      descPlaceholder:'O evento, o local, a quem se apresentar ao chegar...',
+      rolesSection:   'Funções',
+      rolesHint:      'Uma linha por função. A quantidade é quantos trabalhadores precisas nessa função.',
+      labelQuantity:  'Trabalhadores',
+      labelRate:      'Valor/hora (€)',
+      lineTotal:      '{{count}} trabalhador(es) · €{{amount}} bruto',
+      requirements:   'Nível, tarefas e idiomas',
+      addRole:        'Adicionar outra função',
+      removeRole:     'Remover função',
+      summary:        '{{shifts}} · {{roles}}',
+      shiftsOne:      '1 turno',
+      shiftsOther:    '{{count}} turnos',
+      rolesOne:       '1 função',
+      rolesOther:     '{{count}} funções',
+      summaryCost:    '€{{gross}} bruto · €{{total}} com TSU (simulação)',
+      summaryDays:    '{{count}} dias',
+      summaryQuota:   'Conta como {{shifts}} no teu plano · taxa Turnos de {{fee}} € por turno concluído',
+      submit:         'Publicar {{shifts}}',
+      errName:        'Dá um nome ao pedido.',
+      errDates:       'Adiciona pelo menos uma data.',
+      errStart:       'Escolhe a hora de início da função {{row}}.',
+      errRate:        'Indica o valor/hora da função {{row}}.',
     },
 
     newShift: {
@@ -1509,6 +1560,10 @@ export const pt = {
       refresh:   '↻ Atualizar',
       qrCodes:   'Códigos QR',
       newShift:  '+ Publicar Turno',
+      newRequest: 'Publicar vários turnos',
+      cancelRequest: 'Cancelar pedido',
+      cancelRequestConfirm: 'Cancelar todos os turnos ainda não iniciados do pedido "{{name}}"? Cada turno segue a política de cancelamento.',
+      cancelRequestDone: '{{count}} turno(s) cancelado(s).',
       loadError: 'Erro ao carregar turnos.',
 
       subCount:  '{{total}} turnos no total · {{active}} ativos',
@@ -1598,6 +1653,8 @@ export const pt = {
       roleDeclared:    'Declarado pelo trabalhador',
       roleTasksDone:   'Já fez',
       roleThisShift:   'Função deste turno',
+      roleCertificateOpen: 'Ver {{doc}} — confirme antes do turno',
+      roleCertificateSent: '{{doc}} enviado',
       panelCv:         'Currículo',
       panelCvFallback: 'Ver CV',
       panelLanguages:  'Idiomas',
@@ -2004,6 +2061,8 @@ export const pt = {
      * amount, before, after, hours, support.
      */
     push: {
+      roleConfirmed:     { title: '✅ Função confirmada', body: 'As empresas confirmaram o teu nível em {{role}} em {{count}} turnos. Já aparece como "Confirmado" no teu perfil.' },
+      roleLevelReview:   { title: 'Revê o teu nível em {{role}}', body: 'Duas empresas acharam que o teu nível em {{role}} está abaixo do nível {{level}} que declaraste. Revê-o no perfil — a equipa Turnos pode contactar-te.' },
       completedRate:     { title: 'Turno concluído! 🎉', body: 'Como correu o turno "{{shift}}"? Avalia a empresa — demora 10 segundos.' },
       rateReminder:      { title: 'Ainda não avaliaste a empresa ⭐', body: 'Como correu o turno "{{shift}}"? A tua avaliação demora 10 segundos.' },
       preSelected:       { title: '🎉 Foste selecionado!', body: 'Tens {{hours}}h para aceitar o turno "{{shift}}". Abre a app para confirmar.' },
@@ -2048,6 +2107,8 @@ export const pt = {
       rolesUnknown:       'Uma das funções escolhidas já não existe. Atualiza a app e escolhe de novo.',
       rolesDuplicate:     'Escolheste a mesma função duas vezes.',
       rolesInvalidLevel:  'Escolhe um nível válido para cada função.',
+      certificateRoleInvalid: 'Guarda primeiro esta função no perfil — só funções que exigem documento aceitam um.',
+      certificateFormat:  'O documento tem de ser uma foto (JPG/PNG) ou um PDF.',
     },
 
     account: {
@@ -2079,6 +2140,13 @@ export const pt = {
       levelTooLow:        'Este turno pede nível {{level}} em {{role}}. Se já tens essa experiência, atualiza a função no teu perfil.',
       roleUnknown:        'Escolhe uma função da lista.',
       levelInvalid:       'O nível escolhido não existe para esta função.',
+      requestNameRequired: 'Dá um nome ao pedido (por exemplo "Casamento sábado").',
+      requestLines:       'Um pedido tem de ter entre 1 e {{max}} funções.',
+      requestQuantity:    'Cada função pode pedir entre 1 e {{max}} trabalhadores.',
+      requestRate:        'Indica o valor/hora de cada função.',
+      requestAddress:     'Confirma a morada do pedido.',
+      alreadySelectedInLine: 'Este trabalhador já foi escolhido para uma das vagas desta função.',
+      certificateMissing: 'Para trabalhar como {{role}} tens de carregar o documento obrigatório no teu perfil (Editar perfil → As minhas funções).',
 
       // Worker cancellation
       cancelOnlyConfirmed: 'Só podes cancelar turnos confirmados que ainda não começaram.',
@@ -2119,6 +2187,7 @@ export const pt = {
       subscriptionRequired: 'Precisas de uma subscrição ativa para publicar turnos. Ativa o teu plano em Faturação.',
       overdueWages:         'Tens pagamentos a trabalhadores em falta há mais de 72 horas. Regulariza-os em Turnos → Pagamentos pendentes para voltares a publicar.',
       maxActiveShifts:      'O plano atual permite até {{max}} turnos ativos em simultâneo. Cancela ou conclui turnos existentes primeiro.',
+      maxActiveShiftsBulk:  'Este pedido tem {{adding}} turnos, mas o plano atual permite {{max}} em aberto e já tens {{active}}. Cabem mais {{fits}}: reduz as quantidades ou cancela turnos existentes. Nada foi publicado.',
       connectRequired:      'Completa o registo bancário primeiro.',
     },
 

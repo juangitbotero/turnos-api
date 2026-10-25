@@ -234,6 +234,38 @@ export interface Shift {
   seriesId?: string | null;
   seriesDates?: string[];
   seriesTotalDays?: number | null;
+  /** Posted with "Publicar vários turnos": the request, and the row (line) of it. */
+  requestId?: string | null;
+  lineId?: string | null;
+  request?: { id: string; name: string } | null;
+  /** Candidates page, request lines: workers still needed / in total. */
+  openSlots?: number;
+  totalSlots?: number;
+}
+
+/** One row of a multi-role request: N workers in one role. */
+export interface RequestLineDto {
+  subcategory: string;
+  requiredLevel: number;
+  tasksRequired?: string[];
+  quantity: number;
+  startTime: string;
+  endTime: string;
+  grossHourlyRate: number;
+  languagesRequired?: string[];
+}
+
+export interface CreateRequestDto {
+  name: string;
+  description?: string;
+  dates: string[];
+  address: string;
+  lat: number;
+  lng: number;
+  paymentMethod: string;
+  hasDressCode?: boolean;
+  dressCode?: string | null;
+  lines: RequestLineDto[];
 }
 
 export interface WagePayment {
@@ -343,7 +375,12 @@ export interface HiredWorker {
   noShowShifts: WorkerJobRef[];
 }
 
-export interface WorkerJobRef { shiftId: string; title: string; date: string }
+export interface WorkerJobRef {
+  shiftId: string; title: string; date: string;
+  /** Pending reviews: the shift's role and the worker's declared level in it (null = not declared). */
+  role?: string | null;
+  declaredLevel?: number | null;
+}
 
 // ── Ratings types ─────────────────────────────────────────────────────────────
 
@@ -371,6 +408,10 @@ export interface WorkerRoleView {
   tasks: string[];
   years: string | null;
   confirmedShifts: number;
+  /** Licensed roles only appear once their document is uploaded. */
+  hasCertificate?: boolean;
+  /** The document itself — only for a company the worker applied to (its duty to check it). */
+  certificate?: { url: string; fileName: string };
 }
 
 /** Public worker profile visible to employers in talent search */
@@ -536,6 +577,18 @@ export const adminApi = {
   // Shifts
   createShift: (dto: CreateShiftDto) =>
     request<Shift>('/shifts', { method: 'POST', body: JSON.stringify(dto) }),
+
+  /** "Publicar vários turnos" — all or nothing. */
+  createRequest: (dto: CreateRequestDto) =>
+    request<{ id: string; name: string; lines: number; shifts: number }>(
+      '/shifts/requests', { method: 'POST', body: JSON.stringify(dto) },
+    ),
+
+  /** Cancel every not-yet-started shift of a request. */
+  cancelRequest: (id: string, reason?: { reasonCategory?: string; reasonNote?: string }) =>
+    request<{ cancelled: number }>(
+      `/shifts/requests/${id}/cancel`, { method: 'POST', body: JSON.stringify(reason ?? {}) },
+    ),
 
   getMyShifts: () =>
     request<Shift[]>('/shifts/employer/mine', { method: 'GET' }),
@@ -726,7 +779,7 @@ export const adminApi = {
     request<{ hasRated: boolean }>(`/ratings/shift/${shiftId}/mine`, { method: 'GET' }),
 
   /** Submit a rating for a completed shift. */
-  submitRating: (dto: { shiftId: string; score: number; tags: string[]; review?: string }) =>
+  submitRating: (dto: { shiftId: string; score: number; tags: string[]; review?: string; levelMatched?: boolean }) =>
     request<{ id: string }>('/ratings', { method: 'POST', body: JSON.stringify(dto) }),
 
   /** Report a no-show for a shift. */

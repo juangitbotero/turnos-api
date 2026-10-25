@@ -16,23 +16,29 @@ contradicts the product is worse than no roadmap.
 > row here **in the same commit** as the change.
 
 Last full reconciliation with the runbook and the live API: **2026-10-05**
-(this file updated through the 2026-10-11 session).
+(this file updated through the 2026-10-25 session).
 Re-check before acting — some of these are load-bearing until the day they
 aren't.
 
 ## Next session — start here
 
-1. **Test on a device with APK `versionCode` 12** (EAS `9af718d1`): "✓ Recebi /
-   🚩 Não recebi" buttons on a completed shift; a push to a worker on an
-   English phone arrives in English without touching the language switch;
-   plus the `versionCode` 11 checks still open (26 Sept application in
-   History as Caducado, onboarding without the income question).
-2. **Test the dashboard on production:** Shifts page in the neutral style;
-   Reviews tab shows "Avaliar (n)" only for unreviewed jobs.
-3. Pick from what is left and needs no external account: make
-   `DashboardShell` collapse on phones, R2 uploads (needs a Cloudflare key),
-   app version `1.0.0`, smaller defects, move the other dashboard pages to
-   `lib/ui.ts` (Track 3). Wanted improvements that are not blockers: Track 5.
+1. **Test APK `versionCode` 14 on the emulator** (built 2026-10-25 with the
+   deploy of skills step 4, licence documents, privacy / terms / FAQ and
+   multi-role requests): roles editor in onboarding and edit-profile,
+   "Confirma as tuas funções" card, level block on a shift, feed level chip,
+   document upload on a Vigilante role, re-accepting the terms
+   (`TERMS_VERSIONS.WORKER` = `2026-10-25`), and a "2 vagas" card from
+   "Publicar vários turnos".
+2. **Test on the production dashboard:** "Publicar vários turnos" (one request,
+   2 roles, one with quantity 2), the request label + "Cancelar pedido" on the
+   Shifts page, the level question in a review.
+3. **Wire R2 before real users upload anything** (Track 3 "Uploads on local
+   disk"): CVs, payment proofs and now licence documents live on the Railway
+   container disk and **vanish on every redeploy**.
+4. **Regenerate the law-firm pack** — the worker terms (v0.2, §4-A) and the
+   privacy policy changed, with three new ⚖️ questions on licence documents.
+5. Then: the code-hygiene sweep (Track 3 row), `DashboardShell` on phones,
+   app version `1.0.0`, smaller defects. Wanted improvements: Track 5.
 
 **Blocked on outside events, not on code:** Twilio (#1), live Stripe (#5),
 Apple + Google accounts, an owned email domain and the privacy-page
@@ -386,10 +392,12 @@ false` is already set, which also clears export compliance.
 | `BYPASS_SUBSCRIPTION` | `payments.service.ts:205` returns early, which also skips the overdue-wage block. Delete the Railway variable after the Pay Link end-to-end run (the test company publishes through it; the transferência run was done 2026-10-05); consider gating the code on `NODE_ENV !== 'production'` |
 | ~~Test accounts~~ | 🟢 **Decided 2026-10-11: keep both** — worker `+33767560422` (Juanes) and employer Carolina Bakes stay as internal test data. No cleanup touches them. The worker's bio, skills, languages and experiences are still seeder fiction; rewrite them whenever convenient |
 | ~~`apps/api/.env` baked into the image~~ | 🟢 Not possible — `.env` is not in git and Railway builds from git (checked 2026-10-05). An image built locally *would* include it: the Dockerfile copies `apps/api/` and the only `.dockerignore` sits in `apps/api/`, outside the build context root |
-| Uploads on local disk | R2 is decided, wiring incomplete. `useStaticAssets('/uploads')` serves photos, CVs and payment proofs from a container filesystem that does not survive a Railway redeploy |
+| Uploads on local disk | 🔴 **More urgent since 2026-10-25.** R2 is decided, wiring incomplete. `useStaticAssets('/uploads')` serves photos, CVs, payment proofs **and licence documents** from a container filesystem that does not survive a Railway redeploy — a worker's security card disappears at the next deploy and the role silently stops working for them. Needs a Cloudflare R2 key; `StorageService` already has the R2 branch |
 | Dashboard unusable on a phone | 0 media queries, 843 inline style objects across 11 pages, and an overlay telling sub-768px visitors to use a desktop. The sidebar was hoisted into one `components/DashboardShell.tsx` on 2026-10-11 (it had been copied into 3 pages and missing from 8) — the next step is making that shell collapse on narrow screens |
 | Smaller defects | `createGoogleEmployer` creates a `User` but no `Employer` row · blanket 401 → logout masks real auth errors · pre-shift consequence reminder no longer in the policy (removed from v1.2 until built) · unused deps: `@reduxjs/toolkit`, `react-redux`, `react-query`, `expo-crypto` (mobile), `@stripe/react-stripe-js`, `@stripe/stripe-js` (web-admin) · mobile `tsc` noise (`TS2786`/`TS2339`, LinearGradient + design-token typings — Metro unaffected) |
-| **Skills matching — roles, levels, tasks** | 🟠 **Deployed 2026-10-25 (`efde32d`)** — API live on Railway, production migration ran (open shifts show the new role families and `requiredLevel`); APK `versionCode` 13 built on EAS (`eb3a9bc2`) for testing (`docs/skills-matching-proposal.md`; what was built: CLAUDE.md). Deployed ahead of the APK by decision: until workers update the app, migrated roles sit at a provisional level, so post level-1 shifts meanwhile. Steps 1–3 done: shared catalogue + migration + API, dashboard (posting form, applicant reason line, worker search), app (roles editor, shift-detail level, feed chip). Verified: migration on the local DB (schema = entities), API end-to-end script (level gate PT/EN, 3-role cap, old-app save, no internal counters leaked), dashboard in the browser PT + EN, Android bundle builds. **Not verified:** the app screens on a device — the app can't run on web (`react-native-maps`). **To test on APK 13:** onboarding/edit-profile roles, provisional prompt, shift-detail level gate, feed level chip. **Still to build:** step 4 — "did the level match?" in the company review → `confirmedShifts` / `belowLevelCount`, two "below" answers open an ops case (no auto-downgrade); certificate upload for Vigilante / empilhador / Motorista (today only a warning); step 5 docs — privacy policy (level confirmations), worker terms ("declare truthfully"), FAQ |
+| **Skills matching — roles, levels, tasks** | 🟠 **Steps 1–3 deployed 2026-10-25 (`efde32d`)** — API live on Railway, production migration ran (open shifts show the new role families and `requiredLevel`); APK `versionCode` 13 built (EAS `eb3a9bc2`). Deployed ahead of the APK by decision: until workers update, migrated roles sit at a provisional level, so post level-1 shifts meanwhile. **Built 2026-10-25 afternoon, not yet deployed** (verified locally with an end-to-end script): **step 4** — "did the level match?" in the company review (asked only when the worker declared the role; Yes + ≥4★ → `confirmedShifts`, 2 → "Confirmado" + push; 2 × "below" → push to review + ops case `NIV-…`, never an auto-downgrade); **licence documents** for Vigilante / empilhador / Motorista (`POST/DELETE /auth/worker/roles/certificate`, image or PDF; without it the role is hidden from companies, not notified and can't apply; the file only to companies the worker applied to; deleted with the role, the document or the account); **step 5** — privacy policy (roles, documents, level confirmations, and companies searching workers — that row was missing before), worker terms v0.2 §4-A (`TERMS_VERSIONS.WORKER` → `2026-10-25`, everyone re-accepts), FAQ. Also fixed: the reputation recalculation saved the whole worker row and silently overwrote a role update made on the same rating (now column-only `update()`). **To do:** deploy + APK 14 (see Next session); documents depend on R2 to survive redeploys; regenerate the law-firm pack |
+| **Multi-role requests ("Publicar vários turnos")** | 🟢 **Built 2026-10-25, deployed with APK 14.** Separate page `/dashboard/new-request`, reached from a button next to "Publicar turno" (which is unchanged). Common fields once (name, dates, address, payment, dress code, description), one row per role (role, quantity ≤10, start, duration, rate, level, tasks, languages; ≤10 rows). Each worker needed is a normal `Shift` (or series) with `requestId` + `lineId` (`shift_requests` table, migration `ShiftRequests`). Quota counts every slot and the request is all-or-nothing (`assertCanPostShift(userId, adding)`); €3 per completed shift unchanged. Workers: one card per row with "N vagas" (`openSlots`), apply once → applications on every open slot; company: one candidate list per row, picking a worker fills the first open slot they applied to, a second slot of the same row is refused; on confirming, the worker's other applications in that row and in overlapping rows are withdrawn. One push wave per row. `POST /shifts/requests`, `POST /shifts/requests/:id/cancel` (each slot through the normal cancellation policy). Verified locally end to end (API script + dashboard in the browser). Not built: editing a request after posting (edit each shift), templates / repeat a request |
+| **Code-hygiene sweep** | ⬜ **Proposed 2026-10-25.** One pass to remove what is old or unused before launch, in this order: (1) unused exports, files and dependencies (`knip` over the monorepo; known: `@reduxjs/toolkit`, `react-redux`, `react-query`, `expo-crypto`, `@stripe/react-stripe-js`, `@stripe/stripe-js`); (2) unused translation keys (extend `scripts/i18n-check-keys.js` to list keys no screen uses); (3) legacy columns and enum values (`experiences`, `skills` once no app below versionCode 13 is in use, `accountantEmail`, `McdContract.ss*`, dead BullMQ keys in Redis) — each needs a migration, so batch them; (4) API routes no client calls (diff controller routes against `lib/api.ts` in both apps); (5) stale docs (anything still describing check-out scans, T+1 payouts, competências). **Found 2026-10-25:** `apps/api/uploads/worker-photos/` (4 profile photos) is **committed to git** and `uploads/` is not in `.gitignore` — personal data in the repo history; untrack, ignore, and decide whether to rewrite history. Rule: delete only with a grep showing zero callers, and one commit per category so a revert is clean |
 | **Legal gates — test pass** | 🟠 Built 2026-09-27. **Tested 2026-10-05:** company terms modal after the version bump (accepted), 18+ check on apply (passed with a date of birth set). **Still untested:** worker terms screen on a fresh sign-in, statements of reasons (needs a reported no-show on a test shift), retention log line `[Retention] Nightly purge registered` in the Railway logs. How: runbook §8 |
 | ~~Email is not being sent~~ | Promoted to Track 1, blocker #7 |
 | ~~Shift times read as UTC~~ | 🟢 Fixed 2026-10-05, found preparing the first end-to-end run. The API runs in UTC on Railway and built shift instants with `new Date(\`${date}T${time}\`)`, so every Lisbon wall-clock time was an hour late in summer: check-in window, auto-completion, 11h rest check, company/worker cancellation thresholds, check-in "today" after 23:00. Now `common/lisbon-time.ts` (`lisbonDateTime`, `lisbonDate`, DST-tested); API messages format in Lisbon time. Not fixed via `TZ` — that would change how `pg` reads existing `timestamp` columns |

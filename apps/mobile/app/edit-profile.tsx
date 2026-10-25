@@ -27,6 +27,8 @@ export default function EditProfileScreen() {
   const [fullName, setFullName]           = useState('');
   const [bio, setBio]                     = useState('');
   const [roles, setRoles]                 = useState<WorkerRole[]>([]);
+  // Roles as stored on the server — a licensed role's document can only be uploaded once saved
+  const [savedRoleNames, setSavedRoleNames] = useState<string[]>([]);
   const [languages, setLanguages]         = useState<string[]>([]);
   const [availableDays, setAvailableDays] = useState<string[]>([]);
   const [isAvailableForWork, setIsAvailableForWork] = useState(true);
@@ -58,6 +60,7 @@ export default function EditProfileScreen() {
       setBirthDate(formatBirthDateInput(data.dateOfBirth));
       setBio((data as any).bio ?? '');
       setRoles(data.roles ?? []);
+      setSavedRoleNames((data.roles ?? []).map(r => r.role));
       setLanguages(normalise((data as any).languages ?? []));
       setAvailableDays(normalise(data.availableDays ?? []));
       setIsAvailableForWork(data.isAvailableForWork ?? true);
@@ -468,7 +471,7 @@ export default function EditProfileScreen() {
             </View>
           )}
           <Text style={s.cardSub}>{t('mobile.roles.sub', { max: MAX_WORKER_ROLES })}</Text>
-          <RolesEditor roles={roles} onChange={setRoles} />
+          <RolesEditor roles={roles} onChange={setRoles} savedRoleNames={savedRoleNames} />
         </View>
 
         {/* ── NIF + IBAN (both editable) ── */}
