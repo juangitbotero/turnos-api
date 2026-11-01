@@ -144,6 +144,7 @@ you forget.
 | 4 | CORS open to every origin | `apps/api/src/main.ts` | 🟢 **Fixed `dbb95f3`** |
 | 5 | Stripe still in test mode | Railway variables | 🔴 Live |
 | 6 | Rate limiting did not enforce | `main.ts` `trust proxy` | 🟢 **Fixed `d1501ca`** (2026-10-05) — 429s verified on prod |
+| 8 | Android push probably never delivered | 🔴 **Found 2026-11-01.** Expo needs Firebase (FCM) credentials to deliver push on Android; the project has no `google-services.json`, and the app swallowed the token error, so Android workers most likely have no push token — only the in-app inbox works. Fix: free Firebase project for `com.turnos.app` → `apps/mobile/google-services.json` + `"googleServicesFile": "./google-services.json"` under `android` in `app.json` (the build **fails** if the key points to a missing file, so add both together) → upload the FCM v1 service-account key to Expo (`eas credentials` → Android → Push Notifications) → new build. The app now re-registers the token on every launch (`lib/push.ts`), so signed-in workers pick it up after updating. iOS: APNs key is created by EAS once the Apple account is active |
 | 7 | No email was delivered | `mail.service.ts`; Railway blocks SMTP below Pro | 🟢 **Fixed 2026-10-05** — Brevo HTTPS API; first real email (company verification) delivered to Hotmail and the link verified the account. Gotcha on the way: a leftover `MAIL_USER` set the sender to an unverified address — runbook §3. Still sending from a gmail.com address (Brevo warns: DMARC) — move to an owned domain before launch (**`turnos.cc` bought 2026-11-01** — authenticate it in Brevo, see Track 2 for the SPF merge). Companies registered before 2026-10-05 never got their verification email; the dashboard now shows unverified companies a "Reenviar email de verificação" card (`POST /auth/employer/resend-verification`) |
 
 **1 — Mock OTP.** Activates whenever Twilio credentials are absent or still
@@ -433,6 +434,60 @@ false` is already set, which also clears export compliance.
 | ~~Manual "Concluído" skipped settlement~~ | 🟢 Fixed 2026-10-05, found in the first end-to-end run: `manualConfirm` set COMPLETED and stopped — no wage payment row, no reminders, no €3 fee, no review prompts (and `completeShift` skips manually closed shifts). Now runs the same settlement as auto-completion; manually closed series days count towards the series' paid hours |
 | Email language | Interim since 2026-10-05: emails to companies (verification, rate-the-worker, payment due, wage reminders, posting block) are **bilingual PT + EN** via `MailService.sendBilingual()`. End state: store each company's language and send only that one — workers already have `Worker.preferredLanguage` (restriction notices use it). Internal ops alerts stay PT |
 | Manual monthly step | Delete worker late-cancel justifications older than 6 months from the ops inbox — the privacy policy promises it and nothing automates it. How: runbook §8 |
+| **Shifts nobody scanned ("to confirm")** | 🟠 **Built 2026-11-01.** Before: auto-completion was armed only by the check-in, so a FILLED shift with no scan stayed "Filled" forever — no wage row, no fee, no reviews. Now the 15-min sweep moves it to "to confirm" at its scheduled end (`Shift.confirmRequestedAt`, status stays FILLED for old apps): push "Did you work?" to the worker + email to the company. Closes on the first of: worker "I worked" → completed; company Concluído / Registar falta / Não se realizou (no fee, wage or sanction); **48h of silence → completed automatically** (`UNCONFIRMED_AUTO_COMPLETE_HOURS`). Worker "I didn't work" stops the automatic completion. Never an automatic no-show. Shifts that had ended >7 days before the rule saw them get no auto-completion and no messages. A reported no-show now sets `Shift.noShowReportedAt` (the shift used to look "Filled" forever after one). Dashboard: "To confirm" section + tinted status pills (Filled green). App: "✋ Did you work?" card on My shifts (**next APK**). Company terms §8 + policy v1.3 updated, `TERMS_VERSIONS.EMPLOYER` → `2026-11-01` (every company re-accepts); ⚖️ question added for the law firm |
+
+### Notifications — what exists, what's missing, and when each fires
+
+Rule for every new notification: say **when** it fires, **who** gets it and
+**what stops it repeating**, and add it here. Anti-spam rules already in code:
+per-shift counters/flags (`checkInRemindersSent`, `confirmRequestedAt`,
+`employerSeenAt`, first-candidate-only email), one push wave per job/request
+line, offers expire instead of being re-sent.
+
+**Worker push (+ inbox copy), built**
+
+| When | What | Guard |
+|---|---|---|
+| Shift published matching role ≥ level | New shift (top 20 matches; favourites, then TOP_RATED first) | Once per job/line |
+| +5h after publish with 0 applicants | Second wave to the next matches | One re-wave |
+| Company selects / invites | "You were selected" / "Invitation" — 2h to accept | One per offer |
+| Offer withdrawn / 2h lapse / company cancels before answer | Offer ended | One per offer |
+| Company cancels a confirmed shift | Shift cancelled | Once |
+| **T−15 min** (new) | "Starts in 15 min — scan the QR at the entrance" | `checkInRemindersSent` ≥ 1 |
+| **T+15 min, no check-in** (new) | "Have you arrived?" | `checkInRemindersSent` = 2; stops when the check-in window closes (T+60) |
+| **Scheduled end, no check-in** (new) | "Did you work?" | `confirmRequestedAt` set once |
+| Shift completes | "Rate the company" | Once; +8h follow-up only if not rated |
+| Company marks paid / Pay Link paid / adjusts hours | Payment status | One per event |
+| No-show or late-cancel suspension | Restriction notice with reasons (+ email) | One per decision |
+| Level confirmed / 2 × "below level" | Role confirmed / review your level | Once per threshold |
+
+**Company email, built:** email verification; first candidate per job
+(switchable); "to confirm" at the end of an unscanned shift (new, not
+switchable — it can make a payment due); rate-the-worker +8h (switchable);
+payment due + unpaid ladder +8h/+24h/+48h, posting blocked at +72h (final
+warning always sent); live dashboard events (socket) for candidates and
+check-ins. **Ops email:** disputes, not-received, company cancellations,
+justifications, no-shows, 72h unpaid, level reviews.
+
+**Missing — proposed timing** (none built; promote by decision)
+
+| Who | When | What | Why / anti-spam note |
+|---|---|---|---|
+| Worker | T−24h | Reconfirmation "Still coming?" — no answer by T−12h → auto-cancel + slot reopens | Biggest no-show lever. Needs a policy change (auto-cancel is a consequence) |
+| Worker | T−2h | Address + maps link, dress code, "scan on arrival" | Could replace the T−15 reminder if both feel like too much — keep max 2 pre-shift pushes |
+| Worker | Sunday 18:00 | "Available this week?" one-tap days | Weekly at most; skip if they set availability in the last 7 days |
+| Worker | On event | Profile <80 points: what's missing | Max once a week until fixed |
+| Worker | On event | Approaching the 70-day MCD limit with one company (at 60 days) | Once per company per year |
+| Worker | On event | Application rejected / job filled by someone else | Batch per day, not per job |
+| Worker | On event | End of suspension | Once |
+| Company | +6h | Candidates waiting for an answer | Once per job |
+| Company | T−24h | Who's coming tomorrow (summary) | One email per day, only if shifts tomorrow |
+| Company | 48h / 24h before start, 0 applicants | Suggest raising the rate / widening requirements | Once each |
+| Company | T+15, no check-in | "Ana hasn't checked in yet" (email or push once the dashboard has push) | Once |
+| Company | Monthly, 1st | Spend, hours, informative SS figures | Monthly |
+| Company | On event | Card expiring / payment failed | Stripe-driven |
+| Ops | +48h | Dispute unanswered → escalation | Once |
+| All | — | **Quiet hours 22:00–08:00** (except an offer with a 2h window), **max ~3 pushes/day per worker** outside offers, preferences screen in the app | Not built — today nothing enforces a daily cap |
 
 ### Capacity — measured 2026-09-13
 

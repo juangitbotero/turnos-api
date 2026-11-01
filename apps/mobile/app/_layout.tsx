@@ -5,6 +5,7 @@ import { View, ActivityIndicator } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { tokenStorage } from '../lib/storage';
 import { authApi, syncPreferredLanguage } from '../lib/api';
+import { registerPushToken } from '../lib/push';
 import { notificationRoute } from '../lib/notificationRoute';
 import { initI18n, LanguageProvider } from '../lib/i18n';
 import { colors, AppLanguage, DEFAULT_LANGUAGE } from '@turnos/shared';
@@ -81,6 +82,7 @@ export default function RootLayout() {
         authApi.getMe()
           .then(me => {
             syncPreferredLanguage(me);
+            if (me.role === 'WORKER') void registerPushToken({ ask: false });
             if (me.termsCurrent === false) router.replace('/terms' as any);
           })
           .catch(() => {});

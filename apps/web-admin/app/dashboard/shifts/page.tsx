@@ -6,7 +6,7 @@ import { adminApi, ApiError, Shift, Application, WagePayment } from '../../../li
 import { connectSocket, getSocket, NewApplicationPayload } from '../../../lib/socket';
 import { COMPANY_CANCEL_REASONS, paymentMethodLabel } from '@turnos/shared';
 import { useT } from '../../../lib/i18n';
-import { ui, STATUS_DOT, NEUTRAL_DOT } from '../../../lib/ui';
+import { ui, STATUS_DOT, NEUTRAL_DOT, statusPill } from '../../../lib/ui';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 import { ApplicantList, WorkerProfilePanel } from '../../../components/Applicants';
 import { CANDIDATES_CHANGED_EVENT } from '../../../components/DashboardShell';
@@ -264,6 +264,34 @@ export default function ShiftsPage() {
     }
   };
 
+  // A shift nobody scanned: the company says it didn't take place, or reports
+  // a no-show. "Concluído" reuses handleManualConfirm.
+  const handleNotWorked = async (shift: Shift) => {
+    if (!confirm(t('admin.shifts.notWorkedBody', { shift: shift.title || tSkill(shift.subcategory) }))) return;
+    setConfirming(shift.id);
+    try {
+      await adminApi.markShiftNotWorked(shift.id);
+      setShifts(prev => prev.map(sh => sh.id === shift.id ? { ...sh, status: 'CANCELLED' as const } : sh));
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : t('admin.shifts.actionError'));
+    } finally {
+      setConfirming(null);
+    }
+  };
+
+  const handleNoShow = async (shift: Shift) => {
+    if (!confirm(t('admin.shifts.noShowBody', { shift: shift.title || tSkill(shift.subcategory) }))) return;
+    setConfirming(shift.id);
+    try {
+      await adminApi.reportNoShow(shift.id);
+      setShifts(prev => prev.map(sh => sh.id === shift.id ? { ...sh, noShowReportedAt: new Date().toISOString() } : sh));
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : t('admin.shifts.actionError'));
+    } finally {
+      setConfirming(null);
+    }
+  };
+
   // Client-side expiry detection (backup until nightly cron runs)
   const isExpiredShift = (sh: Shift) => {
     if (!['OPEN', 'PENDING_ACCEPTANCE'].includes(sh.status)) return sh.status === 'EXPIRED';
@@ -273,9 +301,18 @@ export default function ShiftsPage() {
     return end < new Date();
   };
 
-  const active  = shifts.filter(sh => ['OPEN', 'FILLED', 'ACTIVE', 'PENDING_ACCEPTANCE'].includes(sh.status) && !isExpiredShift(sh));
+  // FILLED splits three ways: still to happen (active), ended with no check-in
+  // ("to confirm" — the API sweep sets confirmRequestedAt, the end time is the
+  // backup until it runs), and closed by a no-show report (history).
+  const isNoShow    = (sh: Shift) => sh.status === 'FILLED' && !!sh.noShowReportedAt;
+  const isToConfirm = (sh: Shift) => sh.status === 'FILLED' && !sh.noShowReportedAt
+    && (!!sh.confirmRequestedAt || hasEnded(sh));
+
+  const toConfirm = shifts.filter(isToConfirm);
+  const active  = shifts.filter(sh => ['OPEN', 'FILLED', 'ACTIVE', 'PENDING_ACCEPTANCE'].includes(sh.status)
+    && !isExpiredShift(sh) && !isToConfirm(sh) && !isNoShow(sh));
   const expired = shifts.filter(sh => isExpiredShift(sh));
-  const past    = shifts.filter(sh => ['COMPLETED', 'CANCELLED', 'DRAFT'].includes(sh.status));
+  const past    = shifts.filter(sh => ['COMPLETED', 'CANCELLED', 'DRAFT'].includes(sh.status) || isNoShow(sh));
 
   return (
     <div style={s.page}>
@@ -458,6 +495,31 @@ export default function ShiftsPage() {
           <p style={s.emptyText}>{t('admin.shifts.emptyText')}</p>
           <Link href="/dashboard/new-shift" style={s.emptyBtn}>{t('admin.shifts.emptyCta')}</Link>
         </div>
+      )}
+
+      {/* To confirm — ended without a check-in. Completes on its own unless
+          the company says otherwise; these are the only buttons it needs. */}
+      {toConfirm.length > 0 && (
+        <section style={s.section}>
+          <h2 style={s.sectionTitle}>{t('admin.shifts.sectionToConfirm')}</h2>
+          <p style={s.toConfirmIntro}>{t('admin.shifts.toConfirmIntro')}</p>
+          <div style={s.table}>
+            <div style={s.tableHead}>
+              <span>{t('admin.shifts.colShift')}</span><span>{t('admin.shifts.colDate')}</span><span>{t('admin.shifts.colTime')}</span>
+              <span>{t('admin.shifts.colRate')}</span><span>{t('admin.shifts.colStatus')}</span><span>{t('admin.shifts.colActions')}</span>
+            </div>
+            {toConfirm.map(shift => (
+              <ToConfirmRow
+                key={shift.id}
+                shift={shift}
+                busy={confirming === shift.id}
+                onCompleted={handleManualConfirm}
+                onNoShow={handleNoShow}
+                onNotWorked={handleNotWorked}
+              />
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Active shifts */}
@@ -1071,12 +1133,15 @@ function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancellin
   newAppCount: number;
 }) {
   const { t, tSkill, tCategory, fMediumDate, fDateRange } = useT();
-  const dot = STATUS_DOT[shift.status] ?? NEUTRAL_DOT;
-  const statusLabel = t(`domain.shiftStatus.${shift.status}`, { defaultValue: shift.status });
+  // A no-show keeps status FILLED in the database; show what it really is.
+  const shown = shift.status === 'FILLED' && shift.noShowReportedAt ? 'NO_SHOW' : shift.status;
+  const dot = STATUS_DOT[shown] ?? NEUTRAL_DOT;
+  const statusLabel = t(`domain.shiftStatus.${shown}`, { defaultValue: shown });
   // PENDING_ACCEPTANCE had no action at all before 2026-10-11 — a shift could
   // sit on "A aguardar trabalhador" with nothing the company could do.
-  const canCancel        = ['OPEN', 'DRAFT', 'FILLED', 'PENDING_ACCEPTANCE'].includes(shift.status);
-  const canManualConfirm = ['FILLED', 'ACTIVE'].includes(shift.status);
+  const closed           = shown === 'NO_SHOW';
+  const canCancel        = ['OPEN', 'DRAFT', 'FILLED', 'PENDING_ACCEPTANCE'].includes(shift.status) && !closed;
+  const canManualConfirm = ['FILLED', 'ACTIVE'].includes(shift.status) && !closed;
 
   return (
     <div style={s.tableRow}>
@@ -1107,9 +1172,9 @@ function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancellin
       </span>
       <span style={s.rowCell}>{shift.startTime.slice(0, 5)}–{shift.endTime.slice(0, 5)}</span>
       <span style={{ ...s.rowCell, fontWeight: 700 }}>€{Number(shift.grossHourlyRate).toFixed(2)}/hr</span>
-      <span style={s.badge}><span style={{ ...ui.dot, background: dot }} />{statusLabel}</span>
+      <span style={statusPill(shown)}><span style={{ ...ui.dot, background: dot }} />{statusLabel}</span>
       <div style={s.rowActions}>
-        {['OPEN', 'FILLED'].includes(shift.status) && (
+        {['OPEN', 'FILLED'].includes(shift.status) && !closed && (
           <button style={s.viewAppsBtn} onClick={onViewApps}>
             {t('admin.shifts.viewApps')}
             {newAppCount > 0 && (
@@ -1117,7 +1182,7 @@ function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancellin
             )}
           </button>
         )}
-        {['FILLED', 'ACTIVE'].includes(shift.status) && (
+        {['FILLED', 'ACTIVE'].includes(shift.status) && !closed && (
           <Link
             href={`/dashboard/compliance?tab=mcd&month=${shift.date.slice(0, 7)}`}
             style={{ ...s.viewAppsBtn, textDecoration: 'none' }}
@@ -1160,6 +1225,65 @@ function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancellin
   );
 }
 
+// ── "To confirm" row ──────────────────────────────────────────────────────────
+
+function ToConfirmRow({ shift, busy, onCompleted, onNoShow, onNotWorked }: {
+  shift: Shift;
+  busy: boolean;
+  onCompleted: (shift: Shift) => void;
+  onNoShow: (shift: Shift) => void;
+  onNotWorked: (shift: Shift) => void;
+}) {
+  const { t, tSkill, tCategory, fMediumDate, fDateRange, fDateTime } = useT();
+  const note = shift.workerConfirmation === 'NOT_WORKED'
+    ? t('admin.shifts.toConfirmWorkerSaidNo')
+    : shift.autoConfirmAt
+      ? t('admin.shifts.toConfirmAuto', { when: fDateTime(shift.autoConfirmAt) })
+      : shift.confirmRequestedAt
+        ? t('admin.shifts.toConfirmManual')
+        : t('admin.shifts.toConfirmWorkerPending');
+
+  return (
+    <div style={s.tableRow}>
+      <div>
+        <p style={s.rowTitle}>{shift.title || tSkill(shift.subcategory)}</p>
+        <p style={s.rowSub}>{tCategory(shift.category)} · {shift.address.split(',')[0]}</p>
+        <p style={s.toConfirmNote}>{note}</p>
+      </div>
+      <span style={s.rowCell}>
+        {isMultiDay(shift) ? fDateRange(shift.seriesDates!) : fMediumDate(shift.date)}
+      </span>
+      <span style={s.rowCell}>{shift.startTime.slice(0, 5)}–{shift.endTime.slice(0, 5)}</span>
+      <span style={{ ...s.rowCell, fontWeight: 700 }}>€{Number(shift.grossHourlyRate).toFixed(2)}/hr</span>
+      <span style={statusPill('TO_CONFIRM')}>
+        <span style={{ ...ui.dot, background: STATUS_DOT.TO_CONFIRM }} />{t('domain.shiftStatus.TO_CONFIRM')}
+      </span>
+      <div style={{ ...s.rowActions, opacity: busy ? 0.6 : 1 }}>
+        <button style={s.confirmBtn} disabled={busy} onClick={() => onCompleted(shift)}>
+          {t('admin.shifts.manualDone')}
+        </button>
+        <button style={s.viewAppsBtn} disabled={busy} onClick={() => onNotWorked(shift)}>
+          {t('admin.shifts.notWorkedBtn')}
+        </button>
+        <button style={s.cancelBtn} disabled={busy} onClick={() => onNoShow(shift)}>
+          {t('admin.shifts.noShowBtn')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Scheduled end has passed (Lisbon wall clock read as local — same as isExpiredShift). */
+function hasEnded(sh: Shift): boolean {
+  const [y, mo, d] = sh.date.split('-').map(Number);
+  const [sH, sM] = sh.startTime.split(':').map(Number);
+  const [eH, eM] = sh.endTime.split(':').map(Number);
+  const end = new Date(y!, mo! - 1, d!, eH ?? 0, eM ?? 0, 0);
+  // Overnight shift: the end is on the next day
+  if ((eH! * 60 + eM!) <= (sH! * 60 + sM!)) end.setDate(end.getDate() + 1);
+  return end < new Date();
+}
+
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const s: Record<string, React.CSSProperties> = {
@@ -1186,6 +1310,8 @@ const s: Record<string, React.CSSProperties> = {
   },
   section: { marginBottom: 32 },
   sectionTitle: { fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 12 },
+  toConfirmIntro: { fontSize: 13, color: 'var(--color-text-secondary)', margin: '-4px 0 12px', maxWidth: 760, lineHeight: 1.5 },
+  toConfirmNote: { fontSize: 12, color: '#92400e', fontWeight: 600, marginTop: 4 },
   table: {
     background: '#fff', borderRadius: 12, border: '1px solid var(--color-border)',
     overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',

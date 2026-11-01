@@ -26,12 +26,16 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { isLookupKey } from '../common/lookup-key';
-import { Repository, In, Not, IsNull } from 'typeorm';
+import { Repository, In, Not, IsNull, LessThanOrEqual } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { lisbonDateTime, lisbonDate, nextDay } from '../common/lisbon-time';
 import * as crypto from 'crypto';
 import * as QRCode from 'qrcode';
-import { formatSeriesRange } from '@turnos/shared';
+import {
+  formatSeriesRange, UNCONFIRMED_AUTO_COMPLETE_HOURS, UNCONFIRMED_BACKFILL_DAYS, CHECKIN_REMINDER_MINUTES,
+} from '@turnos/shared';
+import { MailService } from '../mail/mail.service';
+import { escapeHtml, lisbonStamp, ptDate } from '../mail/ops-email';
 import { ShiftAttendance, AttendanceStatus } from './entities/shift-attendance.entity';
 import { Shift, ShiftStatus } from '../shifts/entities/shift.entity';
 import { Worker } from '../users/entities/worker.entity';
@@ -52,6 +56,9 @@ const CHECKIN_WINDOW_BEFORE_MS = 30 * 60 * 1000;
 const CHECKIN_WINDOW_AFTER_MS  = 60 * 60 * 1000;
 // Geofence radius (metres)
 const GEOFENCE_RADIUS_M = 200;
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS   = 60 * MINUTE_MS;
+const DAY_MS    = 24 * HOUR_MS;
 
 interface StaticQrPayload {
   employerId: string;
@@ -97,6 +104,7 @@ export class AttendanceService {
     private readonly ratings: RatingsService,
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
+    private readonly mail: MailService,
   ) {
     this.hmacSecret = this.config.get<string>('QR_HMAC_SECRET', 'turnos-dev-qr-secret-change-in-prod');
   }
@@ -481,43 +489,65 @@ export class AttendanceService {
     });
     if (!shift)                          throw new NotFoundException(t('api.common.shiftNotFound'));
     if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
-    if (![ShiftStatus.FILLED, ShiftStatus.ACTIVE].includes(shift.status)) {
+    if (![ShiftStatus.FILLED, ShiftStatus.ACTIVE].includes(shift.status) || shift.noShowReportedAt) {
       throw new BadRequestException(t('api.attendance.shiftClosed'));
     }
 
-    let attendance = await this.attendanceRepo.findOne({ where: { shift: { id: shiftId } } });
+    return this.closeWithoutScan(shift, 'MANUAL', note ?? 'Confirmação manual pelo empregador');
+  }
+
+  /**
+   * Complete a shift that has no automatic completion pending: the company's
+   * "Concluído" (MANUAL), the worker's "I worked" on a shift nobody scanned
+   * (WORKER), or 48h of silence on one (SILENCE). Runs the same settlement as
+   * auto-completion — €3 fee, wage payment / Pay Link, review prompts.
+   *
+   * Until 2026-10-05 the manual path stopped at COMPLETED, so a shift the
+   * company closed by hand produced no wage payment row, no reminders and no
+   * fee (completeShift skips it too, because checkOutAt is already set).
+   */
+  private async closeWithoutScan(
+    shift: Shift,
+    trigger: 'MANUAL' | 'WORKER' | 'SILENCE',
+    note: string,
+  ): Promise<ShiftAttendance> {
+    const worker = shift.assignedWorker!;
+    let attendance = await this.attendanceRepo.findOne({ where: { shift: { id: shift.id } } });
     const scheduledHours = this.calcScheduledHours(shift.startTime, shift.endTime);
 
     if (!attendance) {
       attendance = this.attendanceRepo.create({
         shift:  { id: shift.id } as Shift,
-        worker: { id: shift.assignedWorker!.id } as Worker,
+        worker: { id: worker.id } as Worker,
       });
     }
 
-    attendance.checkInAt          = attendance.checkInAt ?? new Date();
-    attendance.checkOutAt         = new Date();
+    if (trigger === 'MANUAL') {
+      attendance.checkInAt  = attendance.checkInAt ?? new Date();
+      attendance.checkOutAt = new Date();
+    } else {
+      // Nobody scanned: no check-in time to record; the shift closes at its
+      // scheduled end, which is also what the wage is computed from.
+      attendance.checkOutAt = this.scheduledEnd(shift);
+    }
     attendance.scheduledHours     = scheduledHours;
+    // MANUAL = a day closed without a scan; it was worked and is paid.
     attendance.status             = AttendanceStatus.MANUAL;
-    attendance.isManualOverride   = true;
-    attendance.manualOverrideNote = note ?? 'Confirmação manual pelo empregador';
+    attendance.isManualOverride   = trigger === 'MANUAL';
+    attendance.autoCompleted      = trigger === 'SILENCE';
+    attendance.manualOverrideNote = note;
 
     const saved = await this.attendanceRepo.save(attendance);
-    await this.shiftRepo.update(shift.id, { status: ShiftStatus.COMPLETED });
+    await this.shiftRepo.update(shift.id, { status: ShiftStatus.COMPLETED, autoConfirmAt: null });
 
     await this.compliance.log({
       event:      ComplianceEvent.CONTRACT_CREATED,
       shiftId:    shift.id,
-      employerId: employer.id,
-      details:    { action: 'MANUAL_OVERRIDE', note, scheduledHours },
+      workerId:   worker.id,
+      employerId: shift.employer.id,
+      details:    { action: trigger === 'MANUAL' ? 'MANUAL_OVERRIDE' : `NO_SCAN_COMPLETED_${trigger}`, note, scheduledHours },
     });
 
-    // Run the same settlement as auto-completion — €3 fee, wage payment /
-    // Pay Link, review prompts. Until 2026-10-05 the manual path stopped at
-    // COMPLETED, so a shift the company closed by hand produced no wage
-    // payment row, no reminders and no fee (completeShift skips it too,
-    // because checkOutAt is already set). Found in the first end-to-end run.
-    const worker = shift.assignedWorker!;
     const settlement = await this.resolveSeriesSettlement(shift, worker.id, scheduledHours);
     if (settlement) this.settleJob(shift, worker, settlement);
 
@@ -527,9 +557,231 @@ export class AttendanceService {
       shiftTitle:     shift.title,
       scheduledHours,
     });
+    this.gateway.notifyAttendance(shift.employer.id, {
+      event:          'checked_out',
+      shiftId:        shift.id,
+      shiftTitle:     shift.title,
+      workerName:     worker.fullName ?? 'Trabalhador',
+      checkOutAt:     saved.checkOutAt!.toISOString(),
+      scheduledHours,
+    });
 
-    this.logger.log(`[Attendance] Manual confirm: shift ${shift.id} by employer ${employer.id}${settlement ? '' : ' — settlement deferred to the final series day'}`);
+    this.logger.log(`[Attendance] Closed without scan (${trigger}): shift ${shift.id}${settlement ? '' : ' — settlement deferred to the final series day'}`);
     return saved;
+  }
+
+  // ── Shifts nobody scanned ("to confirm") ──────────────────────────────────
+
+  /**
+   * Run by the 15-min sweep. A FILLED shift whose scheduled end has passed
+   * had no check-in (a check-in makes it ACTIVE). First pass: ask both sides —
+   * push to the worker ("did you work?"), email to the company — and set the
+   * automatic completion UNCONFIRMED_AUTO_COMPLETE_HOURS out. Later passes:
+   * complete it when that time comes and nobody has contested it.
+   *
+   * Never a no-show by default: that sanction stays the company's decision.
+   */
+  async sweepUnscannedShifts(): Promise<void> {
+    const now = new Date();
+    const filled = await this.shiftRepo.find({
+      where: {
+        status:           ShiftStatus.FILLED,
+        date:             LessThanOrEqual(lisbonDate()),
+        noShowReportedAt: IsNull(),
+      },
+      relations: ['employer', 'employer.user', 'assignedWorker'],
+    });
+
+    for (const shift of filled) {
+      if (!shift.assignedWorker || this.scheduledEnd(shift) > now) continue;
+      try {
+        if (!shift.confirmRequestedAt) {
+          await this.requestConfirmation(shift, now);
+        } else if (shift.autoConfirmAt && shift.autoConfirmAt <= now) {
+          await this.closeWithoutScan(shift, 'SILENCE',
+            `Concluído automaticamente — ${UNCONFIRMED_AUTO_COMPLETE_HOURS}h sem objeção da empresa nem do trabalhador`);
+        }
+      } catch (err) {
+        this.logger.error(`[Attendance] Unscanned-shift handling failed for ${shift.id}: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  private async requestConfirmation(shift: Shift, now: Date): Promise<void> {
+    const endedAt = this.scheduledEnd(shift);
+    // Shifts that ended long before this rule existed: listed as "to confirm",
+    // but no fee or payment ladder starts on its own, and nobody is messaged.
+    const legacy = now.getTime() - endedAt.getTime() > UNCONFIRMED_BACKFILL_DAYS * DAY_MS;
+    const autoConfirmAt = legacy ? null : new Date(now.getTime() + UNCONFIRMED_AUTO_COMPLETE_HOURS * HOUR_MS);
+    await this.shiftRepo.update(shift.id, { confirmRequestedAt: now, autoConfirmAt });
+
+    await this.compliance.log({
+      event:      ComplianceEvent.CONTRACT_CREATED,
+      shiftId:    shift.id,
+      workerId:   shift.assignedWorker!.id,
+      employerId: shift.employer.id,
+      details:    { action: 'NO_SCAN_CONFIRMATION_REQUESTED', legacy, autoConfirmAt: autoConfirmAt?.toISOString() ?? null },
+    });
+    if (legacy) return;
+
+    const title = shift.title || shift.subcategory;
+    this.notifications.notifyWorker(shift.assignedWorker!,
+      { key: 'confirmWorked', params: { shift: title } },
+      { type: 'confirm_worked', shiftId: shift.id }).catch(() => {});
+
+    const to = shift.employer.user?.email;
+    if (to) {
+      await this.sendConfirmationEmail(to, shift, autoConfirmAt!).catch(err => {
+        this.logger.warn(`[Attendance] Confirmation email for shift ${shift.id} failed: ${(err as Error).message}`);
+      });
+    }
+    this.logger.log(`[Attendance] Shift ${shift.id} ended without check-in — awaiting confirmation until ${autoConfirmAt!.toISOString()}`);
+  }
+
+  private async sendConfirmationEmail(to: string, shift: Shift, autoConfirmAt: Date): Promise<void> {
+    const webUrl  = this.config.get<string>('WEB_ADMIN_URL', 'http://localhost:3000');
+    const title   = escapeHtml(shift.title || shift.subcategory);
+    const worker  = escapeHtml(shift.assignedWorker?.fullName ?? 'o trabalhador');
+    const company = escapeHtml(shift.employer.companyName);
+    const date    = ptDate(shift.date);
+    const hours   = `${shift.startTime.slice(0, 5)}–${shift.endTime.slice(0, 5)}`;
+    const until   = lisbonStamp(autoConfirmAt);
+    const button  = (label: string) => `
+      <p style="text-align:center;margin:24px 0">
+        <a href="${webUrl}/dashboard/shifts"
+           style="background:#6a79ff;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
+          ${label}
+        </a>
+      </p>`;
+
+    await this.mail.sendBilingual(to, {
+      pt: {
+        subject: `Confirme o turno "${shift.title || shift.subcategory}" (${date})`,
+        html: `<p>Olá <strong>${company}</strong>,</p>
+          <p>O turno <strong>"${title}"</strong> de ${date} (${hours}) com <strong>${worker}</strong> terminou sem check-in por QR code.</p>
+          <p><strong>Se correu normalmente, não precisa de fazer nada:</strong> o turno fica concluído automaticamente a ${until} e o pagamento ao trabalhador passa a ser devido.</p>
+          <p>Se o trabalhador faltou ou o turno não se realizou, indique-o antes disso na página Turnos.</p>
+          ${button('Abrir Turnos')}`,
+      },
+      en: {
+        subject: `Confirm the shift "${shift.title || shift.subcategory}" (${date})`,
+        html: `<p>Hello <strong>${company}</strong>,</p>
+          <p>The shift <strong>"${title}"</strong> on ${date} (${hours}) with <strong>${worker}</strong> ended without a QR check-in.</p>
+          <p><strong>If it went normally, you don't need to do anything:</strong> it completes automatically on ${until} (Lisbon time) and the worker's payment becomes due.</p>
+          <p>If the worker didn't turn up or the shift didn't take place, say so before then on the Shifts page.</p>
+          ${button('Open Shifts')}`,
+      },
+    });
+  }
+
+  /**
+   * The worker's answer to "did you work?". "Worked" completes the shift at
+   * once — the company can still report a problem on the payment, which
+   * pauses the reminders. "Didn't work" stops the automatic completion and
+   * leaves the decision to the company.
+   */
+  async workerConfirm(workerUserId: string, shiftId: string, worked: boolean): Promise<{ status: string }> {
+    const worker = await this.workerRepo.findOne({ where: { user: { id: workerUserId } } });
+    if (!worker) throw new UnauthorizedException('Worker not found');
+    const shift = await this.shiftRepo.findOne({
+      where: { id: shiftId },
+      relations: ['employer', 'assignedWorker'],
+    });
+    if (!shift || shift.assignedWorker?.id !== worker.id) throw new NotFoundException(t('api.common.shiftNotFound'));
+    if (shift.status !== ShiftStatus.FILLED || !shift.confirmRequestedAt || shift.noShowReportedAt || shift.workerConfirmation) {
+      throw new BadRequestException(t('api.attendance.notAwaitingConfirmation'));
+    }
+
+    if (worked) {
+      await this.shiftRepo.update(shift.id, { workerConfirmation: 'WORKED' });
+      await this.closeWithoutScan(shift, 'WORKER', 'Confirmado pelo trabalhador (sem check-in por QR)');
+      return { status: ShiftStatus.COMPLETED };
+    }
+
+    await this.shiftRepo.update(shift.id, { workerConfirmation: 'NOT_WORKED', autoConfirmAt: null });
+    await this.compliance.log({
+      event:      ComplianceEvent.CONTRACT_CREATED,
+      shiftId:    shift.id,
+      workerId:   worker.id,
+      employerId: shift.employer.id,
+      details:    { action: 'NO_SCAN_WORKER_SAID_NOT_WORKED' },
+    });
+    return { status: ShiftStatus.FILLED };
+  }
+
+  /**
+   * The company closes a shift nobody scanned as "didn't take place" — no fee,
+   * no wage, no sanction. For when both sides agree it didn't happen; a
+   * worker who simply didn't turn up is a no-show instead.
+   */
+  async markNotWorked(employerUserId: string, shiftId: string): Promise<{ status: string }> {
+    const employer = await this.employerRepo.findOne({ where: { user: { id: employerUserId } } });
+    if (!employer) throw new UnauthorizedException('Employer not found');
+    const shift = await this.shiftRepo.findOne({ where: { id: shiftId }, relations: ['employer', 'assignedWorker'] });
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
+    if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
+    if (shift.status !== ShiftStatus.FILLED || !shift.confirmRequestedAt || shift.noShowReportedAt) {
+      throw new BadRequestException(t('api.attendance.shiftClosed'));
+    }
+
+    await this.shiftRepo.update(shift.id, { status: ShiftStatus.CANCELLED, autoConfirmAt: null });
+    await this.compliance.log({
+      event:      ComplianceEvent.CONTRACT_CREATED,
+      shiftId:    shift.id,
+      workerId:   shift.assignedWorker?.id,
+      employerId: employer.id,
+      details:    { action: 'NO_SCAN_CLOSED_NOT_WORKED', workerConfirmation: shift.workerConfirmation },
+    });
+    if (shift.assignedWorker) {
+      this.gateway.notifyAttendance(shift.assignedWorker.id, { event: 'shift_cancelled', shiftId: shift.id, shiftTitle: shift.title });
+    }
+    return { status: ShiftStatus.CANCELLED };
+  }
+
+  // ── Check-in reminders ────────────────────────────────────────────────────
+
+  /**
+   * Two pushes per confirmed shift, run every 5 min: CHECKIN_REMINDER_MINUTES
+   * .before the start ("scan the QR when you arrive") and .after it if there is
+   * still no check-in ("have you arrived?"). Counted on the shift so a restart
+   * or an overlapping run never sends one twice.
+   */
+  async sendCheckInReminders(): Promise<void> {
+    const now = Date.now();
+    const today = lisbonDate();
+    const shifts = await this.shiftRepo.find({
+      where: { status: ShiftStatus.FILLED, date: today, checkInRemindersSent: LessThanOrEqual(1) },
+      relations: ['employer', 'assignedWorker'],
+    });
+
+    for (const shift of shifts) {
+      const worker = shift.assignedWorker;
+      if (!worker) continue;
+      const start = lisbonDateTime(shift.date, shift.startTime).getTime();
+      const sent = shift.checkInRemindersSent ?? 0;
+      const windowClosed = now > start + CHECKIN_WINDOW_AFTER_MS;
+      if (windowClosed) continue;
+
+      let key: 'checkInSoon' | 'checkInLate' | null = null;
+      let minutes = 0;
+      if (sent === 0 && now >= start - CHECKIN_REMINDER_MINUTES.before * MINUTE_MS && now < start) {
+        key = 'checkInSoon'; minutes = Math.max(1, Math.round((start - now) / MINUTE_MS));
+      } else if (sent <= 1 && now >= start + CHECKIN_REMINDER_MINUTES.after * MINUTE_MS) {
+        key = 'checkInLate'; minutes = Math.round((now - start) / MINUTE_MS);
+      }
+      if (!key) continue;
+
+      // Claim the slot first: only the run whose update matched sends.
+      const claimed = await this.shiftRepo.update(
+        { id: shift.id, checkInRemindersSent: sent },
+        { checkInRemindersSent: key === 'checkInSoon' ? 1 : 2 },
+      );
+      if (!claimed.affected) continue;
+
+      this.notifications.notifyWorker(worker,
+        { key, params: { shift: shift.title || shift.subcategory, company: shift.employer.companyName, minutes } },
+        { type: 'check_in', shiftId: shift.id }).catch(() => {});
+    }
   }
 
   // ── Dispute ───────────────────────────────────────────────────────────────

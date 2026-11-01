@@ -98,6 +98,7 @@ const pt: LegalDoc = {
         'Turnos Pay Link: link de pagamento Stripe cujo beneficiário é o próprio trabalhador, pago por cartão ou MB WAY. O valor inclui a taxa de processamento da Stripe, suportada pela Empresa. A Turnos não recebe qualquer parte deste pagamento.',
         'Transferência ou MB WAY: a Turnos mostra o IBAN do trabalhador apenas se ele o tiver autorizado. Ao marcar como pago, a Empresa anexa o comprovativo ou indica porque não o tem.',
         'Antes de pagar, a Empresa pode ajustar as horas efetivamente trabalhadas (mínimo 2 horas) ou reportar um problema, que suspende os lembretes e é analisado pela Turnos em até 48 horas.',
+        'Turno sem check-in: se um turno confirmado termina sem leitura do QR code, a Turnos pergunta ao trabalhador se trabalhou e avisa a Empresa por email. O turno fica concluído quando o trabalhador confirma que trabalhou, quando a Empresa o marca como concluído ou, se ninguém o contestar, 48 horas depois — com os mesmos efeitos de um turno concluído (pagamento devido e taxa). Até lá, a Empresa pode registar uma falta ou indicar que o turno não se realizou (sem taxa, salário nem sanção).',
         'A Empresa não contesta junto do banco (chargeback) um pagamento Pay Link por trabalho efetivamente prestado; divergências resolvem-se pelos meios acima.',
       ],
     },

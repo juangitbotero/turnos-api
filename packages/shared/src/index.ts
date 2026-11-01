@@ -284,6 +284,28 @@ export function experienceLevelLabel(level: string | null | undefined): string {
  */
 export const OFFER_ACCEPTANCE_HOURS = 2;
 
+// ─── Shifts nobody scanned ────────────────────────────────────────────────────
+
+/**
+ * A confirmed shift whose end passes without a check-in goes to "to confirm":
+ * the worker is asked "did you work?", the company is emailed. If neither side
+ * contests it within this many hours, it completes on its own — the company
+ * never has to open the dashboard for a shift that simply went normally.
+ * Never auto-marked as a no-show: that sanction needs the company's decision.
+ */
+export const UNCONFIRMED_AUTO_COMPLETE_HOURS = 48;
+
+/**
+ * Shifts that ended longer ago than this when the rule first sees them (i.e.
+ * before it was deployed) go to "to confirm" without the automatic completion
+ * and without push or email — an old forgotten shift must not start a fee and
+ * a payment-reminder ladder by surprise.
+ */
+export const UNCONFIRMED_BACKFILL_DAYS = 7;
+
+/** Check-in reminder pushes, in minutes relative to the shift start. */
+export const CHECKIN_REMINDER_MINUTES = { before: 15, after: 15 } as const;
+
 // ─── Worker roles ─────────────────────────────────────────────────────────────
 
 /** A worker declares at most this many roles — the limit is what makes each mean something. */
@@ -781,8 +803,10 @@ export const TERMS_VERSIONS = {
   // 2026-10-25: roles, levels, level confirmation and licence documents (§4-A,
   // §10, §11) — material: every worker re-accepts in the app.
   WORKER:   '2026-10-25',
-  // 2026-10-05: accountant email and Annex A (art. 28 DPA) removed — material.
-  EMPLOYER: '2026-10-05',
+  // 2026-11-01: shifts without a check-in complete after 48h unless contested
+  // (§8) — material, it can make a payment due: every company re-accepts.
+  // (2026-10-05: accountant email and Annex A removed.)
+  EMPLOYER: '2026-11-01',
 } as const;
 
 /**
@@ -790,7 +814,7 @@ export const TERMS_VERSIONS = {
  * reviews of automated decisions — every legal text points here, so a new
  * address is a one-line change.
  */
-export const SUPPORT_EMAIL = 'turnos.contact@gmail.com';
+export const SUPPORT_EMAIL = 'contact@turnos.cc'; // Google Workspace on turnos.cc since 2026-11-01
 
 /**
  * The company that operates Turnos — "Turnos" is its brand, not a separate

@@ -5,33 +5,12 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import * as Notifications from 'expo-notifications';
+import { registerPushToken } from '../lib/push';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
 import { authApi, ApiError, syncPreferredLanguage } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
 import { useT } from '../lib/i18n';
 import { connectSocket } from '../lib/socket';
-
-/**
- * Register Expo push token with the backend (best-effort, non-blocking).
- * Silently no-ops on permission denial or any error.
- */
-async function registerPushToken(): Promise<void> {
-  try {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== 'granted') return;
-
-    const tokenData = await Notifications.getExpoPushTokenAsync();
-    await authApi.registerPushToken(tokenData.data);
-  } catch {
-    // Non-fatal — push notifications degrade gracefully
-  }
-}
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
@@ -104,7 +83,7 @@ export default function VerifyScreen() {
       connectSocket(accessToken);
 
       // Register Expo push token (non-blocking — runs in background)
-      registerPushToken();
+      void registerPushToken({ ask: true });
 
       // Terms of Use first — a new worker, or anyone whose accepted version
       // is out of date. The terms screen continues to intro/home itself.

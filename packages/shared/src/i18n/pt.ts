@@ -83,6 +83,8 @@ export const pt = {
       COMPLETED:          'Concluído',
       CANCELLED:          'Cancelado',
       EXPIRED:            'Caducado',
+      TO_CONFIRM:         'A confirmar',
+      NO_SHOW:            'Falta',
     },
     applicationStatus: {
       PENDING:   'Pendente',
@@ -415,6 +417,13 @@ export const pt = {
       emptyCta:   'Ver Turnos',
 
       sectionActionNeeded: '⚡ Ação necessária',
+      sectionConfirmWorked: '✋ Trabalhaste?',
+      confirmWorkedBody:   'Este turno terminou e não recebemos o teu check-in. Trabalhaste?',
+      confirmWorkedYes:    '✓ Trabalhei',
+      confirmWorkedNo:     'Não trabalhei',
+      confirmWorkedNoTitle: 'Não trabalhaste neste turno?',
+      confirmWorkedNoBody: 'O turno não fica concluído automaticamente e nenhum pagamento passa a ser devido. A empresa decide como o encerra.',
+      confirmWorkedFailed: 'Não foi possível guardar a resposta. Tenta novamente.',
       sectionActive:       '🟢 Em curso',
       sectionConfirmed:    '✅ Confirmados',
       sectionPending:      '⏳ Pendentes',
@@ -453,7 +462,7 @@ export const pt = {
       cancelAnyway:    'Cancelar mesmo assim',
       cancelYes:       'Sim, cancelar',
       reasonTitle:     'Tens um motivo válido?',
-      reasonBody:      'Doença, lesão ou emergência com comprovativo são avaliados pela Turnos — se aceites, o cancelamento tardio é removido do teu registo. Envia o comprovativo para turnos.contact@gmail.com.',
+      reasonBody:      'Doença, lesão ou emergência com comprovativo são avaliados pela Turnos — se aceites, o cancelamento tardio é removido do teu registo. Envia o comprovativo para contact@turnos.cc.',
       reasonIllness:   '🤒 Doença / Lesão',
       reasonEmergency: '🚨 Emergência',
       reasonNone:      'Sem justificação',
@@ -462,7 +471,7 @@ export const pt = {
 
       support:         'Contactar suporte',
       seriesLockTitle: 'Compromisso de vários dias',
-      seriesLockBody:  'Aceitaste um trabalho de vários dias que já começou, por isso não podes cancelá-lo aqui. Se tiveres um imprevisto sério, fala com o suporte: turnos.contact@gmail.com',
+      seriesLockBody:  'Aceitaste um trabalho de vários dias que já começou, por isso não podes cancelá-lo aqui. Se tiveres um imprevisto sério, fala com o suporte: contact@turnos.cc',
 
       // Trust loop de pagamento
       wageNotReceived:   '🚩 Não recebi',
@@ -1571,6 +1580,17 @@ export const pt = {
       emptyCta:  'Publicar primeiro turno →',
 
       sectionActive:  'Turnos Ativos',
+      sectionToConfirm: 'A confirmar — terminaram sem check-in',
+      toConfirmIntro: 'Estes turnos terminaram e ninguém leu o QR code. Se correram normalmente não precisa de fazer nada: cada um fica concluído sozinho à hora indicada e o pagamento ao trabalhador passa a ser devido.',
+      toConfirmAuto:  'Conclui-se automaticamente a {{when}}',
+      toConfirmManual: 'Terminou há mais de 7 dias — confirme manualmente',
+      toConfirmWorkerSaidNo: 'O trabalhador diz que não trabalhou — decide a empresa',
+      toConfirmWorkerPending: 'O trabalhador ainda não respondeu',
+      notWorkedBtn:   'Não se realizou',
+      notWorkedBody:  'Encerrar "{{shift}}" como não realizado?\n\nSem taxa, sem salário e sem sanção. Use quando ambos concordam que não aconteceu. Se o trabalhador simplesmente não apareceu, registe uma falta.',
+      noShowBtn:      'Registar falta',
+      noShowBody:     'Registar uma falta em "{{shift}}"?\n\nO trabalhador recebe uma avaliação de 1★ e uma suspensão de 30 dias (bloqueio permanente à 2.ª). É informado do motivo e pode pedir revisão. Esta ação não pode ser desfeita.',
+      actionError:    'Não foi possível. Tente novamente.',
       sectionHistory: 'Histórico',
       expiredToggle:  'Caducados ({{count}}) — Turnos sem trabalhador confirmado',
       expiredClose:   '▲ Fechar',
@@ -2075,6 +2095,9 @@ export const pt = {
       wageAdjusted:      { title: 'A empresa ajustou as horas do turno', body: '"{{shift}}": €{{before}} → €{{after}} ({{hours}}h). Se não concordas, contesta na app ou escreve para {{support}}.' },
       wageMarkedPaid:    { title: 'A empresa marcou o teu pagamento como feito 💶', body: '€{{amount}} pelo turno "{{shift}}". Confirma na app se já recebeste.' },
       wageMarkedPaidProof: { title: 'A empresa marcou o teu pagamento como feito 💶', body: '€{{amount}} pelo turno "{{shift}}". Anexou comprovativo. Confirma na app se já recebeste.' },
+      checkInSoon:       { title: 'O teu turno começa daqui a {{minutes}} min ⏰', body: '"{{shift}}" na {{company}}. Quando chegares, lê o QR code à entrada.' },
+      checkInLate:       { title: 'Já chegaste? 📍', body: '"{{shift}}" começou há {{minutes}} min e ainda não fizeste check-in. Lê agora o QR code na {{company}}.' },
+      confirmWorked:     { title: 'Trabalhaste no turno "{{shift}}"? ✋', body: 'Não recebemos o teu check-in. Diz-nos na app se trabalhaste — é isso que torna o teu pagamento devido.' },
     },
 
     common: {
@@ -2150,7 +2173,7 @@ export const pt = {
 
       // Worker cancellation
       cancelOnlyConfirmed: 'Só podes cancelar turnos confirmados que ainda não começaram.',
-      seriesStarted:       'Este é um trabalho de vários dias que já começou. Ao aceitares, comprometeste-te com todos os dias — contacta o suporte (turnos.contact@gmail.com) se tiveres um imprevisto.',
+      seriesStarted:       'Este é um trabalho de vários dias que já começou. Ao aceitares, comprometeste-te com todos os dias — contacta o suporte (contact@turnos.cc) se tiveres um imprevisto.',
       alreadyStarted:      'O turno já começou — cancela junto do empregador.',
       cancelledSuspended:  'Turno cancelado. Por teres 2 cancelamentos tardios em 30 dias, não podes candidatar-te a turnos durante 7 dias.',
       cancelledLate:       'Turno cancelado. Atenção: cancelar a menos de 24h do início afeta a tua fiabilidade na plataforma.',
@@ -2165,6 +2188,7 @@ export const pt = {
       alreadyCheckedIn:  'Já fez check-in neste turno.',
       notOpenForCheckIn: 'O turno não está disponível para check-in.',
       shiftClosed:       'Turno já concluído ou cancelado.',
+      notAwaitingConfirmation: 'Este turno não está à espera da tua confirmação.',
       disputeExists:     'Já existe uma disputa registada neste turno.',
       noShiftHere:       'Não tem nenhum turno confirmado neste local para hoje. Verifique se está no local correto ou contacte o empregador.',
       qrInvalid:         'QR code inválido.',

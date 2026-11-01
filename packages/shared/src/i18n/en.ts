@@ -83,6 +83,8 @@ export const en: Translated<TranslationCatalogue> = {
       COMPLETED:          'Completed',
       CANCELLED:          'Cancelled',
       EXPIRED:            'Expired',
+      TO_CONFIRM:         'To confirm',
+      NO_SHOW:            'No-show',
     },
     applicationStatus: {
       PENDING:   'Pending',
@@ -413,6 +415,13 @@ export const en: Translated<TranslationCatalogue> = {
       emptyCta:   'Browse shifts',
 
       sectionActionNeeded: '⚡ Action needed',
+      sectionConfirmWorked: '✋ Did you work?',
+      confirmWorkedBody:   'This shift ended and we didn\'t get your check-in. Did you work it?',
+      confirmWorkedYes:    '✓ I worked',
+      confirmWorkedNo:     'I didn\'t work',
+      confirmWorkedNoTitle: 'You didn\'t work this shift?',
+      confirmWorkedNoBody: 'The shift will not complete automatically and no payment becomes due. The company decides how to close it.',
+      confirmWorkedFailed: 'Could not save your answer. Try again.',
       sectionActive:       '🟢 In progress',
       sectionConfirmed:    '✅ Confirmed',
       sectionPending:      '⏳ Pending',
@@ -451,7 +460,7 @@ export const en: Translated<TranslationCatalogue> = {
       cancelAnyway:    'Cancel anyway',
       cancelYes:       'Yes, cancel',
       reasonTitle:     'Do you have a valid reason?',
-      reasonBody:      'Illness, injury or an emergency with supporting evidence is reviewed by Turnos — if accepted, the late cancellation is removed from your record. Send your evidence to turnos.contact@gmail.com.',
+      reasonBody:      'Illness, injury or an emergency with supporting evidence is reviewed by Turnos — if accepted, the late cancellation is removed from your record. Send your evidence to contact@turnos.cc.',
       reasonIllness:   '🤒 Illness / Injury',
       reasonEmergency: '🚨 Emergency',
       reasonNone:      'No justification',
@@ -460,7 +469,7 @@ export const en: Translated<TranslationCatalogue> = {
 
       support:         'Contact support',
       seriesLockTitle: 'Multi-day commitment',
-      seriesLockBody:  'You accepted a multi-day job that has already started, so you cannot cancel it here. If something serious has come up, talk to support: turnos.contact@gmail.com',
+      seriesLockBody:  'You accepted a multi-day job that has already started, so you cannot cancel it here. If something serious has come up, talk to support: contact@turnos.cc',
 
       // Payment trust loop
       wageNotReceived:   "🚩 Didn't receive it",
@@ -1554,6 +1563,17 @@ export const en: Translated<TranslationCatalogue> = {
       emptyCta:  'Post your first shift →',
 
       sectionActive:  'Active shifts',
+      sectionToConfirm: 'To confirm — ended without a check-in',
+      toConfirmIntro: 'These shifts ended and nobody scanned the QR code. If they went normally you don\'t need to do anything: each one completes on its own at the time shown, and the worker\'s payment becomes due.',
+      toConfirmAuto:  'Completes automatically on {{when}}',
+      toConfirmManual: 'Ended more than 7 days ago — confirm it yourself',
+      toConfirmWorkerSaidNo: 'The worker says they didn\'t work — your call',
+      toConfirmWorkerPending: 'The worker hasn\'t answered yet',
+      notWorkedBtn:   'Didn\'t take place',
+      notWorkedBody:  'Close "{{shift}}" as not having taken place?\n\nNo fee, no wage and no sanction. Use this when both of you agree it didn\'t happen. If the worker simply didn\'t turn up, report a no-show instead.',
+      noShowBtn:      'Report no-show',
+      noShowBody:     'Report a no-show for "{{shift}}"?\n\nThe worker gets a 1★ rating and a 30-day suspension (a permanent block on the 2nd). They are told why and can ask for a review. This cannot be undone.',
+      actionError:    'That didn\'t work. Try again.',
       sectionHistory: 'History',
       expiredToggle:  'Expired ({{count}}) — shifts with no confirmed worker',
       expiredClose:   '▲ Close',
@@ -2037,6 +2057,9 @@ export const en: Translated<TranslationCatalogue> = {
       wageAdjusted:      { title: 'The company adjusted the shift hours', body: '"{{shift}}": €{{before}} → €{{after}} ({{hours}}h). If you disagree, dispute it in the app or write to {{support}}.' },
       wageMarkedPaid:    { title: 'The company marked your payment as made 💶', body: '€{{amount}} for "{{shift}}". Confirm in the app once you have received it.' },
       wageMarkedPaidProof: { title: 'The company marked your payment as made 💶', body: '€{{amount}} for "{{shift}}". They attached proof. Confirm in the app once you have received it.' },
+      checkInSoon:       { title: 'Your shift starts in {{minutes}} min ⏰', body: '"{{shift}}" at {{company}}. When you arrive, scan the QR code at the entrance.' },
+      checkInLate:       { title: 'Have you arrived? 📍', body: '"{{shift}}" started {{minutes}} min ago and you haven\'t checked in. Scan the QR code at {{company}} now.' },
+      confirmWorked:     { title: 'Did you work "{{shift}}"? ✋', body: 'We didn\'t get your check-in. Tell us in the app whether you worked — that is what makes your payment due.' },
     },
 
     common: {
@@ -2112,7 +2135,7 @@ export const en: Translated<TranslationCatalogue> = {
 
       // Worker cancellation
       cancelOnlyConfirmed: 'You can only cancel confirmed shifts that have not started yet.',
-      seriesStarted:       'This is a multi-day job that has already started. By accepting it you committed to every day — contact support (turnos.contact@gmail.com) if something has come up.',
+      seriesStarted:       'This is a multi-day job that has already started. By accepting it you committed to every day — contact support (contact@turnos.cc) if something has come up.',
       alreadyStarted:      'The shift has already started — cancel it directly with the employer.',
       cancelledSuspended:  'Shift cancelled. With 2 late cancellations in 30 days, you cannot apply for shifts for 7 days.',
       cancelledLate:       'Shift cancelled. Note: cancelling less than 24h before the start affects your reliability on the platform.',
@@ -2127,6 +2150,7 @@ export const en: Translated<TranslationCatalogue> = {
       alreadyCheckedIn:  'You have already checked in to this shift.',
       notOpenForCheckIn: 'This shift is not available for check-in.',
       shiftClosed:       'This shift is already completed or cancelled.',
+      notAwaitingConfirmation: 'This shift is not waiting for your confirmation.',
       disputeExists:     'A dispute has already been raised on this shift.',
       noShiftHere:       'You have no confirmed shift at this location today. Check that you are in the right place, or contact the employer.',
       qrInvalid:         'Invalid QR code.',

@@ -65,13 +65,36 @@ export const ui = {
 
 /**
  * Dot colour per shift status. Coloured = needs a look; grey = nothing to do.
- *   amber   waiting on the worker to accept the offer
+ *   green   filled — a worker is confirmed (2026-11-01: Juanes wanted it
+ *           recognisable at a glance, not grey like an open shift)
+ *   amber   waiting on someone: the worker to accept, or "to confirm"
  *   brand   happening right now
- *   red     cancelled (history only)
+ *   red     cancelled or no-show (history only)
  */
 export const STATUS_DOT: Record<string, string> = {
+  FILLED:             '#16a34a',
   PENDING_ACCEPTANCE: '#f59e0b',
+  TO_CONFIRM:         '#f59e0b',
   ACTIVE:             'var(--color-primary)',
   CANCELLED:          '#ef4444',
+  NO_SHOW:            '#ef4444',
 };
 export const NEUTRAL_DOT = '#9ca3af';
+
+/**
+ * Tinted pill per status — the coloured statuses also tint the pill, so the
+ * table reads by colour; grey statuses keep the neutral `ui.pill`.
+ * TO_CONFIRM and NO_SHOW are dashboard-only states derived from a FILLED shift.
+ */
+const STATUS_TINT: Record<string, CSSProperties> = {
+  FILLED:             { background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534' },
+  PENDING_ACCEPTANCE: { background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e' },
+  TO_CONFIRM:         { background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e' },
+  ACTIVE:             { background: '#eef0ff', border: '1px solid #c7cdff', color: '#3730a3' },
+  CANCELLED:          { background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b' },
+  NO_SHOW:            { background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b' },
+};
+
+export function statusPill(status: string): CSSProperties {
+  return { ...ui.pill, ...(STATUS_TINT[status] ?? {}) };
+}

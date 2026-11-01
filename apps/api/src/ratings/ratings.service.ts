@@ -496,6 +496,9 @@ export class RatingsService {
 
     const flag = this.noShowRepo.create({ shift, worker: shift.assignedWorker, reportedBy: employer, note });
     await this.noShowRepo.save(flag);
+    // Closes the shift for the dashboard and stops the "to confirm" sweep
+    // from completing it 48h later.
+    await this.shiftRepo.update(shift.id, { noShowReportedAt: new Date(), autoConfirmAt: null });
 
     // Increment noShowCount + enforce suspensions:
     //   1st no-show → 30-day application suspension

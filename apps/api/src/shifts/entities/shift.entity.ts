@@ -123,6 +123,40 @@ export class Shift {
   @Column({ type: 'timestamptz', nullable: true })
   offeredAt: Date | null;
 
+  // ── "To confirm" — a FILLED shift whose end passed with no check-in ────────
+  // Status stays FILLED (old app versions and every FILLED query keep working);
+  // these columns are what make it "to confirm". See AttendanceService
+  // .sweepUnscannedShifts().
+
+  /** When the end passed without a check-in and the two sides were asked. */
+  @Column({ type: 'timestamptz', nullable: true })
+  confirmRequestedAt: Date | null;
+
+  /**
+   * When it completes on its own if nobody contests it
+   * (UNCONFIRMED_AUTO_COMPLETE_HOURS). Null = never automatically — shifts
+   * older than UNCONFIRMED_BACKFILL_DAYS when the rule first saw them, and
+   * shifts the worker said they did not work.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  autoConfirmAt: Date | null;
+
+  /** The worker's answer to "did you work?": WORKED | NOT_WORKED, or null. */
+  @Column({ type: 'varchar', length: 12, nullable: true })
+  workerConfirmation: 'WORKED' | 'NOT_WORKED' | null;
+
+  /**
+   * When the company reported a no-show. The shift stays FILLED (as it always
+   * has after a no-show); this marks it closed for the dashboard and keeps the
+   * "to confirm" sweep from ever completing it.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  noShowReportedAt: Date | null;
+
+  /** Check-in reminder pushes sent so far (0, 1 = before start, 2 = after). */
+  @Column({ type: 'smallint', default: 0 })
+  checkInRemindersSent: number;
+
   /**
    * The company removed this expired shift from its dashboard ("Eliminar" /
    * "Eliminar todos"). The row keeps status EXPIRED — it is archived, not

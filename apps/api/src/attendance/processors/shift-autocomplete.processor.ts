@@ -9,7 +9,9 @@ import { AttendanceService, AutoCompleteJobData } from '../attendance.service';
  * Two job types on the 'shift-autocomplete' queue:
  *   - 'auto-complete': scheduled at check-in with delay = scheduled end − now
  *   - 'sweep': repeatable every 15 min — completes any overdue ACTIVE shift
- *     whose job was lost (Redis flush, deploy timing, clock drift)
+ *     whose job was lost (Redis flush, deploy timing, clock drift), and
+ *     handles FILLED shifts that ended with no check-in ("to confirm")
+ *   - 'checkin-reminders': repeatable every 5 min — the two check-in pushes
  */
 @Processor('shift-autocomplete')
 export class ShiftAutoCompleteProcessor extends WorkerHost implements OnModuleInit {
@@ -34,11 +36,21 @@ export class ShiftAutoCompleteProcessor extends WorkerHost implements OnModuleIn
       },
     );
     this.logger.log('[AutoComplete] 15-min overdue-shift sweep registered');
+    await this.queue.add(
+      'checkin-reminders',
+      {},
+      { repeat: { pattern: '*/5 * * * *' }, jobId: 'checkin-reminders' },
+    );
   }
 
   async process(job: Job): Promise<void> {
     if (job.name === 'sweep') {
       await this.attendance.sweepOverdueActiveShifts();
+      await this.attendance.sweepUnscannedShifts();
+      return;
+    }
+    if (job.name === 'checkin-reminders') {
+      await this.attendance.sendCheckInReminders();
       return;
     }
     const { shiftId } = job.data as AutoCompleteJobData;

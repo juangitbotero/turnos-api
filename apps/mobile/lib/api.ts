@@ -259,6 +259,10 @@ export interface ShiftSummary {
   status: string;
   /** When the current offer was made (PENDING_ACCEPTANCE) — the countdown starts here. */
   offeredAt?: string | null;
+  /** Set when the shift ended with no check-in — the worker is asked "did you work?". */
+  confirmRequestedAt?: string | null;
+  workerConfirmation?: 'WORKED' | 'NOT_WORKED' | null;
+  noShowReportedAt?: string | null;
   employer: { id: string; companyName: string } | null;
   /** Decimal latitude stored alongside the PostGIS geometry — reliable for client display */
   lat?: number | null;
@@ -298,6 +302,10 @@ export const attendanceApi = {
 
   /** Worker scans employer QR to check out. */
   // v2.1: check-out removed — shifts auto-complete at their scheduled end time.
+
+  /** "Did you work?" on a shift that ended without a check-in. */
+  confirmWorked: (shiftId: string, worked: boolean) =>
+    api.post<{ status: string }>(`/attendance/${shiftId}/worker-confirm`, { worked }),
 
   /** Worker raises a dispute on a completed shift. */
   raiseDispute: (shiftId: string, note: string) =>

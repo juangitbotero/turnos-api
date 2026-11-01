@@ -157,6 +157,16 @@ ajustar as horas efetivamente trabalhadas (mínimo 2 horas) ou reportar um
 problema (por exemplo, abandono do turno), que suspende os lembretes e é
 analisado pela Turnos em até 48 horas.
 
+8.5-A. **Turno sem check-in** *(acrescentado 2026-11-01)*. Se um turno
+confirmado termina sem leitura do QR code, a Turnos pergunta ao trabalhador
+se trabalhou e avisa a Empresa por email. O turno fica concluído quando o
+trabalhador confirma que trabalhou, quando a Empresa o marca como concluído
+ou, se ninguém o contestar, **48 horas depois** — com os mesmos efeitos de um
+turno concluído (pagamento devido e taxa). Até lá, a Empresa pode registar
+uma falta ou indicar que o turno não se realizou (sem taxa, salário nem
+sanção). [[⚖️ Uma conclusão por silêncio da Empresa que torna o salário
+devido e gera a taxa é aceitável? Prazo de 48h razoável?]]
+
 8.6. A Empresa **não contesta junto do banco (chargeback)** um pagamento Pay
 Link por trabalho efetivamente prestado. Divergências resolvem-se pelos pontos
 8.4 e 8.5.

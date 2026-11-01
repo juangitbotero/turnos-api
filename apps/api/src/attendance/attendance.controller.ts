@@ -44,6 +44,17 @@ export class AttendanceController {
   }
 
   /**
+   * POST /attendance/:shiftId/not-worked
+   * Employer closes a shift nobody scanned as "didn't take place" — no fee, no
+   * wage, no sanction. Only while the shift is "to confirm".
+   */
+  @Post(':shiftId/not-worked')
+  @Roles('EMPLOYER')
+  markNotWorked(@Request() req: any, @Param('shiftId') shiftId: string) {
+    return this.attendanceService.markNotWorked(req.user.userId, shiftId);
+  }
+
+  /**
    * POST /attendance/:shiftId/dispute/employer
    * Employer raises a dispute on an attendance record.
    * Body: { note: string }
@@ -77,6 +88,21 @@ export class AttendanceController {
     @Body('lng') lng: number,
   ) {
     return this.attendanceService.checkIn(req.user.userId, token, lat, lng);
+  }
+
+  /**
+   * POST /attendance/:shiftId/worker-confirm
+   * The worker's answer to "did you work?" on a shift that ended without a
+   * check-in. Body: { worked: boolean }
+   */
+  @Post(':shiftId/worker-confirm')
+  @Roles('WORKER')
+  workerConfirm(
+    @Request() req: any,
+    @Param('shiftId') shiftId: string,
+    @Body('worked') worked: boolean,
+  ) {
+    return this.attendanceService.workerConfirm(req.user.userId, shiftId, worked === true);
   }
 
   // v2.1: POST /attendance/check-out removed — shifts auto-complete at their

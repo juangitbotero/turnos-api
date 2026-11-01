@@ -1,6 +1,6 @@
 # Política de Cancelamento e Faltas — Turnos
 
-> Versão 1.2 · 2026-09-27 · Fonte única para Web Admin e app móvel.
+> Versão 1.3 · 2026-11-01 (turno sem check-in, lembretes de check-in) · Fonte única para Web Admin e app móvel.
 > Baseada nas decisões de negócio de ADR 007 e ADR 008.
 
 Cancelamentos e faltas prejudicam toda a comunidade Turnos. Os turnos
@@ -90,6 +90,29 @@ comunidade Turnos.
 
 - A falta é registada **pela empresa**, na página do turno. Nunca é decidida
   automaticamente pela ausência de check-in.
+
+### Turno sem check-in
+Se um turno confirmado termina sem que ninguém tenha lido o QR code, fica
+**"a confirmar"**: o trabalhador recebe a pergunta "Trabalhaste?" na app e a
+empresa recebe um email.
+
+- Se o trabalhador responder **"Trabalhei"**, o turno fica concluído e o
+  pagamento passa a ser devido. A empresa pode ainda ajustar as horas ou
+  reportar um problema antes de pagar.
+- Se a empresa indicar **"Concluído"**, o mesmo.
+- Se a empresa registar uma **falta**, aplicam-se as regras acima.
+- Se a empresa indicar **"Não se realizou"** (quando ambos concordam que o
+  turno não aconteceu), o turno é encerrado sem taxa, sem salário e sem sanção.
+- Se o trabalhador responder **"Não trabalhei"**, o turno não se conclui
+  sozinho e a decisão fica com a empresa.
+- Se **ninguém responder em 48 horas**, o turno fica **concluído
+  automaticamente** — com a taxa da Turnos e o pagamento ao trabalhador
+  devido, como num turno com check-in. Nunca se torna uma falta sem decisão da
+  empresa.
+
+Para evitar estes casos, o trabalhador recebe um lembrete 15 minutos antes do
+início ("lê o QR code quando chegares") e outro 15 minutos depois, se ainda
+não tiver feito check-in.
 - **1.ª falta:** avaliação automática de **1 estrela** no perfil + **suspensão
   de 30 dias**. Após os 30 dias, o trabalhador pode voltar a candidatar-se.
 - **2.ª falta:** **bloqueio da conta** — deixa de ser possível candidatar-se a

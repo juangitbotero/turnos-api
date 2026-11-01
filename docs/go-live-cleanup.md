@@ -70,9 +70,22 @@ Email goes through **Brevo**'s HTTP API instead.
 6. Register a test company with an inbox you can read; the verification email
    must arrive and its link must open.
 
-Sending *from* a gmail.com address through a third party can land in spam.
-Before launch, buy a domain (e.g. `turnos.pt`), authenticate it in Brevo
-(SPF/DKIM) and change `MAIL_FROM` — no code change.
+**Owned domain (since 2026-11-01: `turnos.cc`, mailbox `contact@turnos.cc` on
+Google Workspace).** Sending from gmail.com through a third party lands in
+spam, so:
+
+1. Brevo → Senders, Domains & Dedicated IPs → **Domains** → add `turnos.cc` →
+   *Authenticate*. Brevo lists a `brevo-code` TXT, DKIM record(s) and a DMARC
+   TXT — add each in Cloudflare → DNS (proxy off / grey for any CNAME).
+2. **One SPF record only.** Edit Google's existing TXT on `turnos.cc` to
+   `v=spf1 include:_spf.google.com include:spf.brevo.com ~all`. A second SPF
+   record makes both fail.
+3. Brevo → Senders → add `contact@turnos.cc` (name "Turnos").
+4. Railway → API → Variables: `MAIL_FROM=Turnos <contact@turnos.cc>`,
+   `OPS_EMAIL=contact@turnos.cc`. **Names are case-sensitive** — `Mail_From`
+   is a different variable the code never reads.
+5. Send a test (register a test company) and check Brevo → Transactional →
+   Logs shows *Delivered*, not "sender is not valid".
 
 **Delete `MAIL_HOST` / `MAIL_PORT` / `MAIL_USER` / `MAIL_PASS` from Railway** —
 they do harm. SMTP is blocked, but `MAIL_USER` still sets the default sender

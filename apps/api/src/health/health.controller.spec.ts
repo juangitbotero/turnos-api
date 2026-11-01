@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { HealthController } from './health.controller';
+import { MailService } from '../mail/mail.service';
 
 describe('HealthController', () => {
   let controller: HealthController;
@@ -15,6 +16,7 @@ describe('HealthController', () => {
             get: jest.fn().mockReturnValue('test'),
           },
         },
+        { provide: MailService, useValue: { status: 'log-only' } },
       ],
     }).compile();
 

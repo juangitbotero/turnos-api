@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   colors, spacing, radius, fontSize, fontWeight, PaymentMethod, SUPPORT_EMAIL, OFFER_ACCEPTANCE_HOURS } from '@turnos/shared';
-import { shiftApi, ratingsApi, wagesApi, MyApplication, WagePayment, ApiError } from '../lib/api';
+import { shiftApi, ratingsApi, wagesApi, attendanceApi, MyApplication, WagePayment, ApiError } from '../lib/api';
 import { getSocket, ShiftStatusChangedPayload, ShiftCancelledPayload } from '../lib/socket';
 import { useT } from '../lib/i18n';
 import { InboxBell } from '../components/InboxBell';
@@ -76,7 +76,7 @@ function daysUntil(start: Date): number {
 
 export default function MyShiftsScreen() {
   const router = useRouter();
-  const { t } = useT();
+  const { t, fShortDate } = useT();
   const [applications, setApplications] = useState<MyApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -247,13 +247,39 @@ export default function MyShiftsScreen() {
     );
   }, [t]);
 
+  // ── "Did you work?" — a shift that ended without a check-in ──────────────
+  // "Yes" completes it at once (payment due). "No" asks first: it stops the
+  // automatic completion and leaves the decision to the company.
+  const answerWorked = useCallback(async (app: MyApplication, worked: boolean) => {
+    try {
+      await attendanceApi.confirmWorked(app.shift.id, worked);
+      load();
+    } catch (e) {
+      Alert.alert(t('common.error'), e instanceof ApiError ? e.message : t('mobile.myShifts.confirmWorkedFailed'));
+    }
+  }, [t]);
+
+  const handleNotWorked = useCallback((app: MyApplication) => {
+    Alert.alert(
+      t('mobile.myShifts.confirmWorkedNoTitle'),
+      t('mobile.myShifts.confirmWorkedNoBody'),
+      [
+        { text: t('common.back'), style: 'cancel' },
+        { text: t('mobile.myShifts.confirmWorkedNo'), style: 'destructive', onPress: () => void answerWorked(app, false) },
+      ],
+    );
+  }, [answerWorked, t]);
+
   // ── Section buckets ──────────────────────────────────────────────────────
   // 0. Pré-selecionado — employer selected this worker, awaiting worker confirmation
   const preSelected = applications.filter(a => a.status === 'APPROVED' && a.shift.status === 'PENDING_ACCEPTANCE');
+  // Ended with no check-in and still waiting for the worker's answer
+  const askWorked   = applications.filter(a => a.status === 'APPROVED' && a.shift.status === 'FILLED'
+    && !!a.shift.confirmRequestedAt && !a.shift.workerConfirmation && !a.shift.noShowReportedAt);
   // 1. Em curso — APPROVED + shift is currently ACTIVE
   const nowActive   = applications.filter(a => a.status === 'APPROVED' && a.shift.status === 'ACTIVE');
   // 2. Concluídos — APPROVED + shift has ended (status COMPLETED or end time passed)
-  const concluded   = applications.filter(a => a.status === 'APPROVED' && isShiftOver(a) && a.shift.status !== 'ACTIVE');
+  const concluded   = applications.filter(a => a.status === 'APPROVED' && isShiftOver(a) && a.shift.status !== 'ACTIVE' && !askWorked.includes(a));
   // 3. Confirmados — APPROVED + not yet started / not completed / not pre-selected
   const allConfirmed = applications.filter(a => a.status === 'APPROVED' && !isShiftOver(a) && a.shift.status !== 'ACTIVE' && a.shift.status !== 'PENDING_ACCEPTANCE');
   // The soonest confirmed shift gets its own hero card; the rest fill the section
@@ -318,6 +344,30 @@ export default function MyShiftsScreen() {
                   app={nextJob}
                   onPress={() => router.push(`/shift/${nextJob.shift.id}`)}
                 />
+              )}
+
+              {/* ✋ Did you work? — ended without a check-in */}
+              {askWorked.length > 0 && (
+                <>
+                  <Text style={s.sectionTitle}>{t('mobile.myShifts.sectionConfirmWorked')}</Text>
+                  {askWorked.map(app => (
+                    <View key={app.id} style={s.card}>
+                      <Text style={s.cardTitle}>{app.shift.title}</Text>
+                      <Text style={s.cardEmployer}>
+                        {app.shift.employer?.companyName ?? ''} · {fShortDate(app.shift.date)} · {app.shift.startTime.slice(0, 5)}–{app.shift.endTime.slice(0, 5)}
+                      </Text>
+                      <Text style={s.confirmWorkedBody}>{t('mobile.myShifts.confirmWorkedBody')}</Text>
+                      <View style={s.wageBtnRow}>
+                        <TouchableOpacity style={[s.wageBtn, s.wageBtnYes]} onPress={() => void answerWorked(app, true)} activeOpacity={0.85}>
+                          <Text style={s.wageBtnYesText}>{t('mobile.myShifts.confirmWorkedYes')}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[s.wageBtn, s.wageBtnNo]} onPress={() => handleNotWorked(app)} activeOpacity={0.85}>
+                          <Text style={s.wageBtnNoText}>{t('mobile.myShifts.confirmWorkedNo')}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                </>
               )}
 
               {/* ⚡ Pre-selected — worker must accept/decline within 2h */}
@@ -1005,6 +1055,7 @@ const s = StyleSheet.create({
   wageAskText:          { fontSize: 13, fontWeight: fontWeight.bold, color: '#92400e' },
   wageProofLink:        { fontSize: 12, fontWeight: fontWeight.semibold, color: '#16a34a', marginTop: 6 },
   wageBtnRow:           { flexDirection: 'row', gap: 8, marginTop: 10 },
+  confirmWorkedBody:    { fontSize: 13, color: '#92400e', fontWeight: fontWeight.semibold, marginTop: 8, lineHeight: 18 },
   wageBtn:              { flex: 1, height: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   wageBtnYes:           { backgroundColor: '#16a34a' },
   wageBtnYesText:       { fontSize: 13, fontWeight: fontWeight.bold, color: '#ffffff' },

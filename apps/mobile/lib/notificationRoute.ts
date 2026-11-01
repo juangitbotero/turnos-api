@@ -11,6 +11,7 @@
 const TO_MY_SHIFTS = new Set([
   'pre_selected', 'offer_withdrawn', 'acceptance_timeout', 'shift_cancelled_by_employer',
   'wage_paid', 'wage_marked_paid', 'wage_adjusted',
+  'confirm_worked', // "did you work?" — the answer buttons live on My shifts
 ]);
 
 export function notificationRoute(data: { type?: unknown; shiftId?: unknown } | null | undefined): string | null {
@@ -20,6 +21,7 @@ export function notificationRoute(data: { type?: unknown; shiftId?: unknown } | 
   if (type === 'role_confirmed') return '/profile';                 // role now shows as confirmed
   if (type === 'role_review') return '/edit-profile';               // companies said the level is lower
   if (type === 'rate_employer' && shiftId) return `/rate/${shiftId}`;
+  if (type === 'check_in') return '/scan';                          // check-in reminders open the scanner
   if (type && TO_MY_SHIFTS.has(type)) return '/my-shifts';
   if (shiftId) return `/shift/${shiftId}`;
   return null;

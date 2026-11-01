@@ -241,6 +241,14 @@ export interface Shift {
   /** Candidates page, request lines: workers still needed / in total. */
   openSlots?: number;
   totalSlots?: number;
+  /**
+   * "To confirm": a FILLED shift whose end passed with no check-in. Set by the
+   * API's 15-min sweep; autoConfirmAt null = no automatic completion.
+   */
+  confirmRequestedAt?: string | null;
+  autoConfirmAt?: string | null;
+  workerConfirmation?: 'WORKED' | 'NOT_WORKED' | null;
+  noShowReportedAt?: string | null;
 }
 
 /** One row of a multi-role request: N workers in one role. */
@@ -703,6 +711,10 @@ export const adminApi = {
       checkInToken:      string;
       employerName:      string;
     }>('/attendance/employer-qr', { method: 'GET' }),
+
+  /** A shift nobody scanned didn't take place — closed with no fee, wage or sanction. */
+  markShiftNotWorked: (shiftId: string) =>
+    request<{ status: string }>(`/attendance/${shiftId}/not-worked`, { method: 'POST' }),
 
   /** Employer manually confirms shift completion when QR scanning isn't available. */
   manualConfirmShift: (shiftId: string, note?: string) =>
