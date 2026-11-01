@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "307069877390",
+    "project_id": "turnos-5f5f2",
+    "storage_bucket": "turnos-5f5f2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:307069877390:android:fb4befcdb86357acc71ddf",
+        "android_client_info": {
+          "package_name": "com.turnos.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvZP1o63hy0u4doLw2ajFf7n1ec2wS99o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
