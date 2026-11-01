@@ -32,6 +32,14 @@ aren't.
 > **organisation** accounts. Same Cloudflare account unblocks **R2** (Track 3
 > "Uploads on local disk") and the **owned sending domain** for Brevo (#7).
 > Code-side store items: Track 2 "Before submitting".
+>
+> **End of the 2026-11-01 session:** D-U-N-S 348614612 obtained; Apple and
+> Google Play organisation enrolments **submitted, awaiting approval**. Resume
+> when they are approved: reviewer sign-in variables + demo profile →
+> production builds (`.aab` uploaded by hand the first time; iOS) → store
+> listings → then the remaining Track 1 blockers (Twilio #1, Stripe live #5,
+> R2) and the code-hygiene sweep. Also pending: confirm a real Android push
+> banner on APK 15 (#8), add Brevo to the SPF record.
 
 1. **Test APK `versionCode` 14 on the emulator** (built 2026-10-25 with the
    deploy of skills step 4, licence documents, privacy / terms / FAQ and
