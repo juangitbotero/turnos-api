@@ -5,6 +5,9 @@ node_modules
 .pnp
 .pnp.js
 
+# Play Console service-account key for `eas submit` (apps/mobile/)
+google-play-service-account.json
+
 # Local env files
 .env
 .env.local

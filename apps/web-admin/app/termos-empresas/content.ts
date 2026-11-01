@@ -10,12 +10,12 @@
  * copy, and bump TERMS_VERSIONS.EMPLOYER in @turnos/shared.
  */
 
-import { SUPPORT_EMAIL, TERMS_VERSIONS, SUBSCRIPTION_TIERS, TURNOS_FEE_FIXED_EUR } from '@turnos/shared';
+import { SUPPORT_EMAIL, TERMS_VERSIONS, SUBSCRIPTION_TIERS, TURNOS_FEE_FIXED_EUR, LEGAL_ENTITY } from '@turnos/shared';
 import type { LegalDoc } from '../../components/LegalDocPage';
 
-const CONTROLLER = '[[RAZÃO SOCIAL]]';
-const NIPC       = '[[NIPC]]';
-const ADDRESS    = '[[MORADA]]';
+const CONTROLLER = LEGAL_ENTITY.name;
+const NIPC       = LEGAL_ENTITY.nipc;
+const ADDRESS    = LEGAL_ENTITY.address;
 const STARTER    = SUBSCRIPTION_TIERS.STARTER;
 const PRO        = SUBSCRIPTION_TIERS.PRO;
 

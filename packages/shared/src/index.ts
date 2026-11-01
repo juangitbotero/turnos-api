@@ -792,6 +792,17 @@ export const TERMS_VERSIONS = {
  */
 export const SUPPORT_EMAIL = 'turnos.contact@gmail.com';
 
+/**
+ * The company that operates Turnos — "Turnos" is its brand, not a separate
+ * company. As registered (certidão permanente, 2026-11). Every legal page
+ * reads these, so they always agree.
+ */
+export const LEGAL_ENTITY = {
+  name: 'NESTS ALLEY, LDA',
+  nipc: '519694007',
+  address: 'Rua Prudêncio Franco da Trindade, n.º 4, 2655-344 Ericeira (Mafra), Portugal',
+} as const;
+
 // ─── Worker age ───────────────────────────────────────────────────────────────
 
 /**

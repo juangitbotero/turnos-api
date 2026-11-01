@@ -6,11 +6,19 @@ import { IconMonitor } from '../components/icons';
 
 const STORAGE_KEY = 'turnos_mobile_overlay_dismissed';
 
+/**
+ * Legal pages are opened from the app and from the store listings, i.e. on a
+ * phone — they read fine there, and a "use a computer" overlay in front of the
+ * privacy policy or the deletion page would look broken to a store reviewer.
+ */
+const PHONE_FRIENDLY_PATHS = ['/privacidade', '/termos', '/termos-empresas', '/eliminar-conta'];
+
 export default function MobileOverlay() {
   const { t } = useT();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    if (PHONE_FRIENDLY_PATHS.includes(window.location.pathname.replace(/\/+$/, ''))) return;
     const dismissed = localStorage.getItem(STORAGE_KEY) === '1';
     if (!dismissed && window.innerWidth < 768) setVisible(true);
   }, []);

@@ -14,6 +14,8 @@ docs
 
 # Misc
 *.pem
+# Play Console service-account key for `eas submit` — read locally, never uploaded
+google-play-service-account.json
 .DS_Store
 
 # Tooling — not needed to build apps/mobile.

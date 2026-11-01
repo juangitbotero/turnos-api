@@ -6,10 +6,8 @@
  *
  * Written from the data flows that actually exist in this codebase, not from a
  * template: every category listed below maps to a real column or a real
- * third-party call. Where a fact was not knowable from the code — the legal
- * entity name, NIPC, registered address, contact email, hosting region — the
- * value is a `[[PLACEHOLDER]]` and must be filled before this page is linked
- * from an app store listing.
+ * third-party call. The operator's identity comes from LEGAL_ENTITY in
+ * @turnos/shared (filled 2026-11-01), the hosting region from Railway.
  *
  * Load-bearing statements that must not be softened by a later edit:
  *
@@ -37,16 +35,19 @@
  * reviewed as a whole, and 100+ catalogue keys would obstruct that review.
  */
 
-import { SUPPORT_EMAIL } from '@turnos/shared';
+import { SUPPORT_EMAIL, LEGAL_ENTITY } from '@turnos/shared';
 import type { LegalDoc } from '../../components/LegalDocPage';
 
 type PolicyDoc = LegalDoc;
 
-const CONTROLLER = '[[RAZÃO SOCIAL]]';
-const NIPC       = '[[NIPC]]';
-const ADDRESS    = '[[MORADA]]';
+const CONTROLLER = LEGAL_ENTITY.name;
+const NIPC       = LEGAL_ENTITY.nipc;
+const ADDRESS    = LEGAL_ENTITY.address;
 const EMAIL      = SUPPORT_EMAIL;
-const REGION     = '[[REGIÃO DE ALOJAMENTO]]';
+// Railway "EU West" = Amsterdam (confirmed by Juanes 2026-11-01). If a service
+// moves region, this changes with it.
+const REGION_PT  = 'Amesterdão, Países Baixos (União Europeia)';
+const REGION_EN  = 'Amsterdam, the Netherlands (European Union)';
 
 const pt: PolicyDoc = {
   back: '← Voltar',
@@ -195,7 +196,7 @@ const pt: PolicyDoc = {
     {
       heading: '12. Segurança e onde estão os dados',
       paragraphs: [
-        `As palavras-passe são guardadas com hash, as sessões usam tokens de curta duração e todo o tráfego é cifrado em trânsito. Os dados são alojados em ${REGION}.`,
+        `As palavras-passe são guardadas com hash, as sessões usam tokens de curta duração e todo o tráfego é cifrado em trânsito. Os dados são alojados em ${REGION_PT}.`,
         'Alguns subcontratantes (Stripe, Twilio, Expo, Google, Cloudflare) podem tratar dados fora do Espaço Económico Europeu, ao abrigo das cláusulas contratuais-tipo da Comissão Europeia ou de uma decisão de adequação.',
       ],
     },
@@ -361,7 +362,7 @@ const en: PolicyDoc = {
     {
       heading: '12. Security and where data lives',
       paragraphs: [
-        `Passwords are hashed, sessions use short-lived tokens, and all traffic is encrypted in transit. Data is hosted in ${REGION}.`,
+        `Passwords are hashed, sessions use short-lived tokens, and all traffic is encrypted in transit. Data is hosted in ${REGION_EN}.`,
         'Some processors (Stripe, Twilio, Expo, Google, Cloudflare) may process data outside the European Economic Area under the European Commission’s standard contractual clauses or an adequacy decision.',
       ],
     },

@@ -5,7 +5,7 @@
  * Override the host with EXPO_PUBLIC_WEB_URL when it moves.
  */
 export const WEB_URL =
-  process.env.EXPO_PUBLIC_WEB_URL ?? 'https://turnos-admin-production.up.railway.app';
+  process.env.EXPO_PUBLIC_WEB_URL ?? 'https://turnos.cc';
 
 export const TERMS_URL   = `${WEB_URL}/termos`;
 export const PRIVACY_URL = `${WEB_URL}/privacidade`;

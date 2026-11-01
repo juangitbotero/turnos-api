@@ -9,8 +9,9 @@
 
 ## 1. Quem somos e o que são estes termos
 
-1.1. A Turnos é uma plataforma digital explorada por [[RAZÃO SOCIAL]], NIPC
-[[NIPC]], com sede em [[MORADA]] ("Turnos", "nós").
+1.1. A Turnos é uma plataforma digital explorada por NESTS ALLEY, LDA, NIPC
+519694007, com sede na Rua Prudêncio Franco da Trindade, n.º 4, 2655-344
+Ericeira (Mafra) ("Turnos", "nós").
 
 1.2. Estes termos regulam a utilização da aplicação Turnos por quem procura
 trabalho ("tu", "trabalhador"). Ao criares conta, aceitas estes termos.

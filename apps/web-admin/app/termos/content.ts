@@ -12,12 +12,12 @@
  * draft would be a second draft to keep in step.
  */
 
-import { SUPPORT_EMAIL, TERMS_VERSIONS } from '@turnos/shared';
+import { SUPPORT_EMAIL, TERMS_VERSIONS, LEGAL_ENTITY } from '@turnos/shared';
 import type { LegalDoc } from '../../components/LegalDocPage';
 
-const CONTROLLER = '[[RAZÃO SOCIAL]]';
-const NIPC       = '[[NIPC]]';
-const ADDRESS    = '[[MORADA]]';
+const CONTROLLER = LEGAL_ENTITY.name;
+const NIPC       = LEGAL_ENTITY.nipc;
+const ADDRESS    = LEGAL_ENTITY.address;
 
 const pt: LegalDoc = {
   back: '← Voltar',

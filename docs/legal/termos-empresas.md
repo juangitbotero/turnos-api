@@ -10,7 +10,8 @@
 ## 1. Partes e objeto
 
 1.1. Estes termos regulam a utilização da plataforma Turnos, explorada por
-[[RAZÃO SOCIAL]], NIPC [[NIPC]], com sede em [[MORADA]] ("Turnos"), pela
+NESTS ALLEY, LDA, NIPC 519694007, com sede na Rua Prudêncio Franco da
+Trindade, n.º 4, 2655-344 Ericeira (Mafra) ("Turnos"), pela
 empresa que cria uma conta ("Empresa").
 
 1.2. A Turnos presta à Empresa um **serviço de software**: publicação de

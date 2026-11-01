@@ -18,6 +18,7 @@ import {
 import { t } from '../i18n/request-language';
 import { isLookupKey } from '../common/lookup-key';
 import { notificationPrefsOf } from '../users/notification-prefs';
+import { ReviewLogin, readReviewLogin, isReviewPhone, isReviewLogin } from './review-login';
 
 const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
@@ -29,6 +30,9 @@ export class AuthService {
 
   /** In-memory mock OTP store for dev */
   private readonly mockOtpStore = new Map<string, string>();
+
+  /** Store-reviewer sign-in — see review-login.ts. Null when not configured. */
+  private readonly reviewLogin: ReviewLogin | null;
 
   constructor(
     private readonly usersService: UsersService,
@@ -52,6 +56,9 @@ export class AuthService {
     } else {
       this.logger.warn('Twilio credentials absent — using Mock OTP (code: 123456)');
     }
+
+    this.reviewLogin = readReviewLogin(key => this.configService.get<string>(key));
+    if (this.reviewLogin) this.logger.warn('Store-reviewer sign-in enabled for one number (REVIEW_PHONE)');
   }
 
   // ─── OTP Flow (Workers) ────────────────────────────────────────────────────
@@ -60,6 +67,9 @@ export class AuthService {
     if (!phone || phone.length < 8) {
       throw new BadRequestException('Invalid phone number');
     }
+
+    // The reviewer's number never gets an SMS — they type the fixed code.
+    if (isReviewPhone(this.reviewLogin, phone)) return true;
 
     if (this.twilioClient && this.twilioServiceSid) {
       try {
@@ -90,7 +100,9 @@ export class AuthService {
     }
     let isValid = false;
 
-    if (this.twilioClient && this.twilioServiceSid) {
+    if (isReviewPhone(this.reviewLogin, phone)) {
+      isValid = isReviewLogin(this.reviewLogin, phone, code);
+    } else if (this.twilioClient && this.twilioServiceSid) {
       try {
         const result = await this.twilioClient.verify.v2
           .services(this.twilioServiceSid)
