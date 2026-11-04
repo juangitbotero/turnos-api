@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:307069877390:android:816cbb3cd7680c8fc71ddf",
+        "android_client_info": {
+          "package_name": "cc.turnos.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvZP1o63hy0u4doLw2ajFf7n1ec2wS99o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:307069877390:android:fb4befcdb86357acc71ddf",
         "android_client_info": {
           "package_name": "com.turnos.app"
