@@ -72,6 +72,31 @@ export interface EmployerQrResult {
   employerName:      string;
 }
 
+/** What a party to the shift may see of its attendance — no relations, no coordinates. */
+export interface AttendanceView {
+  id:               string;
+  status:           AttendanceStatus;
+  checkInAt:        Date | null;
+  checkOutAt:       Date | null;
+  scheduledHours:   number | null;
+  isManualOverride: boolean;
+  disputeNote:      string | null;
+  disputeRaisedBy:  'WORKER' | 'EMPLOYER' | null;
+}
+
+function toAttendanceView(a: ShiftAttendance): AttendanceView {
+  return {
+    id:               a.id,
+    status:           a.status,
+    checkInAt:        a.checkInAt ?? null,
+    checkOutAt:       a.checkOutAt ?? null,
+    scheduledHours:   a.scheduledHours != null ? Number(a.scheduledHours) : null,
+    isManualOverride: !!a.isManualOverride,
+    disputeNote:      a.disputeNote ?? null,
+    disputeRaisedBy:  (a.disputeRaisedBy as AttendanceView['disputeRaisedBy']) ?? null,
+  };
+}
+
 export interface AutoCompleteJobData {
   shiftId: string;
 }
@@ -791,9 +816,8 @@ export class AttendanceService {
     role: 'WORKER' | 'EMPLOYER',
     shiftId: string,
     note: string,
-  ): Promise<ShiftAttendance> {
-    const shift = await this.shiftRepo.findOne({ where: { id: shiftId } });
-    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
+  ): Promise<AttendanceView> {
+    await this.assertShiftParty(userId, role, shiftId);
 
     const attendance = await this.attendanceRepo.findOne({ where: { shift: { id: shiftId } } });
     if (!attendance) throw new NotFoundException('No attendance record for this shift');
@@ -807,16 +831,37 @@ export class AttendanceService {
 
     const saved = await this.attendanceRepo.save(attendance);
     this.logger.log(`[Attendance] Dispute raised on shift ${shiftId} by ${role}`);
-    return saved;
+    return toAttendanceView(saved);
   }
 
   // ── Get attendance status ─────────────────────────────────────────────────
 
-  async getAttendance(shiftId: string): Promise<ShiftAttendance | null> {
-    return this.attendanceRepo.findOne({
-      where:     { shift: { id: shiftId } },
-      relations: ['shift', 'worker'],
+  /**
+   * Only the shift's own worker or its company may read it, and only the
+   * status fields the app shows. Until 2026-11-04 this returned the record
+   * with its `worker` and `shift` relations to ANY signed-in user who knew a
+   * shift id — the full Worker entity (NIF, IBAN, date of birth, Stripe id)
+   * plus the check-in coordinates. Same family as the 2026-09-27 applicant
+   * list and 2026-10-05 contracts leaks.
+   */
+  async getAttendance(userId: string, role: 'WORKER' | 'EMPLOYER', shiftId: string): Promise<AttendanceView | null> {
+    await this.assertShiftParty(userId, role, shiftId);
+    const attendance = await this.attendanceRepo.findOne({ where: { shift: { id: shiftId } } });
+    return attendance ? toAttendanceView(attendance) : null;
+  }
+
+  /** 404 unless the caller is the shift's assigned worker or its company. */
+  private async assertShiftParty(userId: string, role: 'WORKER' | 'EMPLOYER', shiftId: string): Promise<void> {
+    if (!isLookupKey(userId) || !isLookupKey(shiftId)) throw new NotFoundException(t('api.common.shiftNotFound'));
+    const shift = await this.shiftRepo.findOne({
+      where: { id: shiftId },
+      relations: ['employer', 'employer.user', 'assignedWorker', 'assignedWorker.user'],
     });
+    const isParty = role === 'EMPLOYER'
+      ? shift?.employer?.user?.id === userId
+      : shift?.assignedWorker?.user?.id === userId;
+    // Same answer for "doesn't exist" and "not yours" — no probing for ids.
+    if (!shift || !isParty) throw new NotFoundException(t('api.common.shiftNotFound'));
   }
 
   // ── Private: find worker's shift at employer today ────────────────────────

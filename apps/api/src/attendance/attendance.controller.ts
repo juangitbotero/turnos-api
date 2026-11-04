@@ -132,7 +132,7 @@ export class AttendanceController {
    */
   @Get(':shiftId')
   @Roles('EMPLOYER', 'WORKER')
-  getAttendance(@Param('shiftId') shiftId: string) {
-    return this.attendanceService.getAttendance(shiftId);
+  getAttendance(@Request() req: any, @Param('shiftId') shiftId: string) {
+    return this.attendanceService.getAttendance(req.user.userId, req.user.role, shiftId);
   }
 }
