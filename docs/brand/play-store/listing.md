@@ -4,7 +4,8 @@ Paste into Play Console → Grow users → Store presence → **Main store listi
 (default language pt-PT), then **Manage translations → English (United States)**.
 Character limits: name 30 · short 80 · full 4,000. Counts checked 2026-11-04.
 
-Every claim here is backed by the code — check `docs/brand/COPY_BANK.md` §B
+No city names (Juanes, 2026-11-04): the listing must not need editing as
+Turnos expands beyond Lisbon. Every claim here is backed by the code — check `docs/brand/COPY_BANK.md` §B
 before adding one. Never promise **when** a worker is paid (the company pays
 directly; Turnos does not control timing), and never "garantimos/processamos o
 pagamento".
@@ -18,13 +19,13 @@ pagamento".
 **Descrição breve:**
 
 ```
-Turnos curtos em Lisboa. Vê o valor por hora e candidata-te num toque.
+Turnos curtos perto de ti. Vê o valor por hora e candidata-te num toque.
 ```
 
 **Descrição completa:**
 
 ```
-A Turnos liga-te a empresas de Lisboa que precisam de alguém para turnos curtos: restauração, hotelaria, eventos, retalho, logística e mais.
+A Turnos liga-te a empresas perto de ti que precisam de alguém para turnos curtos: restauração, hotelaria, eventos, retalho, logística e mais.
 
 COMO FUNCIONA
 • Vê os turnos perto de ti, com o local, o horário e o valor bruto por hora em cada cartão.
@@ -44,7 +45,6 @@ PORQUÊ A TURNOS
 
 PARA QUEM
 • Maiores de 18 anos.
-• Para já, turnos em Lisboa.
 
 És uma empresa? Publica turnos no painel em turnos.cc.
 
@@ -67,13 +67,13 @@ Primeira versão da Turnos.
 **Short description:**
 
 ```
-Short shifts in Lisbon. See the hourly pay upfront and apply in one tap.
+Short shifts near you. See the hourly pay upfront and apply in one tap.
 ```
 
 **Full description:**
 
 ```
-Turnos connects you with companies in Lisbon that need someone for short shifts: restaurants and cafés, hotels, events, retail, logistics and more.
+Turnos connects you with companies near you that need someone for short shifts: restaurants and cafés, hotels, events, retail, logistics and more.
 
 HOW IT WORKS
 • See shifts near you, with the place, the hours and the gross hourly pay on every card.
@@ -93,7 +93,6 @@ WHY TURNOS
 
 WHO IT'S FOR
 • People aged 18 and over.
-• Shifts in Lisbon, for now.
 
 Are you a company? Post shifts from the dashboard at turnos.cc.
 

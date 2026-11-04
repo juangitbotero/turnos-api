@@ -87,7 +87,8 @@ def build_feature_graphic():
     img.alpha_composite(lg, ((W - lg.width) // 2, 150))
     d = ImageDraw.Draw(img)
     f = ImageFont.truetype(FONT_REG, 38)
-    text_block(d, 'Turnos de curta duração em Lisboa', f, W / 2, 150 + lg.height + 40, (255, 255, 255, 235))
+    # Generic on purpose — no city: the listing should not need editing as Turnos expands.
+    text_block(d, 'Short Shift Marketplace for Physical Businesses', f, W / 2, 150 + lg.height + 40, (255, 255, 255, 235))
     img.convert('RGB').save(OUT / 'feature-graphic.png', optimize=True)
 
 
