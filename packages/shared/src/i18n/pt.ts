@@ -778,7 +778,7 @@ export const pt = {
       payLinkTitleContinue:  'Continua a ativação do Pay Link',
       payLinkTitleStart:     'Recebe por Turnos Pay Link',
       payLinkBodyVerifying:  'A Stripe está a verificar os teus dados. Normalmente demora minutos — volta em breve.',
-      payLinkBodyStart:      'Ativa em ~3 minutos: verificas a identidade e o IBAN com a Stripe, uma única vez. Depois, quando a empresa paga o link, o dinheiro cai na tua conta em 1–2 dias úteis.',
+      payLinkBodyStart:      'Ativa em ~3 minutos: verificas a identidade e o IBAN com a Stripe, uma única vez. Depois, a empresa pode pagar-te pelo link, com cartão ou MB WAY, diretamente para a tua conta.',
       payLinkOpening:  'A abrir…',
       payLinkContinue: 'Continuar ativação →',
       payLinkActivate: 'Ativar Pay Link →',

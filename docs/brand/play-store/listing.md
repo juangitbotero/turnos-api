@@ -116,12 +116,18 @@ docstring in `build.py`. Suggested set, in order:
 
 | # | Screen to capture (Android, app in Portuguese, real-looking data) | Caption |
 |---|---|---|
-| 01 | Shifts feed — map or list with several shifts | Turnos perto de ti, com o valor à vista |
-| 02 | Shift detail — place, hours, gross rate, role and level | Vê o local, o horário e o valor antes de te candidatares |
-| 03 | My shifts — a completed shift with "received ✓" | Recebes o valor bruto, pago pela empresa |
-| 04 | QR scan screen | Um scan à entrada e estás de turno |
-| 05 | Profile — availability switch and day chips | Trabalha quando quiseres. Desliga quando estás ocupado |
-| 06 | (optional) Profile score / roles | Grátis para trabalhadores. Sem comissões |
+| 01 | Shifts feed — list with several shifts | Turnos perto de ti, com o valor à vista |
+| 02 | Shift detail — place, hours, gross rate | Vê o local, o horário e o valor antes de te candidatares |
+| 03 | Profile — availability switch and day chips | Tu decides quando trabalhas. Desliga quando estás ocupado |
+| 04 | My shifts — completed shifts with "received ✓" | Recebes o valor bruto, pago pela empresa |
+| 05 | Earnings | Grátis para trabalhadores. Sem comissões |
+| 06 | (optional) QR scan screen | Um scan à entrada e estás de turno |
+
+**First set (2026-11-04)** was captured with the app in English, from test data
+(lower-case "warehouse assistant", "Wharehouse" typo, €6/h, "Lisbon" in the
+header and bio). Fine for launch; retake in Portuguese with cleaner shifts when
+convenient. Screen 05 still shows the old Pay Link text promising "1–2 working
+days" — removed from the app on 2026-11-04 (next build); retake 05 after that.
 
 Tablet, Chromebook, Android XR assets: **not required** — leave empty. The app
 is phone-only.

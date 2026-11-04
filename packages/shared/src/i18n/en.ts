@@ -776,7 +776,7 @@ export const en: Translated<TranslationCatalogue> = {
       payLinkTitleContinue:  'Finish activating your Pay Link',
       payLinkTitleStart:     'Get paid by Turnos Pay Link',
       payLinkBodyVerifying:  'Stripe is verifying your details. This usually takes minutes — check back shortly.',
-      payLinkBodyStart:      'Takes about 3 minutes: you verify your identity and IBAN with Stripe once. After that, when the company pays the link, the money reaches your account in 1–2 working days.',
+      payLinkBodyStart:      'Takes about 3 minutes: you verify your identity and IBAN with Stripe once. After that, the company can pay you through the link by card or MB WAY, straight to your account.',
       payLinkOpening:  'Opening…',
       payLinkContinue: 'Continue activation →',
       payLinkActivate: 'Activate Pay Link →',

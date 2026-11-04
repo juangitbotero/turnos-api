@@ -33,12 +33,14 @@ BLUE, VIOLET = (0x6a, 0x79, 0xff), (0x9b, 0x6d, 0xff)
 # Captions per screenshot number, PT (default listing) and EN. Lines from the
 # copy bank, each backed by what the app does.
 CAPTIONS = {
+    # Matched to the 2026-11-04 captures: feed, shift detail, profile,
+    # My shifts, earnings.
     '01': {'pt': 'Turnos perto de ti,\ncom o valor à vista', 'en': 'Shifts near you,\npay shown upfront'},
     '02': {'pt': 'Vê o local, o horário\ne o valor antes de te candidatares', 'en': 'See the place, the hours\nand the pay before you apply'},
-    '03': {'pt': 'Recebes o valor bruto,\npago pela empresa', 'en': 'You receive the full gross,\npaid by the company'},
-    '04': {'pt': 'Um scan à entrada\ne estás de turno', 'en': 'One scan at the door\nand you are on shift'},
-    '05': {'pt': 'Trabalha quando quiseres.\nDesliga quando estás ocupado', 'en': 'Work when you want.\nSwitch it off when busy'},
-    '06': {'pt': 'Grátis para trabalhadores.\nSem comissões', 'en': 'Free for workers.\nNo commission'},
+    '03': {'pt': 'Tu decides quando trabalhas.\nDesliga quando estás ocupado', 'en': 'You decide when you work.\nSwitch it off when busy'},
+    '04': {'pt': 'Recebes o valor bruto,\npago pela empresa', 'en': 'You receive the full gross,\npaid by the company'},
+    '05': {'pt': 'Grátis para trabalhadores.\nSem comissões', 'en': 'Free for workers.\nNo commission'},
+    '06': {'pt': 'Um scan à entrada\ne estás de turno', 'en': 'One scan at the door\nand you are on shift'},
 }
 
 
