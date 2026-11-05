@@ -27,7 +27,7 @@ aren't.
 > mail `contact@turnos.cc`, Brevo sender). **Google Play** organisation account
 > approved 11-04; app **`cc.turnos.app`** created (`com.turnos.app` was taken),
 > listing, data safety, content rating, sign-in details done; **internal
-> testing live** with versionCode 16; **versionCode 17 building** (Maps key —
+> testing live** with versionCode 16; **versionCode 17 built** (EAS `417d1931`; Maps key —
 > the map crashed on 16 —, feed filters, monochrome icons, new tagline).
 > Production **not submitted**. **Apple Developer** organisation account
 > **approved 11-05** — set-up continues in its own session.
