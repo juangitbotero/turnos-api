@@ -164,19 +164,10 @@ export default function AdminLogin() {
             </button>
           </form>
 
-          {/* Divider */}
-          <div style={s.divider}>
-            <div style={s.dividerLine} />
-            <span style={s.dividerText}>{t('home.login.or')}</span>
-            <div style={s.dividerLine} />
-          </div>
-
-          {/* Google SSO placeholder */}
-          <button id="google-login-btn" style={s.googleBtn} disabled>
-            <span style={{ fontSize: 18 }}>G</span>
-            {t('home.login.google')}
-            <span style={s.comingSoon}>{t('home.login.comingSoon')}</span>
-          </button>
+          {/* "Continue with Google · Coming soon" removed 2026-11-05 — a
+              disabled placeholder made the page look unfinished. Google
+              sign-in for companies is in pre-flight Track 5; it needs the
+              token audience check and the company-details step first. */}
 
           {process.env.NODE_ENV === 'development' && (
             <button
@@ -428,45 +419,6 @@ const s: Record<string, React.CSSProperties> = {
     marginTop: 4,
   },
   spinner: { fontSize: 18 },
-
-  /* Divider */
-  divider: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    margin: '24px 0',
-  },
-  dividerLine: { flex: 1, height: 1, background: 'var(--color-border)' },
-  dividerText: { fontSize: 12, color: 'var(--color-text-muted)', fontWeight: 500 },
-
-  /* Google btn */
-  googleBtn: {
-    width: '100%',
-    height: 50,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    background: 'var(--color-surface)',
-    border: '1.5px solid var(--color-border)',
-    borderRadius: 'var(--radius-full)',
-    fontSize: 14,
-    fontWeight: 600,
-    color: 'var(--color-text-secondary)',
-    cursor: 'not-allowed',
-    fontFamily: 'inherit',
-    position: 'relative',
-  },
-  comingSoon: {
-    position: 'absolute',
-    right: 16,
-    fontSize: 10,
-    fontWeight: 700,
-    color: 'var(--color-primary)',
-    background: 'var(--color-primary-light)',
-    padding: '2px 7px',
-    borderRadius: 'var(--radius-full)',
-  },
 
   /* Dev bypass */
   devBtn: {

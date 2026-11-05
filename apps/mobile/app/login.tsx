@@ -171,27 +171,27 @@ export default function LoginScreen() {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Divider */}
-        <View style={s.divider}>
-          <View style={s.dividerLine} />
-          <Text style={s.dividerText}>{t('mobile.login.or')}</Text>
-          <View style={s.dividerLine} />
-        </View>
-
-        {/* Google SSO */}
-        <Pressable
-          style={[s.googleBtn, !googleEnabled && { opacity: 0.5 }]}
-          onPress={handleGoogleLogin}
-          disabled={!googleEnabled || isLoading}
-        >
-          <Text style={s.googleIcon}>G</Text>
-          <Text style={s.googleText}>{t('mobile.login.google')}</Text>
-          {!googleEnabled && (
-            <View style={s.soonBadge}>
-              <Text style={s.soonText}>{t('mobile.login.comingSoon')}</Text>
+        {/* Google SSO — only when configured. A disabled "Coming soon" button
+            reads as an unfinished feature to store reviewers (2026-11-05), and
+            on iOS, offering Google sign-in also requires Sign in with Apple
+            (App Store guideline 4.8). Workers sign in by phone on purpose. */}
+        {googleEnabled && (
+          <>
+            <View style={s.divider}>
+              <View style={s.dividerLine} />
+              <Text style={s.dividerText}>{t('mobile.login.or')}</Text>
+              <View style={s.dividerLine} />
             </View>
-          )}
-        </Pressable>
+            <Pressable
+              style={s.googleBtn}
+              onPress={handleGoogleLogin}
+              disabled={isLoading}
+            >
+              <Text style={s.googleIcon}>G</Text>
+              <Text style={s.googleText}>{t('mobile.login.google')}</Text>
+            </Pressable>
+          </>
+        )}
 
         {/* Dev bypass — only in __DEV__ builds */}
         {__DEV__ && (

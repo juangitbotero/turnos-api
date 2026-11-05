@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
 import { paymentsApi, wagesApi, ConnectStatus, EarningsReport, EarningRecord } from '../lib/api';
@@ -136,7 +137,7 @@ export default function EarningsScreen() {
         {/* ── Pay Link activation card ── */}
         {connect && !connect.payoutsEnabled && (
           <View style={s.payLinkCard}>
-            <Text style={s.payLinkIcon}>💳</Text>
+            <Ionicons name="card-outline" size={24} color="#4338ca" style={s.payLinkIcon} />
             <View style={{ flex: 1 }}>
               <Text style={s.payLinkTitle}>
                 {connect.onboardingComplete
@@ -204,7 +205,7 @@ export default function EarningsScreen() {
             {/* KPI summary strip */}
             <View style={s.kpiStrip}>
               <KpiCard
-                icon="💶"
+                icon="cash-outline"
                 label={t('mobile.earnings.kpiGross')}
                 value={fmt(report.totalGross)}
                 accent="#6a79ff"
@@ -219,7 +220,7 @@ export default function EarningsScreen() {
               */}
               <View style={s.kpiDivider} />
               <KpiCard
-                icon="📋"
+                icon="clipboard-outline"
                 label={t('mobile.earnings.kpiShifts')}
                 value={String(report.shiftCount)}
                 accent="#f59e0b"
@@ -261,7 +262,7 @@ export default function EarningsScreen() {
 
             {report.records.length === 0 && (
               <View style={s.emptyCard}>
-                <Text style={s.emptyIcon}>💶</Text>
+                <Ionicons name="cash-outline" size={40} color={colors.textSecondary} style={s.emptyIcon} />
                 <Text style={s.emptyTitle}>{t('mobile.earnings.emptyTitle', { period: periodLabelLower })}</Text>
                 <Text style={s.emptySub}>{t('mobile.earnings.emptySub')}</Text>
               </View>
@@ -277,10 +278,10 @@ export default function EarningsScreen() {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function KpiCard({ icon, label, value, accent }: { icon: string; label: string; value: string; accent: string }) {
+function KpiCard({ icon, label, value, accent }: { icon: 'cash-outline' | 'clipboard-outline'; label: string; value: string; accent: string }) {
   return (
     <View style={sk.root}>
-      <Text style={sk.icon}>{icon}</Text>
+      <Ionicons name={icon} size={22} color={colors.textSecondary} style={sk.icon} />
       <Text style={[sk.value, { color: accent }]}>{value}</Text>
       <Text style={sk.label}>{label}</Text>
     </View>
@@ -363,7 +364,7 @@ const s = StyleSheet.create({
     padding: spacing.md,
     alignItems: 'flex-start',
   },
-  payLinkIcon: { fontSize: 24, marginTop: 2 },
+  payLinkIcon: { marginTop: 2 },
   payLinkTitle: { fontSize: fontSize.body, fontWeight: fontWeight.bold, color: '#3730a3' },
   payLinkText: { fontSize: fontSize.caption, color: '#4338ca', lineHeight: 18, marginTop: 2 },
   payLinkBtn: {
@@ -451,7 +452,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  emptyIcon:  { fontSize: 40, marginBottom: 4 },
+  emptyIcon:  { marginBottom: 4 },
   emptyTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold as any, color: colors.textPrimary, textAlign: 'center' },
   emptySub:   { fontSize: fontSize.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
 });
@@ -459,7 +460,7 @@ const s = StyleSheet.create({
 // KPI card sub-styles
 const sk = StyleSheet.create({
   root:  { flex: 1, alignItems: 'center', paddingVertical: spacing.md, gap: 4 },
-  icon:  { fontSize: 22, marginBottom: 2 },
+  icon:  { marginBottom: 2 },
   value: { fontSize: fontSize.xl, fontWeight: fontWeight.bold as any, letterSpacing: -0.5 },
   label: { fontSize: 11, color: colors.textMuted, fontWeight: fontWeight.semibold as any },
 });

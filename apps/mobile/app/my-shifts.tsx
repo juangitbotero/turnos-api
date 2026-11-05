@@ -329,7 +329,7 @@ export default function MyShiftsScreen() {
             <>
               {applications.length === 0 && (
                 <View style={s.empty}>
-                  <Text style={s.emptyIcon}>📋</Text>
+                  <Ionicons name="clipboard-outline" size={52} color={colors.textSecondary} />
                   <Text style={s.emptyTitle}>{t('mobile.myShifts.emptyTitle')}</Text>
                   <Text style={s.emptySub}>{t('mobile.myShifts.emptySub')}</Text>
                   <TouchableOpacity style={s.exploreBtn} onPress={() => router.back()} activeOpacity={0.85}>
@@ -349,7 +349,7 @@ export default function MyShiftsScreen() {
               {/* ✋ Did you work? — ended without a check-in */}
               {askWorked.length > 0 && (
                 <>
-                  <Text style={s.sectionTitle}>{t('mobile.myShifts.sectionConfirmWorked')}</Text>
+                  <Text style={s.sectionTitle}><Ionicons name="hand-left-outline" size={16} color={colors.textSecondary} /> {t('mobile.myShifts.sectionConfirmWorked')}</Text>
                   {askWorked.map(app => (
                     <View key={app.id} style={s.card}>
                       <Text style={s.cardTitle}>{app.shift.title}</Text>
@@ -373,7 +373,7 @@ export default function MyShiftsScreen() {
               {/* ⚡ Pre-selected — worker must accept/decline within 2h */}
               {preSelected.length > 0 && (
                 <>
-                  <Text style={s.sectionTitle}>{t('mobile.myShifts.sectionActionNeeded')}</Text>
+                  <Text style={s.sectionTitle}><Ionicons name="flash-outline" size={16} color={colors.textSecondary} /> {t('mobile.myShifts.sectionActionNeeded')}</Text>
                   {preSelected.map(app => (
                     <PreSelectedCard
                       key={app.id}
@@ -414,7 +414,7 @@ export default function MyShiftsScreen() {
 
               {nowActive.length > 0 && (
                 <>
-                  <Text style={[s.sectionTitle, preSelected.length > 0 && { marginTop: spacing.lg }]}>{t('mobile.myShifts.sectionActive')}</Text>
+                  <Text style={[s.sectionTitle, preSelected.length > 0 && { marginTop: spacing.lg }]}><Ionicons name="play-circle-outline" size={16} color={colors.textSecondary} /> {t('mobile.myShifts.sectionActive')}</Text>
                   {nowActive.map(app => (
                     <ApplicationCard key={app.id} app={app} onPress={() => router.push(`/shift/${app.shift.id}`)} />
                   ))}
@@ -423,7 +423,7 @@ export default function MyShiftsScreen() {
 
               {confirmed.length > 0 && (
                 <>
-                  <Text style={[s.sectionTitle, nowActive.length > 0 && { marginTop: spacing.lg }]}>{t('mobile.myShifts.sectionConfirmed')}</Text>
+                  <Text style={[s.sectionTitle, nowActive.length > 0 && { marginTop: spacing.lg }]}><Ionicons name="checkmark-circle-outline" size={16} color={colors.textSecondary} /> {t('mobile.myShifts.sectionConfirmed')}</Text>
                   {confirmed.map(app => (
                     <ApplicationCard
                       key={app.id}
@@ -437,7 +437,7 @@ export default function MyShiftsScreen() {
 
               {pending.length > 0 && (
                 <>
-                  <Text style={[s.sectionTitle, (nowActive.length > 0 || confirmed.length > 0) && { marginTop: spacing.lg }]}>{t('mobile.myShifts.sectionPending')}</Text>
+                  <Text style={[s.sectionTitle, (nowActive.length > 0 || confirmed.length > 0) && { marginTop: spacing.lg }]}><Ionicons name="hourglass-outline" size={16} color={colors.textSecondary} /> {t('mobile.myShifts.sectionPending')}</Text>
                   {pending.map(app => (
                     <ApplicationCard key={app.id} app={app} onPress={() => router.push(`/shift/${app.shift.id}`)} />
                   ))}
@@ -446,7 +446,7 @@ export default function MyShiftsScreen() {
 
               {concluded.length > 0 && (
                 <>
-                  <Text style={[s.sectionTitle, { marginTop: spacing.lg }]}>{t('mobile.myShifts.sectionConcluded')}</Text>
+                  <Text style={[s.sectionTitle, { marginTop: spacing.lg }]}><Ionicons name="flag-outline" size={16} color={colors.textSecondary} /> {t('mobile.myShifts.sectionConcluded')}</Text>
                   {concluded.map(app => (
                     <ApplicationCard
                       key={app.id}
@@ -464,7 +464,7 @@ export default function MyShiftsScreen() {
 
               {history.length > 0 && (
                 <>
-                  <Text style={[s.sectionTitle, { marginTop: spacing.lg }]}>{t('mobile.myShifts.sectionHistory')}</Text>
+                  <Text style={[s.sectionTitle, { marginTop: spacing.lg }]}><Ionicons name="time-outline" size={16} color={colors.textSecondary} /> {t('mobile.myShifts.sectionHistory')}</Text>
                   {history.map(app => (
                     <ApplicationCard key={app.id} app={app} onPress={() => router.push(`/shift/${app.shift.id}`)} />
                   ))}
@@ -783,16 +783,16 @@ function ApplicationCard({
       <View style={s.cardFooter}>
         <View style={s.footerChip}>
           <Text style={s.footerText}>
-            📅 {seriesDays > 1 ? fDateRange(shift.seriesDates!) : fSmartDate(shift.date)}
+            <Ionicons name="calendar-outline" size={12} color={colors.textSecondary} /> {seriesDays > 1 ? fDateRange(shift.seriesDates!) : fSmartDate(shift.date)}
           </Text>
         </View>
         {seriesDays > 1 && (
           <View style={[s.footerChip, s.seriesChip]}>
-            <Text style={[s.footerText, s.seriesChipText]}>{t('mobile.myShifts.multiDayChip', { count: seriesDays })}</Text>
+            <Text style={[s.footerText, s.seriesChipText]}><Ionicons name="repeat" size={12} color="#1d4ed8" /> {t('mobile.myShifts.multiDayChip', { count: seriesDays })}</Text>
           </View>
         )}
         <View style={s.footerChip}>
-          <Text style={s.footerText}>⏰ {shift.startTime.slice(0, 5)}–{shift.endTime.slice(0, 5)}</Text>
+          <Text style={s.footerText}><Ionicons name="time-outline" size={12} color={colors.textSecondary} /> {shift.startTime.slice(0, 5)}–{shift.endTime.slice(0, 5)}</Text>
         </View>
         <View style={s.footerChip}>
           <Text style={s.footerText}>€{Number(shift.grossHourlyRate).toFixed(2)}/hr</Text>
@@ -808,7 +808,7 @@ function ApplicationCard({
             </View>
           ) : (
             <TouchableOpacity style={s.rateBtn} onPress={onRate} activeOpacity={0.85}>
-              <Text style={s.rateBtnText}>{t('mobile.myShifts.rate')}</Text>
+              <Text style={s.rateBtnText}><Ionicons name="star-outline" size={13} color="#854d0e" /> {t('mobile.myShifts.rate')}</Text>
             </TouchableOpacity>
           )
         )}
@@ -847,6 +847,7 @@ function ApplicationCard({
           {(wage.status === 'PAID' || wage.status === 'CONFIRMED') ? (
             <View style={[s.wageChip, s.wageChipPaid]}>
               <Text style={s.wageChipPaidText}>
+                <Ionicons name="cash-outline" size={14} color="#166534" />{' '}
                 {t(
                   wage.status === 'PAID' ? 'mobile.myShifts.wagePaidChip' : 'mobile.myShifts.wageReceivedChip',
                   { amount: Number(wage.amount).toFixed(2) },
@@ -855,17 +856,19 @@ function ApplicationCard({
             </View>
           ) : wage.status === 'DISPUTED' ? (
             <View style={[s.wageChip, s.wageChipDisputed]}>
-              <Text style={s.wageChipDisputedText}>{t('mobile.myShifts.wageDisputedChip')}</Text>
+              <Text style={s.wageChipDisputedText}><Ionicons name="flag-outline" size={14} color="#991b1b" /> {t('mobile.myShifts.wageDisputedChip')}</Text>
             </View>
           ) : wage.paymentMethod === 'TURNOS_PAY_LINK' && wage.status === 'PENDING' ? (
             <View style={[s.wageChip, s.wageChipPending]}>
               <Text style={s.wageChipPendingText}>
+                <Ionicons name="card-outline" size={14} color="#4338ca" />{' '}
                 {t('mobile.myShifts.wagePendingChip', { amount: Number(wage.amount).toFixed(2) })}
               </Text>
             </View>
           ) : onWageReceived && onWageNotReceived ? (
             <View style={s.wageAsk}>
               <Text style={s.wageAskText}>
+                <Ionicons name="cash-outline" size={14} color="#92400e" />{' '}
                 {t(
                   wage.status === 'MARKED_PAID' ? 'mobile.myShifts.wageMarkedQuestion' : 'mobile.myShifts.wageAskQuestion',
                   { amount: Number(wage.amount).toFixed(2) },
@@ -877,7 +880,7 @@ function ApplicationCard({
                   onPress={() => Linking.openURL(wage.paymentProofUrl!)}
                   activeOpacity={0.7}
                 >
-                  <Text style={s.wageProofLink}>{t('mobile.myShifts.wageProof')}</Text>
+                  <Text style={s.wageProofLink}><Ionicons name="attach-outline" size={13} color="#16a34a" /> {t('mobile.myShifts.wageProof')}</Text>
                 </TouchableOpacity>
               )}
               <View style={s.wageBtnRow}>

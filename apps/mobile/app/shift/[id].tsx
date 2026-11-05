@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ComponentProps } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert, Modal,
   ScrollView, ActivityIndicator, Linking, Platform, TextInput,
@@ -334,6 +334,11 @@ export default function ShiftDetailScreen() {
                                    : styles.bannerFilled,
             ]}>
               <Text style={styles.statusBannerText}>
+                <Ionicons
+                  name={isShiftDone ? 'checkmark-circle-outline' : showCheckOut ? 'play-circle-outline' : 'clipboard-outline'}
+                  size={15}
+                  color={colors.textPrimary}
+                />{' '}
                 {isShiftDone
                   ? t('mobile.shiftDetail.bannerDone')
                   : showCheckOut
@@ -363,10 +368,12 @@ export default function ShiftDetailScreen() {
             </View>
             <View style={styles.tsuNote}>
               <Text style={styles.tsuNoteText}>
+                <Ionicons name="information-circle-outline" size={13} color="#6b7280" />{' '}
                 {t('mobile.shiftDetail.tsuNote', { amount: tsu.workerDeduction.toFixed(2) })}
               </Text>
             </View>
             <Text style={styles.recebe}>
+              <Ionicons name="card-outline" size={13} color="#7c3aed" />{' '}
               {paymentLabel
                 ? t('mobile.shiftDetail.payViaMethod', { method: paymentLabel })
                 : t('mobile.shiftDetail.payDirect')}
@@ -376,20 +383,20 @@ export default function ShiftDetailScreen() {
           {/* Info card */}
           <View style={styles.infoCard}>
             <InfoRow
-              icon="📅"
+              icon="calendar-outline"
               label={isMultiDay ? t('mobile.shiftDetail.labelDays') : t('mobile.shiftDetail.labelDate')}
               value={isMultiDay
                 ? t('mobile.shiftDetail.valueDays', { count: seriesDates.length })
                 : fSmartDate(shift.date, 'long')}
             />
             <InfoRow
-              icon="⏰"
+              icon="time-outline"
               label={t('mobile.shiftDetail.labelSchedule')}
               value={`${shift.startTime.slice(0, 5)} – ${shift.endTime.slice(0, 5)}`}
             />
             {hours > 0 && (
               <InfoRow
-                icon="🕐"
+                icon="timer-outline"
                 label={t('mobile.shiftDetail.labelDuration')}
                 value={isMultiDay
                   ? t('mobile.shiftDetail.valueTotalHours', { hours: (hours * seriesDates.length).toFixed(0) })
@@ -398,7 +405,7 @@ export default function ShiftDetailScreen() {
             )}
             {isMultiDay && (
               <InfoRow
-                icon="💶"
+                icon="cash-outline"
                 label={t('mobile.shiftDetail.labelTotal')}
                 value={t('mobile.shiftDetail.valueGrossTotal', {
                   amount: estimatedPayout.toFixed(2),
@@ -406,7 +413,7 @@ export default function ShiftDetailScreen() {
               />
             )}
             <InfoRow
-              icon="📍"
+              icon="location-outline"
               label={t('mobile.shiftDetail.labelAddress')}
               value={shift.address}
               last
@@ -554,7 +561,7 @@ export default function ShiftDetailScreen() {
         {/* ① Shift done */}
         {isShiftDone && (
           <View style={styles.doneBox}>
-            <Text style={styles.doneIcon}>✅</Text>
+            <Ionicons name="checkmark-circle-outline" size={26} color={colors.textSecondary} />
             <Text style={styles.doneText}>{t('mobile.shiftDetail.doneTitle')}{'\n'}
               <Text style={styles.doneSubText}>
                 {attendance?.scheduledHours
@@ -579,7 +586,7 @@ export default function ShiftDetailScreen() {
               onPress={() => router.push(`/scan`)}
               activeOpacity={0.85}
             >
-              <Text style={styles.actionBtnText}>{t('mobile.shiftDetail.checkIn')}</Text>
+              <Text style={styles.actionBtnText}><Ionicons name="qr-code-outline" size={17} color="#fff" /> {t('mobile.shiftDetail.checkIn')}</Text>
             </TouchableOpacity>
           </>
         )}
@@ -587,7 +594,7 @@ export default function ShiftDetailScreen() {
         {/* ③ In progress — auto-completes at scheduled end (v2.1, no check-out) */}
         {!isShiftDone && showCheckOut && (
           <View style={styles.doneBox}>
-            <Text style={styles.doneIcon}>🟢</Text>
+            <Ionicons name="play-circle-outline" size={26} color={colors.textSecondary} />
             <Text style={styles.doneText}>{t('mobile.shiftDetail.inProgress')}{'\n'}
               <Text style={styles.doneSubText}>
                 {t('mobile.shiftDetail.inProgressSub', { time: shift.endTime.slice(0, 5) })}
@@ -621,7 +628,7 @@ export default function ShiftDetailScreen() {
         {/* ⑤ Application already sent (just applied) */}
         {!isShiftDone && !showCheckIn && !showCheckOut && (applied || hasPending) && (
           <View style={styles.pendingBox}>
-            <Text style={styles.pendingIcon}>⏳</Text>
+            <Ionicons name="hourglass-outline" size={20} color={colors.textSecondary} />
             <Text style={styles.pendingText}>{t('mobile.shiftDetail.chipPending')}</Text>
           </View>
         )}
@@ -629,7 +636,7 @@ export default function ShiftDetailScreen() {
         {/* ⑥ Rejected */}
         {!isShiftDone && !showCheckIn && !showCheckOut && hasRejected && (
           <View style={styles.rejectedBox}>
-            <Text style={styles.pendingIcon}>✕</Text>
+            <Ionicons name="close-circle-outline" size={20} color={colors.textSecondary} />
             <Text style={styles.pendingText}>{t('mobile.shiftDetail.chipRejected')}</Text>
           </View>
         )}
@@ -637,7 +644,7 @@ export default function ShiftDetailScreen() {
         {/* ⑦ Cancelled shift */}
         {shift.status === 'CANCELLED' && (
           <View style={styles.pendingBox}>
-            <Text style={styles.pendingIcon}>🚫</Text>
+            <Ionicons name="ban-outline" size={20} color={colors.textSecondary} />
             <Text style={styles.pendingText}>{t('mobile.shiftDetail.chipCancelled')}</Text>
           </View>
         )}
@@ -716,13 +723,13 @@ export default function ShiftDetailScreen() {
 function InfoRow({
   icon, label, value, last, onPress, tapHint,
 }: {
-  icon: string; label: string; value: string; last?: boolean;
+  icon: ComponentProps<typeof Ionicons>['name']; label: string; value: string; last?: boolean;
   onPress?: () => void; tapHint?: string;
 }) {
   const rowStyle = [styles.infoRow, last && { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }];
   const inner = (
     <>
-      <Text style={styles.infoIcon}>{icon}</Text>
+      <Ionicons name={icon} size={20} color={colors.textSecondary} style={styles.infoIcon} />
       <View style={{ flex: 1 }}>
         <Text style={styles.infoLabel}>{label}</Text>
         <Text style={[styles.infoValue, onPress && styles.infoValueLink]}>{value}</Text>
@@ -840,7 +847,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', gap: 10, paddingBottom: spacing.sm, marginBottom: spacing.sm,
     borderBottomWidth: 1, borderBottomColor: colors.neutral,
   },
-  infoIcon: { fontSize: 18, marginTop: 2 },
+  infoIcon: { marginTop: 2 },
   infoLabel: { fontSize: 11, color: colors.textSecondary, fontWeight: fontWeight.semibold, marginBottom: 2 },
   infoValue: { fontSize: 14, color: colors.textPrimary, fontWeight: fontWeight.semibold },
   infoValueLink: { color: colors.primary, textDecorationLine: 'underline' },

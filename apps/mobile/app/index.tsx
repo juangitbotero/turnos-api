@@ -1,19 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  ScrollView, TextInput, Pressable, ActivityIndicator, RefreshControl, Image,
+  TextInput, ActivityIndicator, RefreshControl, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-  colors, spacing, radius, fontSize, fontWeight, SHIFT_CATEGORIES, ShiftCategory,
+  colors, spacing, radius, fontSize, fontWeight, ShiftCategory,
   PAYMENT_METHOD_LABELS, PaymentMethod,
 } from '@turnos/shared';
-import { shiftApi, authApi, ShiftSummary, ApiError } from '../lib/api';
-import { tokenStorage } from '../lib/storage';
+import { shiftApi, authApi, ShiftSummary } from '../lib/api';
 import { InboxBell } from '../components/InboxBell';
+import {
+  FeedFilterSheet, FeedFilters, NO_FILTERS, activeFilterCount, matchesFilters,
+} from '../components/FeedFilterSheet';
 import { useT } from '../lib/i18n';
 
 function toFeedItem(s: ShiftSummary, fmt: {
@@ -38,6 +40,8 @@ function toFeedItem(s: ShiftSummary, fmt: {
     // Multi-day jobs show their range instead of a single date — the API sends
     // one entry per job, not per day.
     seriesDays: s.seriesDates?.length && s.seriesDates.length > 1 ? s.seriesDates.length : 0,
+    // Every calendar day of the job, for the date filter
+    days: s.seriesDates?.length ? s.seriesDates : [s.date],
     date: s.seriesDates?.length && s.seriesDates.length > 1
       ? fmt.range(s.seriesDates)
       : fmt.smart(s.date),
@@ -51,12 +55,13 @@ export default function FeedScreen() {
   const [isLoading, setIsLoading]   = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode]     = useState<'list' | 'map'>('list');
-  const [activeCategory, setActiveCategory] = useState<ShiftCategory | 'All'>('All');
+  const [filters, setFilters]       = useState<FeedFilters>(NO_FILTERS);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [workerName, setWorkerName]       = useState<string | null>(null);
   const [profileScore, setProfileScore]   = useState<number | null>(null); // null until loaded
   const router = useRouter();
-  const { t, tCategory, fDateRange, fSmartDate } = useT();
+  const { t, fDateRange, fSmartDate } = useT();
 
   // Fetch worker profile — name for greeting + score for completeness banner
   useEffect(() => {
@@ -66,15 +71,13 @@ export default function FeedScreen() {
     }).catch(() => {});
   }, []);
 
-  const categories: (ShiftCategory | 'All')[] = ['All', ...(Object.keys(SHIFT_CATEGORIES) as ShiftCategory[])];
-
+  // All open shifts once; category and date are filtered here, so the filter
+  // sheet can count results live and several categories can be combined.
   const loadShifts = useCallback(async (refreshing = false) => {
     if (refreshing) setIsRefreshing(true);
     else setIsLoading(true);
     try {
-      const data = await shiftApi.search(
-        activeCategory !== 'All' ? { category: activeCategory } : undefined,
-      );
+      const data = await shiftApi.search();
       setShifts(data.map(sh => toFeedItem(sh, { range: fDateRange, smart: fSmartDate })));
     } catch {
       // API not available (dev mode) — show empty state
@@ -83,15 +86,20 @@ export default function FeedScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [activeCategory, fDateRange, fSmartDate]);
+  }, [fDateRange, fSmartDate]);
 
   useEffect(() => { loadShifts(); }, [loadShifts]);
 
-  const filteredShifts = shifts.filter(s =>
+  const matchesSearch = (sh: ReturnType<typeof toFeedItem>) =>
     !searchQuery ||
-    s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.employerName.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+    sh.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    sh.employerName.toLowerCase().includes(searchQuery.toLowerCase());
+
+  const countFor = (f: FeedFilters) =>
+    shifts.filter(sh => matchesSearch(sh) && matchesFilters(f, sh.category, sh.days)).length;
+
+  const filteredShifts = shifts.filter(sh => matchesSearch(sh) && matchesFilters(filters, sh.category, sh.days));
+  const filterCount = activeFilterCount(filters);
 
   const handleShiftPress = (id: string) => router.push(`/shift/${id}`);
 
@@ -144,59 +152,60 @@ export default function FeedScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Search bar */}
-        <View style={s.searchBar}>
-          <Ionicons name="search-outline" size={16} color={colors.textSecondary} />
-          <TextInput
-            style={s.searchInput}
-            placeholder={t('mobile.feed.searchPlaceholder')}
-            placeholderTextColor={colors.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} style={s.searchClear}>
-              <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
-            </TouchableOpacity>
-          )}
+        {/* Search + filters + map/list — one row. The category chip row that
+            sat under the header is gone (2026-11-05): categories and date live
+            in the filter sheet, which frees a full row for shifts. */}
+        <View style={s.searchRow}>
+          <View style={s.searchBar}>
+            <Ionicons name="search-outline" size={16} color={colors.textSecondary} />
+            <TextInput
+              style={s.searchInput}
+              placeholder={t('mobile.feed.searchPlaceholder')}
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={s.searchClear}>
+                <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={[s.roundBtn, filterCount > 0 && s.roundBtnOn]}
+            onPress={() => setFilterOpen(true)}
+            activeOpacity={0.8}
+            accessibilityLabel={t('mobile.feed.filterButton')}
+          >
+            <Ionicons name="options-outline" size={20} color={filterCount > 0 ? '#fff' : colors.textSecondary} />
+            {filterCount > 0 && (
+              <View style={s.filterBadge}>
+                <Text style={s.filterBadgeText}>{filterCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Shows the OTHER view: a pin in the list, a list on the map */}
+          <TouchableOpacity
+            style={s.roundBtn}
+            onPress={() => setViewMode(v => (v === 'list' ? 'map' : 'list'))}
+            activeOpacity={0.8}
+            accessibilityLabel={viewMode === 'list' ? t('mobile.feed.showMap') : t('mobile.feed.showList')}
+          >
+            <Ionicons name={viewMode === 'list' ? 'location-sharp' : 'list'} size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
-      {/* ── Category chips ── */}
-      <View style={s.filterBar}>
-        {/* flex:1 wrapper prevents category chips from overflowing onto the toggle */}
-        <View style={{ flex: 1, overflow: 'hidden' }}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterScroll}>
-            {categories.map(cat => (
-              <TouchableOpacity
-                key={cat}
-                style={[s.chip, activeCategory === cat && s.chipActive]}
-                onPress={() => setActiveCategory(cat)}
-                activeOpacity={0.7}
-              >
-                <Text style={[s.chipText, activeCategory === cat && s.chipTextActive]}>{cat === 'All' ? t('mobile.feed.allCategories') : tCategory(cat)}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* View toggle — monochromatic text icons (no coloured emoji) */}
-        <View style={s.toggle}>
-          <Pressable
-            style={[s.toggleBtn, viewMode === 'list' && s.toggleBtnActive]}
-            onPress={() => setViewMode('list')}
-          >
-            <Text style={[s.toggleIcon, viewMode === 'list' && s.toggleIconActive]}>≡</Text>
-          </Pressable>
-          <Pressable
-            style={[s.toggleBtn, viewMode === 'map' && s.toggleBtnActive]}
-            onPress={() => setViewMode('map')}
-          >
-            <Text style={[s.toggleIcon, viewMode === 'map' && s.toggleIconActive]}>◎</Text>
-          </Pressable>
-        </View>
-      </View>
+      <FeedFilterSheet
+        visible={filterOpen}
+        value={filters}
+        onClose={() => setFilterOpen(false)}
+        onApply={f => { setFilters(f); setFilterOpen(false); }}
+        countFor={countFor}
+      />
 
       {/* ── Content ── */}
       {viewMode === 'map' ? (
@@ -234,7 +243,7 @@ export default function FeedScreen() {
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => loadShifts(true)} tintColor={colors.primary} />}
           ListEmptyComponent={
             <View style={s.empty}>
-              <Text style={s.emptyIcon}>🔍</Text>
+              <Ionicons name="search-outline" size={44} color={colors.textSecondary} />
               <Text style={s.emptyText}>{t('mobile.feed.emptyTitle')}</Text>
               <Text style={s.emptySub}>{t('mobile.feed.emptySub')}</Text>
             </View>
@@ -270,7 +279,8 @@ export default function FeedScreen() {
                 {item.paymentMethodLabel ? (
                   <>
                     {'  ·  '}
-                    <Text style={s.recebe}>💳 {item.paymentMethodLabel}</Text>
+                    <Ionicons name="card-outline" size={12} color={colors.primary} />
+                    <Text style={s.recebe}> {item.paymentMethodLabel}</Text>
                   </>
                 ) : null}
               </Text>
@@ -405,8 +415,14 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  /* Search */
+  /* Search row: search field + filter + map/list */
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   searchBar: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
@@ -415,6 +431,21 @@ const s = StyleSheet.create({
     height: 46,
     gap: spacing.sm,
   },
+  roundBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roundBtnOn: { backgroundColor: colors.primaryDark },
+  filterBadge: {
+    position: 'absolute', top: 4, right: 4,
+    minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 3,
+    backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
+  },
+  filterBadgeText: { fontSize: 10, fontWeight: fontWeight.extrabold, color: colors.primary },
   searchIcon: { fontSize: 16 },
   searchInput: {
     flex: 1,
@@ -424,70 +455,6 @@ const s = StyleSheet.create({
   },
   searchClear: { padding: 4 },
   searchClearText: { fontSize: 12, color: colors.textSecondary },
-
-  /* Filter bar */
-  filterBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral,
-    paddingRight: spacing.md,
-  },
-  filterScroll: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: radius.full,
-    borderWidth: 1.5,
-    borderColor: colors.neutral,
-    backgroundColor: colors.secondary,
-  },
-  chipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipText: {
-    fontSize: fontSize.caption,
-    color: colors.textSecondary,
-    fontWeight: fontWeight.semibold,
-  },
-  chipTextActive: {
-    color: '#fff',
-  },
-
-  /* Toggle */
-  toggle: {
-    flexDirection: 'row',
-    backgroundColor: colors.secondary,
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.neutral,
-    padding: 2,
-    marginLeft: spacing.sm,
-    flexShrink: 0,
-  },
-  toggleBtn: {
-    width: 32,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.full,
-  },
-  toggleBtnActive: {
-    backgroundColor: colors.primary,
-  },
-  toggleIcon: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  toggleIconActive: {
-    color: '#fff',
-  },
 
   /* Map */
   map: { flex: 1 },

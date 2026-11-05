@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import {
@@ -263,7 +264,7 @@ export default function OnboardingScreen() {
                 <Image source={{ uri: photoUri }} style={s.photoPreview} />
               ) : (
                 <View style={s.photoPlaceholder}>
-                  <Text style={s.photoPlaceholderIcon}>📷</Text>
+                  <Ionicons name="camera-outline" size={32} color={colors.textSecondary} />
                   <Text style={s.photoPlaceholderText}>{t('mobile.onboarding.photoAdd')}</Text>
                 </View>
               )}
@@ -365,7 +366,7 @@ export default function OnboardingScreen() {
             <Text style={s.sectionSub}>{t('mobile.onboarding.cvSub')}</Text>
             <Pressable style={s.cvBtn} onPress={pickCv}>
               <Text style={s.cvBtnText}>
-                {cvAsset ? `📄 ${cvAsset.name}` : t('mobile.onboarding.cvPick')}
+                {cvAsset ? cvAsset.name : t('mobile.onboarding.cvPick')}
               </Text>
             </Pressable>
             {cvAsset && (

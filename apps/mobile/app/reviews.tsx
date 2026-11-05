@@ -22,10 +22,11 @@ import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
 import { ratingsApi, WorkerRatingSummary } from '../lib/api';
 import { useT } from '../lib/i18n';
 
-const BADGE_EMOJI: Record<string, string> = {
-  TOP_RATED: '🏆',
-  RELIABLE:  '✅',
-  VERIFIED:  '✔️',
+// Monochrome line icons, like the dashboard (2026-11-05) — no coloured emoji.
+const BADGE_ICON: Record<string, 'trophy-outline' | 'shield-checkmark-outline' | 'checkmark-circle-outline'> = {
+  TOP_RATED: 'trophy-outline',
+  RELIABLE:  'shield-checkmark-outline',
+  VERIFIED:  'checkmark-circle-outline',
 };
 
 /** Static stars — the worker reads these, never taps them. */
@@ -63,7 +64,7 @@ export default function ReviewsScreen() {
   const reviews      = summary?.recentRatings ?? [];
   const total        = summary?.totalRatings ?? 0;
   const avg          = summary?.avgRating ?? null;
-  const activeBadges = (summary?.badges ?? []).filter(b => BADGE_EMOJI[b]);
+  const activeBadges = (summary?.badges ?? []).filter(b => BADGE_ICON[b]);
 
   // Tag counts across the reviews we have. Deliberately not framed as an
   // all-time total — it can only ever cover the 10 the API returns.
@@ -149,7 +150,7 @@ export default function ReviewsScreen() {
             <View style={s.badgesRow}>
               {activeBadges.map(b => (
                 <View key={b} style={s.badge}>
-                  <Text style={s.badgeText}>{BADGE_EMOJI[b]} {t(`domain.badges.${b}`)}</Text>
+                  <Text style={s.badgeText}><Ionicons name={BADGE_ICON[b]!} size={12} color="#92400e" /> {t(`domain.badges.${b}`)}</Text>
                 </View>
               ))}
             </View>
@@ -199,7 +200,7 @@ export default function ReviewsScreen() {
             </View>
           ) : (
             <View style={s.emptyCard}>
-              <Text style={s.emptyIcon}>⭐</Text>
+              <Ionicons name="star-outline" size={34} color={colors.textSecondary} />
               <Text style={s.emptyTitle}>{t('mobile.reviews.emptyTitle')}</Text>
               <Text style={s.emptyBody}>{t('mobile.reviews.emptyBody')}</Text>
               <TouchableOpacity style={s.emptyBtn} onPress={() => router.push('/')} activeOpacity={0.85}>

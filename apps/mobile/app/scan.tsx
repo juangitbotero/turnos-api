@@ -17,6 +17,7 @@ import {
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
 import { attendanceApi, ApiError } from '../lib/api';
 import { useT } from '../lib/i18n';
@@ -84,7 +85,7 @@ export default function ScanScreen() {
   if (!cameraPermission.granted) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.permIcon}>📷</Text>
+        <Ionicons name="camera-outline" size={48} color={colors.textSecondary} style={styles.permIcon} />
         <Text style={styles.permTitle}>{t('mobile.scan.permTitle')}</Text>
         <Text style={styles.permBody}>{t('mobile.scan.permBody')}</Text>
         <TouchableOpacity style={styles.permBtn} onPress={requestCameraPermission} activeOpacity={0.85}>
@@ -155,7 +156,7 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#111827', padding: spacing.lg,
   },
-  permIcon: { fontSize: 48, marginBottom: 16 },
+  permIcon: { marginBottom: 16 },
   permTitle: { fontSize: fontSize.h2, fontWeight: fontWeight.bold, color: '#fff', marginBottom: 8, textAlign: 'center' },
   permBody: { fontSize: fontSize.body, color: 'rgba(255,255,255,0.7)', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   permBtn: {

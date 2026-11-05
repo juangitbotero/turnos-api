@@ -79,10 +79,11 @@ const STATUS_COLOURS: Record<string, { bg: string; text: string }> = {
   REJECTED:       { bg: '#fee2e2', text: '#991b1b' },
 };
 
-const BADGE_EMOJI: Record<string, string> = {
-  TOP_RATED: '🏆',
-  RELIABLE:  '✅',
-  VERIFIED:  '✔️',
+// Monochrome line icons, like the dashboard (2026-11-05) — no coloured emoji.
+const BADGE_ICON: Record<string, 'trophy-outline' | 'shield-checkmark-outline' | 'checkmark-circle-outline'> = {
+  TOP_RATED: 'trophy-outline',
+  RELIABLE:  'shield-checkmark-outline',
+  VERIFIED:  'checkmark-circle-outline',
 };
 
 function maskIban(iban: string) {
@@ -202,7 +203,7 @@ export default function ProfileScreen() {
     ? t(`domain.workerStatus.${statusKey}`)
     : (statusKey || '—');
   const scoreColor  = score >= 80 ? '#16a34a' : score >= 50 ? '#d97706' : '#dc2626';
-  const activeBadges = (profile?.badges ?? []).filter(b => BADGE_EMOJI[b]);
+  const activeBadges = (profile?.badges ?? []).filter(b => BADGE_ICON[b]);
 
   return (
     <View style={s.root}>
@@ -262,7 +263,7 @@ export default function ProfileScreen() {
               <View style={s.badgesRow}>
                 {activeBadges.map(b => (
                   <View key={b} style={s.badge}>
-                    <Text style={s.badgeText}>{BADGE_EMOJI[b]} {t(`domain.badges.${b}`)}</Text>
+                    <Text style={s.badgeText}><Ionicons name={BADGE_ICON[b]!} size={12} color="#92400e" /> {t(`domain.badges.${b}`)}</Text>
                   </View>
                 ))}
               </View>
