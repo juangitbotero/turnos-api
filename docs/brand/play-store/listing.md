@@ -25,23 +25,24 @@ Turnos curtos perto de ti. Vê o valor por hora e candidata-te num toque.
 **Descrição completa:**
 
 ```
-A Turnos liga-te a empresas perto de ti que precisam de alguém para turnos curtos: restauração, hotelaria, eventos, retalho, logística e mais.
+Transforma o teu tempo livre em dinheiro extra.
+
+A Turnos mostra-te turnos curtos em empresas perto de ti: restauração, hotelaria, eventos, retalho, logística e mais. Escolhe os que te dão jeito, trabalha, recebe.
 
 COMO FUNCIONA
-• Vê os turnos perto de ti, com o local, o horário e o valor bruto por hora em cada cartão.
+• Vê os turnos perto de ti, com o local, o horário e o valor por hora em cada cartão.
 • Candidata-te num toque. Num trabalho de vários dias, uma só candidatura serve para todos os dias.
 • A empresa escolhe quem contrata e tu confirmas.
 • No dia, lês o QR code à entrada e estás de turno. O turno fecha sozinho à hora de fim.
-• A empresa paga-te diretamente, pelo método indicado no turno: Pay Link, transferência ou MB WAY.
+• Recebes diretamente da empresa, pelo método indicado no turno.
 
 PORQUÊ A TURNOS
-• Grátis para trabalhadores, sem comissões. Recebes o valor bruto por inteiro.
-• A Turnos nunca fica com o teu salário: o pagamento vai da empresa para ti.
-• Tu decides quando trabalhas. Indica os dias em que estás disponível, ou desliga quando estiveres ocupado.
+• Grátis para trabalhadores. Sem comissões, nunca.
+• Mandas tu: indica os dias em que estás livre, ou desliga quando estiveres ocupado.
 • Mostra o que sabes fazer: funções, nível, tarefas, idiomas e CV.
-• A empresa que te contrata é a tua entidade empregadora e trata das obrigações legais dela.
+• Adiciona os turnos ao calendário e recebe lembretes antes de começar.
 • Avaliações nos dois sentidos e regras de cancelamento claras para todos.
-• Adiciona os teus turnos ao calendário e recebe lembretes antes de começar.
+• A empresa que te contrata é a tua entidade empregadora e trata das obrigações legais dela.
 
 PARA QUEM
 • Maiores de 18 anos.
@@ -73,23 +74,24 @@ Short shifts near you. See the hourly pay upfront and apply in one tap.
 **Full description:**
 
 ```
-Turnos connects you with companies near you that need someone for short shifts: restaurants and cafés, hotels, events, retail, logistics and more.
+Turn your free time into extra money.
+
+Turnos shows you short shifts at companies near you: restaurants and cafés, hotels, events, retail, logistics and more. Pick the ones that suit you, work, get paid.
 
 HOW IT WORKS
-• See shifts near you, with the place, the hours and the gross hourly pay on every card.
+• Browse shifts near you, with the place, the hours and the hourly pay on every card.
 • Apply in one tap. For a multi-day job, one application covers every day.
-• The company chooses who to hire, and you confirm.
-• On the day, scan the QR code at the entrance and you're on shift. The shift closes on its own when it ends.
-• The company pays you directly, by the method shown on the shift: Pay Link, bank transfer or MB WAY.
+• The company picks who it hires, and you confirm.
+• On the day, scan the QR code at the door and you're on shift. It closes on its own when it ends.
+• Get paid directly by the company, by the method shown on the shift.
 
 WHY TURNOS
-• Free for workers, no commission. You receive the full gross pay.
-• Turnos never holds your wages: the payment goes from the company to you.
-• You decide when you work. Set the days you're available, or switch it off when you're busy.
+• Free for workers. No commission, ever.
+• You're in charge: set the days you're free, or switch it off when you're busy.
 • Show what you can do: roles, level, tasks, languages and CV.
-• The company that hires you is your employer and handles its own legal obligations.
-• Reviews both ways, and clear cancellation rules for everyone.
 • Add your shifts to your calendar and get reminders before they start.
+• Reviews both ways, and clear cancellation rules for everyone.
+• The company that hires you is your employer and handles its own legal obligations.
 
 WHO IT'S FOR
 • People aged 18 and over.
@@ -105,6 +107,32 @@ Turnos is a brand of NESTS ALLEY, LDA.
 ```
 First release of Turnos.
 ```
+
+---
+
+## App Store (Apple) — fields Google doesn't have
+
+Description and release notes: reuse the texts above. Limits: subtitle 30,
+keywords 100 (comma-separated, **no spaces after commas**), promotional text 170
+(editable any time without a new review). Counts checked 2026-11-05.
+
+Keywords never repeat words already in the name or subtitle (Apple indexes
+those), and never use "freelance", "recibos verdes" or "gig": workers are
+employees on MCD contracts, not self-employed (ADR 001). No city names.
+
+| Field | Português (Portugal) | English (U.S.) |
+|---|---|---|
+| Subtitle | `Trabalho flexível perto de ti` (29) | `Flexible shifts near you` (24) |
+| Keywords | `emprego,part-time,biscates,dinheiro extra,restauração,hotelaria,eventos,barista,empregado de mesa` (97) | `jobs,part-time,side job,extra money,hospitality,restaurant,waiter,barista,events,hotel,warehouse` (96) |
+| Promotional text | `Turnos perto de ti, com o valor à vista. Transforma o teu tempo livre em dinheiro extra. Escolhe um turno, trabalha, recebe. Grátis para trabalhadores, sempre.` (159) | `Shifts near you, with the pay shown upfront. Turn your free time into extra money. Pick a shift, work, get paid. Free for workers, always.` (138) |
+
+Tone (Juanes, 2026-11-05): short and upbeat ("turn your free time into extra
+money", "pick a shift, work, get paid"); leave the payment mechanics out of the
+promotional text. Write "money", never "cash" — cash payment was retired
+2026-07-29 and "cash" reads as a promise of it.
+
+Header image (custom product-page header): `out/app-store-header-<size>-<lang>.png`,
+generated by `build.py` in both accepted sizes (5244×2950, 3840×1646).
 
 ---
 

@@ -94,6 +94,47 @@ def build_feature_graphic():
     img.convert('RGB').save(OUT / 'feature-graphic.png', optimize=True)
 
 
+# App Store product-page header (custom header, 2026). Both sizes Apple accepts.
+HEADER_SIZES = [(5244, 2950), (3840, 1646)]
+HEADER_TAGLINE = {'pt': 'Turnos perto de ti. Candidata-te num toque.',
+                  'en': 'Shifts near you. Apply in one tap.'}
+
+
+def smooth_gradient(w: int, h: int) -> Image.Image:
+    """Same brand gradient as gradient(), vectorised for very large canvases,
+    with a soft light bloom behind the centre so the flat colour gets depth."""
+    import numpy as np
+    xs = np.linspace(0, 1, w)[None, :]
+    ys = np.linspace(0, 1, h)[:, None]
+    t = xs * 0.6 + ys * 0.4
+    a, b = np.array(BLUE, float), np.array(VIOLET, float)
+    rgb = a + (b - a) * t[..., None]
+    # Elliptical bloom, slightly above centre; ~12% lift at its core.
+    d = ((xs - 0.5) / 0.55) ** 2 + ((ys - 0.44) / 0.6) ** 2
+    rgb = rgb + (255 - rgb) * (0.12 * np.exp(-d * 2.2))[..., None]
+    # Gentle darkening at the bottom edge, where the store draws its own UI.
+    rgb = rgb * (1 - 0.10 * ys[..., None] ** 3)
+    return Image.fromarray(np.clip(rgb, 0, 255).astype('uint8'), 'RGB')
+
+
+def build_headers():
+    for W, H in HEADER_SIZES:
+        for lang, line in HEADER_TAGLINE.items():
+            img = smooth_gradient(W, H).convert('RGBA')
+            # Logo at most native size (1200 px wide) — never upscaled.
+            lg = logo(min(1200, int(W * 0.26)))
+            f = ImageFont.truetype('C:/Windows/Fonts/segoeuisl.ttf', int(lg.width * 0.072))
+            gap = int(lg.height * 0.55)
+            block = lg.height + gap + f.size
+            top = int(H * 0.46 - block / 2)
+            img.alpha_composite(lg, ((W - lg.width) // 2, top))
+            d = ImageDraw.Draw(img)
+            text_block(d, line, f, W / 2, top + lg.height + gap, (255, 255, 255, 225))
+            name = f'app-store-header-{W}x{H}-{lang}.png'
+            img.convert('RGB').save(OUT / name, optimize=True)
+            print('wrote', name)
+
+
 def build_screenshots():
     W, H = 1080, 1920
     raws = sorted(p for p in RAW.glob('*') if p.suffix.lower() in ('.png', '.jpg', '.jpeg'))
@@ -128,5 +169,6 @@ if __name__ == '__main__':
     RAW.mkdir(exist_ok=True)
     build_icon()
     build_feature_graphic()
+    build_headers()
     build_screenshots()
     print('done →', OUT)
