@@ -27,6 +27,11 @@
       },
       "package": "cc.turnos.app",
       "googleServicesFile": "./google-services.json",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDSGthjWN6Nx09vNUFMnrEzYruu5vzhWAY"
+        }
+      },
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.ACCESS_COARSE_LOCATION",
