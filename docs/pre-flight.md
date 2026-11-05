@@ -16,48 +16,60 @@ contradicts the product is worse than no roadmap.
 > row here **in the same commit** as the change.
 
 Last full reconciliation with the runbook and the live API: **2026-10-05**
-(this file updated through the 2026-10-25 session).
+(this file updated through the 2026-11-05 session).
 Re-check before acting — some of these are load-bearing until the day they
 aren't.
 
 ## Next session — start here
 
-> **2026-11-01 — company registered (NIPC + CAE in hand). Goal: submit to
-> the App Store and Google Play.** Domain **`turnos.cc`** bought on
-> Cloudflare; Google Workspace on that domain and the Apple Developer account
-> being set up by Juanes (both on Turnos identities, not personal ones). Order:
-> (1) dashboard on `turnos.cc` in Railway (Track 2, "Domain"); (2) Workspace
-> email `@turnos.cc`; (3) request the **D-U-N-S** with the exact name and
-> address from the certidão permanente; (4) enrol Apple + Google as
-> **organisation** accounts. Same Cloudflare account unblocks **R2** (Track 3
-> "Uploads on local disk") and the **owned sending domain** for Brevo (#7).
-> Code-side store items: Track 2 "Before submitting".
+> **Status 2026-11-05.** Company NESTS ALLEY, LDA registered (NIPC
+> 519694007, D-U-N-S 348614612); domain `turnos.cc` (dashboard, Workspace
+> mail `contact@turnos.cc`, Brevo sender). **Google Play** organisation account
+> approved 11-04; app **`cc.turnos.app`** created (`com.turnos.app` was taken),
+> listing, data safety, content rating, sign-in details done; **internal
+> testing live** with versionCode 16; **versionCode 17 building** (Maps key —
+> the map crashed on 16 —, feed filters, monochrome icons, new tagline).
+> Production **not submitted**. **Apple Developer** organisation account
+> **approved 11-05** — set-up continues in its own session.
 >
-> **End of the 2026-11-01 session:** D-U-N-S 348614612 obtained; Apple and
-> Google Play organisation enrolments **submitted, awaiting approval**. Resume
-> when they are approved: reviewer sign-in variables + demo profile →
-> production builds (`.aab` uploaded by hand the first time; iOS) → store
-> listings → then the remaining Track 1 blockers (Twilio #1, Stripe live #5,
-> R2) and the code-hygiene sweep. Also pending: confirm a real Android push
-> banner on APK 15 (#8), add Brevo to the SPF record.
+> **Rule agreed 2026-11-05:** Twilio, Stripe live, R2, Brevo SPF and the
+> legal pack are **server / account configuration, not app versions** — none
+> needs a new build, so they run in parallel with the store work. But two are
+> **gates**:
+> - **Twilio (#1) before any public release** — Google Production or App Store.
+>   With the mock live, anyone can sign in as any phone number; a public app
+>   would expose that to everyone. Internal testing / TestFlight are fine.
+> - **Stripe live (#5) before the first real company pays.**
 
-1. **Test APK `versionCode` 14 on the emulator** (built 2026-10-25 with the
-   deploy of skills step 4, licence documents, privacy / terms / FAQ and
-   multi-role requests): roles editor in onboarding and edit-profile,
-   "Confirma as tuas funções" card, level block on a shift, feed level chip,
-   document upload on a Vigilante role, re-accepting the terms
-   (`TERMS_VERSIONS.WORKER` = `2026-10-25`), and a "2 vagas" card from
-   "Publicar vários turnos".
-2. **Test on the production dashboard:** "Publicar vários turnos" (one request,
-   2 roles, one with quantity 2), the request label + "Cancelar pedido" on the
-   Shifts page, the level question in a review.
-3. **Wire R2 before real users upload anything** (Track 3 "Uploads on local
-   disk"): CVs, payment proofs and now licence documents live on the Railway
-   container disk and **vanish on every redeploy**.
-4. **Regenerate the law-firm pack** — the worker terms (v0.2, §4-A) and the
-   privacy policy changed, with three new ⚖️ questions on licence documents.
-5. Then: the code-hygiene sweep (Track 3 row), `DashboardShell` on phones,
-   app version `1.0.0`, smaller defects. Wanted improvements: Track 5.
+1. **Install versionCode 17 from internal testing** and check: the map opens,
+   filter sheet, map/list button, icons (My shifts, shift detail, earnings,
+   profile), a **real push banner** (#8), the "Did you work?" card. Also the
+   still-untested APK-14 features: roles editor, "Confirma as tuas funções",
+   level block, document upload on a Vigilante role, terms re-acceptance,
+   "2 vagas" cards; on the dashboard: "Publicar vários turnos", level question
+   in a review.
+2. **Apple (own session):** App Store Connect app with bundle `cc.turnos.app`;
+   iOS build via EAS (`eas build --platform ios --profile production`, EAS
+   creates certificates and the APNs push key); App Privacy labels (mirror the
+   Google Data safety answers in this session's log / `play-store/listing.md`);
+   iPhone screenshots (6.7" and 6.5"); review notes with the reviewer phone +
+   code (`REVIEW_PHONE` / `REVIEW_OTP_CODE`, same as Google); **TestFlight
+   first**. Category Business, age 18+, no IAP (wages are real-world services).
+3. **Twilio (#1)** — upgrade, Verify service, PT + FR geo, 3 variables, real
+   SMS sign-in test, merge `otp-prod-gate` (keep the undefined-id fixes in
+   `verifyOtp`). **Gate for any public release.**
+4. **Stripe live (#5)** — live keys, €45 price, both webhooks, Pay Link
+   end-to-end run, then delete `BYPASS_SUBSCRIPTION`.
+5. **R2 before real users upload** (Track 3 "Uploads on local disk") — CVs,
+   proofs and licence documents vanish on every redeploy.
+6. **Then promote to Google Production** (countries: Portugal) and submit the
+   App Store release.
+7. Small: add `include:spf.brevo.com` to the SPF record; regenerate the
+   law-firm pack (worker terms v0.2 §4-A, company terms §8 "to confirm" 48h,
+   privacy); retake Play screenshots in Portuguese with clean shifts (and
+   screen 05 after build 17); code-hygiene sweep (grep every endpoint that
+   returns an entity with a `worker` relation); `DashboardShell` on phones;
+   Google sign-in for companies (Track 5). Wanted improvements: Track 5.
 
 **Blocked on outside events, not on code:** Twilio (#1), live Stripe (#5),
 Apple + Google accounts, an owned email domain and the privacy-page
@@ -382,7 +394,7 @@ account, and `Worker.deletedAt` plus the new enum value reach production through
 | Domain `turnos.cc` | 🟢 **Dashboard live on `https://turnos.cc` (2026-11-01).** Bought 2026-11-01 on Cloudflare. **Dashboard serving on `turnos.cc` + `www.turnos.cc` since 2026-11-01** (Railway custom domain on the web-admin service, port 8080, Cloudflare-proxied; HTTPS 200 verified, `/privacidade` too). `WEB_ADMIN_URL=https://turnos.cc` set on the API the same day — CORS allows `turnos.cc` (verified). `www.turnos.cc` → 301 to `https://turnos.cc` (Cloudflare "WWW to root" redirect rule; the `www` record had to be switched to **Proxied** — rules don't run on DNS-only records), path and query preserved, verified. Old Railway address still serves. Then API variable `WEB_ADMIN_URL=https://turnos.cc` (email links, Stripe returns, CORS — the old `*.up.railway.app` origin stays allowed by `KNOWN_WEB_ADMIN` in `cors.ts`), and `EXPO_PUBLIC_WEB_URL` (`apps/mobile/lib/links.ts`, used for privacy/terms links in the app) in `eas.json` on the next build. `api.turnos.cc` optional and later — the app is built against the Railway API URL |
 | Google Workspace `@turnos.cc` | 🟠 Being set up. MX + SPF + DKIM in Cloudflare DNS. **One SPF record only** — when Brevo moves to the domain, merge: `v=spf1 include:_spf.google.com include:spf.brevo.com ~all`. Don't turn on Cloudflare Email Routing (it replaces the MX) |
 | D-U-N-S number | 🟢 **348614612** (NESTS ALLEY, LDA — obtained 2026-11-01). Use it for both stores. Get it through Apple's free lookup (developer.apple.com/enroll/duns-lookup), **not** the D&B "general purposes" route — for Portugal that leads to Informa D&B / eInforma, a paid reports shop whose account can't request one |
-| Apple Developer (organisation) | 🟠 Account being created on a Turnos Apple Account (not personal); enrol as Organisation with the D-U-N-S |
+| Apple Developer (organisation) | 🟠 **Approved 2026-11-05** (Turnos Apple Account `contact@turnos.cc`, organisation, D-U-N-S 348614612). Next: App Store Connect app `cc.turnos.app`, iOS build, App Privacy labels, screenshots, review notes, TestFlight — see "Next session" item 2. iOS needs no Maps key (Apple Maps); the APNs push key is created by EAS on the first iOS build |
 | Google Play Console (organisation) | 🟠 **Approved 2026-11-04** ("Nests Alley", account 8332072540777962052). Trader status: **trader** (DSA — NESTS ALLEY, LDA's details are shown publicly on the listing). **App ID changed to `cc.turnos.app`** (Android + iOS): `com.turnos.app` was already taken on Play. Consequences: new `google-services.json` from a new Android app in the same Firebase project; the FCM V1 key re-assigned to `cc.turnos.app` in `eas credentials`; EAS generates a new signing key on the first build; test APKs ≤15 are a different app (uninstall, reinstall). **First production `.aab` built 2026-11-04** (versionCode 16, version 1.0.0, EAS `6e891b9c`; new upload keystore generated by EAS for `cc.turnos.app`). Reviewer sign-in set (`REVIEW_PHONE` / `REVIEW_OTP_CODE` in Railway, profile ≥80 points). Still to do: the remaining app content declarations, store listing, first `.aab` uploaded by hand to Internal testing, then production review |
 | Before submitting (code) | 🟠 **Built and deployed 2026-11-01 (`e0bc56b`)** — live on turnos.cc; the in-app link change and version 1.0.0 ship with the next build: company identity (**NESTS ALLEY, LDA**, NIPC 519694007, Ericeira — Turnos is its brand) in `LEGAL_ENTITY` in shared, read by `privacidade`, `termos`, `termos-empresas` and the review copies in `docs/legal/` (operator identity only — no terms version bump); **`/eliminar-conta`** public deletion page PT + EN (in-app route, email route for workers without the app, companies by email, what is erased/kept) — this is the URL for Play Console → Data safety; legal pages no longer show the "use a computer" overlay on phones; **reviewer sign-in** `auth/review-login.ts` — set `REVIEW_PHONE` (E.164) + `REVIEW_OTP_CODE` (6–8 digits, not 123456) on the API; one number only, no SMS, independent of the mock and of `otp-prod-gate`; tests in `review-login.spec.ts`; app `version` `1.0.0`, `ios.buildNumber` `1`, in-app legal links default to `https://turnos.cc`, `eas.json` `submit.production.android` (internal track, draft, key file `apps/mobile/google-play-service-account.json` — git- and EAS-ignored). Hosting region filled: Railway EU West = Amsterdam (check Postgres and Redis are in EU West too). **Still open:** the reviewer worker account (create it with the variables set, fill a plausible profile); production builds (`eas build --platform android --profile production` → `.aab`; iOS after Apple enrolment). **Google requires the first `.aab` to be uploaded by hand in Play Console** — `eas submit` works from the second on |
 | Store listings | 🟠 **Google Play, 2026-11-04:** PT + EN texts in `docs/brand/play-store/listing.md`; icon 512 and feature graphic generated by `docs/brand/play-store/build.py` (`out/`); data safety, content rating, sign-in details, ToS URL (`/termos`), category Business answered in Play Console. **Screenshots missing** — the August captures are outdated (old role names, "Demo ·" rows); take fresh ones from APK 15/16 into `play-store/raw/` and re-run `build.py`. Apple App Privacy labels: after Apple enrolment |
