@@ -131,3 +131,39 @@ days" — removed from the app on 2026-11-04 (next build); retake 05 after that.
 
 Tablet, Chromebook, Android XR assets: **not required** — leave empty. The app
 is phone-only.
+
+---
+
+## Privacy declarations — Google Data safety ↔ Apple App Privacy
+
+Source of truth: the Play Console export `data_safety_export.csv` (beside this
+file, 2026-11-05). Both stores must say the same thing — **change both, and
+re-export the CSV, whenever the app starts collecting something new.**
+
+Global answers: data collected **yes**; encrypted in transit **yes**; account
+creation "username and other authentication" (phone + SMS code); deletion URL
+`https://turnos.cc/eliminar-conta`. Apple: **linked to the user's identity = yes**
+and **used for tracking = no** for every type below. Apple has no "account
+management" or "fraud prevention" purpose — both fall under **App Functionality**,
+as do the transactional emails Google lists as "developer communications".
+
+| Google Data safety | Required? | Apple App Privacy | Purpose (Apple) | What it is in Turnos |
+|---|---|---|---|---|
+| Name | required | Contact Info → Name | App Functionality | worker name |
+| Email address | optional | Contact Info → Email Address | App Functionality | contact email |
+| Phone number | required | Contact Info → Phone Number | App Functionality | sign-in, companies contact the worker |
+| User IDs | required | Identifiers → User ID | App Functionality | account id |
+| Device or other IDs | required | Identifiers → Device ID | App Functionality | push token |
+| Other info (shared) | required | Other Data → Other Data Types | App Functionality | NIF, date of birth |
+| User payment info | required | Financial Info → Payment Info | App Functionality | IBAN |
+| Other financial info (shared) | required | Financial Info → Other Financial Info | App Functionality | wages, payment records and proofs |
+| Precise location | required | Location → Precise Location | App Functionality | at the QR check-in only (geofence) |
+| Other in-app messages (shared) | optional | User Content → Other User Content | App Functionality | cover note, cancellation reasons |
+| Photos (shared) | optional | User Content → Photos or Videos | App Functionality | profile photo |
+| Health info | optional | Health & Fitness → Health | App Functionality | illness given as a late-cancellation reason |
+| Files and docs (shared) | optional | User Content → Other User Content | App Functionality | CV, licence documents |
+| Other user-generated content (shared) | optional | User Content → Other User Content | App Functionality | bio, roles, reviews |
+
+Not collected on either store: address, contacts, calendar (events are written
+to the phone, never read or uploaded), browsing/search history, crash logs or
+diagnostics, analytics, advertising data.
