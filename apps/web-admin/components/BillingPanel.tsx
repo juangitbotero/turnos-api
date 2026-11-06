@@ -8,17 +8,12 @@
  * Per-shift fees (3€) accumulate as Stripe InvoiceItems and appear on the
  * monthly subscription invoice, itemized per shift.
  *
- * Flow:
- *   1. If no payment method saved → show "Add card" button (opens Stripe Checkout-like UI).
- *      Since we don't embed Stripe Elements here (requires stripe-js), we show a clear CTA
- *      that explains the next step and links to Stripe's hosted page when ready.
- *   2. If card saved but no active subscription → show "Activate subscription" button.
- *   3. If subscription active → show plan details + cancel option.
- *
- * Note: Full Stripe Elements card form requires `@stripe/react-stripe-js` + `@stripe/stripe-js`.
- * This page uses the API layer and shows a "setup required" state for now. The stripe-js
- * integration can be dropped in once the package is installed:
- *   npm install @stripe/react-stripe-js @stripe/stripe-js
+ * Flow (2026-11-06 — before this there was no way to enter a card at all):
+ *   1. Not subscribed → "Activate" redirects to Stripe Checkout (hosted page:
+ *      card, 3-D Secure, billing address, NIF) which creates the subscription.
+ *   2. Stripe sends the company back with `?checkout=<session id>`; the panel
+ *      confirms it with the API at once (the webhook does the same, later).
+ *   3. Active / past due → "Card and invoices" opens Stripe's customer portal.
  */
 
 import { useEffect, useState } from 'react';
@@ -52,7 +47,23 @@ export function BillingPanel() {
   const [error, setError]       = useState('');
 
   useEffect(() => {
-    adminApi.getMyProfile()
+    // Back from Stripe Checkout: confirm first, so the plan shows as active
+    // straight away instead of waiting for the webhook.
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('checkout');
+    const confirmed = sessionId
+      ? (setMessage(t('admin.billing.checkoutReturning')),
+        adminApi.confirmSubscriptionCheckout(sessionId)
+          .then(r => { if (r.status === 'ACTIVE') setMessage(t('admin.billing.activated')); else setMessage(''); })
+          .catch(err => { setMessage(''); setError(err instanceof ApiError ? err.message : t('admin.billing.activateError')); })
+          .finally(() => {
+            params.delete('checkout');
+            const qs = params.toString();
+            window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+          }))
+      : Promise.resolve();
+
+    confirmed.then(() => adminApi.getMyProfile())
       .then(profile => {
         // Map subscription status from profile
         const tier   = profile.subscriptionTier ?? 'NONE';
@@ -80,26 +91,21 @@ export function BillingPanel() {
       .catch(() => setState('error'));
   }, []);
 
-  const handleActivateSubscription = async () => {
+  /** Leave for a Stripe-hosted page (Checkout or the customer portal). */
+  const goToStripe = async (open: () => Promise<{ url: string }>) => {
     setActionLoading(true);
     setError('');
     setMessage('');
     try {
-      const result = await adminApi.createSubscription();
-      if (result.status === 'active' || result.status === 'ACTIVE') {
-        setMessage(t('admin.billing.activated'));
-        setState('active');
-        setInfo(prev => prev ? { ...prev, subscriptionStatus: 'ACTIVE', subscriptionTier: 'STARTER' } : prev);
-      } else {
-        setMessage(t('admin.billing.activateStatus', { status: result.status }));
-      }
+      const { url } = await open();
+      window.location.assign(url);
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : t('admin.billing.activateError');
-      setError(msg);
-    } finally {
+      setError(err instanceof ApiError ? err.message : t('admin.billing.activateError'));
       setActionLoading(false);
     }
   };
+  const handleActivateSubscription = () => goToStripe(adminApi.startSubscriptionCheckout);
+  const handleManageBilling = () => goToStripe(adminApi.openBillingPortal);
 
   const handleCancelSubscription = async () => {
     if (!confirm(t('admin.billing.cancelConfirm'))) return;
@@ -195,6 +201,16 @@ export function BillingPanel() {
 
             {state === 'past_due' && (
               <div style={s.warningBanner}>{t('admin.billing.pastDueBanner')}</div>
+            )}
+
+            {(state === 'active' || state === 'past_due') && (
+              <button
+                style={{ ...s.btn, ...s.btnPrimary }}
+                onClick={handleManageBilling}
+                disabled={actionLoading}
+              >
+                {actionLoading ? t('admin.billing.processing') : t('admin.billing.manage')}
+              </button>
             )}
 
             {state === 'active' && (

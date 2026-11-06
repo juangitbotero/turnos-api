@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -29,6 +29,10 @@ export class StorageService {
         region: 'auto',
         endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
         credentials: { accessKeyId, secretAccessKey: secretKey },
+        // SDK ≥3.729 adds integrity checksums by default; Cloudflare's guidance
+        // for R2 is to send them only when an operation requires them.
+        requestChecksumCalculation: 'WHEN_REQUIRED',
+        responseChecksumValidation: 'WHEN_REQUIRED',
       });
       this.useLocal = false;
       this.logger.log('Storage: Cloudflare R2 initialized');
@@ -71,8 +75,7 @@ export class StorageService {
       const localPath = path.join(this.uploadsDir, filename);
       fs.mkdirSync(path.dirname(localPath), { recursive: true });
       fs.writeFileSync(localPath, buffer);
-      const apiUrl = this.config.get<string>('API_URL', 'http://localhost:3001');
-      return `${apiUrl}/uploads/${filename}`;
+      return `${this.apiUrl()}/uploads/${filename}`;
     }
 
     await this.s3!.send(new PutObjectCommand({
@@ -82,11 +85,43 @@ export class StorageService {
       ContentType: mimeType,
     }));
 
-    const publicUrl = this.config.get<string>(
-      'R2_PUBLIC_URL',
-      `https://pub-placeholder.r2.dev`,
-    );
-    return `${publicUrl}/${filename}`;
+    // Same address as local disk: the bucket is private and the API streams
+    // the object (main.ts → `/uploads`). So stored URLs never change between
+    // storage backends, and CVs, proofs and licence documents are never in a
+    // public bucket.
+    return `${this.apiUrl()}/uploads/${filename}`;
+  }
+
+  private apiUrl(): string {
+    return this.config.get<string>('API_URL', 'http://localhost:3001').replace(/\/+$/, '');
+  }
+
+  get isR2(): boolean {
+    return !this.useLocal;
+  }
+
+  /** Keys are always `<folder>/<uuid>.<ext>` — anything else is refused before reaching R2. */
+  static isValidKey(key: string): boolean {
+    return /^[a-z-]+\/[0-9a-f-]{36}\.[a-z0-9]{1,5}$/.test(key);
+  }
+
+  /** Read one object from R2 for the `/uploads` route; null when it doesn't exist. */
+  async read(key: string): Promise<{ body: NodeJS.ReadableStream; contentType: string; length?: number } | null> {
+    if (this.useLocal || !StorageService.isValidKey(key)) return null;
+    try {
+      const out = await this.s3!.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+      return {
+        body: out.Body as NodeJS.ReadableStream,
+        contentType: out.ContentType ?? 'application/octet-stream',
+        length: out.ContentLength,
+      };
+    } catch (err) {
+      const name = (err as { name?: string }).name;
+      if (name !== 'NoSuchKey' && name !== 'NotFound') {
+        this.logger.error(`R2 read failed for ${key}: ${(err as Error).message}`);
+      }
+      return null;
+    }
   }
 
   /**

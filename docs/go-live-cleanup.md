@@ -44,14 +44,56 @@ only, by design) — what matters is the `NODE_ENV !== 'production'` gate.
 
 ## 2. Stripe live mode · *pre-flight Track 1 #5*
 
-Swap `STRIPE_SECRET_KEY` / `STRIPE_PUBLISHABLE_KEY` for live keys, and re-point:
+**0. Test first, in test mode** (the keys in Railway today): on turnos.cc as a
+test company, Definições → A minha subscrição → Ativar → Stripe page → card
+`4242 4242 4242 4242`, any future date, any CVC → back on the dashboard the plan
+reads Ativa. "Cartão e faturas" must open Stripe's portal (if it errors, do step
+4 in test mode too).
 
-- `STRIPE_SUBSCRIPTION_PRICE_ID` → the live €45 Starter price
-- `STRIPE_WEBHOOK_SECRET` → the live platform endpoint
-- `STRIPE_CONNECT_WEBHOOK_SECRET` → the live **Connect** endpoint
+Then, in the Stripe Dashboard with **Live mode** on:
 
-The Connect webhook is the one that gets forgotten and its absence is silent:
-Pay Link payments simply never reconcile.
+1. **Activate the account** (business details of NESTS ALLEY, LDA, bank
+   account for payouts). Connect must also be enabled in live mode (Settings →
+   Connect) — worker Pay Link accounts are Express, country PT.
+2. **Product catalogue → Add product** "Turnos Starter", recurring **€45.00
+   / month**, EUR. Copy the price id (`price_…`).
+3. **Developers → Webhooks → Add endpoint** (twice, both to
+   `https://turnos-api-production-6c70.up.railway.app/api/payments/webhook`):
+   - **Your account**: `checkout.session.completed`, `invoice.payment_succeeded`,
+     `invoice.payment_failed`, `customer.subscription.deleted` → its signing
+     secret is `STRIPE_WEBHOOK_SECRET`.
+   - **Connected accounts**: `checkout.session.completed` → its secret is
+     `STRIPE_CONNECT_WEBHOOK_SECRET`. This is the one that gets forgotten and
+     its absence is silent: Pay Link payments simply never reconcile.
+4. **Settings → Billing → Customer portal**: allow updating the payment
+   method, viewing invoices and cancelling; **Save** (the portal refuses to
+   open until it has been saved once in live mode).
+5. Railway → API → Variables: `STRIPE_SECRET_KEY` (`sk_live_…`),
+   `STRIPE_PUBLISHABLE_KEY` (`pk_live_…`), `STRIPE_SUBSCRIPTION_PRICE_ID`,
+   `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET`.
+6. Test companies created in test mode keep **test** customer ids, which don't
+   exist in live: clear them before subscribing again —
+   `UPDATE employers SET "stripeCustomerId" = NULL, "stripeSubscriptionId" = NULL, "stripePaymentMethodId" = NULL, "subscriptionStatus" = 'INACTIVE';`
+   (wrap it as in Track 3 "Railway operational notes" for the Data tab).
+7. Subscribe one real company (yours) for real, check the invoice, then run
+   the Pay Link end to end, then delete `BYPASS_SUBSCRIPTION`.
+
+Invoices: Stripe's invoices are not issued by AT-certified invoicing
+software. Ask the accountant whether Turnos must also issue a certified
+fatura for each payment (likely yes for Portuguese companies).
+
+## 2-A. Cloudflare R2 (uploads) · *pre-flight Track 3*
+
+1. Cloudflare → **R2** → Create bucket `turnos-files`, location **EU
+   (Western Europe)**. Leave **public access off** — the API serves the files.
+2. R2 → **Manage API tokens** → Create token: permission **Object Read &
+   Write**, applied to **that bucket only**. Copy the Access Key ID and Secret
+   Access Key (shown once) and the **Account ID** (R2 overview page).
+3. Railway → API → Variables: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+   `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME=turnos-files`. Check `API_URL` is
+   the API's public origin without `/api`.
+4. After the redeploy: the API log says `Storage: Cloudflare R2 initialized`;
+   upload a photo in the app, redeploy, and the photo is still there.
 
 ## 3. Email via an HTTPS API · *pre-flight Track 1 #7*
 

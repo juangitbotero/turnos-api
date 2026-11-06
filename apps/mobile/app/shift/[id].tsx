@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, type ComponentProps } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert, Modal,
   ScrollView, ActivityIndicator, Linking, Platform, TextInput,
+  KeyboardAvoidingView, Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -683,19 +684,25 @@ export default function ShiftDetailScreen() {
 
       {/* ── Cover note sheet ───────────────────────────────────────────────── */}
       <Modal visible={showApplySheet} transparent animationType="slide" onRequestClose={() => setShowApplySheet(false)}>
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowApplySheet(false)}>
-          <View style={styles.sheet} onStartShouldSetResponder={() => true}>
+        {/* The sheet rises with the keyboard (iOS covered the box and the
+            Send button); tapping anywhere on the sheet closes the keyboard. */}
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => { Keyboard.dismiss(); setShowApplySheet(false); }}>
+          <View style={styles.sheet} onStartShouldSetResponder={() => { Keyboard.dismiss(); return true; }}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>{t('mobile.shiftDetail.coverTitle')}</Text>
             <Text style={styles.sheetSub}>{t('mobile.shiftDetail.coverSub')}</Text>
             <TextInput
               style={styles.coverInput}
               value={coverNote}
-              onChangeText={text => setCoverNote(text.slice(0, 200))}
+              onChangeText={text => setCoverNote(text.replace(/\n/g, ' ').slice(0, 200))}
               placeholder={t('mobile.shiftDetail.coverPlaceholder')}
               placeholderTextColor={colors.textSecondary}
               multiline
               maxLength={200}
+              // Return = "Done": closes the keyboard instead of adding a line
+              returnKeyType="done"
+              submitBehavior="blurAndSubmit"
             />
             <Text style={styles.charCount}>{coverNote.length}/200</Text>
             <TouchableOpacity
@@ -713,6 +720,7 @@ export default function ShiftDetailScreen() {
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

@@ -1330,12 +1330,14 @@ export const pt = {
         f7: 'Notificações push em tempo real',
       },
 
-      ctaNote:     'Para ativar a subscrição, precisas primeiro de adicionar um cartão de crédito. Usa o painel de pagamentos Stripe para guardar o teu método de pagamento.',
-      ctaSubNote:  'Nota: Se ainda não tens cartão guardado, a ativação irá falhar com uma mensagem clara. Fala com o suporte Turnos para adicionar o cartão via Stripe Dashboard.',
+      ctaNote:     'Adicionas o cartão na página de pagamento segura da Stripe e o plano começa logo.',
+      ctaSubNote:  'Recebes uma fatura por mês: o plano de €45 mais €3 por turno concluído. Cancelas quando quiseres.',
       activate:    'Ativar subscrição — €45/mês',
       processing:  'A processar…',
       cancel:      'Cancelar subscrição',
-      pastDueBanner: 'O pagamento do teu plano falhou. Por favor atualiza o método de pagamento no Stripe Dashboard ou contacta o suporte Turnos.',
+      manage:      'Cartão e faturas',
+      pastDueBanner: 'O pagamento do teu plano falhou. Atualiza o cartão em «Cartão e faturas» para continuares a publicar turnos.',
+      checkoutReturning: 'A confirmar o pagamento…',
 
       activated:      'Subscrição ativada com sucesso! Podes agora publicar turnos.',
       activateStatus: 'Estado da subscrição: {{status}}',
@@ -2239,6 +2241,8 @@ export const pt = {
 
     payments: {
       cardRequired:         'Adiciona um cartão antes de subscrever o plano.',
+      alreadySubscribed:    'O teu plano já está ativo.',
+      checkoutFailed:       'Não foi possível abrir ou confirmar a página de pagamento. Tenta de novo daqui a pouco.',
       subscriptionRequired: 'Precisas de uma subscrição ativa para publicar turnos. Ativa o teu plano em Faturação.',
       overdueWages:         'Tens pagamentos a trabalhadores em falta há mais de 72 horas. Regulariza-os em Turnos → Pagamentos pendentes para voltares a publicar.',
       maxActiveShifts:      'O plano atual permite até {{max}} turnos ativos em simultâneo. Cancela ou conclui turnos existentes primeiro.',

@@ -769,6 +769,20 @@ export const adminApi = {
     ),
 
   /** Cancel the subscription at the end of the current billing period. */
+  /** Stripe Checkout for the plan — redirect the browser to `url`. */
+  startSubscriptionCheckout: () =>
+    request<{ url: string }>('/payments/employer/checkout', { method: 'POST' }),
+
+  /** Back from Checkout with `?checkout=<session id>`. */
+  confirmSubscriptionCheckout: (sessionId: string) =>
+    request<{ status: string }>('/payments/employer/checkout/confirm', {
+      method: 'POST', body: JSON.stringify({ sessionId }),
+    }),
+
+  /** Stripe customer portal — change card, invoices. */
+  openBillingPortal: () =>
+    request<{ url: string }>('/payments/employer/billing-portal', { method: 'POST' }),
+
   cancelSubscription: () =>
     request<{ message: string }>(
       '/payments/employer/cancel-subscription', { method: 'POST' },

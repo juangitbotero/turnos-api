@@ -48,6 +48,33 @@ export class PaymentsController {
     return this.payments.createSubscription(req.user.userId);
   }
 
+  /** Start Stripe Checkout for the Starter plan (card + subscription on Stripe's page). */
+  @Post('employer/checkout')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('EMPLOYER')
+  subscriptionCheckout(@Req() req: Request & { user: { userId: string } }) {
+    return this.payments.createSubscriptionCheckout(req.user.userId);
+  }
+
+  /** Back from Checkout: apply the session at once (the webhook does the same). */
+  @Post('employer/checkout/confirm')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('EMPLOYER')
+  confirmSubscriptionCheckout(
+    @Req() req: Request & { user: { userId: string } },
+    @Body() body: { sessionId: string },
+  ) {
+    return this.payments.confirmSubscriptionCheckout(req.user.userId, String(body?.sessionId ?? ''));
+  }
+
+  /** Stripe customer portal — change card, invoices, cancel. */
+  @Post('employer/billing-portal')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('EMPLOYER')
+  billingPortal(@Req() req: Request & { user: { userId: string } }) {
+    return this.payments.createBillingPortal(req.user.userId);
+  }
+
   /** Cancel subscription at period end */
   @Post('employer/cancel-subscription')
   @UseGuards(JwtAuthGuard, RolesGuard)

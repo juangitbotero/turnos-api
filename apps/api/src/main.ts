@@ -5,6 +5,34 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { corsOriginCheck, allowedOrigins } from './cors';
 import * as path from 'path';
+import type { Request, Response } from 'express';
+import { StorageService } from './storage/storage.service';
+
+/** Types a browser may render in place; anything else downloads. */
+const INLINE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf']);
+
+/**
+ * GET /uploads/<folder>/<uuid>.<ext> from the private R2 bucket. Access is by
+ * unguessable key, exactly as with the local static files before.
+ */
+async function serveFromR2(storage: StorageService, req: Request, res: Response): Promise<void> {
+  if (req.method !== 'GET' && req.method !== 'HEAD') { res.status(405).end(); return; }
+  const key = decodeURIComponent(req.path.replace(/^\/+/, ''));
+  const file = StorageService.isValidKey(key) ? await storage.read(key) : null;
+  if (!file) { res.status(404).end(); return; }
+
+  res.setHeader('Content-Type', file.contentType);
+  if (file.length !== undefined) res.setHeader('Content-Length', String(file.length));
+  // The content type was claimed by the uploader: never let a browser sniff
+  // or render anything but images and PDFs (no SVG/HTML on the API origin).
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Disposition', INLINE_TYPES.has(file.contentType) ? 'inline' : 'attachment');
+  // Keys are never reused, so a cached copy is never stale. Private: CVs and
+  // payment proofs must not sit in shared caches.
+  res.setHeader('Cache-Control', 'private, max-age=86400');
+  if (req.method === 'HEAD') { res.end(); return; }
+  (file.body as NodeJS.ReadableStream).pipe(res);
+}
 
 async function bootstrap() {
   // rawBody: true is required for Stripe webhook signature verification
@@ -56,8 +84,15 @@ async function bootstrap() {
     }),
   );
 
-  // Serve uploaded files (dev only — production uses Cloudflare R2)
-  app.useStaticAssets(path.join(process.cwd(), 'uploads'), { prefix: '/uploads' });
+  // Uploaded files live at /uploads/<folder>/<uuid>.<ext> on both backends.
+  // R2 (production): the bucket is private and this route streams the object.
+  // Local disk (dev, or R2 not configured): served as static files.
+  const storage = app.get(StorageService);
+  if (storage.isR2) {
+    app.use('/uploads', (req: Request, res: Response) => serveFromR2(storage, req, res));
+  } else {
+    app.useStaticAssets(path.join(process.cwd(), 'uploads'), { prefix: '/uploads' });
+  }
 
   const port = process.env['PORT'] ?? 3001;
   await app.listen(port);

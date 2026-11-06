@@ -1,18 +1,18 @@
 /**
- * PaymentsService — reworked 2026-07 (business model pivot)
+ * PaymentsService â€” reworked 2026-07 (business model pivot)
  *
  * Turnos is OUT of the wage money flow: companies pay workers directly.
  * This service only bills Turnos' own revenue:
  *   1. Employer Stripe Customer creation + card setup
- *   2. €45/mo "Turnos Starter" subscription with posting guard
- *   3. Fixed per-shift platform fee (€3 Starter / €2 Pro) recorded at checkout
- *      as a Stripe InvoiceItem → aggregated on the next monthly invoice
+ *   2. â‚¬45/mo "Turnos Starter" subscription with posting guard
+ *   3. Fixed per-shift platform fee (â‚¬3 Starter / â‚¬2 Pro) recorded at checkout
+ *      as a Stripe InvoiceItem â†’ aggregated on the next monthly invoice
  *   4. Cancellation fee: 10% of shift gross when a FILLED shift is cancelled
- *      ≤24h before start (fully to Turnos — no worker share)
- *   5. Worker Stripe Connect onboarding (kept, optional — used by Pay Link)
+ *      â‰¤24h before start (fully to Turnos â€” no worker share)
+ *   5. Worker Stripe Connect onboarding (kept, optional â€” used by Pay Link)
  *
  * Wage/TSU amounts stored on PaymentRecord are INFORMATIVE only.
- * All amounts in EUR. Stripe API works in cents (×100).
+ * All amounts in EUR. Stripe API works in cents (Ã—100).
  */
 import {
   Injectable, Logger, BadRequestException,
@@ -29,20 +29,24 @@ import { Employer } from '../users/entities/employer.entity';
 import { Worker } from '../users/entities/worker.entity';
 import { Shift } from '../shifts/entities/shift.entity';
 import { t } from '../i18n/request-language';
+import { isLookupKey } from '../common/lookup-key';
 
 const CANCELLATION_FEE_RATE     = 0.10; // 10% of shift gross on late cancellation (fully to Turnos)
-const CANCELLATION_WINDOW_HOURS = 24;   // J-1 — hours before shift start that triggers the fee
-const SUBSCRIPTION_MONTHLY_EUR  = SUBSCRIPTION_TIERS.STARTER.monthlyEur; // €45/mo Turnos Starter
+const CANCELLATION_WINDOW_HOURS = 24;   // J-1 â€” hours before shift start that triggers the fee
+const SUBSCRIPTION_MONTHLY_EUR  = SUBSCRIPTION_TIERS.STARTER.monthlyEur; // â‚¬45/mo Turnos Starter
 const MAX_ACTIVE_SHIFTS         = SUBSCRIPTION_TIERS.STARTER.maxActiveShifts; // 15 on Starter (Pro: unlimited)
 
 /**
  * Capabilities requested on every worker Connect account.
- *  - transfers     — Stripe pays the worker's balance out to their IBAN
- *  - card_payments — required to accept the Pay Link as a direct charge
- *  - mb_way_payments — MB WAY (>45% of PT online payments). Once active, Stripe
- *    surfaces it automatically in Checkout for EUR/PT payers; same 1.5% + €0.25
- *    as a standard EEA card, capped at €5,000 per transaction.
+ *  - transfers     â€” Stripe pays the worker's balance out to their IBAN
+ *  - card_payments â€” required to accept the Pay Link as a direct charge
+ *  - mb_way_payments â€” MB WAY (>45% of PT online payments). Once active, Stripe
+ *    surfaces it automatically in Checkout for EUR/PT payers; same 1.5% + â‚¬0.25
+ *    as a standard EEA card, capped at â‚¬5,000 per transaction.
  */
+/** Checkout session as the installed SDK types it (its namespace isn't exported). */
+type CheckoutSession = Awaited<ReturnType<InstanceType<typeof Stripe>['checkout']['sessions']['retrieve']>>;
+
 const PAY_LINK_CAPABILITIES = {
   transfers:        { requested: true },
   card_payments:    { requested: true },
@@ -76,11 +80,11 @@ export class PaymentsService {
     );
   }
 
-  // ── Employer: Stripe Customer + subscription ──────────────────────────────
+  // â”€â”€ Employer: Stripe Customer + subscription â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * Create or retrieve the Stripe Customer record for this employer.
-   * Idempotent — safe to call multiple times.
+   * Idempotent â€” safe to call multiple times.
    */
   async ensureStripeCustomer(employerUserId: string): Promise<Employer> {
     const employer = await this.employerRepo.findOne({
@@ -145,7 +149,7 @@ export class PaymentsService {
   }
 
   /**
-   * Create the €45/mo "Turnos Starter" Stripe Subscription for the employer.
+   * Create the â‚¬45/mo "Turnos Starter" Stripe Subscription for the employer.
    * Requires a payment method already saved (savePaymentMethod called first).
    * Per-shift fees accumulate as pending InvoiceItems and are billed on this
    * subscription's monthly invoice.
@@ -163,7 +167,7 @@ export class PaymentsService {
 
     const priceId = this.config.get<string>('STRIPE_SUBSCRIPTION_PRICE_ID', '');
     if (!priceId) {
-      throw new BadRequestException('Subscription price not configured — contact support.');
+      throw new BadRequestException('Subscription price not configured â€” contact support.');
     }
 
     const subscription = await this.stripe.subscriptions.create({
@@ -183,6 +187,97 @@ export class PaymentsService {
     return { subscriptionId: subscription.id, status: subscription.status };
   }
 
+  // â”€â”€ Subscription through Stripe Checkout (2026-11-06) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //
+  // The dashboard never had a card form (it needed stripe-js), so "Activate"
+  // always failed with "add a card first" and only BYPASS_SUBSCRIPTION let a
+  // company post. Stripe's hosted Checkout page now collects the card (3-D
+  // Secure included) and creates the subscription in one go; the card it
+  // saves is the one the monthly invoice â€” â‚¬45 + the â‚¬3 shift fees â€” charges.
+
+  private webAdminUrl(): string {
+    return this.config.get<string>('WEB_ADMIN_URL', 'http://localhost:3000').replace(/\/+$/, '');
+  }
+
+  /** Start a Checkout session for the Starter plan; the dashboard redirects to `url`. */
+  async createSubscriptionCheckout(employerUserId: string): Promise<{ url: string }> {
+    const employer = await this.ensureStripeCustomer(employerUserId);
+    if (employer.subscriptionStatus === 'ACTIVE' && employer.stripeSubscriptionId) {
+      throw new BadRequestException(t('api.payments.alreadySubscribed'));
+    }
+    const priceId = this.config.get<string>('STRIPE_SUBSCRIPTION_PRICE_ID', '');
+    if (!priceId) throw new BadRequestException('Subscription price not configured â€” contact support.');
+
+    const back = `${this.webAdminUrl()}/dashboard/settings?tab=subscription`;
+    const session = await this.stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer: employer.stripeCustomerId!,
+      line_items: [{ price: priceId, quantity: 1 }],
+      client_reference_id: employer.id,
+      metadata: { type: 'subscription', employerId: employer.id },
+      subscription_data: { metadata: { employerId: employer.id } },
+      // Company invoices need the billing address and the NIF/VAT number
+      billing_address_collection: 'required',
+      tax_id_collection: { enabled: true },
+      customer_update: { address: 'auto', name: 'auto' },
+      locale: 'auto',
+      success_url: `${back}&checkout={CHECKOUT_SESSION_ID}`,
+      cancel_url: back,
+    });
+    if (!session.url) throw new BadRequestException(t('api.payments.checkoutFailed'));
+    return { url: session.url };
+  }
+
+  /**
+   * Called by the dashboard on its return from Checkout, so the plan shows as
+   * active at once rather than when the webhook lands (both are idempotent).
+   */
+  async confirmSubscriptionCheckout(employerUserId: string, sessionId: string): Promise<{ status: string }> {
+    const employer = await this.employerRepo.findOne({ where: { user: { id: employerUserId } } });
+    if (!employer?.stripeCustomerId || !isLookupKey(sessionId)) throw new BadRequestException(t('api.payments.checkoutFailed'));
+    const session = await this.stripe.checkout.sessions.retrieve(sessionId);
+    // Only the company that opened this session may apply it
+    if (session.customer !== employer.stripeCustomerId) throw new BadRequestException(t('api.payments.checkoutFailed'));
+    await this.applySubscriptionCheckout(session);
+    const fresh = await this.employerRepo.findOne({ where: { id: employer.id } });
+    return { status: fresh?.subscriptionStatus ?? 'INACTIVE' };
+  }
+
+  /** Stripe's customer portal: change card, see and download invoices, cancel. */
+  async createBillingPortal(employerUserId: string): Promise<{ url: string }> {
+    const employer = await this.employerRepo.findOne({ where: { user: { id: employerUserId } } });
+    if (!employer?.stripeCustomerId) throw new BadRequestException(t('api.payments.cardRequired'));
+    const portal = await this.stripe.billingPortal.sessions.create({
+      customer: employer.stripeCustomerId,
+      return_url: `${this.webAdminUrl()}/dashboard/settings?tab=subscription`,
+    });
+    return { url: portal.url };
+  }
+
+  private async applySubscriptionCheckout(session: CheckoutSession): Promise<void> {
+    if (session.mode !== 'subscription' || session.status !== 'complete') return;
+    const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
+    const subId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+    if (!customerId || !subId) return;
+    const employer = await this.employerRepo.findOne({ where: { stripeCustomerId: customerId } });
+    if (!employer) return;
+
+    const sub = await this.stripe.subscriptions.retrieve(subId);
+    const pm = typeof sub.default_payment_method === 'string' ? sub.default_payment_method : sub.default_payment_method?.id;
+    if (pm) {
+      // The â‚¬3 shift fees are invoice items: make the same card the default
+      await this.stripe.customers.update(customerId, { invoice_settings: { default_payment_method: pm } })
+        .catch((err: Error) => this.logger.warn(`[Payments] Default card not set for ${customerId}: ${err.message}`));
+    }
+    await this.employerRepo.update({ id: employer.id }, {
+      stripeSubscriptionId: sub.id,
+      ...(pm ? { stripePaymentMethodId: pm } : {}),
+      subscriptionStatus: ['active', 'trialing'].includes(sub.status) ? 'ACTIVE' : 'INACTIVE',
+      subscriptionTier: 'STARTER',
+    });
+    this.logger.log(`[Payments] Checkout subscription ${sub.id} (${sub.status}) applied to employer ${employer.id}`);
+  }
+
   /**
    * Cancel the employer's subscription at period end.
    */
@@ -200,12 +295,12 @@ export class PaymentsService {
    * Guard: check if employer has an active subscription before allowing shift posting.
    * Also enforces the 15-shift concurrent limit.
    *
-   * `adding` is how many jobs are about to be created — 1 for a single shift,
+   * `adding` is how many jobs are about to be created â€” 1 for a single shift,
    * every slot of a multi-role request ("2 waiters" = 2). The whole request
    * must fit: nothing is created if it would go over the limit.
    */
   async assertCanPostShift(employerUserId: string, adding = 1): Promise<void> {
-    // Beta/dev bypass — set BYPASS_SUBSCRIPTION=true in Railway Variables to skip check
+    // Beta/dev bypass â€” set BYPASS_SUBSCRIPTION=true in Railway Variables to skip check
     if (process.env['BYPASS_SUBSCRIPTION'] === 'true') return;
 
     const employer = await this.employerRepo.findOne({ where: { user: { id: employerUserId } } });
@@ -247,14 +342,14 @@ export class PaymentsService {
     }
   }
 
-  // ── Worker: Stripe Connect Express onboarding ─────────────────────────────
+  // â”€â”€ Worker: Stripe Connect Express onboarding â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * Create a Stripe Connect Express account for the worker and return the
    * onboarding URL. Worker completes bank setup on Stripe's hosted page.
    *
    * Capabilities requested (see PAY_LINK_CAPABILITIES): the Pay Link is a
-   * DIRECT charge on this account, so the worker's account — not Turnos —
+   * DIRECT charge on this account, so the worker's account â€” not Turnos â€”
    * needs the payment capabilities for each method the company can pay with.
    */
   async createWorkerConnectAccount(workerUserId: string, returnUrl: string): Promise<{ onboardingUrl: string }> {
@@ -347,14 +442,14 @@ export class PaymentsService {
     return { url: loginLink.url };
   }
 
-  // ── Platform fee on checkout ──────────────────────────────────────────────
+  // â”€â”€ Platform fee on checkout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * Record the fixed platform fee for a completed shift.
    * Called by AttendanceService.checkOut() (non-blocking).
    *
-   * The wage is NOT charged here — the company pays the worker directly.
-   * The fee (€3 Starter / €2 Pro) is added as a Stripe InvoiceItem, which
+   * The wage is NOT charged here â€” the company pays the worker directly.
+   * The fee (â‚¬3 Starter / â‚¬2 Pro) is added as a Stripe InvoiceItem, which
    * automatically attaches to the employer's next subscription invoice, so
    * fees accumulate and are billed once a month, itemized per shift.
    * The PaymentRecord also stores the informative wage/TSU breakdown for
@@ -398,18 +493,18 @@ export class PaymentsService {
     );
 
     if (!employer?.stripeCustomerId) {
-      this.logger.warn(`[Payments] Employer ${employerId} has no Stripe customer — fee for shift ${shiftId} recorded but not invoiced`);
+      this.logger.warn(`[Payments] Employer ${employerId} has no Stripe customer â€” fee for shift ${shiftId} recorded but not invoiced`);
       return;
     }
 
     try {
       // Pending invoice items are swept onto the next subscription invoice
-      // automatically — this is what aggregates the fees monthly, one line per shift.
+      // automatically â€” this is what aggregates the fees monthly, one line per shift.
       const invoiceItem = await this.stripe.invoiceItems.create({
         customer:    employer.stripeCustomerId,
         amount:      Math.round(feeEur * 100),
         currency:    'eur',
-        description: `Taxa de serviço Turnos — ${shiftTitle} (${shiftDate})`,
+        description: `Taxa de serviÃ§o Turnos â€” ${shiftTitle} (${shiftDate})`,
         metadata:    { shiftId, employerId, workerId, shiftDate, type: 'shift_fee' },
       });
 
@@ -417,22 +512,22 @@ export class PaymentsService {
       record.status         = PaymentStatus.SUCCEEDED;
       await this.paymentRepo.save(record);
 
-      this.logger.log(`[Payments] Shift fee €${feeEur.toFixed(2)} queued on next invoice for employer ${employerId} (shift ${shiftId})`);
+      this.logger.log(`[Payments] Shift fee â‚¬${feeEur.toFixed(2)} queued on next invoice for employer ${employerId} (shift ${shiftId})`);
     } catch (err) {
       record.status        = PaymentStatus.FAILED;
       record.failureReason = (err as Error).message;
       await this.paymentRepo.save(record);
       this.logger.error(`[Payments] Shift fee invoicing failed for shift ${shiftId}: ${(err as Error).message}`);
-      // Not re-thrown — non-blocking from checkout flow. Admin will see FAILED record.
+      // Not re-thrown â€” non-blocking from checkout flow. Admin will see FAILED record.
     }
   }
 
-  // Cancellation policy v1.1: the interim 10%-fee methods were removed —
+  // Cancellation policy v1.1: the interim 10%-fee methods were removed â€”
   // <3h unjustified cancellations now owe the worker a 2h minimum via
-  // WagePaymentsService.createForCancellationMinimum() plus the normal €3
+  // WagePaymentsService.createForCancellationMinimum() plus the normal â‚¬3
   // fee, orchestrated by ShiftsService.cancel().
 
-  // ── Stripe webhook handler ────────────────────────────────────────────────
+  // â”€â”€ Stripe webhook handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async handleWebhook(payload: Buffer, signature: string): Promise<void> {
     const webhookSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET', '');
@@ -457,7 +552,7 @@ export class PaymentsService {
 
     this.logger.log(`[Payments] Webhook received: ${event.type}`);
 
-    // event.data.object is typed as Stripe.Event.Data.Object (a union) — cast to access
+    // event.data.object is typed as Stripe.Event.Data.Object (a union) â€” cast to access
     // the specific fields we need from each event type.
     const obj = event.data.object as unknown as Record<string, unknown>;
 
@@ -472,10 +567,15 @@ export class PaymentsService {
         await this.handleSubscriptionCancelled(obj['customer'] as string);
         break;
       case 'checkout.session.completed': {
-        // Turnos Pay Link — direct charge on the worker's Connect account.
+        // Turnos Pay Link â€” direct charge on the worker's Connect account.
         // Requires a Connect webhook endpoint in the Stripe Dashboard
         // ("Listen to events on connected accounts") pointing at this URL.
         const metadata = obj['metadata'] as Record<string, string> | undefined;
+        // Company subscribing through Checkout (platform account, not Connect)
+        if (obj['mode'] === 'subscription' && !event.account) {
+          await this.applySubscriptionCheckout(event.data.object as CheckoutSession);
+          break;
+        }
         if (metadata?.['type'] === 'wage_pay_link') {
           // event.account = the worker's connected account the charge lives on;
           // needed to read back the real Stripe fee for reconciliation.
@@ -512,7 +612,7 @@ export class PaymentsService {
     this.logger.warn(`[Payments] Subscription cancelled for customer ${customerId}`);
   }
 
-  // ── Employer spending dashboard ───────────────────────────────────────────
+  // â”€â”€ Employer spending dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async getEmployerSpending(employerUserId: string, period: 'month' | 'year', month?: number, year?: number): Promise<{
     totalGross:    number;
@@ -577,13 +677,13 @@ export class PaymentsService {
     return { totalGross, turnosFees, employerTsu, shiftCount, avgCostPerShift, records, monthlyBreakdown };
   }
 
-  // ── Worker earnings dashboard ─────────────────────────────────────────────
+  // â”€â”€ Worker earnings dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async getWorkerEarnings(workerUserId: string, period: 'day' | 'month' | 'year', date?: string, month?: number, year?: number): Promise<{
     totalGross:      number;
     turnosFees:      number;
     workerNet:       number;
-    workerTsuOwed:   number;      // 11% of gross — worker must pay to State
+    workerTsuOwed:   number;      // 11% of gross â€” worker must pay to State
     shiftCount:      number;
     records:         PaymentRecord[];
   }> {
@@ -626,12 +726,12 @@ export class PaymentsService {
     const workerNet     = records.reduce((s, r) => s + Number(r.workerNet),    0);
     const workerTsuOwed = records.reduce((s, r) => s + Number(r.workerTsu),    0);
 
-    // turnosFees kept for mobile API compatibility — always 0 in the new model
+    // turnosFees kept for mobile API compatibility â€” always 0 in the new model
     // (the platform fee is billed to the company, never deducted from the worker).
     return { totalGross, turnosFees: 0, workerNet, workerTsuOwed, shiftCount: records.length, records };
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   private calcHours(startTime: string, endTime: string): number {
     const [sh, sm] = startTime.split(':').map(Number);

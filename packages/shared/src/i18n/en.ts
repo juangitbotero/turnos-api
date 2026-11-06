@@ -1313,12 +1313,14 @@ export const en: Translated<TranslationCatalogue> = {
         f7: 'Real-time push notifications',
       },
 
-      ctaNote:     'To activate your subscription you first need to add a credit card. Use the Stripe payments panel to save your payment method.',
-      ctaSubNote:  "Note: if you haven't saved a card yet, activation will fail with a clear message. Talk to Turnos support to add your card via the Stripe Dashboard.",
+      ctaNote:     'You add your card on Stripe’s secure payment page and the plan starts straight away.',
+      ctaSubNote:  'Each month you get one invoice: the €45 plan plus €3 per completed shift. Cancel any time.',
       activate:    'Activate subscription — €45/month',
       processing:  'Processing…',
       cancel:      'Cancel subscription',
-      pastDueBanner: 'Your plan payment failed. Please update your payment method in the Stripe Dashboard or contact Turnos support.',
+      manage:      'Card and invoices',
+      pastDueBanner: 'Your plan payment failed. Update your card under “Card and invoices” to keep posting shifts.',
+      checkoutReturning: 'Confirming your payment…',
 
       activated:      'Subscription activated! You can now post shifts.',
       activateStatus: 'Subscription status: {{status}}',
@@ -2201,6 +2203,8 @@ export const en: Translated<TranslationCatalogue> = {
 
     payments: {
       cardRequired:         'Add a card before subscribing to a plan.',
+      alreadySubscribed:    'Your plan is already active.',
+      checkoutFailed:       "We couldn't open or confirm the payment page. Try again in a moment.",
       subscriptionRequired: 'You need an active subscription to post shifts. Activate your plan under Billing.',
       overdueWages:         'You have worker payments outstanding for more than 72 hours. Settle them under Turnos → Pending payments to post again.',
       maxActiveShifts:      'Your current plan allows up to {{max}} shifts open at the same time. Cancel or complete existing shifts first.',
