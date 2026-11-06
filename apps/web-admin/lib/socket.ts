@@ -63,6 +63,16 @@ export function getSocket(): Socket | null {
 
 // ── Event types emitted by the server ────────────────────────────────────────
 
+/** `attendance:update` — sent to the company room when its worker scans in. */
+export interface AttendancePayload {
+  event: string;              // 'checked_in' is the one the dashboard shows
+  shiftId: string;
+  shiftTitle?: string;
+  workerName?: string;
+  workerPhotoUrl?: string | null;
+  checkInAt?: string;
+}
+
 export interface NewApplicationPayload {
   shiftId: string;
   shiftTitle: string;

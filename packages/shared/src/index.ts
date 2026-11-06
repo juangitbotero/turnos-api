@@ -283,6 +283,8 @@ export function experienceLevelLabel(level: string | null | undefined): string {
  * `Shift.offeredAt` with the same value.
  */
 export const OFFER_ACCEPTANCE_HOURS = 2;
+/** Minutes before an offer lapses when the worker gets a reminder push (Juanes, 2026-11-06). */
+export const OFFER_REMINDER_MINUTES_BEFORE = 30;
 
 // ─── Shifts nobody scanned ────────────────────────────────────────────────────
 

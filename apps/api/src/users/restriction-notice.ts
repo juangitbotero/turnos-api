@@ -14,7 +14,8 @@ import { SUPPORT_EMAIL } from '@turnos/shared';
 export type RestrictionKind =
   | 'LATE_CANCEL_SUSPENSION'  // 2 late cancellations in 30 days → 7 days
   | 'NO_SHOW_SUSPENSION'      // 1st no-show → 30 days + automatic 1★
-  | 'NO_SHOW_BLOCK';          // 2nd no-show → account blocked
+  | 'NO_SHOW_BLOCK'           // 2nd no-show → account blocked
+  | 'IDENTITY_MISMATCH';      // company: the person at check-in was not the account holder → 30 days, ops review
 
 export interface RestrictionFacts {
   shiftTitle: string;
@@ -68,6 +69,21 @@ function portuguese(kind: RestrictionKind, f: RestrictionFacts): RestrictionNoti
     };
   }
 
+  if (kind === 'IDENTITY_MISMATCH') {
+    return {
+      pushTitle: 'Conta suspensa — identidade não confirmada',
+      pushBody: `A empresa indicou que a pessoa que se apresentou no turno "${f.shiftTitle}" não eras tu. Toca para ver o motivo e pedir revisão.`,
+      emailSubject: 'A tua conta Turnos foi suspensa — identidade não confirmada',
+      statement: [
+        `Factos: a empresa indicou que a pessoa que fez o check-in no turno ${shift} não corresponde à foto e ao nome do teu perfil.`,
+        `Regra aplicada: Termos para Trabalhadores, 11.1 — a conta pode ser suspensa por utilização por outra pessoa; só o titular da conta pode trabalhar os turnos que confirma.`,
+        `Consequência: o turno foi cancelado e não te podes candidatar a turnos até ${fmtDate(f.until!)}, enquanto a equipa Turnos analisa o caso.`,
+        `Se eras tu, diz-nos e envia uma foto recente e o teu documento de identificação: se a identidade se confirmar, a suspensão é levantada.`,
+        review,
+      ].join('\n\n'),
+    };
+  }
+
   if (kind === 'NO_SHOW_SUSPENSION') {
     return {
       pushTitle: 'Falta registada — conta suspensa por 30 dias',
@@ -114,6 +130,21 @@ function english(kind: RestrictionKind, f: RestrictionFacts): RestrictionNotice 
         `Rule applied: Cancellation and No-Show Policy, "Cancellations by the worker" — 2 late cancellations within 30 days suspend applications for 7 days.`,
         `Consequence: you cannot apply to shifts until ${fmtDate(f.until!)}. Shifts you have already confirmed are unaffected.`,
         `If one of the cancellations had a valid reason (illness, injury, emergency), send us the evidence: if it is accepted, the cancellation is removed and the suspension lifted.`,
+        review,
+      ].join('\n\n'),
+    };
+  }
+
+  if (kind === 'IDENTITY_MISMATCH') {
+    return {
+      pushTitle: 'Account suspended — identity not confirmed',
+      pushBody: `The company said the person who came to the shift "${f.shiftTitle}" was not you. Tap to see why and ask for a review.`,
+      emailSubject: 'Your Turnos account has been suspended — identity not confirmed',
+      statement: [
+        `Facts: the company said the person who checked in to the shift ${shift} does not match the photo and name on your profile.`,
+        `Rule applied: Terms for Workers, 11.1 — an account can be suspended if it is used by another person; only the account holder may work the shifts they confirm.`,
+        `Consequence: the shift was cancelled and you cannot apply to shifts until ${fmtDate(f.until!)} while the Turnos team reviews the case.`,
+        `If it was you, tell us and send a recent photo and your ID document: if your identity is confirmed, the suspension is lifted.`,
         review,
       ].join('\n\n'),
     };

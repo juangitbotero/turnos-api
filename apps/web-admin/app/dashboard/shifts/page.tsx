@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { adminApi, ApiError, Shift, Application, WagePayment } from '../../../lib/api';
 import { connectSocket, getSocket, NewApplicationPayload } from '../../../lib/socket';
+import { reportIdentityMismatch } from '../../../lib/identity';
 import { COMPANY_CANCEL_REASONS, paymentMethodLabel } from '@turnos/shared';
 import { useT } from '../../../lib/i18n';
 import { ui, STATUS_DOT, NEUTRAL_DOT, statusPill } from '../../../lib/ui';
@@ -542,6 +543,7 @@ export default function ShiftsPage() {
                 cancelling={cancelling}
                 confirming={confirming}
                 newAppCount={newAppCounts[shift.id] ?? 0}
+                onIdentityReported={id => setShifts(prev => prev.map(sh => sh.id === id ? { ...sh, status: 'CANCELLED' as const } : sh))}
                 onViewApps={() => {
                   setViewingApps(shift);
                   setNewAppCounts(prev => ({ ...prev, [shift.id]: 0 }));
@@ -1121,9 +1123,10 @@ function CancelShiftModal({ shift, hoursUntil, busy, onClose, onConfirm }: {
 
 // ── Shift row ─────────────────────────────────────────────────────────────────
 
-function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancelling, confirming, onViewApps, newAppCount, onCancelRequest }: {
+function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancelling, confirming, onViewApps, newAppCount, onCancelRequest, onIdentityReported }: {
   shift: Shift;
   onCancelRequest?: (request: { id: string; name: string }) => void;
+  onIdentityReported?: (shiftId: string) => void;
   onCancel: (id: string) => void;
   onWithdrawOffer: (shift: Shift) => void;
   onManualConfirm: (shift: Shift) => void;
@@ -1142,6 +1145,8 @@ function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancellin
   const closed           = shown === 'NO_SHOW';
   const canCancel        = ['OPEN', 'DRAFT', 'FILLED', 'PENDING_ACCEPTANCE'].includes(shift.status) && !closed;
   const canManualConfirm = ['FILLED', 'ACTIVE'].includes(shift.status) && !closed;
+  const worker = shift.assignedWorker;
+  const [reporting, setReporting] = useState(false);
 
   return (
     <div style={s.tableRow}>
@@ -1166,6 +1171,18 @@ function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancellin
           </div>
         )}
         <p style={s.rowSub}>{tCategory(shift.category)} · {shift.address.split(',')[0]}</p>
+        {/* Who is coming — the company checks this face and their ID at the door */}
+        {worker && ['PENDING_ACCEPTANCE', 'FILLED', 'ACTIVE'].includes(shift.status) && !closed && (
+          <div style={s.workerChip} title={shift.status === 'PENDING_ACCEPTANCE' ? undefined : t('admin.shifts.identityHint')}>
+            {worker.photoUrl
+              ? <img src={worker.photoUrl} alt="" style={s.workerChipPhoto} />
+              : <span style={s.workerChipPhoto} />}
+            <span style={s.workerChipName}>{worker.fullName ?? t('admin.shifts.noName')}</span>
+            {shift.status !== 'PENDING_ACCEPTANCE' && (
+              <span style={s.workerChipHint}>· {t('admin.shifts.identityHint')}</span>
+            )}
+          </div>
+        )}
       </div>
       <span style={s.rowCell}>
         {isMultiDay(shift) ? fDateRange(shift.seriesDates!) : fMediumDate(shift.date)}
@@ -1174,6 +1191,21 @@ function ShiftRow({ shift, onCancel, onWithdrawOffer, onManualConfirm, cancellin
       <span style={{ ...s.rowCell, fontWeight: 700 }}>€{Number(shift.grossHourlyRate).toFixed(2)}/hr</span>
       <span style={statusPill(shown)}><span style={{ ...ui.dot, background: dot }} />{statusLabel}</span>
       <div style={s.rowActions}>
+        {shift.status === 'ACTIVE' && worker && (
+          <button
+            style={{ ...s.cancelBtn, opacity: reporting ? 0.6 : 1 }}
+            disabled={reporting}
+            title={t('admin.shifts.identityTitle')}
+            onClick={async () => {
+              setReporting(true);
+              const done = await reportIdentityMismatch(t, { id: shift.id, title: shift.title || tSkill(shift.subcategory) }, worker.fullName);
+              setReporting(false);
+              if (done) onIdentityReported?.(shift.id);
+            }}
+          >
+            {t('admin.shifts.identityBtn')}
+          </button>
+        )}
         {['OPEN', 'FILLED'].includes(shift.status) && !closed && (
           <button style={s.viewAppsBtn} onClick={onViewApps}>
             {t('admin.shifts.viewApps')}
@@ -1287,6 +1319,10 @@ function hasEnded(sh: Shift): boolean {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const s: Record<string, React.CSSProperties> = {
+  workerChip: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' },
+  workerChipPhoto: { width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', background: 'var(--color-border)', flexShrink: 0, display: 'inline-block' },
+  workerChipName: { fontSize: 12.5, fontWeight: 700, color: 'var(--color-text-primary)' },
+  workerChipHint: { fontSize: 11.5, color: 'var(--color-text-muted)' },
   page: { padding: 32, maxWidth: 1200, margin: '0 auto' },
   header: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, gap: 16, flexWrap: 'wrap' },
   title: { fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.5px', marginBottom: 4, whiteSpace: 'nowrap' },

@@ -163,6 +163,7 @@ export class ShiftsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       shiftId:        string;
       shiftTitle?:    string;
       workerName?:    string;
+      workerPhotoUrl?: string | null;
       checkInAt?:     string;
       checkOutAt?:    string;
       scheduledHours?: number;

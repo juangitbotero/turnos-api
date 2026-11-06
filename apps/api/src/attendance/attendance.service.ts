@@ -218,6 +218,8 @@ export class AttendanceService {
       shiftId:    shift.id,
       shiftTitle: shift.title,
       workerName: worker.fullName ?? 'Trabalhador',
+      // So the company can check the face at the door against the profile
+      workerPhotoUrl: worker.photoUrl ?? null,
       checkInAt:  saved.checkInAt!.toISOString(),
     });
 

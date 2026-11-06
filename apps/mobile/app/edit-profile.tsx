@@ -216,6 +216,11 @@ export default function EditProfileScreen() {
       Alert.alert(t('mobile.roles.title'), t('mobile.roles.required'));
       return;
     }
+    // Mandatory since 2026-11-06 — the server refuses the save without it too
+    if (!photoUrl) {
+      Alert.alert(t('mobile.editProfile.photoRequiredTitle'), t('mobile.editProfile.photoIdNote'));
+      return;
+    }
     setSaving(true);
     try {
       // Validate NIF if provided
@@ -330,6 +335,7 @@ export default function EditProfileScreen() {
             </View>
           </TouchableOpacity>
           <Text style={s.photoHint}>{t('mobile.editProfile.photoHint')}</Text>
+          <Text style={[s.photoNote, !photoUrl && s.photoNoteMissing]}>{t('mobile.editProfile.photoIdNote')}</Text>
           {/* Shrink-wrapped so the badge's auto margin doesn't push it right */}
           <View>{pointsBadge(PROFILE_POINTS.photo, !!photoUrl)}</View>
         </View>
@@ -705,6 +711,8 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   photoHint: { fontSize: fontSize.caption, color: colors.textSecondary },
+  photoNote: { fontSize: fontSize.caption, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: spacing.md },
+  photoNoteMissing: { color: '#dc2626', fontWeight: fontWeight.semibold as any },
 
   /* Card */
   card: {

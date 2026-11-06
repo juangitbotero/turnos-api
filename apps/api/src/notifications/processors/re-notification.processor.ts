@@ -7,7 +7,8 @@ import { NotificationsService } from '../notifications.service';
 import { Shift, ShiftStatus } from '../../shifts/entities/shift.entity';
 import { ShiftApplication, ApplicationStatus } from '../../shifts/entities/shift-application.entity';
 import { closeApplications, closeStaleApplications } from '../../shifts/application-closing';
-import { releasePendingOffer, ACCEPTANCE_WINDOW_MS } from '../../shifts/offer-release';
+import { releasePendingOffer, ACCEPTANCE_WINDOW_MS, OfferJobData } from '../../shifts/offer-release';
+import { OFFER_REMINDER_MINUTES_BEFORE } from '@turnos/shared';
 import { lisbonDateTime } from '../../common/lisbon-time';
 
 export interface ReNotificationJobData {
@@ -57,6 +58,12 @@ export class ReNotificationProcessor extends WorkerHost {
       return;
     }
 
+    // ── Offer reminder (30 min before the 2h window ends) ───────────────────
+    if (job.name === 'acceptance-reminder') {
+      await this.remindOffer(job.data as OfferJobData);
+      return;
+    }
+
     // ── Safety net: offers whose timeout job was lost ───────────────────────
     if (job.name === 'release-stale-offers') {
       await this.releaseStaleOffers();
@@ -95,11 +102,12 @@ export class ReNotificationProcessor extends WorkerHost {
       employerId,
       { role: shift.subcategory ?? null, requiredLevel: shift.requiredLevel ?? 1 },
       shiftTitle,
-      20, // skip the first 20 workers notified in wave 1
+      // 0, not 20: wave 1's workers are already excluded through the Redis
+      // list, so an offset of 20 skipped workers 21–40 (fixed 2026-11-06).
     );
   }
 
-  /** Release one pending offer and tell the worker why. */
+  /** Release one pending offer, tell the worker why, and push the job to the next workers. */
   private async releaseOffer(shiftId: string, workerId: string, why: 'timeout' | 'sweep'): Promise<void> {
     const released = await releasePendingOffer(
       { shiftRepo: this.shiftRepo, applicationRepo: this.applicationRepo }, shiftId, workerId,
@@ -108,6 +116,30 @@ export class ReNotificationProcessor extends WorkerHost {
     this.logger.log(`[AcceptanceTimeout] Shift ${shiftId} back to OPEN — no answer in 2h (${why})`);
     this.notificationsService.notifyWorker(released.worker, { key: 'acceptanceTimeout' },
       { type: 'acceptance_timeout', shiftId }).catch(() => {});
+    // The job is open again: the next matching workers hear about it, as when a
+    // confirmed worker cancels. Earlier candidates stay candidates.
+    const { shift } = released;
+    this.notificationsService.notifyMatchingWorkers(
+      shift.id, shift.employer?.id,
+      { role: shift.subcategory ?? null, requiredLevel: shift.requiredLevel ?? 1 },
+      shift.title, 0, [released.worker.id],
+    ).catch(() => {});
+  }
+
+  /**
+   * 30 min before an offer lapses: remind the worker, only if that same offer
+   * is still waiting (not accepted, declined, withdrawn, or replaced by a new
+   * offer — `offeredAt` tells a new offer to the same worker apart).
+   */
+  private async remindOffer(data: OfferJobData): Promise<void> {
+    const shift = await this.shiftRepo.findOne({ where: { id: data.shiftId }, relations: ['assignedWorker'] });
+    if (!shift || shift.status !== ShiftStatus.PENDING_ACCEPTANCE) return;
+    if (shift.assignedWorker?.id !== data.workerId) return;
+    if (data.offeredAt && shift.offeredAt && shift.offeredAt.toISOString() !== data.offeredAt) return;
+    await this.notificationsService.notifyWorker(shift.assignedWorker,
+      { key: 'offerReminder', params: { shift: shift.title || shift.subcategory, minutes: OFFER_REMINDER_MINUTES_BEFORE } },
+      // Same type as the offer itself, so every app build opens My shifts
+      { type: 'pre_selected', shiftId: shift.id });
   }
 
   /**

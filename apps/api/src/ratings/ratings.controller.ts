@@ -84,6 +84,17 @@ export class RatingsController {
     return this.ratings.reportNoShow(req.user.userId, shiftId, note);
   }
 
+  /** "Not the same person" — the person who checked in is not the account holder. */
+  @Post('identity-mismatch/:shiftId')
+  @Roles('EMPLOYER')
+  reportIdentityMismatch(
+    @Request() req: AuthRequest,
+    @Param('shiftId') shiftId: string,
+    @Body('note') note?: string,
+  ) {
+    return this.ratings.reportIdentityMismatch(req.user.userId, shiftId, typeof note === 'string' ? note.slice(0, 500) : undefined);
+  }
+
   // ── Favourite Workers (EMPLOYER only) ────────────────────────────────────
 
   @Get('favourites')

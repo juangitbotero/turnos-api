@@ -605,6 +605,8 @@ export const en: Translated<TranslationCatalogue> = {
       photoSavedTitle: 'Photo updated!',
       photoSavedBody:  'Your profile picture has been saved.',
       photoFailed:     "Couldn't upload the photo. Please try again.",
+      photoRequiredTitle: 'Profile photo required',
+      photoIdNote:     'A photo is required. The company will check your identity when you arrive: bring your ID document.',
 
       nameTitle:       'FULL NAME',
       namePlaceholder: 'Your full name',
@@ -691,7 +693,9 @@ export const en: Translated<TranslationCatalogue> = {
       underAgeBody:      'Turnos is only for people aged 18 and over. You can create your profile once you turn 18.',
       summaryBirthDate:  'Born',
       photoTitle:      'Profile photo (+{{points}} pts)',
-      photoSub:        'A good photo improves your chances of being approved.',
+      photoSub:        'Required. Use a clear photo of your face: the company will check your identity when you arrive, so bring your ID document.',
+      photoRequiredTitle: 'Profile photo required',
+      photoRequiredBody:  'Add a clear photo of your face to continue.',
       photoAdd:        'Add a photo',
       photoRemove:     'Remove photo',
       photoPermTitle:  'Permission needed',
@@ -897,6 +901,8 @@ export const en: Translated<TranslationCatalogue> = {
       toastFor:      'for {{shift}}',
       toastSee:      'See',
       postShift:     '+ Post a shift',
+      toastCheckedIn: '{{name}} has checked in',
+      toastCheckIdentity: 'Check it is the person in the photo and ask for their ID document.',
     },
 
     mobileOverlay: {
@@ -1588,6 +1594,10 @@ export const en: Translated<TranslationCatalogue> = {
       noShowBtn:      'Report no-show',
       noShowBody:     'Report a no-show for "{{shift}}"?\n\nThe worker gets a 1★ rating and a 30-day suspension (a permanent block on the 2nd). They are told why and can ask for a review. This cannot be undone.',
       actionError:    'That didn\'t work. Try again.',
+      identityBtn:    'Not the same person',
+      identityTitle:  'The person who checked in does not match this photo or their ID document',
+      identityPrompt: 'Report that the person who checked in for "{{shift}}" is not {{name}}?\n\nThe shift is cancelled (no wage, no fee), the account is suspended and the Turnos team reviews the case within 48 hours. Do not let this person work.\n\nOptional: what did you see?',
+      identityHint:   'Check the photo and ID document on arrival',
       sectionHistory: 'History',
       expiredToggle:  'Expired ({{count}}) — shifts with no confirmed worker',
       expiredClose:   '▲ Close',
@@ -2063,6 +2073,7 @@ export const en: Translated<TranslationCatalogue> = {
       rateReminder:      { title: "You haven't rated the company yet ⭐", body: 'How did "{{shift}}" go? Rating takes 10 seconds.' },
       preSelected:       { title: '🎉 You were selected!', body: 'You have {{hours}}h to accept "{{shift}}". Open the app to confirm.' },
       invited:           { title: '🎉 You have a shift invitation!', body: '{{company}} invited you to "{{shift}}". You have {{hours}}h to accept.' },
+      offerReminder:     { title: '⏳ {{minutes}} min left to accept', body: 'Your offer for "{{shift}}" ends soon. Open the app to accept or decline.' },
       offerWithdrawn:    { title: 'Offer withdrawn', body: 'The company withdrew the offer for "{{shift}}". You don\'t need to do anything.' },
       acceptanceTimeout: { title: "Time's up ⏰", body: "You didn't answer in time — the shift is open to others again." },
       shiftCancelled:    { title: 'Shift cancelled by the company 😔', body: '"{{shift}}" ({{date}}) was cancelled. We are sorry.' },
@@ -2079,6 +2090,8 @@ export const en: Translated<TranslationCatalogue> = {
     common: {
       shiftNotFound: 'Shift not found.',
       noShowNotStarted: 'You can only report a no-show on a confirmed shift that has started, where this worker never checked in.',
+      identityNotCheckedIn: 'You can only report this on a shift that is in progress — after the person has checked in.',
+      identityReported: 'Reported. The shift was cancelled, the account is suspended and the Turnos team will contact you within 48 hours. Do not let this person work the shift.',
     },
 
     auth: {
@@ -2108,6 +2121,8 @@ export const en: Translated<TranslationCatalogue> = {
       rolesInvalidLevel:  'Choose a valid level for each role.',
       certificateRoleInvalid: 'Save this role on your profile first — only roles that require a document accept one.',
       certificateFormat:  'The document must be a photo (JPG/PNG) or a PDF.',
+      nifTaken:           'This NIF is already used by another Turnos account. Each person can only have one account — if this is your NIF, contact support.',
+      photoRequired:      'Add a profile photo to save your profile. The company checks your identity when you arrive, so use a clear photo of your face and bring your ID document.',
     },
 
     account: {
@@ -2134,6 +2149,8 @@ export const en: Translated<TranslationCatalogue> = {
       underAge:           'You need to be at least {{age}} on the day of the shift to apply.',
       workerBirthDateMissing: "This worker hasn't added their date of birth yet, so they can't be invited.",
       workerUnderAge:     "This worker won't be {{age}} yet on the day of the shift.",
+      photoRequired:      'Add a profile photo under Profile → Edit profile before applying. The company checks your identity when you arrive: bring your ID document.',
+      workerPhotoMissing: "This worker hasn't added a profile photo yet, so they can't be invited.",
       accountSuspended:   'Your account is suspended until {{date}} because of late cancellations or no-shows.',
       profileIncomplete:  'Your profile is {{score}}% complete. You need at least 80% to apply.',
       levelTooLow:        'This shift asks for level {{level}} as {{role}}. If you have that experience, update the role in your profile.',

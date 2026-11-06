@@ -36,7 +36,7 @@ import { t, tNumericDate, currentLanguage } from '../i18n/request-language';
 import { restrictionNotice, statementToHtml } from '../users/restriction-notice';
 import { lisbonDate, lisbonDateTime } from '../common/lisbon-time';
 import { notificationPrefsOf } from '../users/notification-prefs';
-import { releasePendingOffer, ACCEPTANCE_WINDOW_MS } from './offer-release';
+import { releasePendingOffer, scheduleOfferTimers } from './offer-release';
 import { closeApplications } from './application-closing';
 
 // 5 hours in milliseconds — delay before re-notification job fires
@@ -569,11 +569,19 @@ export class ShiftsService {
 
   async findByEmployer(userId: string): Promise<Array<Shift & { seriesDates?: string[] }>> {
     const employer = await this.resolveEmployer(userId);
-    const rows = await this.shiftRepo.find({
+    const loaded = await this.shiftRepo.find({
       // Archived = expired shifts the company removed from its dashboard
       where: { employer: { id: employer.id }, archivedAt: IsNull() },
+      relations: ['assignedWorker'],
       order: { createdAt: 'DESC' },
     });
+    // Who is coming, as the company recognises them at the door: name and
+    // photo only (2026-11-06) — never the full Worker entity (NIF, IBAN…).
+    const rows = loaded.map(r => Object.assign(r, {
+      assignedWorker: r.assignedWorker
+        ? { id: r.assignedWorker.id, fullName: r.assignedWorker.fullName ?? null, photoUrl: r.assignedWorker.photoUrl ?? null }
+        : null,
+    })) as unknown as Shift[];
 
     // One row per job: a multi-day series shows as a single entry carrying all
     // its dates, matching how it is applied to, billed and paid.
@@ -1066,12 +1074,11 @@ export class ShiftsService {
       });
     }
 
-    // BullMQ: 2h timeout — if worker hasn't confirmed, revert to OPEN
-    await this.notificationQueue.add(
-      'acceptance-timeout',
-      { shiftId: shift.id, applicationId: application.id, workerId: application.worker.id },
-      { delay: ACCEPTANCE_WINDOW_MS },
-    );
+    // BullMQ: reminder 30 min before the end, then the 2h timeout (back to OPEN)
+    await scheduleOfferTimers(this.notificationQueue, {
+      shiftId: shift.id, applicationId: application.id, workerId: application.worker.id,
+      offeredAt: offeredAt.toISOString(),
+    });
 
     return this.employerShiftView(shift.id);
   }
@@ -1115,6 +1122,7 @@ export class ShiftsService {
     if (shift.status !== ShiftStatus.PENDING_ACCEPTANCE) throw new BadRequestException('Shift is not awaiting your confirmation');
     // A direct invite skips apply(), so this is the first age check it meets
     this.assertWorkerIsAdult(worker, shift.date, 'worker');
+    this.assertWorkerHasPhoto(worker, 'worker');
 
     // Confirming accepts the whole job — every day of the series at once
     const days = (await this.seriesShifts(shift))
@@ -1209,6 +1217,16 @@ export class ShiftsService {
       applicationId: application?.id ?? '',
       status: 'DECLINED_BY_WORKER',
     });
+
+    // The job is open again — push it to the next matching workers (never the
+    // one who just declined). Earlier candidates stay candidates.
+    this.notifications
+      .notifyMatchingWorkers(
+        shift.id, shift.employer.id,
+        { role: shift.subcategory, requiredLevel: shift.requiredLevel },
+        shift.title, 0, [worker.id],
+      )
+      .catch(() => {});
 
     return { message: t('api.shifts.declined') };
   }
@@ -1481,6 +1499,7 @@ export class ShiftsService {
     }
 
     this.assertWorkerIsAdult(worker, shift.date, 'worker');
+    this.assertWorkerHasPhoto(worker, 'worker');
 
     // Profile gate — worker must have 80%+ profile to apply
     if (worker.profileQualityScore < PROFILE_MIN_SCORE_TO_APPLY) {
@@ -1789,6 +1808,17 @@ export class ShiftsService {
     }
   }
 
+  /**
+   * No photo, no work (2026-11-06): the company recognises the worker at
+   * check-in by their profile photo and ID document.
+   */
+  private assertWorkerHasPhoto(worker: Worker, audience: 'worker' | 'employer'): void {
+    if (worker.photoUrl) return;
+    throw new BadRequestException(
+      t(audience === 'worker' ? 'api.shifts.photoRequired' : 'api.shifts.workerPhotoMissing'),
+    );
+  }
+
   // ── Employer directly invites a worker ────────────────────────────────────
 
   async inviteWorker(employerUserId: string, shiftId: string, workerId: string) {
@@ -1809,6 +1839,7 @@ export class ShiftsService {
     });
     if (!worker) throw new NotFoundException('Worker not found');
     this.assertWorkerIsAdult(worker, shift.date, 'employer');
+    this.assertWorkerHasPhoto(worker, 'employer');
     // A direct invite skips apply(), so it gets the rest-period check here
     await this.compliance.assertRestPeriod(worker, shift, 'employer');
 
@@ -1851,12 +1882,11 @@ export class ShiftsService {
       });
     }
 
-    // 2h timeout
-    await this.notificationQueue.add(
-      'acceptance-timeout',
-      { shiftId: shift.id, applicationId: application.id, workerId: worker.id },
-      { delay: ACCEPTANCE_WINDOW_MS },
-    );
+    // Reminder 30 min before the end, then the 2h timeout
+    await scheduleOfferTimers(this.notificationQueue, {
+      shiftId: shift.id, applicationId: application.id, workerId: worker.id,
+      offeredAt: shift.offeredAt!.toISOString(),
+    });
 
     return this.employerShiftView(shiftId);
   }

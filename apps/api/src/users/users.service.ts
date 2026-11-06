@@ -244,6 +244,30 @@ export class UsersService {
     return result;
   }
 
+  /**
+   * A profile photo is mandatory (Juanes, 2026-11-06): it is how the company
+   * recognises the worker at check-in, together with their ID document.
+   */
+  private assertHasPhoto(worker: Worker): void {
+    if (!worker.photoUrl) throw new BadRequestException(t('api.auth.photoRequired'));
+  }
+
+  /**
+   * One NIF, one account (2026-11-06): a second account with the same NIF is
+   * how a suspended or blocked worker would come back, or how two people
+   * would share one identity. Checked in code, not a unique index, so rows
+   * that already share a NIF (test accounts) don't stop a migration; deleted
+   * accounts have their NIF cleared and never clash.
+   */
+  private async assertNifFree(worker: Worker, nif: string | undefined): Promise<void> {
+    if (!nif || nif === worker.nif) return;
+    const clash = await this.workerRepo.createQueryBuilder('w')
+      .where('w.nif = :nif AND w.id != :id', { nif, id: worker.id })
+      .andWhere(`w.status != 'DELETED'`)
+      .getExists();
+    if (clash) throw new ConflictException(t('api.auth.nifTaken'));
+  }
+
   private applyIbanShareConsent(worker: Worker, consent: boolean | undefined): void {
     if (consent === undefined) return;
     if (consent) {
@@ -342,7 +366,10 @@ export class UsersService {
       relations: ['user'],
     });
     if (!worker) throw new NotFoundException('Worker profile not found');
+    // Onboarding uploads the photo before this call
+    this.assertHasPhoto(worker);
 
+    await this.assertNifFree(worker, dto.nif?.trim() || undefined);
     worker.fullName      = dto.fullName?.trim();
     worker.nif           = dto.nif?.trim();
     worker.iban          = dto.iban?.trim().replace(/\s/g, '');
@@ -386,6 +413,12 @@ export class UsersService {
       relations: ['user'],
     });
     if (!worker) throw new NotFoundException('Worker profile not found');
+    // A profile save (edit-profile sends name + roles) needs a photo. The
+    // one-field writes — language switch, availability switch — never do, so
+    // a worker without a photo can still use those.
+    if (dto.fullName !== undefined || dto.roles !== undefined || dto.skills !== undefined) {
+      this.assertHasPhoto(worker);
+    }
 
     if (dto.fullName      !== undefined) worker.fullName      = dto.fullName.trim();
     if (dto.bio           !== undefined) worker.bio           = dto.bio.slice(0, 200);
@@ -417,6 +450,7 @@ export class UsersService {
     if (dto.nif !== undefined) {
       const nifTrimmed = dto.nif.replace(/\D/g, '').slice(0, 9);
       if (nifTrimmed === '' || isValidNIF(nifTrimmed)) {
+        await this.assertNifFree(worker, nifTrimmed || undefined);
         worker.nif = nifTrimmed || undefined;
       }
     }

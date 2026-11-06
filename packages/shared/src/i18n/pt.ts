@@ -607,6 +607,8 @@ export const pt = {
       photoSavedTitle: 'Foto atualizada!',
       photoSavedBody:  'A tua foto de perfil foi guardada.',
       photoFailed:     'Não foi possível fazer upload da foto. Tenta novamente.',
+      photoRequiredTitle: 'Foto de perfil obrigatória',
+      photoIdNote:     'A foto é obrigatória. A empresa vai confirmar a tua identidade à chegada: leva o teu documento de identificação.',
 
       nameTitle:       'NOME COMPLETO',
       namePlaceholder: 'O teu nome completo',
@@ -693,7 +695,9 @@ export const pt = {
       underAgeBody:      'A Turnos é exclusiva para maiores de 18 anos. Pode criar o seu perfil quando fizer 18.',
       summaryBirthDate:  'Nascimento',
       photoTitle:      'Foto de perfil (+{{points}} pts)',
-      photoSub:        'Uma boa foto aumenta as suas hipóteses de aprovação.',
+      photoSub:        'Obrigatória. Use uma foto nítida do seu rosto: a empresa vai confirmar a sua identidade à chegada, por isso leve o seu documento de identificação.',
+      photoRequiredTitle: 'Foto de perfil obrigatória',
+      photoRequiredBody:  'Adicione uma foto nítida do seu rosto para continuar.',
       photoAdd:        'Adicionar foto',
       photoRemove:     'Remover foto',
       photoPermTitle:  'Permissão necessária',
@@ -900,6 +904,8 @@ export const pt = {
       toastNewCandidate: 'Novo candidato: {{name}}',
       toastFor:      'para {{shift}}',
       toastSee:      'Ver',
+      toastCheckedIn: '{{name}} fez o check-in',
+      toastCheckIdentity: 'Confirme que é a pessoa da foto e peça o documento de identificação.',
       postShift:     '+ Publicar Turno',
     },
 
@@ -1605,6 +1611,10 @@ export const pt = {
       noShowBtn:      'Registar falta',
       noShowBody:     'Registar uma falta em "{{shift}}"?\n\nO trabalhador recebe uma avaliação de 1★ e uma suspensão de 30 dias (bloqueio permanente à 2.ª). É informado do motivo e pode pedir revisão. Esta ação não pode ser desfeita.',
       actionError:    'Não foi possível. Tente novamente.',
+      identityBtn:    'Não é a mesma pessoa',
+      identityTitle:  'A pessoa que fez o check-in não corresponde a esta foto ou ao documento de identificação',
+      identityPrompt: 'Reportar que a pessoa que fez o check-in em "{{shift}}" não é {{name}}?\n\nO turno é cancelado (sem salário nem taxa), a conta fica suspensa e a equipa Turnos analisa o caso em até 48 horas. Não deixe esta pessoa trabalhar.\n\nOpcional: o que verificou?',
+      identityHint:   'Confirme a foto e o documento de identificação à chegada',
       sectionHistory: 'Histórico',
       expiredToggle:  'Caducados ({{count}}) — Turnos sem trabalhador confirmado',
       expiredClose:   '▲ Fechar',
@@ -2101,6 +2111,7 @@ export const pt = {
       rateReminder:      { title: 'Ainda não avaliaste a empresa ⭐', body: 'Como correu o turno "{{shift}}"? A tua avaliação demora 10 segundos.' },
       preSelected:       { title: '🎉 Foste selecionado!', body: 'Tens {{hours}}h para aceitar o turno "{{shift}}". Abre a app para confirmar.' },
       invited:           { title: '🎉 Tens um convite de turno!', body: 'A empresa {{company}} convidou-te para "{{shift}}". Tens {{hours}}h para aceitar.' },
+      offerReminder:     { title: '⏳ Faltam {{minutes}} min para aceitar', body: 'A tua oferta para "{{shift}}" está a terminar. Abre a app para aceitar ou recusar.' },
       offerWithdrawn:    { title: 'Oferta retirada', body: 'A empresa retirou a oferta para "{{shift}}". Não precisas de fazer nada.' },
       acceptanceTimeout: { title: 'Tempo esgotado ⏰', body: 'Não respondeste a tempo — o turno voltou à lista de disponíveis.' },
       shiftCancelled:    { title: 'Turno cancelado pela empresa 😔', body: 'O turno "{{shift}}" ({{date}}) foi cancelado. Pedimos desculpa.' },
@@ -2117,6 +2128,8 @@ export const pt = {
     common: {
       shiftNotFound: 'Turno não encontrado.',
       noShowNotStarted: 'Só podes registar uma falta num turno confirmado que já começou e sem check-in deste trabalhador.',
+      identityNotCheckedIn: 'Só podes reportar isto num turno em curso — depois de a pessoa ter feito o check-in.',
+      identityReported: 'Reportado. O turno foi cancelado, a conta está suspensa e a equipa Turnos contacta-te em até 48 horas. Não deixes esta pessoa trabalhar o turno.',
     },
 
     auth: {
@@ -2146,6 +2159,8 @@ export const pt = {
       rolesInvalidLevel:  'Escolhe um nível válido para cada função.',
       certificateRoleInvalid: 'Guarda primeiro esta função no perfil — só funções que exigem documento aceitam um.',
       certificateFormat:  'O documento tem de ser uma foto (JPG/PNG) ou um PDF.',
+      nifTaken:           'Este NIF já está a ser usado noutra conta Turnos. Cada pessoa só pode ter uma conta — se o NIF é teu, contacta o suporte.',
+      photoRequired:      'Adiciona uma foto de perfil para guardares o perfil. A empresa confirma a tua identidade à chegada, por isso usa uma foto nítida do teu rosto e leva o teu documento de identificação.',
     },
 
     account: {
@@ -2171,6 +2186,8 @@ export const pt = {
       birthDateRequired:  'Indica a tua data de nascimento em Perfil → Editar perfil antes de te candidatares. A Turnos é exclusiva para maiores de 18 anos.',
       underAge:           'Precisas de ter pelo menos {{age}} anos na data do turno para te candidatares.',
       workerBirthDateMissing: 'Este trabalhador ainda não indicou a data de nascimento, por isso ainda não pode ser convidado.',
+      photoRequired:      'Adiciona uma foto de perfil em Perfil → Editar perfil antes de te candidatares. A empresa confirma a tua identidade à chegada: leva o teu documento de identificação.',
+      workerPhotoMissing: 'Este trabalhador ainda não tem foto de perfil, por isso ainda não pode ser convidado.',
       workerUnderAge:     'Este trabalhador ainda não terá {{age}} anos na data do turno.',
       accountSuspended:   'A tua conta está suspensa até {{date}} devido a cancelamentos tardios ou faltas.',
       profileIncomplete:  'O teu perfil está {{score}}% completo. Precisas de pelo menos 80% para te candidatares.',

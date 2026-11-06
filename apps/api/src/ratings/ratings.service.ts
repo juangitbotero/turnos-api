@@ -616,6 +616,109 @@ export class RatingsService {
     return { message: 'Falta registada com sucesso' };
   }
 
+  // ── Identity mismatch at check-in ──────────────────────────────────────────
+
+  /**
+   * The company says the person who checked in is not the account holder
+   * (the face doesn't match the profile photo, or the ID document shows
+   * another name). Worker terms §11.1: an account used by another person can
+   * be suspended.
+   *
+   * - Only on a shift that is ACTIVE (someone scanned in) — that is when the
+   *   company is face to face with the person.
+   * - The day is CANCELLED, which stops the auto-completion chain: no wage
+   *   payment, no €3 fee, no review prompts. Remaining days of a multi-day job
+   *   go back to OPEN.
+   * - 30-day suspension with a statement of reasons; ops reviews within 48h
+   *   and can lift it or block the account. No automatic 1★: the case is not
+   *   about the work, and a person decides.
+   */
+  async reportIdentityMismatch(
+    employerUserId: string,
+    shiftId: string,
+    note?: string,
+  ): Promise<{ message: string }> {
+    const employer = await this.employerRepo.findOne({
+      where: { user: { id: employerUserId } },
+      relations: ['user'],
+    });
+    if (!employer) throw new UnauthorizedException('Employer profile not found');
+
+    const shift = await this.shiftRepo.findOne({
+      where: { id: shiftId },
+      relations: ['employer', 'assignedWorker'],
+    });
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
+    if (shift.employer.id !== employer.id) throw new UnauthorizedException('Not your shift');
+    if (!shift.assignedWorker || shift.status !== ShiftStatus.ACTIVE) {
+      throw new BadRequestException(t('api.common.identityNotCheckedIn'));
+    }
+
+    // Status guard in the UPDATE: an auto-completion running at the same moment wins
+    const res = await this.shiftRepo.createQueryBuilder()
+      .update(Shift)
+      .set({ status: ShiftStatus.CANCELLED, autoConfirmAt: null })
+      .where('id = :id AND status = :active', { id: shift.id, active: ShiftStatus.ACTIVE })
+      .execute();
+    if (!res.affected) throw new BadRequestException(t('api.common.identityNotCheckedIn'));
+
+    const offender = shift.assignedWorker;
+    const until = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    if (!offender.suspendedUntil || offender.suspendedUntil < until) offender.suspendedUntil = until;
+
+    const notice = restrictionNotice('IDENTITY_MISMATCH', {
+      shiftTitle:  shift.title,
+      shiftDate:   shift.date,
+      companyName: employer.companyName,
+      until:       offender.suspendedUntil,
+    }, offender.preferredLanguage);
+    offender.restrictionReason = notice.statement;
+    offender.restrictedAt      = new Date();
+    await this.workerRepo.save(offender);
+
+    this.notifications.notifyWorker(offender, { title: notice.pushTitle, body: notice.pushBody }, { type: 'account_restricted' }).catch(() => {});
+    const offenderUser = await this.userRepo.findOne({ where: { workerProfile: { id: offender.id } } });
+    if (offenderUser?.email) {
+      this.mail.sendMail({ to: offenderUser.email, subject: notice.emailSubject, html: statementToHtml(notice.statement) })
+        .catch(() => {});
+    }
+
+    if (shift.seriesId) await this.releaseRemainingSeriesDays(shift, offender.id);
+
+    void this.mail.sendOpsAlert({
+      ref: opsRef('IDN', shift.id),
+      kind: 'Identidade não confirmada — conta suspensa',
+      subjectParts: [offender.fullName, employer.companyName],
+      summary: `${employer.companyName} indicou que a pessoa que fez o check-in não é ${offender.fullName ?? 'o titular da conta'}. `
+        + 'O turno foi cancelado e a conta suspensa 30 dias até revisão.',
+      facts: [
+        ['Trabalhador (titular da conta)', offender.fullName],
+        ['NIF do titular', offender.nif],
+        ['Contacto do trabalhador', joinParts(offenderUser?.phone, offenderUser?.email)],
+        ['Empresa', employer.companyName],
+        ['Email da empresa', employer.user?.email],
+        ['Turno', joinParts(shift.title, ptDate(shift.date), `${shift.startTime.slice(0, 5)}–${shift.endTime.slice(0, 5)}`)],
+        ['Nota da empresa', note],
+        ['Consequência aplicada', `Turno cancelado + suspensão até ${lisbonStamp(offender.suspendedUntil)}`],
+        ['Registado em', lisbonStamp(new Date())],
+      ],
+      steps: [
+        'Falar com a empresa: o que viu (foto diferente, nome diferente no documento) e se a pessoa chegou a trabalhar.',
+        'Se alguém trabalhou horas, a empresa continua obrigada a pagar essas horas a quem as trabalhou — orientar a empresa.',
+        'Pedir ao titular uma foto recente e o documento de identificação.',
+        'Se a identidade se confirmar: levantar a suspensão e avisar o trabalhador. Se a conta foi usada por outra pessoa: bloquear (isBlocked).',
+      ],
+      deadline: deadlineIn(48),
+      contacts: [
+        { label: 'Escrever à empresa', email: employer.user?.email },
+        { label: 'Escrever ao trabalhador', email: offenderUser?.email },
+      ],
+    });
+
+    this.logger.warn(`[Ratings] Identity mismatch reported for worker ${offender.id} on shift ${shiftId}`);
+    return { message: t('api.common.identityReported') };
+  }
+
   // ── Favourite Workers ──────────────────────────────────────────────────────
 
   async getFavourites(employerUserId: string): Promise<FavouriteWorker[]> {

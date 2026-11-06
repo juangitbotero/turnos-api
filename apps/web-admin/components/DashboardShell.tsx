@@ -23,7 +23,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { adminApi, CandidateCounts, EmployerProfile } from '../lib/api';
-import { connectSocket, getSocket, NewApplicationPayload } from '../lib/socket';
+import { AttendancePayload, connectSocket, getSocket, NewApplicationPayload } from '../lib/socket';
+import { reportIdentityMismatch } from '../lib/identity';
 import { SIDEBAR_GROUPS, isNavActive } from '../lib/nav';
 import { useT } from '../lib/i18n';
 import { Logo } from './Logo';
@@ -45,6 +46,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const openTab = useOpenTab();
   const [counts, setCounts] = useState<CandidateCounts>({ pending: 0, unseen: 0 });
   const [toasts, setToasts] = useState<Array<NewApplicationPayload & { key: number }>>([]);
+  // Check-ins (2026-11-06): the worker's photo, so the company can check the
+  // person at the door. Stays until closed — it asks for an action.
+  const [checkIns, setCheckIns] = useState<Array<AttendancePayload & { key: number }>>([]);
 
   useEffect(() => {
     const load = () => adminApi.getCandidateCounts().then(setCounts).catch(() => {});
@@ -59,12 +63,21 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       setToasts(prev => [...prev.slice(-2), { ...payload, key }]);
       setTimeout(() => setToasts(prev => prev.filter(x => x.key !== key)), TOAST_MS);
     };
+    const onAttendance = (payload: AttendancePayload) => {
+      if (payload.event !== 'checked_in') return;
+      const key = Date.now() + Math.random();
+      setCheckIns(prev => [...prev.filter(c => c.shiftId !== payload.shiftId).slice(-2), { ...payload, key }]);
+    };
     socket?.on('shift:new_application', onNew);
+    socket?.on('attendance:update', onAttendance);
     return () => {
       window.removeEventListener(CANDIDATES_CHANGED_EVENT, load);
       socket?.off('shift:new_application', onNew);
+      socket?.off('attendance:update', onAttendance);
     };
   }, []);
+
+  const closeCheckIn = (key: number) => setCheckIns(prev => prev.filter(x => x.key !== key));
 
   // Links to the page already on screen (e.g. Settings → ?tab=subscription)
   // only change the query; Next does not remount the page, so tell it instead.
@@ -167,8 +180,36 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       <main style={s.main}>{children}</main>
 
-      {toasts.length > 0 && (
+      {(toasts.length > 0 || checkIns.length > 0) && (
         <div style={s.toastStack} role="status" aria-live="polite">
+          {checkIns.map(c => (
+            <div key={c.key} style={{ ...s.toast, alignItems: 'flex-start' }}>
+              {c.workerPhotoUrl
+                ? <img src={c.workerPhotoUrl} alt={c.workerName ?? ''} style={s.checkInPhoto} />
+                : <span style={s.toastIcon}><IconUserCheck size={18} /></span>}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={s.toastTitle}>
+                  {t('admin.chrome.toastCheckedIn', { name: c.workerName ?? t('admin.shifts.noName') })}
+                </div>
+                {c.shiftTitle && <div style={s.toastSub}>{c.shiftTitle}</div>}
+                <div style={s.checkInHint}>{t('admin.chrome.toastCheckIdentity')}</div>
+                <button
+                  type="button"
+                  style={s.checkInReport}
+                  title={t('admin.shifts.identityTitle')}
+                  onClick={async () => {
+                    const done = await reportIdentityMismatch(t, { id: c.shiftId, title: c.shiftTitle ?? '' }, c.workerName);
+                    if (done) closeCheckIn(c.key);
+                  }}
+                >
+                  {t('admin.shifts.identityBtn')}
+                </button>
+              </div>
+              <button type="button" style={s.toastClose} aria-label="✕" onClick={() => closeCheckIn(c.key)}>
+                <IconClose size={14} />
+              </button>
+            </div>
+          ))}
           {toasts.map(toast => (
             <div key={toast.key} style={s.toast}>
               <span style={s.toastIcon}><IconUserCheck size={18} /></span>
@@ -308,5 +349,12 @@ const s: Record<string, React.CSSProperties> = {
   toastClose: {
     background: 'none', border: 'none', cursor: 'pointer', padding: 4,
     color: 'var(--color-text-muted)', display: 'inline-flex',
+  },
+  checkInPhoto: { width: 64, height: 64, borderRadius: 'var(--radius-sm)', objectFit: 'cover', flexShrink: 0 },
+  checkInHint: { fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 4, lineHeight: 1.4 },
+  checkInReport: {
+    marginTop: 8, padding: '5px 10px', borderRadius: 'var(--radius-full)', cursor: 'pointer',
+    background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c',
+    fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
   },
 };

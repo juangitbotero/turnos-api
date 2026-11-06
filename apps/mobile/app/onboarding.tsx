@@ -117,6 +117,11 @@ export default function OnboardingScreen() {
         Alert.alert(t('mobile.onboarding.underAgeTitle'), t('mobile.onboarding.underAgeBody'));
         return false;
       }
+      // Mandatory since 2026-11-06 — the server refuses the profile without it
+      if (!photoUri) {
+        Alert.alert(t('mobile.onboarding.photoRequiredTitle'), t('mobile.onboarding.photoRequiredBody'));
+        return false;
+      }
     }
     if (step === 1) {
       let ok = true;

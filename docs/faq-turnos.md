@@ -188,6 +188,14 @@ horas reais foram outras, ajusta-as antes de pagar.
 Pode confirmar a presença manualmente no painel. A confirmação manual fica registada no
 histórico de auditoria.
 
+**Como sei que é a pessoa certa?**
+O painel mostra o nome e a foto do trabalhador em cada turno confirmado e avisa-o, com a foto,
+no momento do check-in. À chegada, confirme que é a pessoa da foto e peça o documento de
+identificação — sobretudo no primeiro turno. Se não for a mesma pessoa, carregue em «Não é a
+mesma pessoa» no turno em curso: o turno é cancelado (sem salário nem taxa), a conta do
+trabalhador fica suspensa e a equipa Turnos analisa o caso em até 48 horas. Não deixe essa
+pessoa trabalhar.
+
 ### Cancelamentos e faltas
 
 **Posso cancelar um turno?**
@@ -290,11 +298,19 @@ turnos dessa empresa.
 Descarregas a app, entras com o teu número de telemóvel e preenches o perfil em 4 passos:
 identidade e foto, dados legais (NIF e IBAN), as tuas funções (até 3, cada uma com o teu nível
 e as tarefas que já fizeste) e disponibilidade. O perfil tem uma pontuação de qualidade e
-precisa de pelo menos 80 pontos para ir a aprovação.
+precisa de pelo menos 80 pontos para te poderes candidatar.
 
-**Quanto tempo demora a aprovação?**
-A equipa Turnos revê o teu perfil manualmente. Quanto mais completo estiver — foto, NIF, IBAN,
-pelo menos 1 função e disponibilidade — mais rápido é.
+**Quando me posso candidatar?**
+Assim que o perfil chegar aos 80 pontos, com a foto e a data de nascimento indicadas. Não há
+espera: a pontuação atualiza-se quando guardas o perfil.
+
+**Porque é que a foto é obrigatória?**
+É assim que a empresa te reconhece. À chegada, a empresa confirma que és a pessoa da foto do
+teu perfil e pode pedir-te o documento de identificação — leva-o sempre. Usa uma foto nítida
+do teu rosto. A conta é pessoal: se outra pessoa aparecer no teu lugar, a conta é suspensa.
+
+**Posso ter mais do que uma conta?**
+Não. Cada NIF só pode estar numa conta Turnos.
 
 **O que é o nível de uma função?**
 Cada função tem até 3 níveis, descritos pelo que sabes fazer — por exemplo, em Barman: nível 1

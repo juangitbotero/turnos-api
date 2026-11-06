@@ -1,11 +1,33 @@
 import { Repository } from 'typeorm';
 import { Shift, ShiftStatus } from './entities/shift.entity';
 import { ShiftApplication, ApplicationStatus } from './entities/shift-application.entity';
-import { OFFER_ACCEPTANCE_HOURS } from '@turnos/shared';
+import { Queue } from 'bullmq';
+import { OFFER_ACCEPTANCE_HOURS, OFFER_REMINDER_MINUTES_BEFORE } from '@turnos/shared';
 import { Worker } from '../users/entities/worker.entity';
 
 /** How long a selected worker has to accept before the offer lapses. */
 export const ACCEPTANCE_WINDOW_MS = OFFER_ACCEPTANCE_HOURS * 60 * 60 * 1000;
+const REMINDER_DELAY_MS = ACCEPTANCE_WINDOW_MS - OFFER_REMINDER_MINUTES_BEFORE * 60 * 1000;
+
+export interface OfferJobData {
+  shiftId: string;
+  applicationId: string;
+  workerId: string;
+  /** ISO time the offer was made — tells the reminder whether it is still this offer. */
+  offeredAt?: string;
+}
+
+/**
+ * The two timers every offer gets: a reminder push 30 min before it lapses
+ * ("acceptance-reminder") and the lapse itself ("acceptance-timeout").
+ * Both offer paths (company selects an applicant, company invites) use this.
+ */
+export async function scheduleOfferTimers(queue: Queue, data: OfferJobData): Promise<void> {
+  if (REMINDER_DELAY_MS > 0) {
+    await queue.add('acceptance-reminder', data, { delay: REMINDER_DELAY_MS });
+  }
+  await queue.add('acceptance-timeout', data, { delay: ACCEPTANCE_WINDOW_MS });
+}
 
 /**
  * Put a job whose offer is pending (PENDING_ACCEPTANCE) back on the market.

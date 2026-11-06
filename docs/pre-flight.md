@@ -72,6 +72,12 @@ aren't.
    returns an entity with a `worker` relation); `DashboardShell` on phones;
    Google sign-in for companies (Track 5). Wanted improvements: Track 5.
 
+8. **Before the store reviews (2026-11-06):** the **reviewer worker account
+   must have a profile photo** — since 2026-11-06 the API refuses apply,
+   accept and profile save without one. Check it in production after the
+   deploy; upload one from the app if missing. Apple guideline 1.2 risk:
+   no in-app "report this shift" link yet (next app build).
+
 **Blocked on outside events, not on code:** Twilio (#1), live Stripe (#5),
 Apple + Google accounts, an owned email domain and the privacy-page
 placeholders all wait for the company's registration (the law firm is on
@@ -473,16 +479,19 @@ line, offers expire instead of being re-sent.
 | When | What | Guard |
 |---|---|---|
 | Shift published matching role ≥ level | New shift (top 20 matches; favourites, then TOP_RATED first) | Once per job/line |
-| +5h after publish with 0 applicants | Second wave to the next matches | One re-wave |
+| +5h after publish with 0 applicants | Second wave to the next matches (offset bug fixed 2026-11-06: it skipped matches 21–40) | One re-wave |
 | Company selects / invites | "You were selected" / "Invitation" — 2h to accept | One per offer |
+| **1h30 after an offer** (2026-11-06) | "30 min left to accept" | Only if that same offer (`offeredAt`) is still waiting |
 | Offer withdrawn / 2h lapse / company cancels before answer | Offer ended | One per offer |
+| **Offer lapses (2h) or worker declines** (2026-11-06) | New shift push to the **next** 20 matches, never the worker whose offer ended; earlier candidates stay candidates | Redis `notified:{shiftId}` excludes everyone already pushed |
+| Confirmed worker cancels | New shift push to the next 20 matches | Same Redis list |
 | Company cancels a confirmed shift | Shift cancelled | Once |
 | **T−15 min** (new) | "Starts in 15 min — scan the QR at the entrance" | `checkInRemindersSent` ≥ 1 |
 | **T+15 min, no check-in** (new) | "Have you arrived?" | `checkInRemindersSent` = 2; stops when the check-in window closes (T+60) |
 | **Scheduled end, no check-in** (new) | "Did you work?" | `confirmRequestedAt` set once |
 | Shift completes | "Rate the company" | Once; +8h follow-up only if not rated |
 | Company marks paid / Pay Link paid / adjusts hours | Payment status | One per event |
-| No-show or late-cancel suspension | Restriction notice with reasons (+ email) | One per decision |
+| No-show, late-cancel or identity-mismatch suspension | Restriction notice with reasons (+ email) | One per decision |
 | Level confirmed / 2 × "below level" | Role confirmed / review your level | Once per threshold |
 
 **Company email, built:** email verification; first candidate per job
@@ -622,7 +631,8 @@ value.
 | Item | Detail |
 |---|---|
 | **Why no AI screening** | EU AI Act Annex III(4) makes candidate-filtering AI high-risk (conformity assessment, logging, human oversight), plus GDPR art. 22 and discrimination risk. And for hospitality shifts a CV says little |
-| **Identity** | Award VERIFIED from Stripe Connect KYC (free for Pay Link workers); Stripe Identity (~€1.50/check) for the rest. Rule-based fraud checks: same IBAN, device or photo across accounts |
+| **Identity — free layer, built 2026-11-06** | Photo **mandatory**: profile save (onboarding POST, edit-profile PATCH with name/roles — language and availability switches still pass), apply, accept and invite. Dashboard shows the assigned worker's name + photo on offered/confirmed/in-progress shifts, and a check-in toast with the photo ("check it's the person in the photo, ask for the ID"). **"Não é a mesma pessoa"** on an in-progress shift (toast + shifts page) → `POST /ratings/identity-mismatch/:shiftId`: day CANCELLED (no wage, no fee), remaining series days reopen, 30-day suspension with statement of reasons (worker terms §11.1 "utilização por outra pessoa"), ops case `IDN-…` within 48h — no automatic 1★. **One NIF = one account** checked in code (409 `nifTaken`), not a DB index, because test rows may share NIFs. FAQ: "Como sei que é a pessoa certa?", photo + one-account answers, and the false "the team reviews your profile manually" answer replaced. App-side text (photo required + "bring your ID" in onboarding and edit-profile) ships with the **next build**; current builds get the server messages. Gap: a blocked worker who deletes the account frees the NIF (deletion clears it) |
+| **Identity — paid layer (later)** | Award VERIFIED from Stripe Connect KYC (free for Pay Link workers); Stripe Identity (~€1.50/check) for the rest. Rule-based fraud checks: same IBAN, device or photo across accounts. Company terms: mention the ID check at the door in the next lawyer pack (not changed now — would force re-acceptance) |
 | **Right to work** | The check that matters legally — much of Lisbon's hospitality workforce is non-EU and the employer is liable. Collect nationality + residence/work document where needed |
 | ~~Skills "verified by work"~~ | Moved into the skills-matching work (Track 3 row): role levels confirmed by a "did the level match?" question in the company review — step 4 there |
 | **Certificates and video** | Certificates only where the law requires them (e.g. food hygiene for kitchen roles). Optional video intro as a language badge (Shifty benchmark) |

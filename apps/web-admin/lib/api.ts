@@ -249,6 +249,8 @@ export interface Shift {
   autoConfirmAt?: string | null;
   workerConfirmation?: 'WORKED' | 'NOT_WORKED' | null;
   noShowReportedAt?: string | null;
+  /** The worker the shift is offered to / confirmed with — name and photo only. */
+  assignedWorker?: { id: string; fullName: string | null; photoUrl: string | null } | null;
 }
 
 /** One row of a multi-role request: N workers in one role. */
@@ -798,6 +800,13 @@ export const adminApi = {
   reportNoShow: (shiftId: string, note?: string) =>
     request<{ message: string }>(
       `/ratings/no-show/${shiftId}`,
+      { method: 'POST', body: JSON.stringify({ note }) },
+    ),
+
+  /** "Not the same person": whoever checked in is not the account holder. */
+  reportIdentityMismatch: (shiftId: string, note?: string) =>
+    request<{ message: string }>(
+      `/ratings/identity-mismatch/${shiftId}`,
       { method: 'POST', body: JSON.stringify({ note }) },
     ),
 

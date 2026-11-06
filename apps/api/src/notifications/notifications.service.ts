@@ -50,7 +50,10 @@ export class NotificationsService {
    * @param employerId     - employer UUID (used to look up favourites)
    * @param match          - the shift's role and minimum level (no role = notify all active workers)
    * @param shiftTitle     - shown in the push notification body
-   * @param batchOffset    - 0 for first wave, BATCH_SIZE for second wave
+   * @param batchOffset    - workers to skip AFTER excluding those already notified.
+   *                         Every wave passes 0: the Redis list already removes
+   *                         earlier batches, so an offset would skip a second time.
+   * @param excludeWorkerIds - never push these (e.g. the worker whose offer just ended)
    */
   async notifyMatchingWorkers(
     shiftId: string,
@@ -58,10 +61,12 @@ export class NotificationsService {
     match: { role: string | null; requiredLevel: number },
     shiftTitle: string,
     batchOffset = 0,
+    excludeWorkerIds: string[] = [],
   ): Promise<void> {
     const notifiedKey = `notified:${shiftId}`;
     const alreadyRaw = await this.redis.get(notifiedKey);
     const alreadyNotifiedIds: string[] = alreadyRaw ? (JSON.parse(alreadyRaw) as string[]) : [];
+    const excluded = [...new Set([...alreadyNotifiedIds, ...excludeWorkerIds])];
 
     // Load employer's favourite worker IDs for priority sorting. No employer
     // id → no favourites (an empty condition would return every company's).
@@ -98,8 +103,8 @@ export class NotificationsService {
     }
 
     // Exclude already-notified workers
-    if (alreadyNotifiedIds.length > 0) {
-      query.andWhere('worker.id NOT IN (:...excludeIds)', { excludeIds: alreadyNotifiedIds });
+    if (excluded.length > 0) {
+      query.andWhere('worker.id NOT IN (:...excludeIds)', { excludeIds: excluded });
     }
 
     const workers = await query.getMany();
