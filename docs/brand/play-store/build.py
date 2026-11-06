@@ -38,10 +38,15 @@ CAPTIONS = {
     '01': {'pt': 'Turnos perto de ti,\ncom o valor à vista', 'en': 'Shifts near you,\npay shown upfront'},
     '02': {'pt': 'Vê o local, o horário\ne o valor antes de te candidatares', 'en': 'See the place, the hours\nand the pay before you apply'},
     '03': {'pt': 'Tu decides quando trabalhas.\nDesliga quando estás ocupado', 'en': 'You decide when you work.\nSwitch it off when busy'},
-    '04': {'pt': 'Recebes o valor bruto,\npago pela empresa', 'en': 'You receive the full gross,\npaid by the company'},
-    '05': {'pt': 'Grátis para trabalhadores.\nSem comissões', 'en': 'Free for workers.\nNo commission'},
+    '04': {'pt': 'Todos os teus turnos,\nnum só lugar', 'en': 'All your shifts,\nin one place'},
+    # "money", never "cash": cash payment was retired 2026-07-29 (listing.md).
+    '05': {'pt': 'Transforma o teu tempo em dinheiro.\nAcompanha cada euro', 'en': 'Turn your time into money.\nTrack every euro'},
     '06': {'pt': 'Um scan à entrada\ne estás de turno', 'en': 'One scan at the door\nand you are on shift'},
 }
+
+# Which caption languages to render. Since 2026-11-06 the raw captures are the
+# English app, used for both store languages — so only the EN set is built.
+LANGS = ['en']
 
 
 def gradient(w: int, h: int) -> Image.Image:
@@ -135,33 +140,58 @@ def build_headers():
             print('wrote', name)
 
 
+# Screenshot targets: (width, height, filename prefix). Apple wants an iPhone
+# 6.3" size (1206x2622 — also accepted for 6.1").
+SCREENSHOT_TARGETS = [
+    (1080, 1920, 'screenshot'),                    # Google Play
+    (1206, 2622, 'apple-screenshot-1206x2622'),    # App Store iPhone 6.3"
+]
+# The raw captures come from an iPhone (TestFlight). Its status bar (clock,
+# Dynamic Island) is cropped off for both stores, so neither store's images
+# show the other platform's UI. The clock and icons end ~5% down on a
+# 1179x2556 capture; 0.07 clipped the My Shifts title, so 0.058.
+STATUS_BAR_CROP = 0.058
+
+
 def build_screenshots():
-    W, H = 1080, 1920
     raws = sorted(p for p in RAW.glob('*') if p.suffix.lower() in ('.png', '.jpg', '.jpeg'))
     for raw in raws:
         num = raw.stem[:2]
         if num not in CAPTIONS:
             print(f'skip {raw.name}: no caption for "{num}"')
             continue
-        shot = Image.open(raw).convert('RGB')
-        sw = 800
-        shot = shot.resize((sw, round(shot.height * sw / shot.width)), Image.LANCZOS)
-        for lang, caption in CAPTIONS[num].items():
-            img = gradient(W, H).convert('RGBA')
-            d = ImageDraw.Draw(img)
-            f = ImageFont.truetype(FONT_BOLD, 62)
-            bottom = text_block(d, caption, f, W / 2, 110, (255, 255, 255, 255), spacing=14)
-            top = int(bottom + 70)
-            visible = shot.crop((0, 0, sw, min(shot.height, H - top + 60)))
-            phone = rounded(visible, 44)
-            shadow = Image.new('RGBA', (phone.width + 80, phone.height + 80), (0, 0, 0, 0))
-            ImageDraw.Draw(shadow).rounded_rectangle((40, 50, 40 + phone.width, 50 + phone.height), 44, fill=(30, 20, 90, 110))
-            shadow = shadow.filter(ImageFilter.GaussianBlur(24))
-            x = (W - phone.width) // 2
-            img.alpha_composite(shadow, (x - 40, top - 40))
-            img.alpha_composite(phone, (x, top))
-            img.convert('RGB').save(OUT / f'screenshot-{num}-{lang}.png', optimize=True)
-            print('wrote', f'screenshot-{num}-{lang}.png')
+        original = Image.open(raw).convert('RGB')
+        cropped = original.crop((0, round(original.height * STATUS_BAR_CROP), original.width, original.height))
+        for W, H, prefix in SCREENSHOT_TARGETS:
+            s = W / 1080  # everything below was designed at 1080 wide
+            r = round(44 * s)
+            for lang in LANGS:
+                caption = CAPTIONS[num][lang]
+                img = gradient(W, H).convert('RGBA')
+                d = ImageDraw.Draw(img)
+                f = ImageFont.truetype(FONT_BOLD, round(62 * s))
+                bottom = text_block(d, caption, f, W / 2, round(110 * s), (255, 255, 255, 255), spacing=round(14 * s))
+                top = int(bottom + 70 * s)
+                # Play (16:9) shows the top of the screen, cut at the bottom edge.
+                # A taller canvas fits the whole screen: grow the phone until it
+                # reaches a bottom margin instead of leaving an empty band.
+                sw = round(800 * s)
+                fit_w = int((H - top - 110 * s) * cropped.width / cropped.height)
+                if fit_w > sw:
+                    sw = min(fit_w, round(W * 0.86))
+                shot = cropped.resize((sw, round(cropped.height * sw / cropped.width)), Image.LANCZOS)
+                visible = shot.crop((0, 0, sw, min(shot.height, H - top + round(60 * s))))
+                phone = rounded(visible, r)
+                pad = round(40 * s)
+                shadow = Image.new('RGBA', (phone.width + 2 * pad, phone.height + 2 * pad), (0, 0, 0, 0))
+                ImageDraw.Draw(shadow).rounded_rectangle((pad, pad + round(10 * s), pad + phone.width, pad + round(10 * s) + phone.height), r, fill=(30, 20, 90, 110))
+                shadow = shadow.filter(ImageFilter.GaussianBlur(round(24 * s)))
+                x = (W - phone.width) // 2
+                img.alpha_composite(shadow, (x - pad, top - pad))
+                img.alpha_composite(phone, (x, top))
+                name = f'{prefix}-{num}-{lang}.png'
+                img.convert('RGB').save(OUT / name, optimize=True)
+                print('wrote', name)
 
 
 if __name__ == '__main__':
