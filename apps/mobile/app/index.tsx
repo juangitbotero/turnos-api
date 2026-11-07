@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import {
   colors, spacing, radius, fontSize, fontWeight, ShiftCategory,
   PAYMENT_METHOD_LABELS, PaymentMethod,
@@ -28,6 +28,7 @@ function toFeedItem(s: ShiftSummary, fmt: {
   return {
     id: s.id,
     title: s.title || s.subcategory,
+    employerId: s.employer?.id ?? null,
     employerName: s.employer?.companyName ?? '—',
     category: s.category as ShiftCategory,
     subcategory: s.subcategory,
@@ -60,6 +61,8 @@ export default function FeedScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [workerName, setWorkerName]       = useState<string | null>(null);
   const [profileScore, setProfileScore]   = useState<number | null>(null); // null until loaded
+  // Companies the worker blocked (guideline 1.2) — their shifts never show
+  const [blocked, setBlocked]             = useState<string[]>([]);
   const router = useRouter();
   const { t, fDateRange, fSmartDate } = useT();
 
@@ -70,6 +73,12 @@ export default function FeedScreen() {
       setProfileScore(p.profileQualityScore ?? 0);
     }).catch(() => {});
   }, []);
+
+  // Re-read the block list each time the feed is shown, so a company blocked
+  // from a shift's page disappears as soon as the worker comes back.
+  useFocusEffect(useCallback(() => {
+    authApi.getMe().then(p => setBlocked(p.blockedEmployerIds ?? [])).catch(() => {});
+  }, []));
 
   // All open shifts once; category and date are filtered here, so the filter
   // sheet can count results live and several categories can be combined.
@@ -91,9 +100,10 @@ export default function FeedScreen() {
   useEffect(() => { loadShifts(); }, [loadShifts]);
 
   const matchesSearch = (sh: ReturnType<typeof toFeedItem>) =>
-    !searchQuery ||
-    sh.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    sh.employerName.toLowerCase().includes(searchQuery.toLowerCase());
+    !(sh.employerId && blocked.includes(sh.employerId)) && (
+      !searchQuery ||
+      sh.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      sh.employerName.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const countFor = (f: FeedFilters) =>
     shifts.filter(sh => matchesSearch(sh) && matchesFilters(f, sh.category, sh.days)).length;

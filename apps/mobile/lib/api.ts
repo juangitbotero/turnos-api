@@ -166,6 +166,8 @@ export const authApi = {
     bio?: string | null; contactEmail?: string | null;
     skills?: string[]; languages?: string[]; availableDays?: string[];
     isAvailableForWork?: boolean;
+    /** Companies the worker blocked — the feed hides their shifts. */
+    blockedEmployerIds?: string[];
     experiences?: WorkerExperience[];
     /** Roles with level + tasks. `provisional` ones were migrated and await the worker's confirmation. */
     roles?: WorkerRole[];
@@ -481,6 +483,18 @@ export const shiftApi = {
   /** Apply with optional short cover note (max 200 chars) */
   apply: (id: string, coverNote?: string) =>
     api.post<{ id: string; status: string }>(`/shifts/${id}/apply`, { coverNote }),
+
+  /** Report a shift (guideline 1.2) — reason is one of SHIFT_REPORT_REASONS. */
+  report: (id: string, reason: string, note?: string) =>
+    api.post<{ message: string }>(`/shifts/${id}/report`, { reason, note }),
+
+  /** Block / unblock a company: its shifts disappear from the feed. */
+  blockEmployer: (employerId: string) =>
+    api.post<{ blockedEmployerIds: string[] }>(`/shifts/blocked-employers/${employerId}`, {}),
+  unblockEmployer: (employerId: string) =>
+    api.delete<{ blockedEmployerIds: string[] }>(`/shifts/blocked-employers/${employerId}`),
+  blockedEmployers: () =>
+    api.get<Array<{ id: string; companyName: string }>>('/shifts/blocked-employers'),
 
   /** Confirm pre-selection — moves shift to FILLED */
   confirm: (id: string) =>

@@ -9,6 +9,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   colors, spacing, radius, fontSize, fontWeight, calculateTSU, PaymentMethod,
   meetsRoleLevel, normalizeSkill, WorkerRole, roleNeedsCertificate,
+  SHIFT_REPORT_REASONS, ShiftReportReason,
 } from '@turnos/shared';
 import {
   shiftApi, ShiftSummary, MyApplication, ApiError,
@@ -58,6 +59,10 @@ export default function ShiftDetailScreen() {
   const [showSchedule, setShowSchedule] = useState(false);
   const [inCalendar, setInCalendar]     = useState(false);
   const [syncingCalendar, setSyncingCalendar] = useState(false);
+  const [showReport, setShowReport]   = useState(false);
+  const [reportReason, setReportReason] = useState<ShiftReportReason | null>(null);
+  const [reportNote, setReportNote]   = useState('');
+  const [sendingReport, setSendingReport] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -225,6 +230,66 @@ export default function ShiftDetailScreen() {
     }
   };
 
+  // ── report / block (App Store guideline 1.2) ──────────────────────────────
+
+  const companyName = shift?.employer?.companyName ?? t('common.company');
+
+  const openOptions = () => {
+    if (!shift) return;
+    const buttons: Parameters<typeof Alert.alert>[2] = [
+      { text: t('mobile.report.reportShift'), onPress: () => { setReportReason(null); setReportNote(''); setShowReport(true); } },
+    ];
+    if (shift.employer?.id) {
+      buttons.push({ text: t('mobile.report.blockCompany', { company: companyName }), style: 'destructive', onPress: confirmBlock });
+    }
+    buttons.push({ text: t('common.cancel'), style: 'cancel' });
+    Alert.alert(t('mobile.report.menuTitle'), undefined, buttons);
+  };
+
+  const handleSendReport = async () => {
+    if (!shift) return;
+    if (!reportReason) { Alert.alert(t('mobile.report.title'), t('mobile.report.chooseReason')); return; }
+    setSendingReport(true);
+    try {
+      const { message } = await shiftApi.report(shift.id, reportReason, reportNote.trim() || undefined);
+      Keyboard.dismiss();
+      setShowReport(false);
+      Alert.alert(t('mobile.report.sentTitle'), message);
+    } catch (err) {
+      Alert.alert(t('common.error'), err instanceof ApiError ? err.message : t('mobile.report.error'));
+    } finally {
+      setSendingReport(false);
+    }
+  };
+
+  const confirmBlock = () => {
+    const employerId = shift?.employer?.id;
+    if (!employerId) return;
+    Alert.alert(
+      t('mobile.report.blockTitle', { company: companyName }),
+      t('mobile.report.blockBody'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('mobile.report.blockConfirm'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await shiftApi.blockEmployer(employerId);
+              Alert.alert(
+                t('mobile.report.blockedTitle'),
+                t('mobile.report.blockedBody', { company: companyName }),
+                [{ text: 'OK', onPress: () => router.back() }],
+              );
+            } catch (err) {
+              Alert.alert(t('common.error'), err instanceof ApiError ? err.message : t('mobile.report.error'));
+            }
+          },
+        },
+      ],
+    );
+  };
+
   // ── open address in native maps app ───────────────────────────────────────
 
   const openInMaps = (address: string) => {
@@ -309,6 +374,15 @@ export default function ShiftDetailScreen() {
           <Text style={styles.headerTitle} numberOfLines={1}>
             {shift.title || shift.subcategory}
           </Text>
+          {/* Report this shift / block the company (guideline 1.2) */}
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={openOptions}
+            activeOpacity={0.7}
+            accessibilityLabel={t('mobile.report.menuTitle')}
+          >
+            <Ionicons name="ellipsis-horizontal" size={22} color={colors.textPrimary} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.content}>
@@ -722,6 +796,63 @@ export default function ShiftDetailScreen() {
         </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* ── Report sheet (guideline 1.2) ─────────────────────────────────── */}
+      <Modal visible={showReport} transparent animationType="slide" onRequestClose={() => setShowReport(false)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => { Keyboard.dismiss(); setShowReport(false); }}>
+          <View style={styles.sheet} onStartShouldSetResponder={() => { Keyboard.dismiss(); return true; }}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>{t('mobile.report.title')}</Text>
+            <Text style={styles.sheetSub}>{t('mobile.report.sub')}</Text>
+            <View style={styles.reasonList}>
+              {SHIFT_REPORT_REASONS.map(r => {
+                const selected = reportReason === r;
+                return (
+                  <TouchableOpacity
+                    key={r}
+                    style={[styles.reasonRow, selected && styles.reasonRowSelected]}
+                    onPress={() => setReportReason(r)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={selected ? 'radio-button-on' : 'radio-button-off'}
+                      size={18}
+                      color={selected ? colors.primary : colors.textSecondary}
+                    />
+                    <Text style={styles.reasonText}>{t(`mobile.report.reasons.${r}`)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TextInput
+              style={[styles.coverInput, { height: 72 }]}
+              value={reportNote}
+              onChangeText={text => setReportNote(text.replace(/\n/g, ' ').slice(0, 500))}
+              placeholder={t('mobile.report.notePlaceholder')}
+              placeholderTextColor={colors.textSecondary}
+              multiline
+              maxLength={500}
+              returnKeyType="done"
+              submitBehavior="blurAndSubmit"
+            />
+            <TouchableOpacity
+              style={[styles.completeBtnPrimary, (!reportReason || sendingReport) && { opacity: 0.6 }]}
+              onPress={handleSendReport}
+              disabled={sendingReport}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.completeBtnText}>
+                {sendingReport ? t('mobile.report.sending') : t('mobile.report.send')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.completeBtnSecondary} onPress={() => setShowReport(false)}>
+              <Text style={styles.completeBtnSecText}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -992,4 +1123,12 @@ const styles = StyleSheet.create({
     height: 100, textAlignVertical: 'top',
   },
   charCount: { fontSize: 11, color: colors.textSecondary, textAlign: 'right', marginTop: -4 },
+  reasonList: { gap: 6 },
+  reasonRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 10, paddingHorizontal: spacing.md,
+    borderWidth: 1.5, borderColor: colors.neutral, borderRadius: radius.md,
+  },
+  reasonRowSelected: { borderColor: colors.primary, backgroundColor: '#eef0ff' },
+  reasonText: { flex: 1, fontSize: fontSize.body, color: colors.textPrimary },
 });

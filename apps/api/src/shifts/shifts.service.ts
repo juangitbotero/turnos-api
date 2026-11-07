@@ -18,10 +18,12 @@ import {
   meetsRoleLevel, resolveWorkerRoles, translateSkill,
   normalizeSkills as normalizeSkillList, ROLE_CONFIRMED_MIN_SHIFTS,
   CERTIFIED_ROLES, roleNeedsCertificate, isRoleUsable,
+  SHIFT_REPORT_REASONS, ShiftReportReason,
 } from '@turnos/shared';
 import { Shift, ShiftStatus } from './entities/shift.entity';
 import { ShiftApplication, ApplicationStatus } from './entities/shift-application.entity';
 import { ShiftRequest } from './entities/shift-request.entity';
+import { ShiftReport } from './entities/shift-report.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { Worker } from '../users/entities/worker.entity';
 import { ShiftsGateway } from '../gateway/shifts.gateway';
@@ -38,6 +40,7 @@ import { lisbonDate, lisbonDateTime } from '../common/lisbon-time';
 import { notificationPrefsOf } from '../users/notification-prefs';
 import { releasePendingOffer, scheduleOfferTimers } from './offer-release';
 import { closeApplications } from './application-closing';
+import { isLookupKey } from '../common/lookup-key';
 
 // 5 hours in milliseconds — delay before re-notification job fires
 const RE_NOTIFY_DELAY_MS = 5 * 60 * 60 * 1000;
@@ -116,6 +119,8 @@ export class ShiftsService {
     private employerRepo: Repository<Employer>,
     @InjectRepository(Worker)
     private workerRepo: Repository<Worker>,
+    @InjectRepository(ShiftReport)
+    private reportRepo: Repository<ShiftReport>,
     @InjectQueue('shift-notifications')
     private notificationQueue: Queue,
     private readonly gateway: ShiftsGateway,
@@ -1808,6 +1813,94 @@ export class ShiftsService {
     }
   }
 
+  // ── Report a shift / block a company (App Store guideline 1.2, 2026-11-07) ─
+
+  /**
+   * A worker reports a shift. Stored once per worker per shift (a second report
+   * updates it) and sent to the team as an ops case, to be looked at within
+   * 24h. Nothing is hidden automatically — a person decides.
+   */
+  async reportShift(userId: string, shiftId: string, reason: string, note?: string): Promise<{ message: string }> {
+    const worker = await this.resolveWorker(userId);
+    if (!SHIFT_REPORT_REASONS.includes(reason as ShiftReportReason)) {
+      throw new BadRequestException(t('api.shifts.reportReasonInvalid'));
+    }
+    const shift = await this.shiftRepo.findOne({ where: { id: shiftId }, relations: ['employer', 'employer.user'] });
+    if (!shift) throw new NotFoundException(t('api.common.shiftNotFound'));
+    const cleanNote = note?.trim().slice(0, 500) || null;
+
+    const existing = await this.reportRepo.findOne({ where: { shift: { id: shift.id }, worker: { id: worker.id } } });
+    const report = existing ?? this.reportRepo.create({ shift: { id: shift.id } as Shift, worker: { id: worker.id } as Worker });
+    report.reason = reason;
+    report.note = cleanNote;
+    const saved = await this.reportRepo.save(report);
+    const total = await this.reportRepo.count({ where: { shift: { id: shift.id } } });
+
+    const REASON_PT: Record<ShiftReportReason, string> = {
+      MISLEADING: 'Informação enganosa (valor, horário, local)',
+      ILLEGAL: 'Trabalho ilegal ou perigoso',
+      DISCRIMINATION: 'Requisitos discriminatórios',
+      SCAM: 'Burla — pede dinheiro ou dados pessoais',
+      OFFENSIVE: 'Conteúdo ofensivo',
+      OTHER: 'Outro',
+    };
+    void this.mail.sendOpsAlert({
+      ref: opsRef('REP', saved.id),
+      kind: 'Turno reportado por um trabalhador',
+      subjectParts: [shift.employer?.companyName, REASON_PT[reason as ShiftReportReason]],
+      summary: `${worker.fullName ?? 'Um trabalhador'} reportou o turno "${shift.title || shift.subcategory}" de ${shift.employer?.companyName ?? '—'}.`,
+      facts: [
+        ['Motivo', REASON_PT[reason as ShiftReportReason]],
+        ['Nota do trabalhador', cleanNote],
+        ['Turno', joinParts(shift.title || shift.subcategory, ptDate(shift.date), `${shift.startTime.slice(0, 5)}–${shift.endTime.slice(0, 5)}`, shift.address)],
+        ['Valor por hora', eur(Number(shift.grossHourlyRate))],
+        ['Descrição do turno', shift.description],
+        ['Empresa', joinParts(shift.employer?.companyName, shift.employer?.nipc ? `NIPC ${shift.employer.nipc}` : null)],
+        ['Email da empresa', shift.employer?.user?.email],
+        ['Trabalhador', worker.fullName],
+        ['Reports a este turno', String(total)],
+        ['Registado em', lisbonStamp(new Date())],
+      ],
+      steps: [
+        'Ler o anúncio e decidir se viola os termos para empresas (informação falsa, trabalho ilegal, discriminação, burla).',
+        'Se violar: cancelar o turno e falar com a empresa; se for grave ou repetido, suspender a conta da empresa.',
+        'Responder ao trabalhador com o resultado.',
+      ],
+      deadline: deadlineIn(24),
+      contacts: [{ label: 'Escrever à empresa', email: shift.employer?.user?.email }],
+    });
+    this.logger.warn(`[Report] Shift ${shift.id} reported by worker ${worker.id} (${reason})`);
+    return { message: t('api.shifts.reportReceived') };
+  }
+
+  async blockEmployer(userId: string, employerId: string): Promise<{ blockedEmployerIds: string[] }> {
+    const worker = await this.resolveWorker(userId);
+    if (!isLookupKey(employerId) || !(await this.employerRepo.exists({ where: { id: employerId } }))) {
+      throw new NotFoundException(t('api.shifts.companyNotFound'));
+    }
+    const ids = new Set(worker.blockedEmployerIds ?? []);
+    ids.add(employerId);
+    worker.blockedEmployerIds = [...ids];
+    await this.workerRepo.update({ id: worker.id }, { blockedEmployerIds: worker.blockedEmployerIds });
+    return { blockedEmployerIds: worker.blockedEmployerIds };
+  }
+
+  async unblockEmployer(userId: string, employerId: string): Promise<{ blockedEmployerIds: string[] }> {
+    const worker = await this.resolveWorker(userId);
+    worker.blockedEmployerIds = (worker.blockedEmployerIds ?? []).filter(id => id !== employerId);
+    await this.workerRepo.update({ id: worker.id }, { blockedEmployerIds: worker.blockedEmployerIds });
+    return { blockedEmployerIds: worker.blockedEmployerIds };
+  }
+
+  /** The worker's blocked companies, with names for the profile list. */
+  async listBlockedEmployers(userId: string): Promise<Array<{ id: string; companyName: string }>> {
+    const worker = await this.resolveWorker(userId);
+    const ids = worker.blockedEmployerIds ?? [];
+    if (!ids.length) return [];
+    const rows = await this.employerRepo.find({ where: { id: In(ids) } });
+    return rows.map(e => ({ id: e.id, companyName: e.companyName }));
+  }
+
   /**
    * No photo, no work (2026-11-06): the company recognises the worker at
    * check-in by their profile photo and ID document.
@@ -1840,6 +1933,9 @@ export class ShiftsService {
     if (!worker) throw new NotFoundException('Worker not found');
     this.assertWorkerIsAdult(worker, shift.date, 'employer');
     this.assertWorkerHasPhoto(worker, 'employer');
+    // A worker who blocked this company can't be invited by it. Same wording
+    // as an unknown worker: the company is not told it was blocked.
+    if ((worker.blockedEmployerIds ?? []).includes(employer.id)) throw new NotFoundException('Worker not found');
     // A direct invite skips apply(), so it gets the rest-period check here
     await this.compliance.assertRestPeriod(worker, shift, 'employer');
 

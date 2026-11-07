@@ -10,7 +10,7 @@ import {
   colors, spacing, radius, fontSize, fontWeight, STORED_WEEKDAYS,
   WorkerExperience, WorkerRole, ROLE_CONFIRMED_MIN_SHIFTS, APP_LANGUAGES, APP_LANGUAGE_LABELS, AppLanguage, SUPPORT_EMAIL,
 } from '@turnos/shared';
-import { authApi, ApiError } from '../lib/api';
+import { authApi, shiftApi, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
 import { disconnectSocket } from '../lib/socket';
 import { useT, useLanguage } from '../lib/i18n';
@@ -125,6 +125,8 @@ export default function ProfileScreen() {
   const [profile, setProfile]     = useState<WorkerProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError]         = useState('');
+  // Companies blocked from a shift's page (guideline 1.2), with Unblock here
+  const [blockedCompanies, setBlockedCompanies] = useState<Array<{ id: string; companyName: string }>>([]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -132,6 +134,7 @@ export default function ProfileScreen() {
     try {
       const data = await authApi.getMe();
       setProfile(data as WorkerProfile);
+      shiftApi.blockedEmployers().then(setBlockedCompanies).catch(() => {});
       // The written reviews themselves live on /reviews and are fetched there.
       // /auth/me already carries avgRating and totalRatings, which is all the
       // header star row and the reviews CTA need.
@@ -177,6 +180,27 @@ export default function ProfileScreen() {
     await setLanguage(lang);
     authApi.updateWorkerPartial({ preferredLanguage: lang }).catch(() => {});
   }, [setLanguage]);
+
+  const handleUnblock = (company: { id: string; companyName: string }) => {
+    Alert.alert(
+      t('mobile.report.unblockTitle', { company: company.companyName }),
+      t('mobile.report.unblockBody'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('mobile.report.unblock'),
+          onPress: async () => {
+            try {
+              await shiftApi.unblockEmployer(company.id);
+              setBlockedCompanies(prev => prev.filter(c => c.id !== company.id));
+            } catch {
+              Alert.alert(t('common.error'), t('mobile.report.error'));
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -466,6 +490,24 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          {/* ── Blocked companies (guideline 1.2) ── */}
+          <View style={s.card}>
+            <View style={s.cardHeaderRow}>
+              <Ionicons name="ban-outline" size={15} color={colors.primary} />
+              <Text style={s.cardTitle}>{t('mobile.report.blockedListTitle')}</Text>
+            </View>
+            {blockedCompanies.length === 0 ? (
+              <Text style={s.langSub}>{t('mobile.report.blockedListEmpty')}</Text>
+            ) : blockedCompanies.map(c => (
+              <View key={c.id} style={s.blockedRow}>
+                <Text style={s.blockedName} numberOfLines={1}>{c.companyName}</Text>
+                <TouchableOpacity onPress={() => handleUnblock(c)} activeOpacity={0.7}>
+                  <Text style={s.unblockText}>{t('mobile.report.unblock')}</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+
           {/* ── Earnings CTA ── */}
           <TouchableOpacity style={s.ctaBtn} onPress={() => router.push('/earnings' as any)} activeOpacity={0.85}>
             <View style={[s.ctaIcon, { backgroundColor: '#eef0ff' }]}>
@@ -751,6 +793,9 @@ const s = StyleSheet.create({
   logoutText: { color: '#dc2626', fontSize: fontSize.body, fontWeight: fontWeight.bold as any },
 
   deleteAccountBtn: { alignItems: 'center', paddingVertical: spacing.sm },
+  blockedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6, gap: 12 },
+  blockedName: { flex: 1, fontSize: fontSize.body, color: colors.textPrimary },
+  unblockText: { fontSize: fontSize.caption, fontWeight: fontWeight.bold as any, color: colors.primary },
   deleteAccountText: {
     color: colors.textSecondary, fontSize: fontSize.caption,
     fontWeight: fontWeight.semibold as any, textDecorationLine: 'underline',

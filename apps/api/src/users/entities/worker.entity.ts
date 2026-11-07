@@ -86,6 +86,14 @@ export class Worker {
   @Column({ type: 'boolean', default: true })
   isAvailableForWork: boolean;
 
+  /**
+   * Companies this worker blocked (2026-11-07, App Store guideline 1.2): their
+   * shifts are hidden from the feed, they send no new-shift pushes to this
+   * worker and cannot invite them. Undone from the profile.
+   */
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  blockedEmployerIds: string[];
+
   @Column({ type: 'simple-array', nullable: true })
   availableDays?: string[];         // e.g. ['Seg', 'Ter', 'Sex']
 

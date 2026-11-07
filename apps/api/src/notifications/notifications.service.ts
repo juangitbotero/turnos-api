@@ -102,6 +102,11 @@ export class NotificationsService {
       );
     }
 
+    // Workers who blocked this company never hear about its shifts
+    if (isLookupKey(employerId)) {
+      query.andWhere(`NOT (COALESCE(worker."blockedEmployerIds", '[]'::jsonb) @> jsonb_build_array(CAST(:employerId AS text)))`, { employerId });
+    }
+
     // Exclude already-notified workers
     if (excluded.length > 0) {
       query.andWhere('worker.id NOT IN (:...excludeIds)', { excludeIds: excluded });

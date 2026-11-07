@@ -130,6 +130,37 @@ export class ShiftsController {
     });
   }
 
+  /** Worker reports a shift (guideline 1.2) — opens an ops case. */
+  @Post(':id/report')
+  @Roles('WORKER')
+  report(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+    @Body('note') note?: string,
+  ) {
+    return this.shiftsService.reportShift(req.user.userId, id, String(reason ?? ''), typeof note === 'string' ? note : undefined);
+  }
+
+  /** Companies the worker blocked — their shifts are hidden and they can't invite. */
+  @Get('blocked-employers')
+  @Roles('WORKER')
+  listBlockedEmployers(@Request() req: any) {
+    return this.shiftsService.listBlockedEmployers(req.user.userId);
+  }
+
+  @Post('blocked-employers/:employerId')
+  @Roles('WORKER')
+  blockEmployer(@Request() req: any, @Param('employerId') employerId: string) {
+    return this.shiftsService.blockEmployer(req.user.userId, employerId);
+  }
+
+  @Delete('blocked-employers/:employerId')
+  @Roles('WORKER')
+  unblockEmployer(@Request() req: any, @Param('employerId') employerId: string) {
+    return this.shiftsService.unblockEmployer(req.user.userId, employerId);
+  }
+
   @Post(':id/apply')
   @Roles('WORKER')
   apply(

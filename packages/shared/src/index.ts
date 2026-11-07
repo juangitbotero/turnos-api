@@ -717,6 +717,13 @@ export const WORKER_CANCEL_REASONS = {
 } as const;
 export type WorkerCancelReason = keyof typeof WORKER_CANCEL_REASONS;
 
+/**
+ * Why a worker reports a shift (App Store guideline 1.2, 2026-11-07). Labels
+ * in `mobile.report.reasons.*`; the ops email uses the PT one.
+ */
+export const SHIFT_REPORT_REASONS = ['MISLEADING', 'ILLEGAL', 'DISCRIMINATION', 'SCAM', 'OFFENSIVE', 'OTHER'] as const;
+export type ShiftReportReason = typeof SHIFT_REPORT_REASONS[number];
+
 // ─── Multi-day shift series ───────────────────────────────────────────────────
 
 /**

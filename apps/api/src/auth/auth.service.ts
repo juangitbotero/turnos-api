@@ -434,6 +434,8 @@ export class AuthService {
         skills:              normalizeSkills(worker?.skills),
         languages:           worker?.languages           ?? [],
         isAvailableForWork:  worker?.isAvailableForWork  ?? true,
+        // The feed hides these companies' shifts (guideline 1.2 block)
+        blockedEmployerIds:  worker?.blockedEmployerIds  ?? [],
         preferredLanguage:   worker?.preferredLanguage   ?? 'pt',
         availableDays:       worker?.availableDays       ?? [],
         experiences:         worker?.experiences         ?? [],
