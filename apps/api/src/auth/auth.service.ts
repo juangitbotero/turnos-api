@@ -14,6 +14,7 @@ import { Twilio } from 'twilio';
 import {
   isValidNIF, isValidIBAN, isValidNIPC, isValidPostalCode,
   WorkerExperience, WorkerRole, resolveWorkerRoles, normalizeSkills, TERMS_VERSIONS,
+  isSignInPhone,
 } from '@turnos/shared';
 import { t } from '../i18n/request-language';
 import { isLookupKey } from '../common/lookup-key';
@@ -86,6 +87,13 @@ export class AuthService {
 
     // The reviewer's number never gets an SMS — they type the fixed code.
     if (isReviewPhone(this.reviewLogin, phone)) return true;
+
+    // Only the countries the app offers (SIGN_IN_COUNTRIES). Anyone can call
+    // this endpoint directly, and SMS to arbitrary countries is how fake
+    // sign-ups run up a bill — refused here before Twilio is ever asked.
+    if (!isSignInPhone(phone)) {
+      throw new BadRequestException(t('api.auth.phoneCountryUnsupported'));
+    }
 
     if (this.twilioReady) {
       try {

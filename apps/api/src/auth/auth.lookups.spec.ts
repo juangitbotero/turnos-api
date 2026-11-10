@@ -1,4 +1,4 @@
-import { ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { JwtStrategy } from './jwt.strategy';
@@ -77,6 +77,15 @@ describe('auth lookups fail closed on missing input', () => {
     (prod as any).mockOtpStore.set('+351912345678', '123456');
     await expect(prod.verifyOtp('+351912345678', '123456')).rejects.toBeInstanceOf(UnauthorizedException);
     expect((prod as any).generateTokens).not.toHaveBeenCalled();
+  });
+
+  it('send-otp refuses a country that is not on the sign-in list', async () => {
+    const { users } = makeUsers();
+    const auth = makeAuth(users, true);
+    await expect(auth.sendOtp('+5511987654321')).rejects.toBeInstanceOf(BadRequestException); // Brazil
+    await expect(auth.sendOtp('+14155550100')).rejects.toBeInstanceOf(BadRequestException);   // US
+    await expect(auth.sendOtp('+4915112345678')).resolves.toBe(true);                         // Germany
+    await expect(auth.sendOtp('+380501234567')).resolves.toBe(true);                          // Ukraine
   });
 
   it('employer login without an email is refused before any lookup', async () => {

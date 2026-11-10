@@ -72,6 +72,15 @@ aren't.
    returns an entity with a `worker` relation); `DashboardShell` on phones;
    Google sign-in for companies (Track 5). Wanted improvements: Track 5.
 
+11. **Sign-in countries (2026-11-10).** `SIGN_IN_COUNTRIES` in shared: Portugal
+    + 15 European countries (AT, BE, CH, DE, DK, ES, FI, FR, GB, IE, IT, NL, NO,
+    PL, UA) — the same list Juanes allowed in Twilio → Verify → Fraud & Geo
+    Permissions; **change both together**. The API refuses any other country
+    before asking Twilio (server-only, live once deployed). The app picker with
+    the 16 countries, scrolling, and the stripped national "0" needs the
+    **next app build** (iOS 4 / Android 19) — the approved builds still show
+    PT, ES, GB, FR. Not opened on purpose: every other country (Brazil is the
+    one to consider next — most of Lisbon's foreign hospitality workers).
 10. **Both stores approved (2026-11-10)** — iOS build 3 and Android
     versionCode 18; neither published yet. Order agreed: Twilio (#1) → clean-up
     → Stripe live (#5) → publish → pilots post shifts → waitlist email (Flodesk,

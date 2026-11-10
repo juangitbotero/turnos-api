@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, Alert, Pressable, Linking,
+  KeyboardAvoidingView, Platform, Alert, Pressable, Linking, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session/providers/google';
-import { colors, spacing, radius, fontSize, fontWeight } from '@turnos/shared';
+import { colors, spacing, radius, fontSize, fontWeight, SIGN_IN_COUNTRIES } from '@turnos/shared';
 import { authApi, ApiError } from '../lib/api';
 import { tokenStorage } from '../lib/storage';
 import { useT } from '../lib/i18n';
@@ -15,18 +15,14 @@ import { TERMS_URL, PRIVACY_URL } from '../lib/links';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const COUNTRY_CODES = [
-  { code: '+351', flag: '🇵🇹', label: 'PT' },
-  { code: '+34',  flag: '🇪🇸', label: 'ES' },
-  { code: '+44',  flag: '🇬🇧', label: 'GB' },
-  { code: '+33',  flag: '🇫🇷', label: 'FR' },
-] as const;
+// The list lives in shared so the API accepts exactly the same countries
+const COUNTRY_CODES = SIGN_IN_COUNTRIES.map(c => ({ code: c.code, flag: c.flag, label: c.name }));
 
 type CountryCode = { code: string; flag: string; label: string };
 
 export default function LoginScreen() {
   const { t } = useT();
-  const [selectedCountry, setSelectedCountry] = useState<CountryCode>(COUNTRY_CODES[0]);
+  const [selectedCountry, setSelectedCountry] = useState<CountryCode>(COUNTRY_CODES[0]!);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -39,7 +35,9 @@ export default function LoginScreen() {
   });
 
   const handleSendOtp = async () => {
-    const digits = phone.replace(/\D/g, '');
+    // Without the national "0" people type out of habit (06 12… in France,
+    // 07… in the UK): with the country code in front it makes the number invalid.
+    const digits = phone.replace(/\D/g, '').replace(/^0+/, '');
     if (digits.length < 7) {
       Alert.alert(t('mobile.login.invalidPhoneTitle'), t('mobile.login.invalidPhoneBody'));
       return;
@@ -137,7 +135,7 @@ export default function LoginScreen() {
 
         {/* Country dropdown */}
         {showCountryPicker && (
-          <View style={s.dropdown}>
+          <ScrollView style={s.dropdown} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
             {COUNTRY_CODES.map(c => (
               <TouchableOpacity
                 key={c.code}
@@ -149,7 +147,7 @@ export default function LoginScreen() {
                 <Text style={s.dropdownCode}>{c.code}</Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         )}
 
         {/* Continue button */}
@@ -356,6 +354,9 @@ const s = StyleSheet.create({
     borderColor: colors.neutral,
     marginBottom: spacing.md,
     overflow: 'hidden',
+    // 16 countries: about four rows visible, the rest scroll
+    maxHeight: 216,
+    flexGrow: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,

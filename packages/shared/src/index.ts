@@ -718,6 +718,40 @@ export const WORKER_CANCEL_REASONS = {
 export type WorkerCancelReason = keyof typeof WORKER_CANCEL_REASONS;
 
 /**
+ * Countries whose phone numbers can sign in (2026-11-10). People living in
+ * Portugal often keep their home number, so the list is wider than Portugal —
+ * but deliberately not "every country": each one opened is a place fake
+ * sign-ups can run up SMS costs. **Keep it equal to Twilio → Verify → Fraud &
+ * Geo Permissions**: a code listed here but blocked there shows in the app and
+ * then fails to send. Portugal first, then by English name.
+ */
+export const SIGN_IN_COUNTRIES = [
+  { iso: 'PT', code: '+351', flag: '🇵🇹', name: 'Portugal' },
+  { iso: 'AT', code: '+43',  flag: '🇦🇹', name: 'Austria' },
+  { iso: 'BE', code: '+32',  flag: '🇧🇪', name: 'Belgium' },
+  { iso: 'DK', code: '+45',  flag: '🇩🇰', name: 'Denmark' },
+  { iso: 'FI', code: '+358', flag: '🇫🇮', name: 'Finland' },
+  { iso: 'FR', code: '+33',  flag: '🇫🇷', name: 'France' },
+  { iso: 'DE', code: '+49',  flag: '🇩🇪', name: 'Germany' },
+  { iso: 'IE', code: '+353', flag: '🇮🇪', name: 'Ireland' },
+  { iso: 'IT', code: '+39',  flag: '🇮🇹', name: 'Italy' },
+  { iso: 'NL', code: '+31',  flag: '🇳🇱', name: 'Netherlands' },
+  { iso: 'NO', code: '+47',  flag: '🇳🇴', name: 'Norway' },
+  { iso: 'PL', code: '+48',  flag: '🇵🇱', name: 'Poland' },
+  { iso: 'ES', code: '+34',  flag: '🇪🇸', name: 'Spain' },
+  { iso: 'CH', code: '+41',  flag: '🇨🇭', name: 'Switzerland' },
+  { iso: 'UA', code: '+380', flag: '🇺🇦', name: 'Ukraine' },
+  { iso: 'GB', code: '+44',  flag: '🇬🇧', name: 'United Kingdom' },
+] as const;
+
+/** True when the number (E.164, "+351…") belongs to a country that can sign in. */
+export function isSignInPhone(phone: string | null | undefined): boolean {
+  if (typeof phone !== 'string') return false;
+  const p = phone.replace(/[\s-]/g, '');
+  return SIGN_IN_COUNTRIES.some(c => p.startsWith(c.code));
+}
+
+/**
  * Why a worker reports a shift (App Store guideline 1.2, 2026-11-07). Labels
  * in `mobile.report.reasons.*`; the ops email uses the PT one.
  */

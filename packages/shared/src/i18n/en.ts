@@ -2156,6 +2156,7 @@ export const en: Translated<TranslationCatalogue> = {
       rolesInvalidLevel:  'Choose a valid level for each role.',
       certificateRoleInvalid: 'Save this role on your profile first — only roles that require a document accept one.',
       certificateFormat:  'The document must be a photo (JPG/PNG) or a PDF.',
+      phoneCountryUnsupported: "Phone numbers from this country can't sign in yet. Use a number from one of the countries in the list, or write to contact@turnos.cc.",
       nifTaken:           'This NIF is already used by another Turnos account. Each person can only have one account — if this is your NIF, contact support.',
       photoRequired:      'Add a profile photo to save your profile. The company checks your identity when you arrive, so use a clear photo of your face and bring your ID document.',
     },

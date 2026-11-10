@@ -2194,6 +2194,7 @@ export const pt = {
       rolesInvalidLevel:  'Escolhe um nível válido para cada função.',
       certificateRoleInvalid: 'Guarda primeiro esta função no perfil — só funções que exigem documento aceitam um.',
       certificateFormat:  'O documento tem de ser uma foto (JPG/PNG) ou um PDF.',
+      phoneCountryUnsupported: 'Os números deste país ainda não podem entrar. Usa um número de um dos países da lista, ou escreve para contact@turnos.cc.',
       nifTaken:           'Este NIF já está a ser usado noutra conta Turnos. Cada pessoa só pode ter uma conta — se o NIF é teu, contacta o suporte.',
       photoRequired:      'Adiciona uma foto de perfil para guardares o perfil. A empresa confirma a tua identidade à chegada, por isso usa uma foto nítida do teu rosto e leva o teu documento de identificação.',
     },
