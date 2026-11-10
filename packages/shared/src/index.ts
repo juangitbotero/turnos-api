@@ -729,6 +729,7 @@ export const SIGN_IN_COUNTRIES = [
   { iso: 'PT', code: '+351', flag: '🇵🇹', name: 'Portugal' },
   { iso: 'AT', code: '+43',  flag: '🇦🇹', name: 'Austria' },
   { iso: 'BE', code: '+32',  flag: '🇧🇪', name: 'Belgium' },
+  { iso: 'BR', code: '+55',  flag: '🇧🇷', name: 'Brazil' },
   { iso: 'DK', code: '+45',  flag: '🇩🇰', name: 'Denmark' },
   { iso: 'FI', code: '+358', flag: '🇫🇮', name: 'Finland' },
   { iso: 'FR', code: '+33',  flag: '🇫🇷', name: 'France' },
@@ -742,6 +743,9 @@ export const SIGN_IN_COUNTRIES = [
   { iso: 'CH', code: '+41',  flag: '🇨🇭', name: 'Switzerland' },
   { iso: 'UA', code: '+380', flag: '🇺🇦', name: 'Ukraine' },
   { iso: 'GB', code: '+44',  flag: '🇬🇧', name: 'United Kingdom' },
+  // +1 is shared with Canada and the Caribbean; this check lets the prefix
+  // through and Twilio's geo permissions (US only) do the exact filtering.
+  { iso: 'US', code: '+1',   flag: '🇺🇸', name: 'United States' },
 ] as const;
 
 /** True when the number (E.164, "+351…") belongs to a country that can sign in. */

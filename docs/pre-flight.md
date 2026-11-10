@@ -79,8 +79,10 @@ aren't.
     before asking Twilio (server-only, live once deployed). The app picker with
     the 16 countries, scrolling, and the stripped national "0" needs the
     **next app build** (iOS 4 / Android 19) — the approved builds still show
-    PT, ES, GB, FR. Not opened on purpose: every other country (Brazil is the
-    one to consider next — most of Lisbon's foreign hospitality workers).
+    PT, ES, GB, FR. **Brazil and the United States added the same day** (18
+    countries; both allowed in Twilio by Juanes). `+1` also matches Canada and
+    the Caribbean in the API check — Twilio's geo permissions (US only) are
+    what stops those. Every other country stays closed on purpose.
 10. **Both stores approved (2026-11-10)** — iOS build 3 and Android
     versionCode 18; neither published yet. Order agreed: Twilio (#1) → clean-up
     → Stripe live (#5) → publish → pilots post shifts → waitlist email (Flodesk,

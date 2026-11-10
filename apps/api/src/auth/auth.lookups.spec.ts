@@ -82,10 +82,12 @@ describe('auth lookups fail closed on missing input', () => {
   it('send-otp refuses a country that is not on the sign-in list', async () => {
     const { users } = makeUsers();
     const auth = makeAuth(users, true);
-    await expect(auth.sendOtp('+5511987654321')).rejects.toBeInstanceOf(BadRequestException); // Brazil
-    await expect(auth.sendOtp('+14155550100')).rejects.toBeInstanceOf(BadRequestException);   // US
+    await expect(auth.sendOtp('+919876543210')).rejects.toBeInstanceOf(BadRequestException);  // India
+    await expect(auth.sendOtp('+2348012345678')).rejects.toBeInstanceOf(BadRequestException); // Nigeria
     await expect(auth.sendOtp('+4915112345678')).resolves.toBe(true);                         // Germany
     await expect(auth.sendOtp('+380501234567')).resolves.toBe(true);                          // Ukraine
+    await expect(auth.sendOtp('+5511987654321')).resolves.toBe(true);                         // Brazil
+    await expect(auth.sendOtp('+14155550100')).resolves.toBe(true);                           // United States
   });
 
   it('employer login without an email is refused before any lookup', async () => {
