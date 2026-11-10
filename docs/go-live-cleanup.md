@@ -21,11 +21,19 @@ endpoint leak — were removed; their history is in `pre-flight.md`.
 The code uses **Twilio Verify**, not plain SMS. Verify cannot be created on a
 trial account; the account must be upgraded (payment + tax details).
 
-1. Upgrade the Twilio account — under the company's NIPC, not a personal NIF.
+1. Upgrade the Twilio account — under the company's NIPC, not a personal NIF —
+   and get the **Primary Compliance Profile** approved (Trust Hub → Compliance
+   profiles → Primary: company details, representative, certidão permanente).
+   Until it is approved Twilio refuses every number that is not a Verified
+   Caller ID, and the API only says "Failed to send OTP" — the reason is in the
+   Railway log line `Twilio OTP send failed: …`.
 2. Explore Products → **Verify → Services → Create**, name `Turnos`, channel
    SMS. Copy the Service SID (`VA…`).
-3. Verify → Settings → **Geo permissions**: enable Portugal (and France while
-   the `+33` test number is in use).
+3. **Verify → Fraud & Geo Permissions** (Verify has its own list, separate
+   from Messaging): allow SMS for Portugal (and France while the `+33` test
+   number is in use). To test before the profile is approved, add your number
+   under Phone Numbers → Verified Caller IDs — verify it by **Call** if the
+   SMS option is refused.
 4. Railway → API service → Variables:
 
    | Variable | Value |
@@ -34,10 +42,11 @@ trial account; the account must be upgraded (payment + tax details).
    | `TWILIO_AUTH_TOKEN` | from the console dashboard |
    | `TWILIO_VERIFY_SERVICE_SID` | `VA…` from step 2 |
 
-5. Sign in on the APK with a real number — the SMS must arrive.
-6. **Only then** merge branch `otp-prod-gate`. It disables the mock in
-   production and fails closed (503) if any Twilio variable is missing. Merged
-   before step 5, it locks everyone out.
+5. Sign in on the app with a real number — the SMS must arrive.
+6. The production gate (merged 2026-11-10): the mock is disabled in
+   production and sign-in fails closed (503) if any Twilio variable is
+   missing. So never delete a `TWILIO_*` variable in Railway to "get 123456
+   back" — it locks every worker out instead.
 
 **Check:** `grep -rn "123456" apps/api/src/auth/` still finds the mock (dev
 only, by design) — what matters is the `NODE_ENV !== 'production'` gate.

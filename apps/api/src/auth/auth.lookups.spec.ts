@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { JwtStrategy } from './jwt.strategy';
@@ -19,12 +19,15 @@ describe('auth lookups fail closed on missing input', () => {
     return { users, userRepo };
   }
 
-  function makeAuth(users: UsersService) {
+  function makeAuth(users: UsersService, mockOtpEnabled = true) {
     const auth = Object.create(AuthService.prototype) as AuthService;
     Object.assign(auth as any, {
       usersService: users,
       twilioClient: null,
       twilioServiceSid: '',
+      mockOtpEnabled,
+      reviewLogin: null,
+      logger: { debug: jest.fn(), log: jest.fn(), warn: jest.fn(), error: jest.fn() },
       mockOtpStore: new Map<string, string>(),
       redis: { get: jest.fn().mockResolvedValue(null), del: jest.fn() },
       generateTokens: jest.fn().mockResolvedValue({ accessToken: 'a', refreshToken: 'r' }),
@@ -56,6 +59,24 @@ describe('auth lookups fail closed on missing input', () => {
     const { users } = makeUsers();
     const auth = makeAuth(users);
     await expect(auth.verifyOtp('+351912345678', '123456')).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('the mock signs in with 123456 only where it is enabled (never in production)', async () => {
+    const { users } = makeUsers();
+    const dev = makeAuth(users, true);
+    (users as any).findByPhone = jest.fn().mockResolvedValue(firstUser);
+    await dev.sendOtp('+351912345678');
+    await expect(dev.verifyOtp('+351912345678', '123456')).resolves.toMatchObject({ accessToken: 'a' });
+  });
+
+  it('production without Twilio fails closed: no code is sent and 123456 is refused', async () => {
+    const { users } = makeUsers();
+    const prod = makeAuth(users, false);
+    await expect(prod.sendOtp('+351912345678')).rejects.toBeInstanceOf(ServiceUnavailableException);
+    // Even with a code planted in the store, the mock branch is unreachable
+    (prod as any).mockOtpStore.set('+351912345678', '123456');
+    await expect(prod.verifyOtp('+351912345678', '123456')).rejects.toBeInstanceOf(UnauthorizedException);
+    expect((prod as any).generateTokens).not.toHaveBeenCalled();
   });
 
   it('employer login without an email is refused before any lookup', async () => {

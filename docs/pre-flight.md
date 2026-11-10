@@ -187,7 +187,7 @@ you forget.
 
 | # | Blocker | Where | State |
 |---|---|---|---|
-| 1 | Mock OTP `123456` accepts any phone number | `apps/api/src/auth/auth.service.ts:76` | 🔴 Live — **waiting on company registration** (fix ready on branch `otp-prod-gate`) |
+| 1 | Mock OTP `123456` accepts any phone number | `apps/api/src/auth/auth.service.ts` | 🟢 **Closed 2026-11-10.** Twilio Verify live (service "Turnos", Primary Compliance Profile approved the same day — without it Twilio refuses every non-verified number); real SMS sign-in confirmed by Juanes on +33. The `otp-prod-gate` change re-applied by hand on main (the branch was a month stale): in production the mock is unreachable and a missing Twilio variable fails closed with 503; tests in `auth.lookups.spec.ts`. Reviewer sign-in unaffected. The branch itself can be deleted |
 | 2 | Public endpoints leaked billing + worker PII | `GET /api/shifts/search`, `/shifts/:id` | 🟢 **Fixed `dbb95f3`**; applicant list (`/shifts/:id/applications`) leak fixed 2026-09-27 |
 | 3 | Demo seeding endpoint deployed | `apps/api/src/demo/` + `DEMO_SEED_TOKEN` | 🟢 **Done `001a99d`** — code deleted, rows cleaned, variable unset |
 | 4 | CORS open to every origin | `apps/api/src/main.ts` | 🟢 **Fixed `dbb95f3`** |
