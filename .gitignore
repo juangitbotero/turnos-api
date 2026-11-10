@@ -36,6 +36,10 @@ dist
 # NestJS
 .nest-build-cache/
 
+# Files uploaded in local development (profile photos, CVs, payment proofs,
+# licence documents) — personal data, never in git. Production uses R2.
+apps/api/uploads/
+
 
 
 # Debug

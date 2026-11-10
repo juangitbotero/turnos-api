@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<title>Turnos × parceiros de formação</title>
+<!--
+  One-pager for training partners (text: ../partners-upskilling.md §4).
+  Rebuild the PDF from this folder:
+    msedge --headless --disable-gpu --no-pdf-header-footer ^
+      --print-to-pdf="..\turnos-parceiros-formacao.pdf" "parceiros-formacao.html"
+-->
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 210mm; height: 297mm; }
+  body {
+    font-family: "Segoe UI", system-ui, sans-serif; color: #1c1d3a;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    display: flex; flex-direction: column;
+  }
+  header {
+    background: linear-gradient(120deg, #6a79ff 0%, #9b6dff 100%);
+    color: #fff; padding: 15mm 18mm 13mm;
+  }
+  header img { height: 13mm; display: block; margin-bottom: 9mm; }
+  header h1 { font-size: 25pt; font-weight: 700; letter-spacing: -0.4px; line-height: 1.15; }
+  header p { font-size: 13pt; font-weight: 300; margin-top: 3mm; opacity: 0.95; }
+
+  main { flex: 1; padding: 9mm 18mm 5mm; display: flex; flex-direction: column; gap: 6.5mm; }
+  h2 {
+    font-size: 8.5pt; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+    color: #6a79ff; margin-bottom: 2.2mm;
+  }
+  p { font-size: 10.5pt; line-height: 1.5; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 9mm; }
+
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; }
+  .step { border: 1px solid #e3e6ff; border-radius: 4mm; padding: 5mm 5mm 5.5mm; background: #fafbff; }
+  .num {
+    width: 8mm; height: 8mm; border-radius: 50%; background: #6a79ff; color: #fff;
+    font-size: 10.5pt; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    margin-bottom: 3mm;
+  }
+  .step p { font-size: 10pt; line-height: 1.45; }
+  .step small { display: block; font-size: 8.5pt; color: #6b6f8c; margin-top: 1.5mm; }
+
+  .gains { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5mm 9mm; list-style: none; }
+  .gains li { font-size: 10.5pt; line-height: 1.45; padding-left: 5.5mm; position: relative; }
+  .gains li::before {
+    content: ""; position: absolute; left: 0; top: 2.1mm;
+    width: 2.4mm; height: 2.4mm; border-radius: 50%; background: #9b6dff;
+  }
+
+  .pilot {
+    background: #eef0ff; border-radius: 4mm; padding: 5.5mm 7mm;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; text-align: center;
+  }
+  .pilot b { display: block; font-size: 17pt; font-weight: 700; color: #4a57d6; line-height: 1.1; }
+  .pilot span { font-size: 9.5pt; color: #4b4f73; }
+
+  footer {
+    margin: 0 18mm; padding: 5mm 0 11mm; border-top: 1px solid #e3e6ff;
+    display: flex; justify-content: space-between; align-items: flex-end;
+  }
+  footer .who { font-size: 10.5pt; line-height: 1.5; }
+  footer .who b { font-weight: 700; }
+  footer .legal { font-size: 8.5pt; color: #6b6f8c; text-align: right; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <header>
+    <img src="../../../apps/mobile/assets/logo-white@3x.png" alt="Turnos">
+    <h1>Turnos × parceiros de formação</h1>
+    <p>Mais competências para quem trabalha por turnos.</p>
+  </header>
+
+  <main>
+    <div class="two">
+      <section>
+        <h2>O que é a Turnos</h2>
+        <p>Uma aplicação portuguesa de turnos curtos em restauração, hotelaria, eventos, retalho e logística. As empresas publicam turnos, as pessoas candidatam-se, e a empresa escolhe e contrata diretamente. Gratuita para trabalhadores.</p>
+      </section>
+      <section>
+        <h2>O problema</h2>
+        <p>As empresas querem saber o que a pessoa sabe fazer antes de a escolher. Quem trabalha quer turnos melhores e mais bem pagos, mas não sabe que formação o leva lá.</p>
+      </section>
+    </div>
+
+    <section>
+      <h2>Como funciona hoje</h2>
+      <p>Cada trabalhador declara até 3 funções, cada uma com um nível de 1 a 3 descrito por tarefas concretas (por exemplo, Barman nível 2: faz cocktails clássicos sem receita). As empresas confirmam o nível depois de cada turno.</p>
+    </section>
+
+    <section>
+      <h2>A parceria</h2>
+      <div class="steps">
+        <div class="step"><div class="num">1</div><p>A Turnos mostra a formação do parceiro a quem tem a função certa.</p></div>
+        <div class="step"><div class="num">2</div><p>O parceiro reserva vagas ou uma condição especial para trabalhadores Turnos.</p></div>
+        <div class="step"><div class="num">3</div><p>A formação concluída aparece no perfil do trabalhador.</p><small>Funcionalidade prevista</small></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>O que o parceiro ganha</h2>
+      <ul class="gains">
+        <li>Formandos motivados, já a trabalhar no setor</li>
+        <li>Divulgação gratuita junto de quem precisa do curso</li>
+        <li>Dados de empregabilidade dos seus formandos, com consentimento</li>
+        <li>Ligação às empresas que contratam</li>
+      </ul>
+    </section>
+
+    <section class="pilot">
+      <div><b>3 meses</b><span>de piloto</span></div>
+      <div><b>1 ou 2</b><span>cursos para começar</span></div>
+      <div><b>Sem custos</b><span>para o parceiro</span></div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="who"><b>Juan Botero</b>, fundador<br>contact@turnos.cc · turnos.cc</div>
+    <div class="legal">A Turnos é uma marca de NESTS ALLEY, LDA<br>NIPC 519694007</div>
+  </footer>
+</body>
+</html>

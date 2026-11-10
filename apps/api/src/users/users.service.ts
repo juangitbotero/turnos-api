@@ -155,6 +155,10 @@ export class UsersService {
     if (Object.keys(patch).length === 0) return;
 
     await this.employerRepo.update(employer.id, patch);
+    // A replaced logo's file goes with it
+    if (patch.logoUrl !== undefined && employer.logoUrl && employer.logoUrl !== patch.logoUrl) {
+      void this.storage.deleteByUrl(employer.logoUrl);
+    }
   }
 
   /**
@@ -504,10 +508,14 @@ export class UsersService {
     });
     if (!worker) throw new NotFoundException('Worker profile not found');
 
+    const previous = worker.photoUrl;
     worker.photoUrl = photoUrl;
 
     const qualityResult = this.rescoreWorker(worker);
     await this.workerRepo.save(worker);
+    // A replaced photo is personal data nobody can reach any more — remove
+    // the file (it used to stay in storage for ever).
+    if (previous && previous !== photoUrl) void this.storage.deleteByUrl(previous);
 
     return { profileQualityScore: qualityResult.score };
   }
@@ -548,12 +556,15 @@ export class UsersService {
     });
     if (!worker) throw new NotFoundException('Worker profile not found');
 
+    const previous = worker.cvUrl;
     worker.cvUrl      = cv?.url      ?? undefined;
     worker.cvFileName = cv?.fileName ?? undefined;
     worker.cvUploadedAt = cv ? new Date() : null;
 
     const qualityResult = this.rescoreWorker(worker);
     await this.workerRepo.save(worker);
+    // Replaced or removed: the old file goes too
+    if (previous && previous !== cv?.url) void this.storage.deleteByUrl(previous);
 
     return {
       profileQualityScore: qualityResult.score,

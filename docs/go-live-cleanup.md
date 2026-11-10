@@ -78,6 +78,13 @@ Then, in the Stripe Dashboard with **Live mode** on:
 7. Subscribe one real company (yours) for real, check the invoice, then run
    the Pay Link end to end, then delete `BYPASS_SUBSCRIPTION`.
 
+**Pilot offer ("3 months free").** Product catalogue → Coupons → create
+*100% off, duration: repeating, 3 months* → add a **promotion code** (e.g.
+`FUNDADORA`), optionally limited to N redemptions. The company types it on
+the Checkout page ("Add promotion code"). The discount applies to the whole
+invoice, so the €3 shift fees are free too while it lasts. A card is still
+required — the plan starts charging in month 4 unless they cancel.
+
 Invoices: Stripe's invoices are not issued by AT-certified invoicing
 software. Ask the accountant whether Turnos must also issue a certified
 fatura for each payment (likely yes for Portuguese companies).

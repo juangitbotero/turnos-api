@@ -72,6 +72,18 @@ aren't.
    returns an entity with a `worker` relation); `DashboardShell` on phones;
    Google sign-in for companies (Track 5). Wanted improvements: Track 5.
 
+10. **Both stores approved (2026-11-10)** — iOS build 3 and Android
+    versionCode 18; neither published yet. Order agreed: Twilio (#1) → clean-up
+    → Stripe live (#5) → publish → pilots post shifts → waitlist email (Flodesk,
+    500 people, in batches). **Clean-up done in code 2026-11-10:** the 4 worker
+    photos untracked from git and `apps/api/uploads/` ignored (they remain in
+    the git history — rewriting it is undecided); replaced photos, CVs and logos
+    are now deleted from storage; Checkout accepts promotion codes (the pilot
+    offer "3 months free" = a Stripe promotion code). **Still to do by hand:**
+    cancel Carolina Bakes' test shifts before the app is public; clear stored
+    accountant emails (runbook §8 SQL); the untested flows in Track 3 "First
+    end-to-end run" and "Legal gates — test pass". Outreach material:
+    `docs/growth/`.
 9. **Apple rejected build 2 under 2.1 "Information Needed" (2026-11-07)** — asked
    for a screen recording (registration, login, account deletion, **content
    reporting and blocking**), purpose/audience, setup instructions, external

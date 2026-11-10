@@ -221,6 +221,10 @@ export class PaymentsService {
       tax_id_collection: { enabled: true },
       customer_update: { address: 'auto', name: 'auto' },
       locale: 'auto',
+      // Pilot offers ("3 months free") are Stripe promotion codes typed on the
+      // payment page — nothing to build per company, and the discount covers
+      // the whole invoice (plan + shift fees) while it lasts.
+      allow_promotion_codes: true,
       success_url: `${back}&checkout={CHECKOUT_SESSION_ID}`,
       cancel_url: back,
     });
