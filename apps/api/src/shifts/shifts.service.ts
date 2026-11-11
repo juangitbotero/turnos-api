@@ -2118,8 +2118,13 @@ export class ShiftsService {
         status: In([ShiftStatus.EXPIRED, ShiftStatus.OPEN, ShiftStatus.PENDING_ACCEPTANCE]),
       },
     });
-    const ended = candidates.filter(sh =>
+    const endedDays = candidates.filter(sh =>
       sh.status === ShiftStatus.EXPIRED || lisbonDateTime(sh.date, sh.endTime) < now);
+    // A job one of whose days ended unfilled is expired as a whole — its later,
+    // still-open days go with it (same rule as the expiry sweep).
+    const endedSeries = new Set(endedDays.filter(sh => sh.seriesId).map(sh => sh.seriesId!));
+    const ended = candidates.filter(sh =>
+      endedDays.includes(sh) || (sh.seriesId && endedSeries.has(sh.seriesId)));
 
     let target = ended;
     if (ids?.length) {

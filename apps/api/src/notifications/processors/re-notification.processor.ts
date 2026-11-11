@@ -175,8 +175,23 @@ export class ReNotificationProcessor extends WorkerHost {
     });
     // Lisbon wall-clock: the API runs in UTC, and `new Date(y, m, d, h)` read
     // shift times as UTC — an hour late in summer (same bug as 2026-10-05).
-    const toExpire = candidates.filter(shift => lisbonDateTime(shift.date, shift.endTime) < now);
-    if (toExpire.length === 0) return;   // runs every 15 min — stay quiet when idle
+    const ended = candidates.filter(shift => lisbonDateTime(shift.date, shift.endTime) < now);
+    // Series with a day that already expired on an earlier run (including
+    // jobs left half-expired before this rule existed)
+    const openSeriesIds = [...new Set(candidates.filter(s => s.seriesId).map(s => s.seriesId!))];
+    const alreadyExpired = openSeriesIds.length
+      ? await this.shiftRepo.find({ where: { seriesId: In(openSeriesIds), status: ShiftStatus.EXPIRED } })
+      : [];
+    if (ended.length === 0 && alreadyExpired.length === 0) return;   // runs every 15 min — stay quiet when idle
+    // A multi-day job is offered and taken as a whole. Once one of its days
+    // has passed with nobody hired, the job can no longer happen as posted,
+    // so every remaining open day expires with it. Before 2026-11-11 only the
+    // past day expired: the app kept offering the rest of the job ("2 days")
+    // while the dashboard, which shows a job by its first day, listed it as
+    // expired — so it was neither active nor fully deletable.
+    const series = new Set([...ended, ...alreadyExpired].filter(s => s.seriesId).map(s => s.seriesId!));
+    const toExpire = candidates.filter(s =>
+      lisbonDateTime(s.date, s.endTime) < now || (s.seriesId && series.has(s.seriesId)));
     await this.shiftRepo.update({ id: In(toExpire.map(s => s.id)) }, { status: ShiftStatus.EXPIRED });
     await closeApplications(this.applicationRepo, toExpire.map(s => s.id), ApplicationStatus.EXPIRED);
     this.logger.log(`[ShiftExpiry] ${toExpire.length} shift(s) marked EXPIRED.`);

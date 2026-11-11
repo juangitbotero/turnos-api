@@ -72,6 +72,16 @@ aren't.
    returns an entity with a `worker` relation); `DashboardShell` on phones;
    Google sign-in for companies (Track 5). Wanted improvements: Track 5.
 
+12. **Multi-day job half-expired (found by Juanes 2026-11-11).** A 3-day job
+    nobody was hired for: day 1 expired on its own, days 2–3 stayed OPEN — the
+    app kept offering it ("2 days") while the dashboard, which shows a job by
+    its first day, listed it as expired, and "Delete" archived only the past
+    day. Fixed: when a day of a job expires, every remaining open day of that
+    job expires too (15-min sweep, which also finishes off jobs already left
+    half-expired); deleting an expired job archives all its days. Tests in
+    `shift-expiry.spec.ts`. **Product rule this sets:** a multi-day job whose
+    first day passes unfilled is over — the company re-posts the remaining
+    days if it still needs them.
 11. **Sign-in countries (2026-11-10).** `SIGN_IN_COUNTRIES` in shared: Portugal
     + 15 European countries (AT, BE, CH, DE, DK, ES, FI, FR, GB, IE, IT, NL, NO,
     PL, UA) — the same list Juanes allowed in Twilio → Verify → Fraud & Geo
