@@ -1992,7 +1992,7 @@ export const en: Translated<TranslationCatalogue> = {
       ctaTitle: 'Ready to start?',
       ctaBody:  'Create your profile and apply to your first shift this week.',
       ctaBtn:   'Download the app',
-      ctaSoon:  'The app is coming soon. Leave your contact and we will let you know.',
+      ctaSoon:  'Free for workers, on iPhone and Android.',
     },
     login: {
       panelTitle1: 'Manage your shifts.',

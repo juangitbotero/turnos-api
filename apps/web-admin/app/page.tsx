@@ -10,6 +10,7 @@ import {
   IconStar, IconBolt, IconSearch, IconUsers, IconChart, IconEuro, IconBuilding,
 } from '../components/icons';
 import { Logo } from '../components/Logo';
+import { StoreBadges } from '../components/StoreBadges';
 
 // ── Content ────────────────────────────────────────────────────────────────────
 //
@@ -187,6 +188,15 @@ export default function LandingPage() {
             <Link href="/login"    style={s.ctaBtnGhost}>{t('home.cta.ghost')}</Link>
           </div>
         </div>
+      </section>
+
+      {/* ── For workers: the app (live since 2026-11-11) ── */}
+      <section style={s.workersStrip}>
+        <span style={s.workersStripText}>
+          <Link href="/trabalhadores" style={s.workersStripLink}>{t('home.workers.navLink')}</Link>
+          {' · '}{t('home.workers.ctaSoon')}
+        </span>
+        <StoreBadges height={40} align="center" />
       </section>
 
       {/* ── Footer ── */}
@@ -400,6 +410,13 @@ const s: Record<string, React.CSSProperties> = {
   footerLogoWrap: { display: 'flex', alignItems: 'center', gap: 3 },
   footerLogoText: { fontSize: 18, fontWeight: 800, color: 'var(--color-primary)', letterSpacing: '-0.5px' },
   footerLogoDot:  { width: 5, height: 5, borderRadius: '50%', background: 'var(--color-primary)', opacity: 0.7, marginBottom: 2 },
+  workersStrip: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' as const,
+    gap: '14px 24px', padding: '22px 24px', background: 'var(--color-secondary)',
+    borderTop: '1px solid var(--color-border)',
+  },
+  workersStripText: { fontSize: 14, color: 'var(--color-text-secondary)', textAlign: 'center' as const },
+  workersStripLink: { fontWeight: 700, color: 'var(--color-primary)', textDecoration: 'none' },
   footerTagline:  { fontSize: 13, color: 'var(--color-text-muted)' },
   footerLinks:    { display: 'flex', gap: 16 },
   footerLink:     { fontSize: 13, color: 'var(--color-text-secondary)', textDecoration: 'none' },

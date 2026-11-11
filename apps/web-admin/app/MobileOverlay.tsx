@@ -10,8 +10,13 @@ const STORAGE_KEY = 'turnos_mobile_overlay_dismissed';
  * Legal pages are opened from the app and from the store listings, i.e. on a
  * phone — they read fine there, and a "use a computer" overlay in front of the
  * privacy policy or the deletion page would look broken to a store reviewer.
+ * Since the apps went live (2026-11-11) the public pages are where workers
+ * land from a phone to download the app — the overlay must never cover them.
  */
-const PHONE_FRIENDLY_PATHS = ['/privacidade', '/termos', '/termos-empresas', '/eliminar-conta'];
+const PHONE_FRIENDLY_PATHS = [
+  '', '/trabalhadores', '/app',
+  '/privacidade', '/termos', '/termos-empresas', '/eliminar-conta',
+];
 
 export default function MobileOverlay() {
   const { t } = useT();

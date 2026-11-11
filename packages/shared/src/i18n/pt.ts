@@ -2020,7 +2020,7 @@ export const pt = {
       ctaTitle: 'Pronto para começar?',
       ctaBody:  'Cria o teu perfil e candidata-te ao primeiro turno esta semana.',
       ctaBtn:   'Descarregar a app',
-      ctaSoon:  'A app chega em breve. Deixa o teu contacto e avisamos-te.',
+      ctaSoon:  'Grátis para trabalhadores, em iPhone e Android.',
     },
     login: {
       panelTitle1: 'Gerencie os seus turnos.',

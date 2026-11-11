@@ -8,15 +8,16 @@
  * employer. This is the other half: what the work is, what you get paid, and
  * how to start.
  *
- * The app store links do not exist yet, so the download CTAs are deliberately
- * inert and labelled as coming soon rather than pointing at a dead URL.
+ * Both apps are live (2026-11-11): the download CTAs are the official store
+ * badges (components/StoreBadges.tsx).
  */
 import Link from 'next/link';
 import { useT } from '../../lib/i18n';
 import { Logo } from '../../components/Logo';
 import { Faq } from '../../components/Faq';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
-import { IconWallet, IconShield, IconStar, IconCalendar, IconPhone } from '../../components/icons';
+import { IconWallet, IconShield, IconStar, IconCalendar } from '../../components/icons';
+import { StoreBadges } from '../../components/StoreBadges';
 
 const FAQ_IDS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] as const;
 const STEPS = ['1', '2', '3'] as const;
@@ -60,14 +61,7 @@ export default function WorkersPage() {
             <span style={s.heroAccent}>{t('home.workers.heroTitle2')}</span>
           </h1>
           <p style={s.heroBody}>{t('home.workers.heroBody')}</p>
-          <div style={s.ctaRow}>
-            {/* Inert until the store listings exist — a dead link would be worse. */}
-            <button style={s.ctaPrimary} disabled title={t('home.workers.heroCtaSoon')}>
-              <IconPhone size={17} />
-              {t('home.workers.heroCta')}
-              <span style={s.soonPill}>{t('home.workers.heroCtaSoon')}</span>
-            </button>
-          </div>
+          <StoreBadges height={50} />
           <p style={s.heroNote}>{t('home.workers.heroNote')}</p>
         </div>
 
@@ -128,7 +122,7 @@ export default function WorkersPage() {
       <section style={s.ctaBanner}>
         <h2 style={s.ctaTitle}>{t('home.workers.ctaTitle')}</h2>
         <p style={s.ctaBody}>{t('home.workers.ctaBody')}</p>
-        <button style={s.ctaWhite} disabled>{t('home.workers.ctaBtn')}</button>
+        <StoreBadges height={50} align="center" />
         <p style={s.ctaSoon}>{t('home.workers.ctaSoon')}</p>
       </section>
 

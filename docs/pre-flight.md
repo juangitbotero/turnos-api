@@ -72,6 +72,18 @@ aren't.
    returns an entity with a `worker` relation); `DashboardShell` on phones;
    Google sign-in for companies (Track 5). Wanted improvements: Track 5.
 
+13. **Both apps PUBLISHED (2026-11-11).** Google Play
+    `play.google.com/store/apps/details?id=cc.turnos.app`; App Store
+    `apps.apple.com/pt/app/turnos/id6831259177` — Portugal store only, so the
+    link must keep `/pt/` (without it Apple answers 404). Both in shared
+    (`APP_STORE_URL`, `PLAY_STORE_URL`). turnos.cc: official badges on
+    `/trabalhadores` (hero + closing banner) and a strip above the homepage
+    footer (`components/StoreBadges.tsx`, artwork in `public/badges/`, PT/EN);
+    **`turnos.cc/app`** sends iPhones to the App Store and Android phones to
+    Google Play, computers see both badges — the one link for emails, posters
+    and Instagram. The phone "use a computer" overlay no longer covers `/`,
+    `/trabalhadores` or `/app`. Stripe live still on hold (company bank
+    account); pilot outreach in `docs/growth/pilot-companies.md`.
 12. **Multi-day job half-expired (found by Juanes 2026-11-11).** A 3-day job
     nobody was hired for: day 1 expired on its own, days 2–3 stayed OPEN — the
     app kept offering it ("2 days") while the dashboard, which shows a job by

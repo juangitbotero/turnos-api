@@ -718,6 +718,15 @@ export const WORKER_CANCEL_REASONS = {
 export type WorkerCancelReason = keyof typeof WORKER_CANCEL_REASONS;
 
 /**
+ * Store listings — both live since 2026-11-11. The App Store link carries the
+ * country (`/pt/`): the app is only on the Portuguese store, and
+ * apps.apple.com/app/id… without it is a 404 elsewhere. Add a country here
+ * when the app opens in another store.
+ */
+export const APP_STORE_URL = 'https://apps.apple.com/pt/app/turnos/id6831259177';
+export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=cc.turnos.app';
+
+/**
  * Countries whose phone numbers can sign in (2026-11-10). People living in
  * Portugal often keep their home number, so the list is wider than Portugal —
  * but deliberately not "every country": each one opened is a place fake

@@ -120,6 +120,36 @@ faster answer than email.
 > Turnos · NESTS ALLEY, LDA
 > contact@turnos.cc · turnos.cc
 
+**Generic version (no names to fill in — for info@ / geral@ inboxes):**
+
+Subject: **Piloto gratuito Turnos — reforços para os picos de dezembro**
+
+> Bom dia,
+>
+> Sou o Juan Botero, fundador da **Turnos**, uma aplicação portuguesa para
+> preencher turnos curtos em restauração, hotelaria, eventos e retalho.
+>
+> Funciona assim: publicam o turno (função, horário e valor por hora),
+> recebem candidaturas de pessoas com perfil, foto e avaliações, e escolhem
+> quem querem. No dia, a pessoa faz o check-in com um código QR à entrada. A
+> contratação e o pagamento são feitos diretamente pela vossa equipa; a Turnos
+> trata da procura e deixa prontos os dados de cada contratação.
+>
+> Estamos a escolher **5 empresas fundadoras** na zona de Lisboa para um
+> piloto gratuito, com acompanhamento direto meu desde o primeiro turno.
+> Mais informação em **turnos.cc**.
+>
+> Com os jantares de Natal e a passagem de ano a chegar, faz sentido falarmos
+> 15 minutos? Agradeço que reencaminhem esta mensagem para quem gere a equipa
+> ou os turnos.
+>
+> Obrigado,
+> Juan Botero
+> Turnos · NESTS ALLEY, LDA
+> contact@turnos.cc · turnos.cc
+
+Send it **one by one from contact@turnos.cc**, not in BCC — see section 5.
+
 **Short version for Instagram or WhatsApp:**
 
 > Olá! Sou o Juan, fundador da Turnos (turnos.cc), uma app portuguesa para
@@ -129,6 +159,25 @@ faster answer than email.
 
 Wording to keep: the company hires and pays; Turnos never says it guarantees
 or processes the payment, and never calls workers freelancers.
+
+## 5. How to send
+
+- **One email per company, not BCC.** A brand-new domain sending one message
+  to 20 hidden recipients is a classic spam signal, and the reply goes nowhere
+  personal. Twenty individual sends from Gmail take about 15 minutes with the
+  generic text: paste, change the To, send.
+- **Not through Brevo.** Brevo's rules forbid campaigns to people who never
+  signed up, and a complaint could suspend the account that also sends the
+  app's own emails (verification, payment reminders).
+- **Spread it:** 10 the first day, 10 the next. It warms up the new domain
+  and leaves time to answer the replies.
+- **No PDF in the first email.** An attachment from a new domain to a stranger
+  pushes it towards spam. Link to **turnos.cc** (the page for companies) and
+  send a PDF only to those who reply.
+- **Follow up once**, 4–5 days later, as a reply to your own email: "Só para
+  garantir que isto chegou a quem gere os turnos." Then stop.
+- **Pilot payments:** until Stripe is live, pilot companies pay workers by
+  bank transfer or MB WAY — the Pay Link needs Stripe.
 
 ## Sources
 
