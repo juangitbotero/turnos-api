@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Turnos × INATEL — pilot proposal</title>
+<!--
+  One-pager for the INATEL pilot (text: ../inatel-pilot.md).
+  Rebuild the PDF from this folder:
+    msedge --headless --disable-gpu --no-pdf-header-footer ^
+      --print-to-pdf="..\turnos-inatel-pilot.pdf" "inatel-pilot.html"
+-->
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 210mm; height: 297mm; }
+  body {
+    font-family: "Segoe UI", system-ui, sans-serif; color: #1c1d3a;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    display: flex; flex-direction: column;
+  }
+  header {
+    background: linear-gradient(120deg, #6a79ff 0%, #9b6dff 100%);
+    color: #fff; padding: 10mm 18mm 8.5mm;
+  }
+  header img { height: 10mm; display: block; margin-bottom: 5mm; }
+  header h1 { font-size: 22pt; font-weight: 700; letter-spacing: -0.4px; line-height: 1.15; }
+  header p { font-size: 12.5pt; font-weight: 300; margin-top: 2.5mm; opacity: 0.95; }
+
+  main { flex: 1; padding: 7mm 18mm 3mm; display: flex; flex-direction: column; gap: 4.6mm; }
+  h2 {
+    font-size: 8.5pt; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+    color: #6a79ff; margin-bottom: 2mm;
+  }
+  p, li { font-size: 10pt; line-height: 1.42; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 9mm; }
+
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
+  .fact { background: #eef0ff; border-radius: 4mm; padding: 4.5mm 5mm; }
+  .fact b { display: block; font-size: 13pt; font-weight: 700; color: #4a57d6; line-height: 1.15; }
+  .fact span { font-size: 9.3pt; color: #4b4f73; line-height: 1.4; display: block; margin-top: 1mm; }
+
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3.5mm; }
+  .step { border: 1px solid #e3e6ff; border-radius: 4mm; padding: 4mm 4mm 4.5mm; background: #fafbff; }
+  .num {
+    width: 7mm; height: 7mm; border-radius: 50%; background: #6a79ff; color: #fff;
+    font-size: 9.5pt; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    margin-bottom: 2.5mm;
+  }
+  .step p { font-size: 9.4pt; line-height: 1.42; }
+
+  ul { list-style: none; display: flex; flex-direction: column; gap: 1.6mm; }
+  li { padding-left: 5mm; position: relative; }
+  li::before {
+    content: ""; position: absolute; left: 0; top: 2mm;
+    width: 2.2mm; height: 2.2mm; border-radius: 50%; background: #9b6dff;
+  }
+
+  .asks { background: #fafbff; border: 1px solid #e3e6ff; border-radius: 4mm; padding: 5mm 6mm; }
+
+  footer {
+    margin: 0 18mm; padding: 4mm 0 8mm; border-top: 1px solid #e3e6ff;
+    display: flex; justify-content: space-between; align-items: flex-end;
+  }
+  footer .who { font-size: 10pt; line-height: 1.5; }
+  footer .who b { font-weight: 700; }
+  footer .legal { font-size: 8.5pt; color: #6b6f8c; text-align: right; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <header>
+    <img src="../../../apps/mobile/assets/logo-white@3x.png" alt="Turnos">
+    <h1>Turnos × INATEL — pilot proposal</h1>
+    <p>Extra staff for your hotels, when you need them, in minutes.</p>
+  </header>
+
+  <main>
+    <div class="facts">
+      <div class="fact"><b>Oeiras and/or Caparica</b><span>Close to Lisbon, where the pool of qualified workers is largest</span></div>
+      <div class="fact"><b>Free</b><span>No subscription and no per-shift fee during the pilot</span></div>
+      <div class="fact"><b>With you from day one</b><span>We set up your team and follow every shift with you</span></div>
+    </div>
+
+    <div class="two">
+      <section>
+        <h2>What Turnos is</h2>
+        <p>A Portuguese app for short shifts. The hotel posts the shift it needs; workers nearby who do that job get a notification and apply. Your team chooses who to hire. Live on the App Store and Google Play since November 2026.</p>
+      </section>
+      <section>
+        <h2>Roles you can fill</h2>
+        <p>Housekeeping · restaurant and bar · kitchen and dishwashing · reception · events and banqueting — for a single shift or several days in a row.</p>
+      </section>
+    </div>
+
+    <section>
+      <h2>How a shift works</h2>
+      <div class="steps">
+        <div class="step"><div class="num">1</div><p>Your team posts the shift on turnos.cc: role, date, hours and hourly pay.</p></div>
+        <div class="step"><div class="num">2</div><p>Nearby workers with that role are notified and apply from the app.</p></div>
+        <div class="step"><div class="num">3</div><p>You see each candidate's photo, experience and reviews, and pick one.</p></div>
+        <div class="step"><div class="num">4</div><p>On the day, the worker checks in with the hotel's QR code at the door.</p></div>
+      </div>
+    </section>
+
+    <div class="two">
+      <section>
+        <h2>Built for Portuguese rules</h2>
+        <ul>
+          <li>Workers are 18+, with a profile photo checked at the door</li>
+          <li>Short-term contract limits and 11h rest are checked automatically</li>
+          <li>Hire data ready to export for your Social Security filing</li>
+          <li>The hotel is the employer and pays the worker directly</li>
+        </ul>
+      </section>
+      <section>
+        <h2>What INATEL gets</h2>
+        <ul>
+          <li>Faster cover for peaks, events and last-minute absences</li>
+          <li>A pool of reviewed workers you can call on again</li>
+          <li>A say in how the product develops</li>
+          <li>No cost and no commitment after the pilot</li>
+        </ul>
+      </section>
+    </div>
+
+    <section class="asks">
+      <h2>What we ask</h2>
+      <ul>
+        <li><b>A contact at each hotel</b> (the manager or whoever organises staff) — a 30-minute setup together</li>
+        <li><b>One person for feedback and any issue</b> during the pilot</li>
+        <li><b>Your honest feedback</b> after the first shifts</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <div class="who"><b>Juan Botero</b>, Co-Founder<br>contact@turnos.cc · turnos.cc · App: turnos.cc/app</div>
+    <div class="legal">Turnos is a brand of NESTS ALLEY, LDA<br>NIPC 519694007</div>
+  </footer>
+</body>
+</html>

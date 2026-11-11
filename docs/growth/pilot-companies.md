@@ -40,7 +40,15 @@ a company looking for a permanent part-timer is the wrong first customer.
 **Gates before a real pilot shift:** the public app (store approval), real SMS
 sign-in (Twilio), and Stripe live before any company pays.
 
-## 3. The list (20)
+## 3. The list (19)
+
+**Sent 2026-11-11** (generic email, from contact@turnos.cc) to every business
+below with an email address. **Not contacted yet:** the four with no
+published email — Hello, Kristof (10), A Vida Portuguesa (15), Immerso (17),
+Aethos Ericeira (18) — held back to see how the emails do first. Mammy was
+removed: its address bounced. Follow-up due around 2026-11-15/16.
+**INATEL** (15 hotels) is a separate, warm conversation — proposal and
+one-pager in `inatel-pilot.md`.
 
 ### Catering and events
 
@@ -84,8 +92,7 @@ sign-in (Twilio), and Stripe live before any company pays.
 | 16 | **You and the Sea** | Beachfront hotel, apartments and restaurant | `info@youandthesea.pt` (directory) · +351 261 243 370 (verified) | [Instagram](https://www.instagram.com/youandthesea/) |
 | 17 | **Immerso Hotel** | Destination hotel with restaurant, spa and events | None published — +351 261 104 420 (verified) | [Instagram](https://www.instagram.com/immersohotel/) |
 | 18 | **Aethos Ericeira** | Clifftop hotel with restaurant | None found — +351 261 244 510 (directory) | [Site](https://www.aethos.com/ericeira/) |
-| 19 | **Mammy – Home Flavours** | Restaurant and bar | `geral@mammy.pt` (directory) · +351 261 067 658 | [Ericeira Mag listing](https://www.ericeiramag.pt/en/?p=43709) |
-| 20 | **Laneez Ericeira** | Surf houses, villas and surf school | `laneezericeira@gmail.com` (verified) | [Instagram](https://www.instagram.com/laneezericeira/) |
+| 19 | **Laneez Ericeira** | Surf houses, villas and surf school | `laneezericeira@gmail.com` (verified) | [Instagram](https://www.instagram.com/laneezericeira/) |
 
 Most of these are general inboxes. For the bigger ones (1, 2, 4, 9, 12) find
 the operations or HR manager on the company's LinkedIn page and write to that
