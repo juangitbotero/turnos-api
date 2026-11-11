@@ -80,8 +80,8 @@ conversation for the private schools (10–14).
 > liga empresas de restauração, hotelaria, eventos e retalho a pessoas que
 > procuram turnos curtos. A empresa publica o turno, a pessoa candidata-se, e
 > a contratação é feita diretamente pela empresa. Para quem trabalha, a Turnos
-> é gratuita. A app está disponível desde novembro na App Store e no Google
-> Play (turnos.cc/app).
+> é gratuita. A app está disponível na App Store e no Google Play:
+> turnos.cc/app.
 >
 > No perfil de cada trabalhador mostramos as funções e o **nível** em cada uma
 > (por exemplo, Barman nível 1, 2 ou 3), descrito pelo que a pessoa sabe fazer.
@@ -98,6 +98,41 @@ conversation for the private schools (10–14).
 >
 > Tem 20 minutos esta semana ou na próxima para uma conversa? Se preferir,
 > envio antes uma página com o resumo.
+>
+> Obrigado,
+> Juan Botero
+> Cofundador, Turnos · NESTS ALLEY, LDA
+> contact@turnos.cc · turnos.cc
+
+**Generic version (nothing to fill in — copy, paste, send one by one):**
+
+Subject: **Parceria Turnos — formação para quem trabalha por turnos**
+
+> Bom dia,
+>
+> Sou o Juan Botero, cofundador da **Turnos**, uma aplicação portuguesa que
+> liga empresas de restauração, hotelaria, eventos e retalho a pessoas que
+> procuram turnos curtos. A empresa publica o turno, a pessoa candidata-se, e
+> a contratação é feita diretamente pela empresa. Para quem trabalha, a Turnos
+> é gratuita. A app está disponível na App Store e no Google Play:
+> turnos.cc/app.
+>
+> No perfil de cada trabalhador mostramos as funções e o **nível** em cada uma
+> (por exemplo, Barman nível 1, 2 ou 3), descrito pelo que a pessoa sabe fazer.
+> Queremos dar aos nossos trabalhadores um caminho claro para subir de nível,
+> e a vossa formação pode ser esse caminho.
+>
+> Propomos um piloto simples de 3 meses:
+> - A Turnos divulga os vossos cursos aos trabalhadores das funções certas,
+>   dentro da aplicação, sem custos para vocês.
+> - Vocês reservam algumas vagas, ou uma condição especial, para
+>   trabalhadores Turnos.
+> - Quem concluir a formação passa a ter essa indicação no perfil, visível
+>   para as empresas que escolhem candidatos (funcionalidade prevista).
+>
+> Faz sentido conversarmos 20 minutos? Se preferir, envio antes uma página com
+> o resumo. Agradeço também que reencaminhem esta mensagem para quem trata de
+> parcerias ou de formação.
 >
 > Obrigado,
 > Juan Botero
