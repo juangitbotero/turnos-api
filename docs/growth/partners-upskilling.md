@@ -76,11 +76,12 @@ conversation for the private schools (10–14).
 
 > Bom dia [Nome],
 >
-> Sou o Juan Botero, fundador da **Turnos** (turnos.cc), uma aplicação
-> portuguesa que liga empresas de restauração, hotelaria, eventos e retalho a
-> pessoas que procuram turnos curtos. A empresa publica o turno, a pessoa
-> candidata-se, e a contratação é feita diretamente pela empresa. Para quem
-> trabalha, a Turnos é gratuita.
+> Sou o Juan Botero, cofundador da **Turnos**, uma aplicação portuguesa que
+> liga empresas de restauração, hotelaria, eventos e retalho a pessoas que
+> procuram turnos curtos. A empresa publica o turno, a pessoa candidata-se, e
+> a contratação é feita diretamente pela empresa. Para quem trabalha, a Turnos
+> é gratuita. A app está disponível desde novembro na App Store e no Google
+> Play (turnos.cc/app).
 >
 > No perfil de cada trabalhador mostramos as funções e o **nível** em cada uma
 > (por exemplo, Barman nível 1, 2 ou 3), descrito pelo que a pessoa sabe fazer.
@@ -95,13 +96,17 @@ conversation for the private schools (10–14).
 > - Quem concluir a formação passa a ter essa indicação no perfil, visível para
 >   as empresas que escolhem candidatos (funcionalidade prevista).
 >
-> Tem 20 minutos esta semana ou na próxima para uma conversa? Envio em anexo
-> uma página com o resumo.
+> Tem 20 minutos esta semana ou na próxima para uma conversa? Se preferir,
+> envio antes uma página com o resumo.
 >
 > Obrigado,
 > Juan Botero
-> Turnos · NESTS ALLEY, LDA
+> Cofundador, Turnos · NESTS ALLEY, LDA
 > contact@turnos.cc · turnos.cc
+
+No PDF in this first email: an attachment from the new domain to someone who
+does not know us yet pushes it towards spam (same rule as the pilot emails).
+Send `turnos-parceiros-formacao.pdf` to those who reply.
 
 For public bodies, replace the second bullet with: *"A [Entidade] indica-nos
 um contacto para encaminharmos trabalhadores interessados nas vossas formações
