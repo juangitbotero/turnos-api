@@ -139,6 +139,51 @@ Subject: **Parceria Turnos — formação para quem trabalha por turnos**
 > Cofundador, Turnos · NESTS ALLEY, LDA
 > contact@turnos.cc · turnos.cc
 
+**Private schools version (paid courses — the offer is students, the ask is a
+discount code):**
+
+Subject: **Novos alunos para os vossos cursos — parceria Turnos**
+
+> Bom dia,
+>
+> Sou o Juan Botero, cofundador da **Turnos**, uma aplicação portuguesa que
+> liga empresas de restauração, hotelaria e eventos a pessoas que procuram
+> turnos curtos. A app está disponível na App Store e no Google Play:
+> turnos.cc/app.
+>
+> Os nossos trabalhadores já trabalham no setor e querem subir de nível: na
+> Turnos, cada pessoa tem um nível por função (por exemplo, Barista nível 1,
+> 2 ou 3), e um nível mais alto dá acesso a turnos mais bem pagos. Falta-lhes
+> saber onde aprender. É aí que os vossos cursos entram.
+>
+> A proposta:
+> - Divulgamos os vossos cursos dentro da app, aos trabalhadores da função
+>   certa (baristas, empregados de bar, empregados de mesa…), sem custos para
+>   vocês.
+> - Vocês dão um desconto aos trabalhadores Turnos, com um código próprio —
+>   assim veem exatamente quantos alunos vieram de nós.
+> - Quem concluir o curso passa a ter essa formação no perfil, visível para as
+>   empresas que escolhem candidatos (funcionalidade prevista). Um bom motivo
+>   para escolherem o vosso curso.
+>
+> Para vocês: alunos motivados e já do setor, visibilidade junto de quem
+> procura exatamente a vossa formação, e sem investimento.
+>
+> Faz sentido conversarmos 15 minutos?
+>
+> Obrigado,
+> Juan Botero
+> Cofundador, Turnos · NESTS ALLEY, LDA
+> contact@turnos.cc · turnos.cc
+
+**Where to start (2–3):** Delta's CCC Barista Academy (short courses, a brand
+workers know; the only email is the group's general one — ask for it to be
+forwarded), Black Pepper & Basil (bar; write to the shop address or on
+Instagram), and Scoring for forklift (`formacao@scoring.pt`, unverified — one
+of the roles where Turnos already requires a document, so a direct benefit).
+Before promising traffic, have a number ready for the call: how many workers
+hold that role in the app.
+
 No PDF in this first email: an attachment from the new domain to someone who
 does not know us yet pushes it towards spam (same rule as the pilot emails).
 Send `turnos-parceiros-formacao.pdf` to those who reply.
