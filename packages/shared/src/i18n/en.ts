@@ -1931,6 +1931,12 @@ export const en: Translated<TranslationCatalogue> = {
       a8: 'One. A multi-day job is a single application, a single payment and a single €3 fee, whether it runs two days or five.',
     },
 
+    // Shown on computers next to the store badges
+    qr: {
+      title: 'Scan with your phone',
+      sub:   'Point your camera at the code to download the app.',
+    },
+
     workers: {
       navLink:  'For workers',
       metaTitle: 'Turnos — flexible work in Portugal',

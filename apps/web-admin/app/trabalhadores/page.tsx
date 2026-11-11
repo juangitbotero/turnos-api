@@ -18,6 +18,7 @@ import { Faq } from '../../components/Faq';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import { IconWallet, IconShield, IconStar, IconCalendar } from '../../components/icons';
 import { StoreBadges } from '../../components/StoreBadges';
+import { AppQr } from '../../components/AppQr';
 
 const FAQ_IDS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] as const;
 const STEPS = ['1', '2', '3'] as const;
@@ -62,6 +63,7 @@ export default function WorkersPage() {
           </h1>
           <p style={s.heroBody}>{t('home.workers.heroBody')}</p>
           <StoreBadges height={50} />
+          <div><AppQr size={104} /></div>
           <p style={s.heroNote}>{t('home.workers.heroNote')}</p>
         </div>
 

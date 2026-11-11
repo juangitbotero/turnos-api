@@ -11,6 +11,7 @@ import { APP_STORE_URL, PLAY_STORE_URL } from '@turnos/shared';
 import { useT } from '../../lib/i18n';
 import { Logo } from '../../components/Logo';
 import { StoreBadges } from '../../components/StoreBadges';
+import { AppQr } from '../../components/AppQr';
 
 function storeFor(userAgent: string): string | null {
   if (/iPhone|iPad|iPod/i.test(userAgent)) return APP_STORE_URL;
@@ -38,6 +39,7 @@ export default function AppLinkPage() {
           <h1 style={s.title}>{t('home.workers.ctaTitle')}</h1>
           <p style={s.sub}>{t('home.workers.ctaSoon')}</p>
           <StoreBadges height={52} align="center" />
+          <AppQr size={150} layout="column" />
         </>
       )}
     </main>

@@ -1957,6 +1957,12 @@ export const pt = {
       a8: 'Um. Um trabalho de vários dias é uma única candidatura, um único pagamento e uma única taxa de 3€, seja de dois dias ou de cinco.',
     },
 
+    // Mostrado em computadores, ao lado dos botões das lojas
+    qr: {
+      title: 'Lê com o telemóvel',
+      sub:   'Aponta a câmara ao código para descarregar a app.',
+    },
+
     // ── Workers page ──
     workers: {
       navLink:  'Para trabalhadores',
