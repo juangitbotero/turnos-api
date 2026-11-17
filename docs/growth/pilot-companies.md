@@ -186,6 +186,115 @@ or processes the payment, and never calls workers freelancers.
 - **Pilot payments:** until Stripe is live, pilot companies pay workers by
   bank transfer or MB WAY — the Pay Link needs Stripe.
 
+## 6. Follow-up round — 2026-11-17
+
+**Where it stands:** no replies from the 2026-11-11 send — companies, INATEL
+or training partners. Six days of silence from generic `info@` inboxes is
+normal for a first cold email (a few % reply rate); it says little about the
+offer. What changes now is mostly the **channel and the ask**, not the list.
+
+### What changes
+
+1. **A smaller ask.** "Pilot + 15-minute call" asks for a meeting. The new ask
+   is one shift: *"Do you need someone for a shift in December? Tell me the
+   day and role; I'll put it on Turnos and find the person, free."*
+2. **Phone and feet over email.** Call or walk in between 15:00 and 17:00
+   (after lunch, before dinner service). Ask for whoever does the rota, show
+   the app on the phone, leave the QR one-pager.
+3. **Smaller, owner-run places — but not single cafés.** Independent
+   restaurants with 1–3 venues, event caterers, Christmas markets and pop-ups,
+   bars with a busy New Year's Eve. The owner decides on the spot. Keep the
+   chains on the list, but stop waiting on them.
+4. **INATEL is a call, not an email.** It's a warm contact: phone
+   Mr. Serrano or Ms. Sachim directly, then send the short email below as a
+   recap.
+5. **Workers now, not later.** Tell the waitlist the app is live and ask them
+   to finish their profile *before* the December shifts. A company asks "how
+   many people do you have?" — "60 checked profiles in Lisbon" is the answer
+   that unlocks the first shift. Don't promise shifts or dates. Since
+   2026-11-17 the app reminds inactive workers only when a shift matches them,
+   so a quiet feed sends nothing.
+6. **Never post fake shifts** to fill the feed. One empty shift a worker
+   applies to costs more trust than an empty feed.
+
+### Follow-up to companies (reply in the same thread, one by one)
+
+**PT:**
+
+> Bom dia,
+>
+> Volto a escrever só para garantir que esta mensagem chegou a quem organiza
+> os turnos.
+>
+> Uma proposta mais simples: se tiverem um turno em dezembro para o qual
+> precisem de reforço — um jantar de Natal, a passagem de ano, uma baixa —
+> digam-me o dia e a função. Eu publico-o na Turnos e encontramos a pessoa,
+> sem qualquer custo.
+>
+> A app já está disponível na App Store e no Google Play (turnos.cc).
+>
+> Obrigado,
+> Juan Botero
+> Turnos · contact@turnos.cc · turnos.cc
+
+Then stop emailing that address. Next touch is a call or a visit.
+
+### Follow-up to INATEL (after the phone call, or if they don't pick up)
+
+> Dear Mr. Serrano, dear Ms. Sachim,
+>
+> Just following up on my email of 11 November about the pilot at INATEL
+> Oeiras and/or Caparica.
+>
+> To make it easy to start, we could begin with a single shift — any role you
+> need for the Christmas or New Year period. You tell us the date and the
+> role; we help your team post it and are there on the day. No cost.
+>
+> Would a 15-minute call this week work? I can adapt to your schedule.
+>
+> Best regards,
+> Juan Botero
+> Co-Founder, Turnos · contact@turnos.cc · turnos.cc
+
+### Follow-up to training partners (same thread)
+
+> Bom dia,
+>
+> Volto a escrever sobre a parceria com a Turnos. A app já está nas lojas, e
+> os vossos alunos podem criar o perfil hoje, gratuitamente, para estarem
+> prontos para os turnos de dezembro.
+>
+> Faz sentido partilharem o link (turnos.cc/app) com a turma? Posso enviar
+> um texto curto pronto a usar.
+>
+> Obrigado,
+> Juan Botero
+
+### Walk-in / phone script (30 seconds)
+
+> Olá, sou o Juan, da Turnos — uma app portuguesa para encontrar reforços
+> para turnos curtos. Quem trata dos horários da equipa? … Para dezembro,
+> se precisarem de alguém para um jantar ou para a passagem de ano, digam-me
+> o dia e a função e eu encontro a pessoa, de graça. Posso deixar o meu
+> contacto?
+
+### Waitlist message (workers)
+
+> Olá! A Turnos já está disponível na App Store e no Google Play 🎉
+> Os primeiros turnos em Lisboa chegam para o Natal e a passagem de ano.
+> Completa já o teu perfil (foto, NIF, IBAN e as tuas funções — demora 5
+> minutos) para seres dos primeiros a ser avisado.
+> turnos.cc/app
+
+### This week
+
+| Day | What |
+|---|---|
+| Tue–Wed | Call INATEL. Send the company follow-up to the 2026-11-11 list. Send the waitlist message |
+| Wed–Thu | 10 new owner-run places: Instagram DM + walk-in for the ones nearby (Ericeira first — you can be there for the first shift) |
+| Fri | Call the 5 bigger ones (1, 2, 4, 9, 12) and ask for the operations manager by name |
+| Goal | **One real shift posted by 2026-11-28.** One shift, filled and checked in, is the case study for every next email |
+
 ## Sources
 
 [Casa do Marquês](https://www.casadomarques.pt/contactos/) · [Imppacto](https://www.imppacto.com/) · [SUD Lisboa](https://www.sudlisboa.com/en/contacts) · [Grupo Nicolau](https://nicolaugrupo.com/) · [Dear Breakfast](https://www.dearbreakfast.com/) · [The Folks](https://www.thefolks.pt/) · [Fábrica](https://fabricacoffeeroasters.com/pages/contact) · [Copenhagen Coffee Lab](https://copenhagencoffeelab.com/pages/contact) · [Pizzeria ZeroZero](https://www.pizzeriazerozero.pt/) · [Plateform](https://www.plateform.pt/) · [Hello, Kristof](https://www.hellokristof.com/) · [The Lumiares](https://www.thelumiares.com/contact) · [Brown's Hotel Group](https://www.brownshotelgroup.com/) · [Lisboa Pessoa Hotel](https://www.artsoulgroup.com/lisboapessoahotel//) · [Home Lisbon Hostel](https://www.homelisbonhostel.com/contact) · [A Vida Portuguesa](https://www.avidaportuguesa.com/contactos) · [You and the Sea](https://www.youandthesea.pt/) · [Immerso](https://www.immerso.pt/en/contacts) · [Aethos Ericeira](https://www.aethos.com/ericeira/) · [Laneez Ericeira](https://www.laneezericeira.com/) · [Ericeira Mag — Mammy](https://www.ericeiramag.pt/en/?p=43709)
