@@ -447,6 +447,8 @@ export class AuthService {
       // Converge scores written under an older rule set (e.g. before the CV
       // criterion existed) without needing a migration.
       if (worker) await this.usersService.refreshWorkerScoreIfStale(worker);
+      // The app calls /auth/me on every start — that is "the worker was here".
+      if (worker) this.usersService.touchWorkerActivity(worker.id).catch(() => {});
       return {
         userId,
         role,

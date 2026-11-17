@@ -10,6 +10,7 @@ import { ShiftApplication } from '../shifts/entities/shift-application.entity';
 import { FavouriteWorker } from '../ratings/entities/favourite-worker.entity';
 import { WorkerNotification } from './entities/worker-notification.entity';
 import { NotificationsController } from './notifications.controller';
+import { ReengagementService } from './reengagement.service';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { NotificationsController } from './notifications.controller';
   providers: [
     NotificationsService,
     ReNotificationProcessor,
+    ReengagementService,
   ],
   exports: [NotificationsService],
 })

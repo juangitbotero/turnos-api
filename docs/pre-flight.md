@@ -41,6 +41,20 @@ aren't.
 >   would expose that to everyone. Internal testing / TestFlight are fine.
 > - **Stripe live (#5) before the first real company pays.**
 
+### Waiting for the next app build — iOS build 4 / Android versionCode 19
+
+**Rule (Juanes, 2026-11-17):** app-side changes accumulate here and ship in
+**one** build for both stores — no build per feature. Add every change that
+needs a new binary to this list in the same commit; clear the list when the
+build goes out. Live builds today: **iOS 3 / Android 18** (published
+2026-11-11). Bump `buildNumber` + `versionCode` in `app.json` when building.
+
+| Since | Change | Today, on build 3 / 18 |
+|---|---|---|
+| 2026-11-10 | Sign-in country picker: 18 countries, scrolling, national "0" stripped (`login.tsx`, `SIGN_IN_COUNTRIES`) — item 11 below | Picker shows PT, ES, GB, FR only; the API already accepts all 18 |
+| 2026-11-17 | Intro slides 1 and 2 rewritten (PT + EN): what a shift is, and "Demora só 5 minutos" (`intro.slide1Body` / `slide2Body` in shared i18n) | Old texts |
+| 2026-11-17 | "N shifts waiting for you" push opens the feed (`shifts_waiting` in `lib/notificationRoute.ts`) | The reminder itself is server-side and works; a tap on the "several shifts" version just opens the app. The one-shift version already opens that shift |
+
 1. **Install versionCode 17 from internal testing** and check: the map opens,
    filter sheet, map/list button, icons (My shifts, shift detail, earnings,
    profile), a **real push banner** (#8), the "Did you work?" card. Also the
@@ -548,6 +562,7 @@ line, offers expire instead of being re-sent.
 | Company marks paid / Pay Link paid / adjusts hours | Payment status | One per event |
 | No-show, late-cancel or identity-mismatch suspension | Restriction notice with reasons (+ email) | One per decision |
 | Level confirmed / 2 × "below level" | Role confirmed / review your level | Once per threshold |
+| **Daily 10:00 UTC, worker hasn't opened the app for 4 days** (built 2026-11-17, **not deployed**) | "There's a shift for you" (names it + €/h, opens it) or "N shifts waiting" (opens the feed) — only OPEN shifts 3h+ away matching a declared role at ≥ level, not applied to, not from a blocked company. No match → nothing sent | `Worker.lastActiveAt` (set by `GET /auth/me` on every app start); max **2 per inactivity streak**, **10 days** apart (`reengagementCount` / `reengagementSentAt`); only ACTIVE, available, unsuspended workers with a push token. `notifications/reengagement.service.ts`, migration `WorkerReengagement`. Server-only (the "N shifts" tap lands on the feed from the next APK; today it just opens the app) |
 
 **Company email, built:** email verification; first candidate per job
 (switchable); "to confirm" at the end of an unscanned shift (new, not

@@ -189,6 +189,22 @@ export class Worker {
   expoPushToken?: string;           // Expo push token for shift notifications
 
   /**
+   * Last time the app asked for this worker's profile (GET /auth/me runs on
+   * every app start). Drives the "shifts waiting for you" reminder
+   * (notifications/reengagement.service.ts). Null = not seen since 2026-11-17;
+   * the reminder then falls back to createdAt.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  lastActiveAt: Date | null;
+
+  /** Last "shifts waiting" reminder, and how many were sent since the worker last opened the app (max 2). */
+  @Column({ type: 'timestamptz', nullable: true })
+  reengagementSentAt: Date | null;
+
+  @Column({ type: 'smallint', default: 0 })
+  reengagementCount: number;
+
+  /**
    * UI language the worker chose in the app ('pt' | 'en'). Stored server-side
    * so push notifications and emails — which are composed without a browser —
    * can be sent in the language the worker actually reads.

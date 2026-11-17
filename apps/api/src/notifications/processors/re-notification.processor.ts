@@ -10,6 +10,7 @@ import { closeApplications, closeStaleApplications } from '../../shifts/applicat
 import { releasePendingOffer, ACCEPTANCE_WINDOW_MS, OfferJobData } from '../../shifts/offer-release';
 import { OFFER_REMINDER_MINUTES_BEFORE } from '@turnos/shared';
 import { lisbonDateTime } from '../../common/lisbon-time';
+import { ReengagementService } from '../reengagement.service';
 
 export interface ReNotificationJobData {
   shiftId: string;
@@ -34,6 +35,7 @@ export class ReNotificationProcessor extends WorkerHost {
     private readonly shiftRepo: Repository<Shift>,
     @InjectRepository(ShiftApplication)
     private readonly applicationRepo: Repository<ShiftApplication>,
+    private readonly reengagement: ReengagementService,
   ) {
     super();
   }
@@ -42,6 +44,12 @@ export class ReNotificationProcessor extends WorkerHost {
     // ── Nightly shift expiry ────────────────────────────────────────────────
     if (job.name === 'expire-stale-shifts') {
       await this.runShiftExpiry();
+      return;
+    }
+
+    // ── Daily "shifts waiting for you" reminder to inactive workers ────────
+    if (job.name === 'worker-reengagement') {
+      await this.reengagement.run();
       return;
     }
 

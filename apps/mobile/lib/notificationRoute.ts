@@ -24,5 +24,6 @@ export function notificationRoute(data: { type?: unknown; shiftId?: unknown } | 
   if (type === 'check_in') return '/scan';                          // check-in reminders open the scanner
   if (type && TO_MY_SHIFTS.has(type)) return '/my-shifts';
   if (shiftId) return `/shift/${shiftId}`;
+  if (type === 'shifts_waiting') return '/';                        // several matches → the feed
   return null;
 }

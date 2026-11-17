@@ -588,6 +588,19 @@ export class UsersService {
     return worker;
   }
 
+  /**
+   * The worker opened the app: record it and restart the reminder cadence.
+   * One UPDATE, no entity save (it must not race profile writes).
+   */
+  async touchWorkerActivity(workerId: string): Promise<void> {
+    if (!workerId) return;
+    await this.workerRepo.createQueryBuilder()
+      .update(Worker)
+      .set({ lastActiveAt: () => 'NOW()', reengagementCount: 0 })
+      .where('id = :id', { id: workerId })
+      .execute();
+  }
+
   // ─── Admin: Worker Approval Queue ─────────────────────────────────────────
 
   async findPendingWorkers(): Promise<Worker[]> {
