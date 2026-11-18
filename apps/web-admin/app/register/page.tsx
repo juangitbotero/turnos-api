@@ -105,10 +105,10 @@ export default function RegisterPage() {
   };
 
   return (
-    <div style={s.page}>
+    <div style={s.page} className="auth-page">
 
       {/* Left panel */}
-      <aside style={s.panel}>
+      <aside style={s.panel} className="auth-panel">
         <div style={s.panelInner}>
           <Logo variant="white" height={30} href="/" />
           <div style={s.panelContent}>
@@ -146,7 +146,7 @@ export default function RegisterPage() {
       </aside>
 
       {/* Right form */}
-      <main style={s.formSide}>
+      <main style={s.formSide} className="auth-form-side">
         <div style={s.formBox}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
             <Logo height={30} href="/" />
@@ -166,7 +166,7 @@ export default function RegisterPage() {
                     value={form.companyName} onChange={e => set('companyName', e.target.value)}
                     placeholder={t('home.register.placeholderName')} />
                 </Field>
-                <div style={s.twoCol}>
+                <div style={s.twoCol} className="auth-two-col">
                   <Field id="reg-nipc" label={t('home.register.labelNipc')} hint={t('home.register.hintNipc')} error={errors.nipc}>
                     <input id="reg-nipc" style={{...s.input, ...(errors.nipc ? s.inputError : {})}}
                       value={form.nipc} onChange={e => set('nipc', e.target.value.replace(/\D/g, '').slice(0, 9))}
@@ -191,7 +191,7 @@ export default function RegisterPage() {
                     value={form.address} onChange={e => set('address', e.target.value)}
                     placeholder={t('home.register.placeholderAddress')} />
                 </Field>
-                <div style={s.twoCol}>
+                <div style={s.twoCol} className="auth-two-col">
                   <Field id="reg-postal" label={t('home.register.labelPostal')} error={errors.postalCode}>
                     <input id="reg-postal" style={{...s.input, ...(errors.postalCode ? s.inputError : {})}}
                       value={form.postalCode} onChange={e => set('postalCode', e.target.value)}

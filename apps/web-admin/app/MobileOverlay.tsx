@@ -13,8 +13,10 @@ const STORAGE_KEY = 'turnos_mobile_overlay_dismissed';
  * Since the apps went live (2026-11-11) the public pages are where workers
  * land from a phone to download the app — the overlay must never cover them.
  */
+// Sign-up and login fit a phone since 2026-11-18, and a company owner met in
+// person signs up from their phone — the overlay stays for the dashboard only.
 const PHONE_FRIENDLY_PATHS = [
-  '', '/trabalhadores', '/app',
+  '', '/trabalhadores', '/app', '/register', '/login',
   '/privacidade', '/termos', '/termos-empresas', '/eliminar-conta',
 ];
 

@@ -86,6 +86,17 @@ build goes out. Live builds today: **iOS 3 / Android 18** (published
    returns an entity with a `worker` relation); `DashboardShell` on phones;
    Google sign-in for companies (Track 5). Wanted improvements: Track 5.
 
+14. **Company pages fit phones (2026-11-18, found by Juanes on Android).**
+    The home page, `/register` and `/login` were wider than the screen: hero
+    card (min 300px) beside the text, a fixed 440–480px brand panel on
+    sign-up/login, four items in the nav. Now, under 760px: nav = logo +
+    PT/EN + ☰ menu (Create account · Sign in · For workers), hero stacked,
+    brand panel hidden, two-column fields single below 420px (`@media` rules
+    at the end of `globals.css`, classes on the inline-styled elements).
+    `/register` and `/login` no longer show the "Better on a computer"
+    overlay — a company met in person signs up from the phone; the dashboard
+    keeps it (`DashboardShell` on phones is still item 7). Desktop unchanged.
+    Web only, no app build.
 13. **Both apps PUBLISHED (2026-11-11).** Google Play
     `play.google.com/store/apps/details?id=cc.turnos.app`; App Store
     `apps.apple.com/pt/app/turnos/id6831259177` — Portugal store only, so the

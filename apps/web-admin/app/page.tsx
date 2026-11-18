@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useT } from '../lib/i18n';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
@@ -51,27 +52,49 @@ const FAQ_IDS = ['1', '2', '3', '4', '5', '6', '7', '8'] as const;
 export default function LandingPage() {
   const { t } = useT();
   const demoRole = t('home.heroCard.role');
+  // Phone nav: the three links fold into a menu (2026-11-18 — they pushed
+  // the page wider than the screen).
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <main style={s.page}>
+    <main style={s.page} className="home-page">
 
       {/* ── Nav ── */}
       <nav style={s.nav}>
-        <div style={s.navInner}>
+        <div style={s.navInner} className="home-nav-inner">
           <Logo height={30} />
           <div style={s.navActions}>
             <LanguageSwitcher />
-            <Link href="/trabalhadores" style={s.navLink}>{t('home.workers.navLink')}</Link>
-            <Link href="/login"    style={s.navLink}>{t('home.nav.login')}</Link>
-            <Link href="/register" style={s.navCta}>{t('home.nav.register')}</Link>
+            <span className="home-nav-links" style={s.navActions}>
+              <Link href="/trabalhadores" style={s.navLink}>{t('home.workers.navLink')}</Link>
+              <Link href="/login"    style={s.navLink}>{t('home.nav.login')}</Link>
+              <Link href="/register" style={s.navCta}>{t('home.nav.register')}</Link>
+            </span>
+            <button
+              type="button"
+              className="home-nav-menu-btn"
+              style={s.menuBtn}
+              aria-label="Menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen(o => !o)}
+            >
+              <span aria-hidden>{menuOpen ? '✕' : '☰'}</span>
+            </button>
           </div>
         </div>
+        {menuOpen && (
+          <div className="home-nav-menu" style={s.menu}>
+            <Link href="/register" style={s.menuCta}>{t('home.nav.register')}</Link>
+            <Link href="/login" style={s.menuLink}>{t('home.nav.login')}</Link>
+            <Link href="/trabalhadores" style={s.menuLink}>{t('home.workers.navLink')}</Link>
+          </div>
+        )}
       </nav>
 
       {/* ── Hero ── */}
-      <section style={s.hero}>
+      <section style={s.hero} className="home-hero">
         <div style={s.heroBg} aria-hidden />
-        <div style={s.heroContent}>
+        <div style={s.heroContent} className="home-hero-content">
           <div style={s.liveBadge}>
             <span style={s.liveDot} />
             {t('home.hero.badge')}
@@ -81,14 +104,14 @@ export default function LandingPage() {
             <span style={s.heroAccent}>{t('home.hero.titleAccent')}</span>
           </h1>
           <p style={s.heroSub}>{t('home.hero.sub')}</p>
-          <div style={s.heroCtas}>
+          <div style={s.heroCtas} className="home-hero-ctas">
             <Link href="/register" style={s.primaryBtn}>{t('home.hero.ctaPrimary')}</Link>
             <Link href="/login"    style={s.ghostBtn}>{t('home.hero.ctaGhost')}</Link>
           </div>
         </div>
 
         {/* Floating match card */}
-        <div style={s.heroCard}>
+        <div style={s.heroCard} className="home-hero-card">
           <div style={s.cardRow}>
             <div style={s.cardAvatar}><IconUser size={22} /></div>
             <div style={{ flex: 1 }}>
@@ -128,7 +151,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── How it works ── */}
-      <section style={s.section}>
+      <section style={s.section} className="home-section">
         <div style={s.sectionHeader}>
           <h2 style={s.sectionTitle}>{t('home.howItWorks.title')}</h2>
           <p style={s.sectionSub}>{t('home.howItWorks.sub')}</p>
@@ -160,7 +183,7 @@ export default function LandingPage() {
       <Sectors />
 
       {/* ── O que a plataforma faz por ti ── */}
-      <section style={{ ...s.section, background: 'var(--color-surface)', padding: '80px 32px' }}>
+      <section style={{ ...s.section, background: 'var(--color-surface)', padding: '80px 32px' }} className="home-section">
         <div style={{ maxWidth: 1120, margin: '0 auto' }}>
           <div style={s.sectionHeader}>
             <h2 style={s.sectionTitle}>{t('home.features.title')}</h2>
@@ -179,7 +202,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── CTA Banner ── */}
-      <section style={s.ctaBanner}>
+      <section style={s.ctaBanner} className="home-cta">
         <div style={s.ctaInner}>
           <h2 style={s.ctaTitle}>{t('home.cta.title')}</h2>
           <p style={s.ctaSub}>{t('home.cta.sub')}</p>
@@ -237,6 +260,24 @@ const s: Record<string, React.CSSProperties> = {
   navLink: {
     fontSize: 14, fontWeight: 500, color: 'var(--color-text-secondary)',
     textDecoration: 'none', padding: '8px 16px', borderRadius: 'var(--radius-full)',
+  },
+  menuBtn: {
+    display: 'none', alignItems: 'center', justifyContent: 'center',
+    width: 40, height: 40, borderRadius: 'var(--radius-full)',
+    border: '1px solid var(--color-border)', background: 'var(--color-surface)',
+    color: 'var(--color-text-primary)', fontSize: 18, cursor: 'pointer', fontFamily: 'inherit',
+  },
+  menu: {
+    display: 'flex', flexDirection: 'column', gap: 4,
+    padding: '8px 16px 16px', borderTop: '1px solid var(--color-border)',
+  },
+  menuLink: {
+    fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', textDecoration: 'none',
+    padding: '12px 4px',
+  },
+  menuCta: {
+    fontSize: 15, fontWeight: 700, color: '#fff', textDecoration: 'none', textAlign: 'center',
+    padding: '12px 20px', marginTop: 4, borderRadius: 'var(--radius-full)', background: 'var(--color-primary)',
   },
   navCta: {
     fontSize: 14, fontWeight: 600, color: '#fff', textDecoration: 'none',

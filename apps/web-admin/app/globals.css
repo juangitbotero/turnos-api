@@ -151,3 +151,37 @@ body {
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
+
+/* ─── Phones — public company pages (2026-11-18) ────────────────────────────
+ * The landing, login and sign-up pages are styled inline (desktop-first) and
+ * had no phone layout: the hero card (min 300px) sat beside the text and the
+ * login/sign-up brand panel was a fixed 440–480px column, so the page came out
+ * wider than the screen. Inline styles win over classes, hence !important.
+ * The menu button is hidden on desktop by its inline `display: none`.
+ */
+@media (max-width: 760px) {
+  .home-page { overflow-x: clip; }
+  .home-nav-inner { padding: 0 16px !important; height: 60px !important; }
+  .home-nav-links { display: none !important; }
+  .home-nav-menu-btn { display: inline-flex !important; }
+
+  .home-hero {
+    flex-direction: column !important; align-items: stretch !important;
+    gap: 32px !important; padding: 40px 16px 48px !important;
+  }
+  .home-hero-content { max-width: none !important; }
+  .home-hero-card { min-width: 0 !important; max-width: none !important; width: 100%; }
+  .home-hero-ctas > a { flex: 1 1 auto; justify-content: center; }
+  .home-section { padding: 56px 16px !important; }
+  .home-cta { padding: 56px 16px !important; }
+
+  .auth-page { flex-direction: column !important; }
+  .auth-panel { display: none !important; }
+  .auth-form-side { padding: 24px 16px 40px !important; align-items: flex-start !important; }
+}
+@media (max-width: 420px) {
+  .auth-two-col { grid-template-columns: 1fr !important; }
+}
+@media (min-width: 761px) {
+  .home-nav-menu { display: none !important; }
+}

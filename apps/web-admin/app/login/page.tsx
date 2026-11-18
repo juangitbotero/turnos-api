@@ -38,10 +38,10 @@ export default function AdminLogin() {
   };
 
   return (
-    <div style={s.page}>
+    <div style={s.page} className="auth-page">
 
       {/* ── Left brand panel ── */}
-      <aside style={s.panel}>
+      <aside style={s.panel} className="auth-panel">
         <div style={s.panelInner}>
           <Logo variant="white" height={30} href="/" />
           <div style={s.panelContent}>
@@ -70,7 +70,7 @@ export default function AdminLogin() {
       </aside>
 
       {/* ── Right login form ── */}
-      <main style={s.formSide}>
+      <main style={s.formSide} className="auth-form-side">
         <div style={s.formBox}>
 
           {/* Mobile logo (hidden on desktop) */}
